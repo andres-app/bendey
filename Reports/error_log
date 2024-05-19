@@ -1,0 +1,18 @@
+[26-Oct-2021 18:46:34 America/Chicago] PHP Warning:  getimagesize(../Assets/img/company/1617978980.jpg): failed to open stream: No such file or directory in /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php on line 1237
+[26-Oct-2021 18:46:34 America/Chicago] PHP Fatal error:  Uncaught Exception: FPDF error: Missing or incorrect image file: ../Assets/img/company/1617978980.jpg in /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php:271
+Stack trace:
+#0 /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php(1239): FPDF->Error('Missing or inco...')
+#1 /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php(885): FPDF->_parsejpg('../Assets/img/c...')
+#2 /home/legrape/public_html/sistema/Reports/Factura.php(145): FPDF->Image('../Assets/img/c...', 10, 10, 25, 'png')
+#3 /home/legrape/public_html/sistema/Reports/exFactura.php(68): PDF_Invoice->addSociete('Aniyeni &amp; G...', 'RUC: 2147483647...', '../Assets/img/c...', 'png')
+#4 {main}
+  thrown in /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php on line 271
+[26-Oct-2021 18:46:38 America/Chicago] PHP Warning:  getimagesize(../Assets/img/company/1617978980.jpg): failed to open stream: No such file or directory in /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php on line 1237
+[26-Oct-2021 18:46:38 America/Chicago] PHP Fatal error:  Uncaught Exception: FPDF error: Missing or incorrect image file: ../Assets/img/company/1617978980.jpg in /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php:271
+Stack trace:
+#0 /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php(1239): FPDF->Error('Missing or inco...')
+#1 /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php(885): FPDF->_parsejpg('../Assets/img/c...')
+#2 /home/legrape/public_html/sistema/Reports/Factura.php(145): FPDF->Image('../Assets/img/c...', 10, 10, 25, 'png')
+#3 /home/legrape/public_html/sistema/Reports/exFactura.php(68): PDF_Invoice->addSociete('Aniyeni &amp; G...', 'RUC: 2147483647...', '../Assets/img/c...', 'png')
+#4 {main}
+  thrown in /home/legrape/public_html/sistema/Libraries/fpdf182/fpdf.php on line 271
