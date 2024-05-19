@@ -28,31 +28,19 @@ header("location: login");
                                 <table id="tbllistado" class="table table-striped table-hover text-nowrap"
                                     style="width:100%;">
                                     <thead>
-                                        <th>Opciones</th>
+                                        <th>Codigo</th>
                                         <th>Nombre</th>
                                         <th>Categoria</th>
-                                        <th>Codigo</th>
                                         <th>Stock</th>
                                         <th>Imagen</th>
-                                        <th>Descripcion</th>
                                         <th>P. Compra</th>
                                         <th>P. Venta</th>
                                         <th>Estado</th>
+                                        <th>Opciones</th>
                                     </thead>
                                     <tbody> 
                                     </tbody>
-                                    <tfoot>
-                                        <th>Opciones</th>
-                                        <th>Nombre</th>
-                                        <th>Categoria</th>
-                                        <th>Codigo</th>
-                                        <th>Stock</th>
-                                        <th>Imagen</th>
-                                        <th>Descripcion</th>
-                                        <th>P. Compra</th>
-                                        <th>P. Venta</th>
-                                        <th>Estado</th>
-                                    </tfoot>
+
                                 </table>
                             </div>
                             <!--TABLA DE LISTADO DE REGISTROS FIN-->

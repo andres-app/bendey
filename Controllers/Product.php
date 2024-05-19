@@ -73,16 +73,16 @@ switch ($_GET["op"]) {
 		    }
 
 			$data[]=array(
-            "0"=>($reg['condicion'])?'<button class="btn btn-warning btn-sm" onclick="mostrar('.$reg['idarticulo'].')"><i class="fas fa-pencil-alt"></i></button>'.' '.'<button class="btn btn-danger btn-sm" onclick="desactivar('.$reg['idarticulo'].')"><i class="fas fa-times"></i></button>':'<button class="btn btn-warning btn-sm" onclick="mostrar('.$reg['idarticulo'].')"><i class="fas fa-pencil-alt"></i></button>'.' '.'<button class="btn btn-primary btn-sm" onclick="activar('.$reg['idarticulo'].')"><i class="fas fa-check"></i></button>',
+			"0"=>$reg['codigo'],
             "1"=>$reg['nombre'],
             "2"=>$reg['categoria'],
-            "3"=>$reg['codigo'],
-            "4"=>$stockcolor,
-            "5"=>"<img src='Assets/img/products/".$reg['imagen']."' height='50px' width='50px'>",
-            "6"=>$reg['descripcion'],
-			"7"=>($reg['precio_compra'])?$reg['precio_compra']:'<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
-			"8"=>($reg['precio_venta'])?$reg['precio_venta']:'<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
-            "9"=>($reg['condicion'])?'<div class="badge badge-success">Activado</div>':'<div class="badge badge-danger">Desactivado</div>'
+            "3"=>$stockcolor,
+            "4"=>"<img src='Assets/img/products/".$reg['imagen']."' height='50px' width='50px'>",
+			"5"=>($reg['precio_compra'])?$reg['precio_compra']:'<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
+			"6"=>($reg['precio_venta'])?$reg['precio_venta']:'<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
+			"7"=>($reg['condicion'])?'<div class="badge badge-success">Activado</div>':'<div class="badge badge-danger">Desactivado</div>',
+			"8"=>($reg['condicion'])?'<button class="btn btn-warning btn-sm" onclick="mostrar('.$reg['idarticulo'].')"><i class="fas fa-pencil-alt"></i></button>'.' '.'<button class="btn btn-danger btn-sm" onclick="desactivar('.$reg['idarticulo'].')"><i class="fas fa-times"></i></button>':'<button class="btn btn-warning btn-sm" onclick="mostrar('.$reg['idarticulo'].')"><i class="fas fa-pencil-alt"></i></button>'.' '.'<button class="btn btn-primary btn-sm" onclick="activar('.$reg['idarticulo'].')"><i class="fas fa-check"></i></button>'
+            
               );
 		}
 		$results=array(
