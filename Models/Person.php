@@ -48,13 +48,13 @@ class Person{
 		return  $this->conexion->getDataAll($sql); 
 	}
 
-    //listar y mostrar en selct
+    //listar y mostrar en Select
     public function selectp(){
         $sql="SELECT * FROM $this->tableName WHERE tipo_persona='Proveedor'";
         return  $this->conexion->getDataAll($sql); 
     }
 
-    //listar y mostrar en selct
+    //listar y mostrar en Select
     public function selectc(){
         $sql="SELECT * FROM $this->tableName WHERE tipo_persona='Cliente'";
         return  $this->conexion->getDataAll($sql); 

@@ -15,7 +15,15 @@ function init() {
     //$("#idcategoria").selectpicker("refresh");
   });
   $("#imagenmuestra").hide();
+
+    //cargamos los items al select medida
+    $.post("Controllers/Medida.php?op=selectMedida", function (r) {
+      $("#idmedida").html(r);
+      //$("#idcategoria").selectpicker("refresh");
+    });
+    $("#imagenmuestra").hide();
 }
+
 
 //funcion limpiar
 function limpiar() {
@@ -64,10 +72,10 @@ function listar() {
           extend: "excelHtml5",
           text: '<i class="fa fa-file-excel-o"></i> Excel',
           titleAttr: "Exportar a Excel",
-          title: "Reporte de Articulos",
-          sheetName: "Artículos",
+          title: "Reporte de Productos",
+          sheetName: "Productos",
           exportOptions: {
-            columns: [1, 2, 3, 4, 6, 7],
+            columns: [1, 2, 3, 5, 6, 7],
           },
         },
         {
@@ -79,7 +87,7 @@ function listar() {
           pageSize: "A4",
           //orientation: 'landscape',
           exportOptions: {
-            columns: [1, 2, 3, 4, 6, 7],
+            columns: [1, 2, 3, 5, 6, 7],
           },
         },
       ],
@@ -137,6 +145,7 @@ function mostrar(idarticulo) {
       mostrarform(true);
 
       $("#idcategoria").val(data.idcategoria);
+      $("#idmedida").val(data.idmedida);
       //$("#idcategoria").selectpicker("refresh");
       $("#codigo").val(data.codigo);
       $("#nombre").val(data.nombre);

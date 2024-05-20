@@ -5,8 +5,8 @@ $product=new Product();
 
 $idarticulo=isset($_POST["idarticulo"])? $_POST["idarticulo"]:"";
 $idcategoria=isset($_POST["idcategoria"])? $_POST["idcategoria"]:"";
+$idmedida=isset($_POST["idmedida"])? $_POST["idmedida"]:"";
 $codigo=isset($_POST["codigo"])? $_POST["codigo"]:"";
-$medida=isset($_POST["medida"])? $_POST["medida"]:"";
 $nombre=isset($_POST["nombre"])? $_POST["nombre"]:"";
 $stock=isset($_POST["stock"])? $_POST["stock"]:"";
 $descripcion=isset($_POST["descripcion"])? $_POST["descripcion"]:"";
@@ -32,13 +32,13 @@ switch ($_GET["op"]) {
 			}
 			if (empty($idarticulo)) {
 				if(empty($rspta['codigo'])){
-					$rspta=$product->insertar($idcategoria,$codigo,$nombre,$stock,$descripcion,$imagen);
+					$rspta=$product->insertar($idcategoria,$idmedida,$codigo,$nombre,$stock,$descripcion,$imagen);
 					echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
 				}else{
 					echo "No se puede registrar...! \n codigo de producto duplicado";
 				}
 			}else{
-				$rspta=$product->editar($idarticulo,$idcategoria,$codigo,$nombre,$stock,$descripcion,$imagen);
+				$rspta=$product->editar($idarticulo,$idcategoria,$idmedida,$codigo,$nombre,$stock,$descripcion,$imagen);
 				echo $rspta ? "Datos actualizados correctamente" : "No se pudo actualizar los datos";
 			}
 
@@ -77,12 +77,13 @@ switch ($_GET["op"]) {
 			"0"=>$reg['codigo'],
             "1"=>$reg['nombre'],
             "2"=>$reg['categoria'],
-            "3"=>$stockcolor,
-            "4"=>"<img src='Assets/img/products/".$reg['imagen']."' height='50px' width='50px'>",
-			"5"=>($reg['precio_compra'])?$reg['precio_compra']:'<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
-			"6"=>($reg['precio_venta'])?$reg['precio_venta']:'<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
-			"7"=>($reg['condicion'])?'<div class="badge badge-success">Activado</div>':'<div class="badge badge-danger">Desactivado</div>',
-			"8"=>($reg['condicion'])?'<button class="btn btn-warning btn-sm" onclick="mostrar('.$reg['idarticulo'].')"><i class="fas fa-pencil-alt"></i></button>'.' '.'<button class="btn btn-danger btn-sm" onclick="desactivar('.$reg['idarticulo'].')"><i class="fas fa-times"></i></button>':'<button class="btn btn-warning btn-sm" onclick="mostrar('.$reg['idarticulo'].')"><i class="fas fa-pencil-alt"></i></button>'.' '.'<button class="btn btn-primary btn-sm" onclick="activar('.$reg['idarticulo'].')"><i class="fas fa-check"></i></button>'
+			"3"=>$reg['medida'],
+            "4"=>$stockcolor,
+            "5"=>"<img src='Assets/img/products/".$reg['imagen']."' height='50px' width='50px'>",
+			"6"=>($reg['precio_compra'])?$reg['precio_compra']:'<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
+			"7"=>($reg['precio_venta'])?$reg['precio_venta']:'<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
+			"8"=>($reg['condicion'])?'<div class="badge badge-success">Activado</div>':'<div class="badge badge-danger">Desactivado</div>',
+			"9"=>($reg['condicion'])?'<button class="btn btn-warning btn-sm" onclick="mostrar('.$reg['idarticulo'].')"><i class="fas fa-pencil-alt"></i></button>'.' '.'<button class="btn btn-danger btn-sm" onclick="desactivar('.$reg['idarticulo'].')"><i class="fas fa-times"></i></button>':'<button class="btn btn-warning btn-sm" onclick="mostrar('.$reg['idarticulo'].')"><i class="fas fa-pencil-alt"></i></button>'.' '.'<button class="btn btn-primary btn-sm" onclick="activar('.$reg['idarticulo'].')"><i class="fas fa-check"></i></button>'
             
               );
 		}

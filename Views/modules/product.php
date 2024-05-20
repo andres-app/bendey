@@ -31,6 +31,7 @@ header("location: login");
                                         <th>Codigo</th>
                                         <th>Nombre</th>
                                         <th>Categoria</th>
+                                        <th>Und.Medida</th>
                                         <th>Stock</th>
                                         <th>Imagen</th>
                                         <th>P. Compra</th>

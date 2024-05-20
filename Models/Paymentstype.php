@@ -48,7 +48,7 @@ class Paymentstype{
 		$sql="SELECT * FROM $this->tableName";
 		return  $this->conexion->getDataAll($sql); 
 	}
-    //listar y mostrar en selct
+    //listar y mostrar en Select
     public function select(){
         $sql="SELECT * FROM $this->tableName WHERE estado=1";
         return  $this->conexion->getDataAll($sql); 
