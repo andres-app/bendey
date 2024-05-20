@@ -6,6 +6,7 @@ $product=new Product();
 $idarticulo=isset($_POST["idarticulo"])? $_POST["idarticulo"]:"";
 $idcategoria=isset($_POST["idcategoria"])? $_POST["idcategoria"]:"";
 $codigo=isset($_POST["codigo"])? $_POST["codigo"]:"";
+$medida=isset($_POST["medida"])? $_POST["medida"]:"";
 $nombre=isset($_POST["nombre"])? $_POST["nombre"]:"";
 $stock=isset($_POST["stock"])? $_POST["stock"]:"";
 $descripcion=isset($_POST["descripcion"])? $_POST["descripcion"]:"";

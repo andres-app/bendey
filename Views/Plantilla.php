@@ -23,6 +23,7 @@ if(isset($_GET["url"])){
   ||$_GET["url"]=="salesproduct"
   ||$_GET["url"]=="purchaseproduct"
   ||$_GET["url"]=="kardex"
+  ||$_GET["url"]=="medida"
   || $_GET["url"]=="login"){
       include "modules/".$_GET["url"].".php";
   }else{

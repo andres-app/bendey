@@ -19,7 +19,7 @@ header("location: login");
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <h4>Categorias <button class="btn btn-success" onclick="mostrarform(true)"
+                            <h4>Medida <button class="btn btn-success" onclick="mostrarform(true)"
                                     id="btnagregar"><i class="fa fa-plus-circle"></i> Agregar</button></h4>
                         </div>
                         <!--TABLA DE LISTADO DE REGISTROS-->
@@ -28,10 +28,10 @@ header("location: login");
                                 <table id="tbllistado" class="table table-striped table-hover text-nowrap"
                                     style="width:100%;">
                                     <thead>
-                                        <th>Opciones</th>
+                                        <th>Codigo</th>
                                         <th>Nombre</th>
-                                        <th>Descripcion</th>
                                         <th>Estado</th>
+                                        <th>Opciones</th>
                                     </thead>
                                     <tbody>
                                     </tbody>
@@ -44,16 +44,16 @@ header("location: login");
                                 <form action="" name="formulario" id="formulario" method="POST">
                                     <div class="row">
                                         <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Nombre</label>
-                                            <input class="form-control" type="hidden" name="idcategoria"
-                                                id="idcategoria">
-                                            <input class="form-control" type="text" name="nombre" id="nombre"
-                                                maxlength="50" placeholder="Nombre" required>
+                                            <label for="">Codigo</label>
+                                            <input class="form-control" type="hidden" name="idmedida"
+                                                id="idmedida">
+                                            <input class="form-control" type="text" name="codigo" id="codigo"
+                                                maxlength="50" placeholder="Codigo" required>
                                         </div>
                                         <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Descripcion</label>
-                                            <input class="form-control" type="text" name="descripcion" id="descripcion"
-                                                maxlength="256" placeholder="Descripcion">
+                                            <label for="">Nombre</label>
+                                            <input class="form-control" type="text" name="nombre" id="nombre"
+                                                maxlength="256" placeholder="Nombre">
                                         </div>
                                         <div class="form-group col-lg-12 col-md-12 col-sm-12 col-xs-12">
                                             <button class="btn btn-primary" type="submit" id="btnGuardar"><i
@@ -81,7 +81,7 @@ header("location: login");
     }    
 require "footer.php";
 ?>
-<script src="Views/modules/scripts/category.js"></script>
+<script src="Views/modules/scripts/medida.js"></script>
 <?php
  }
   ob_end_flush();

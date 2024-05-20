@@ -65,9 +65,9 @@ header("location: login");
                                             <input class="form-control" type="number" name="stock" id="stock">
                                         </div>-->
                                         <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Descripcion</label>
-                                            <input class="form-control" type="text" name="descripcion" id="descripcion"
-                                                maxlength="256" placeholder="Descripcion">
+                                            <label for="">Unidad de medida</label>
+                                            <select name="idmedida" id="idmedida" class="form-control"
+                                                required></select>
                                         </div>
                                         <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                             <label for="">Imagen:</label>

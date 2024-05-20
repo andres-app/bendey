@@ -30,6 +30,7 @@
                             <ul class="dropdown-menu">
                                 <li><a class="nav-link" href="product">Productos</a></li>
                                 <li><a class="nav-link" href="category">Categorías</a></li>
+                                <li><a class="nav-link" href="medida">Medidas</a></li>
                                 <li><a class="nav-link" href="kardex">Kardex</a></li>
                             </ul>
                         </li>
