@@ -41,7 +41,7 @@ else{
                         </li>
                         <li>
                             <a href="/bendey/newsale" class="nav-link nav-link-lg">
-                                <i data-feather="file-text"></i>
+                                <i data-feather="shopping-cart"></i>
                             </a>
                         </li>
                         
