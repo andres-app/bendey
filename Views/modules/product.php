@@ -19,8 +19,8 @@ if (!isset($_SESSION['nombre'])) {
                         <div class="col-12">
                             <div class="card flex">
                                 <div class="card-header">
-                                    <h4>Productos | <button class="btn btn-success" onclick="mostrarform(true)" id="btnagregar"><i
-                                                class="fa fa-plus-circle"></i> Agregar</button></h4>
+                                    <h4>Productos | <button class="btn btn-success" onclick="mostrarform(true)"
+                                            id="btnagregar"><i class="fa fa-plus-circle"></i> Agregar</button></h4>
                                 </div>
                                 <!--TABLA DE LISTADO DE REGISTROS-->
                                 <div class="card-body">
@@ -71,18 +71,24 @@ if (!isset($_SESSION['nombre'])) {
                                                         required></select>
                                                 </div>
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                                    <label for="">Imagen:</label>
-                                                    <input class="form-control filestyle" type="file" name="imagen" id="imagen"
-                                                        data-buttonText="Buscar..." data-buttonName="btn-success"
-                                                        data-iconName="fa fa-folder-open"
-                                                        data-placeholder="Selecciona un imagen">
+                                                    <label for="imagen">Imagen:</label>
+                                                    <div class="custom-file">
+                                                        <input type="file" class="custom-file-input" id="imagen" name="imagen">
+                                                        <label class="custom-file-label" for="imagen">Selecciona una
+                                                            imagen</label>
+                                                    </div>
                                                     <input type="hidden" name="imagenactual" id="imagenactual">
-                                                    <img src="" alt="" width="150px" height="120" id="imagenmuestra">
+                                                    <div class="mt-2">
+                                                        <img src="" alt="" id="imagenmuestra"
+                                                            style="max-width: 150px; max-height: 120px;">
+                                                    </div>
                                                 </div>
+
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                                     <label for="">Codigo:</label>
                                                     <input class="form-control" type="text" name="codigo" id="codigo"
                                                         placeholder="codigo del prodcuto" required>
+                                                        <br>    
                                                     <button class="btn btn-success" type="button"
                                                         onclick="generarbarcode()">Generar</button>
                                                     <button class="btn btn-info" type="button"

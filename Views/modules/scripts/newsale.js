@@ -83,14 +83,18 @@ function ShowComprobante() {
 }
 
 function ShowTipopago() {
-	var t_pago = $("#tipo_pago").val();
-	if (t_pago == "Pago en efectivo" || t_pago == "Efectivo") {
-		$("#t_pago").hide();
-		$("#num_transac").val("");
-	} else {
-		$("#t_pago").show();
-		$("#num_transac").val("");
-	}
+    var tipo_pago = document.getElementById('tipo_pago').value;
+    var pago_mixto = document.getElementById('pago_mixto');
+    var pago_credito = document.getElementById('pago_credito');
+    
+    pago_mixto.style.display = 'none';
+    pago_credito.style.display = 'none';
+
+    if (tipo_pago == 'Mixto') {
+        pago_mixto.style.display = 'block';
+    } else if (tipo_pago == 'Credito') {
+        pago_credito.style.display = 'block';
+    }
 }
 
 //mostramos la serie del comprobante
