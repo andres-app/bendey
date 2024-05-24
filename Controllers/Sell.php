@@ -221,7 +221,8 @@ switch ($_GET["op"]) {
 		foreach ($rspta as $reg) {
                 
                  	$urlt='Reports/ticket.php?id=';
-                    $url='Reports/exFactura.php?id=';
+                    $url='Reports/a4.php?id=';
+					$url='Reports/58mm.php?id=';
 
 			$data[]=array(
             "0"=>'<a target="_blank" href="'.$url.$reg['idventa'].'"> <button class="btn btn-primary btn-sm"><i class="far fa-file-pdf"></i></button></a>'.' '.'<a target="_blank" href="'.$urlt.$reg['idventa'].'"> <button class="btn btn-success btn-sm"><i class="fas fa-print"></i></button></a>'.' '. (($reg['estado']=='Aceptado')?'<button class="btn btn-info btn-sm" onclick="mostrar('.$reg['idventa'].')"><i class="fas fa-eye"></i></button>'.' ' .'<a href="editsale?op=new&id='.$reg['idventa'].'"> <button class="btn btn-warning btn-sm"><i class="fas fa-pen"></i></button></a>' .' '.'<button class="btn btn-danger btn-sm" onclick="anular('.$reg['idventa'].')"><i class="fas fa-times"></i></button>':'<button class="btn btn-info btn-sm" onclick="mostrar('.$reg['idventa'].')"><i class="fas fa-eye"></i></button>'),

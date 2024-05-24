@@ -492,26 +492,6 @@ function addCadreEurosFrancs($impuesto)
     $this->SetXY( $r1, $y1+15 );
     $this->Cell(20,4, "TOTAL A PAGAR", 0, 0, "C");
 }
-
-// remplit les cadres TVA / Totaux et la remarque
-// params  = array( "RemiseGlobale" => [0|1],
-//                      "remise_tva"     => [1|2...],  // {la remise s'applique sur ce code TVA}
-//                      "remise"         => value,     // {montant de la remise}
-//                      "remise_percent" => percent,   // {pourcentage de remise sur ce montant de TVA}
-//                  "FraisPort"     => [0|1],
-//                      "portTTC"        => value,     // montant des frais de ports TTC
-//                                                     // par defaut la TVA = 19.6 %
-//                      "portHT"         => value,     // montant des frais de ports HT
-//                      "portTVA"        => tva_value, // valeur de la TVA a appliquer sur le montant HT
-//                  "AccompteExige" => [0|1],
-//                      "accompte"         => value    // montant de l'acompte (TTC)
-//                      "accompte_percent" => percent  // pourcentage d'acompte (TTC)
-//                  "Remarque" => "texte"              // texte
-// tab_tva = array( "1"       => 19.6,
-//                  "2"       => 5.5, ... );
-// invoice = array( "px_unit" => value,
-//                  "qte"     => qte,
-//                  "tva"     => code_tva );
 function addTVAs( $impuesto, $total_venta, $simbolo )
 {
     $this->SetFont('Arial','',8);
@@ -529,7 +509,7 @@ function addTVAs( $impuesto, $total_venta, $simbolo )
     $this->Cell( $length, 2, $simbolo.' ',0,0,'R');
 
     //CALCULAR EL SUBTOTAL
-    $subtotal=round(($total_venta/1.18),1,PHP_ROUND_HALF_UP);
+    $subtotal=round(($total_venta*0.18),1,PHP_ROUND_HALF_UP);
     $length = $this->GetStringWidth(  number_format((float)$subtotal,2,'.',''),0,0,'R');
     $this->Cell( $length+5, 2,  number_format((float)$subtotal,2,'.',''),0,0,'R');
     // calculando el igv y mostrando
