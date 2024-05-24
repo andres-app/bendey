@@ -15,6 +15,8 @@
     <link rel="stylesheet" href="Assets/css/style.css">
     <link rel="stylesheet" href="Assets/css/components.css">
 
+    <link rel="manifest" href="/manifest.json">
+
     <link rel='shortcut icon' type='image/x-icon' href='Assets/img/favicon.ico' />
 </head>
 <?php if($_GET["url"]=="newsale" || $_GET["url"]=="editsale"){
@@ -40,7 +42,7 @@ else{
                             </a>
                         </li>
                         <li>
-                            <a href="/bendey/newsale" class="nav-link nav-link-lg">
+                            <a href="/newsale" class="nav-link nav-link-lg">
                                 <i data-feather="shopping-cart"></i>
                             </a>
                         </li>
