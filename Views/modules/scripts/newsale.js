@@ -97,6 +97,36 @@ function ShowTipopago() {
     }
 }
 
+$(document).ready(function() {
+    $('#formulariocliente').on('submit', function(e) {
+        e.preventDefault(); // Prevenir el comportamiento predeterminado del formulario
+
+        var formData = $(this).serialize();
+
+        $.ajax({
+            type: 'POST',
+            url: 'ruta_a_tu_endpoint_para_guardar_cliente', // Reemplaza con la URL de tu endpoint
+            data: formData,
+            success: function(response) {
+                // Suponiendo que la respuesta contiene los datos del nuevo cliente en formato JSON
+                var cliente = response.cliente;
+                var newOption = new Option(cliente.nombre, cliente.id, true, true);
+                $('#clientes').append(newOption).trigger('change');
+
+                // Cerrar el modal
+                $('#Modalcliente').modal('hide');
+
+                // Reiniciar el formulario
+                $('#formulariocliente')[0].reset();
+            },
+            error: function(error) {
+                console.log('Error:', error);
+                // Manejo de errores
+            }
+        });
+    });
+});
+
 //mostramos la serie del comprobante
 function serie_comp() {
 	var tipo_comprobante = $("#tipo_comprobante").val();

@@ -1,11 +1,9 @@
 <?php
-
 ob_start();
 session_start();
 if (!isset($_SESSION['nombre'])) {
     header("location: login");
 } else {
-    //echo $_SESSION['nombre'];
     require "header.php";
     require "sidebar.php";
 
@@ -22,7 +20,7 @@ if (!isset($_SESSION['nombre'])) {
                                     <h4>Ventas</h4>
                                 </div>
                                 <div class="card-body">
-                                    <!--FORMULARIO PARA DE REGISTRO-->
+                                    <!--FORMULARIO PARA REGISTRO-->
                                     <div id="formularioregistros">
                                         <form action="" name="formulario" id="formulario" method="POST">
                                             <div class="row">
@@ -32,12 +30,11 @@ if (!isset($_SESSION['nombre'])) {
                                                     <div class="input-group">
                                                         <select name="idcliente" id="idcliente" class="form-control" required>
                                                         </select>
-                                                        <div class="input-group-prepend">
-                                                            <!--<div class="input-group-text">-->
+                                                        <div class="input-group-append">
                                                             <button class="btn btn-success" type="button"
-                                                                onclick="agregarCliente()"><i
-                                                                    class="fa fa-plus-circle"></i>Agregar</button>
-                                                            <!--</div>-->
+                                                                onclick="agregarCliente()">
+                                                                <i class="fa fa-plus-circle"></i> Agregar
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -59,19 +56,7 @@ if (!isset($_SESSION['nombre'])) {
                                                     <input class="form-control" type="text" name="num_comprobante"
                                                         id="num_comprobante" maxlength="10" readonly required>
                                                 </div>
-                                                <!--<div class="form-group col-lg-4 col-md-4 col-xs-6">
-                                            <label for="">Aplicar Impuesto: </label>
-                                            <div class="input-group">
-                                                <div class="input-group-prepend">
-                                                    <div class="input-group-text bg-info">
-                                                        <input class="flat-red" type="checkbox" name="aplicar_impuesto"
-                                                            id="aplicar_impuesto">
-                                                    </div>
-                                                </div>
-                                                <input class="form-control" type="text" name="impuesto" id="impuesto"
-                                                    readonly>
-                                            </div>
-                                        </div>-->
+
                                                 <!-- Campo para tipo de pago -->
                                                 <div class="form-group col-lg-4 col-md-4 col-sm-4 col-xs-12">
                                                     <label for="">Tipo de pago(*):</label>
@@ -99,123 +84,123 @@ if (!isset($_SESSION['nombre'])) {
 
                                                 <!-- Campos adicionales para pago a crédito -->
                                                 <div id="pago_credito" style="display: none;">
-                                                    <div class="form-group col-lg-6 col-md-6 col-xs-12">
+                                                    <div class="form-group col-lg-4 col-md-4 col-xs-6">
                                                         <label for="fecha_pago">Fecha de Pago:</label>
                                                         <input class="form-control" type="date" name="fecha_pago"
                                                             id="fecha_pago">
                                                     </div>
-                                                    <div class="form-group col-lg-6 col-md-6 col-xs-12">
+                                                    <div class="form-group col-lg-4 col-md-4 col-xs-6">
                                                         <label for="monto_deuda">Monto de Deuda:</label>
                                                         <input class="form-control" type="number" step="0.01" name="monto_deuda"
                                                             id="monto_deuda">
                                                     </div>
-                                                    <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                                        <label for="monto_pagado">Monto Pagado:</label>
-                                                        <input class="form-control" type="number" step="0.01"
-                                                            name="monto_pagado" id="monto_pagado">
-                                                    </div>
+                                                   
                                                 </div>
-
 
                                                 <div id="t_pago" class="form-group col-lg-4 col-md-4 col-xs-12">
                                                     <label for="">N° Cuotas </label>
                                                     <input class="form-control" type="text" name="num_transac" id="num_transac"
                                                         maxlength="45">
                                                 </div>
-                                                <div class="form-group  col-lg-12 col-md-12 col-xs-12">
+
+                                                <!-- Tabla de detalles -->
+                                                <div class="form-group col-lg-12 col-md-12 col-xs-12">
                                                     <div class="table-responsive">
                                                         <table id="detalles"
                                                             class="table table-striped table-hover text-center">
                                                             <thead class="bg-aqua">
-                                                                <th class="">Opción</th>
-                                                                <th class="col-xs-6">Articulo</th>
-                                                                <th class="col-xs-1">Cantidad</th>
-                                                                <th class="col-xs-1">Precio</th>
-                                                                <th class="col-xs-1">Descuento</th>
-                                                                <th class="col-xs-1">Subtotal</th>
+                                                                <tr>
+                                                                    <th>Opción</th>
+                                                                    <th class="col-xs-6">Articulo</th>
+                                                                    <th class="col-xs-1">Cantidad</th>
+                                                                    <th class="col-xs-1">Precio</th>
+                                                                    <th class="col-xs-1">Descuento</th>
+                                                                    <th class="col-xs-1">Subtotal</th>
+                                                                </tr>
                                                             </thead>
-
                                                             <tbody>
-
                                                             </tbody>
                                                         </table>
                                                     </div>
                                                 </div>
-                                                <div class="form-group  col-lg-12 col-md-12 col-xs-12">
-                                                    <div>
+
+                                                <!-- Información de totales -->
+                                                <div class="form-group col-12">
+                                                    <div class="p-3 mb-2 bg-light border">
                                                         <div
-                                                            style="background-color:#A9D0F5; height: 31px; border: #ffff 1px solid;">
-                                                            <label> SubTotal</label>
-                                                            <span id="total" class="pull-right badge badge-primary">
-                                                                0.00</span>
+                                                            class="d-flex justify-content-between align-items-center bg-primary text-white p-2 mb-2 rounded">
+                                                            <label class="mb-0">SubTotal</label>
+                                                            <span id="total" class="badge badge-primary">0.00</span>
                                                         </div>
                                                         <div
-                                                            style="background-color:#A9D0F5; height: 31px; border: #ffff 1px solid;">
-                                                            <label id="valor_impuesto"> IVG 18% </label>
-                                                            <span id="most_imp"
-                                                                class="pull-right badge badge-warning">0.00</span>
+                                                            class="d-flex justify-content-between align-items-center bg-primary text-white p-2 mb-2 rounded">
+                                                            <label id="valor_impuesto" class="mb-0">IVG 18%</label>
+                                                            <span id="most_imp" class="badge badge-warning">0.00</span>
                                                         </div>
                                                         <div
-                                                            style="background-color:#A9D0F5; height: 31px; border: #ffff 1px solid;">
-                                                            <label> TOTAL</label> <span id="most_total"
-                                                                class="pull-right badge badge-success">0.00</span>
+                                                            class="d-flex justify-content-between align-items-center bg-primary text-white p-2 mb-2 rounded">
+                                                            <label class="mb-0">TOTAL</label>
+                                                            <span id="most_total" class="badge badge-success">0.00</span>
                                                         </div>
+                                                        <div class="bg-warning text-dark p-2 mb-2 rounded">
+                        <label class="mb-0">Cant. pagado</label>
+                        <input type="hidden" step="0.01" name="total_venta" id="total_venta">
+                        <input class="form-control" onchange="modificarSubtotales()" type="number" step="0.01"
+                            name="tpagado" id="tpagado">
+                    </div>  
                                                         <div
-                                                            style="background-color:#F5B041; height: 31px; border: #ffff 1px solid;">
-                                                            <label> Cant. pagado</label><input type="hidden" step="0.01"
-                                                                name="total_venta" id="total_venta">
-                                                            <input class="pull-right" onchange="modificarSubtotales()"
-                                                                style="width: 100px; height: 31px;" type="number" step="0.01"
-                                                                name="tpagado" id="tpagado">
-                                                        </div>
-                                                        <div
-                                                            style="background-color:#F5B041; height: 31px; border: #ffff 1px solid;">
-                                                            <label> Cambio</label> <span id="vuelto"
-                                                                class="pull-right badge bg-red">0.00</span>
+                                                            class="d-flex justify-content-between align-items-center bg-warning text-dark p-2 mb-2 rounded">
+                                                            <label class="mb-0">Cambio</label>
+                                                            <span id="vuelto" class="badge bg-danger">0.00</span>
                                                         </div>
                                                     </div>
                                                 </div>
 
                                                 <div class="form-group col-lg-12 col-md-12 col-sm-12 col-xs-12">
-                                                    <button class="btn btn-primary" type="submit" id="btnGuardar"><i
-                                                            class="fa fa-save"></i> Guardar</button>
-                                                    <a href="listsales"><button class="btn btn-danger" type="button"
-                                                            id="btnCancelar"><i class="fa fa-arrow-circle-left"></i>
-                                                            Cancelar</button></a>
+                                                    <button class="btn btn-primary" type="submit" id="btnGuardar">
+                                                        <i class="fa fa-save"></i> Guardar
+                                                    </button>
+                                                    <a href="listsales">
+                                                        <button class="btn btn-danger" type="button" id="btnCancelar">
+                                                            <i class="fa fa-arrow-circle-left"></i> Cancelar
+                                                        </button>
+                                                    </a>
                                                 </div>
                                             </div>
                                         </form>
                                     </div>
-                                    <!--FORMULARIO PARA DE REGISTRO FIN-->
+                                    <!--FIN FORMULARIO PARA REGISTRO-->
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-6 col-md-6 col-xs-12">
+                        <div class="col-lg-6 col-md-6 col-12">
                             <div class="card card-success" id="formularioregistros">
                                 <div class="card-header">
                                     <h4>Agrega un articulo</h4>
                                 </div>
                                 <div class="card-body">
-                                    <table id="tblarticulos"
-                                        class="table table-striped table-bordered table-condensed table-hover">
-                                        <thead>
-                                            <th>Opción</th>
-                                            <th>Nombre</th>
-                                            <th>Código</th>
-                                            <th>Stock</th>
-                                            <th>Imagen</th>
-                                        </thead>
-                                        <tbody>
-
-                                        </tbody>
-                                    </table>
+                                    <div class="table-responsive">
+                                        <table id="tblarticulos"
+                                            class="table table-striped table-bordered table-condensed table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Opción</th>
+                                                    <th>Nombre</th>
+                                                    <th>Código</th>
+                                                    <th>Stock</th>
+                                                    <th>Imagen</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
-
 
             <!--modal para agregar nuevo cliente-->
             <div class="modal fade" id="Modalcliente" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
@@ -229,10 +214,10 @@ if (!isset($_SESSION['nombre'])) {
                             </button>
                         </div>
                         <div class="modal-body">
-                            <form action="" name="formulariocliente" id="formulariocliente" method="POST">
+                            <form id="formulariocliente" method="POST">
                                 <div class="row">
                                     <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                        <label for="">Nombre</label>
+                                        <label for="nombre">Nombre</label>
                                         <input class="form-control" type="hidden" name="idpersona" id="idpersona">
                                         <input class="form-control" type="hidden" name="tipo_persona" id="tipo_persona"
                                             value="Cliente">
@@ -240,7 +225,7 @@ if (!isset($_SESSION['nombre'])) {
                                             placeholder="Nombre del cliente" required>
                                     </div>
                                     <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                        <label for="">Tipo Dcumento</label>
+                                        <label for="tipo_documento">Tipo Documento</label>
                                         <select class="form-control select-picker" name="tipo_documento" id="tipo_documento"
                                             required>
                                             <option value="DNI">DNI</option>
@@ -249,42 +234,37 @@ if (!isset($_SESSION['nombre'])) {
                                         </select>
                                     </div>
                                     <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                        <label for="">Número Documento</label>
+                                        <label for="num_documento">Número Documento</label>
                                         <input class="form-control" type="text" name="num_documento" id="num_documento"
                                             maxlength="20" placeholder="Número de Documento">
                                     </div>
                                     <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                        <label for="">Direccion</label>
+                                        <label for="direccion">Direccion</label>
                                         <input class="form-control" type="text" name="direccion" id="direccion" maxlength="70"
                                             placeholder="Direccion">
                                     </div>
                                     <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                        <label for="">Telefono</label>
+                                        <label for="telefono">Telefono</label>
                                         <input class="form-control" type="text" name="telefono" id="telefono" maxlength="20"
                                             placeholder="Número de Telefono">
                                     </div>
                                     <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                        <label for="">Email</label>
+                                        <label for="email">Email</label>
                                         <input class="form-control" type="email" name="email" id="email" maxlength="50"
                                             placeholder="Email">
                                     </div>
                                     <div class="form-group col-lg-12 col-md-12 col-sm-12 col-xs-12">
-                                        <button class="btn btn-primary" type="submit" id="btnGuardarcliente"><i
-                                                class="fa fa-save"></i>
-                                            Guardar</button>
-
-                                        <button class="btn btn-danger" type="button" data-dismiss="modal"><i
-                                                class="fa fa-arrow-circle-left"></i> Cancelar</button>
+                                        <button class="btn btn-primary" type="submit" id="btnGuardarcliente">
+                                            <i class="fa fa-save"></i> Guardar
+                                        </button>
+                                        <button class="btn btn-danger" type="button" data-dismiss="modal">
+                                            <i class="fa fa-arrow-circle-left"></i> Cancelar
+                                        </button>
                                     </div>
                                 </div>
                             </form>
-
                         </div>
-                        <div class="form-group col-lg-12 col-md-12 col-xs-12">
-
-                        </div>
-                        <div class="modal-footer">
-                        </div>
+                        <div class="modal-footer"></div>
                     </div>
                 </div>
             </div>
