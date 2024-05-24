@@ -428,50 +428,54 @@ function modificarSubtotales() {
 })();
 
 function calcularTotales() {
-	//$("#valor_impuesto").html(nomp + " " + 18 + "%");
-	("use strict");
-	var sub = document.getElementsByName("subtotal");
-	var total = 0.0;
-	var total_monto = 0.0;
-	var igv_dec = 0.0;
-	var igv = 0.0;
-	var simbolo = "";
+    var sub = document.getElementsByName("subtotal");
+    var total = 0.0;
+    var total_monto = 0.0;
+    var igv = 0.0;
+    var simbolo = "";
 
-	for (var i = 0; i < sub.length; i++) {
-		total += document.getElementsByName("subtotal")[i].value;
-		//La formula seria Valor total = 160/1.18= 135.60 (valor neto)  //// 160-135.60= 24.40 (IGV)
-		var subtotal = parseFloat(total) / 1.18;
-		total_monto = parseFloat(total) + parseFloat(igv);
-		var stotal = Math.ceil10(subtotal, -1).toFixed(2);
-		igv_dec = parseFloat(total) - stotal;
-	}
-	$.ajax({
-		url: "Controllers/Company.php?op=mostrar_simbolo",
-		type: "get",
-		dataType: "json",
-		success: function (sim) {
-			simbolo = sim;
-			$("#total").html(simbolo + stotal);
-			$("#total_venta").val(total.toFixed(2));
+    for (var i = 0; i < sub.length; i++) {
+        total += parseFloat(document.getElementsByName("subtotal")[i].value);
+    }
 
-			$("#most_total").html(simbolo + total.toFixed(2));
-			$("#most_imp").html(simbolo + igv_dec.toFixed(2));
-			var tpagado = $("#tpagado").val();
-			var totalvuelto = 0;
+    // Calcular el IGV como el 18% del total
+    igv = total * 0.18;
 
-			if (tpagado > 0) {
-				totalvuelto = tpagado - total_monto;
-				$("#vuelto").html(simbolo + " " + parseFloat(totalvuelto).toFixed(2));
-			} else {
-				totalvuelto = 0.0;
-				$("#vuelto").html(simbolo + " " + parseFloat(totalvuelto).toFixed(2));
-			}
+    // Calcular el subtotal restando el IGV del total
+    var subtotal = total - igv;
 
-			evaluar();
-		},
-	});
-	borrar_filas();
+    // Calcular el total monto, que es la suma del subtotal y el IGV
+    total_monto = total;
+
+    $.ajax({
+        url: "Controllers/Company.php?op=mostrar_simbolo",
+        type: "get",
+        dataType: "json",
+        success: function (sim) {
+            simbolo = sim;
+            $("#total").html(simbolo + subtotal.toFixed(2));
+            $("#total_venta").val(total.toFixed(2));
+
+            $("#most_total").html(simbolo + total_monto.toFixed(2));
+            $("#most_imp").html(simbolo + igv.toFixed(2));
+
+            var tpagado = $("#tpagado").val();
+            var totalvuelto = 0;
+
+            if (tpagado > 0) {
+                totalvuelto = tpagado - total_monto;
+                $("#vuelto").html(simbolo + " " + parseFloat(totalvuelto).toFixed(2));
+            } else {
+                totalvuelto = 0.0;
+                $("#vuelto").html(simbolo + " " + parseFloat(totalvuelto).toFixed(2));
+            }
+
+            evaluar();
+        },
+    });
+    borrar_filas();
 }
+
 
 function evaluar() {
 	if (detalles > 0) {

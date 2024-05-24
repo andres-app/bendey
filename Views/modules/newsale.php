@@ -134,7 +134,7 @@ if (!isset($_SESSION['nombre'])) {
                                                         </div>
                                                         <div
                                                             class="d-flex justify-content-between align-items-center bg-primary text-white p-2 mb-2 rounded">
-                                                            <label id="valor_impuesto" class="mb-0">IVG 18%</label>
+                                                            <label id="valor_impuesto" class="mb-0">IGV 18%</label>
                                                             <span id="most_imp" class="badge badge-warning">0.00</span>
                                                         </div>
                                                         <div
