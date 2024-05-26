@@ -52,6 +52,19 @@ if (!isset($_SESSION['nombre'])) {
       $new_simbolo = $simbolo;
     }
 
+
+        // Incluye la biblioteca phpqrcode
+    include('../Libraries/phpqrcode/qrlib.php');
+
+    // URL o texto que quieres convertir en un código QR
+    $url = 'https://japipos.appsauri.com/Reports/' . $reg['num_comprobante'];
+
+    // Nombre del archivo donde se guardará el código QR
+    $filename = '../Assets/qr_' . $reg['num_comprobante'] . '.png';
+
+    // Genera el código QR y guárdalo en el archivo
+    QRcode::png($url, $filename, QR_ECLEVEL_L, 3);
+
     include('../Libraries/fpdf182/fpdf.php');
     $pdf = new FPDF($orientation='P', $unit='mm', array(58, 350));
     $pdf->AddPage();
@@ -169,7 +182,8 @@ $pdf->Cell(25, 10, 'TOTAL', 0);
 $pdf->Cell(20, 10, '', 0);
 $pdf->setX(42);
 $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ','), 0, 0, 'R');
-
+ // Agrega la imagen del código QR
+ $pdf->Image($filename, 15, 90, 30, 30); // Ajusta las coordenadas y el tamaño según tus necesidades
 
 
 
@@ -183,7 +197,8 @@ $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ',')
 
     // SALIDA DEL ARCHIVO
     $pdf->Output($reg['tipo_comprobante'] . '_' . $reg['serie_comprobante'] . '_' . $reg['num_comprobante'] . '.pdf', 'I');
-
+     // Elimina el archivo temporal del código QR
+    unlink($filename);
   } else {
     echo "No tiene permiso para visualizar el reporte";
   }

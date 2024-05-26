@@ -5,9 +5,8 @@ if (strlen(session_id()) < 1)
   session_start();
 
 if (!isset($_SESSION['nombre'])) {
-  echo "debe ingresar al sistema correctamente para vosualizar el reporte";
+  echo "debe ingresar al sistema correctamente para visualizar el reporte";
 } else {
-
   if ($_SESSION['ventas'] == 1) {
 
     // incluimos la clase venta
@@ -42,19 +41,31 @@ if (!isset($_SESSION['nombre'])) {
     $sim_yen = '¥';
     $sim_libra = '£';
     if ($simbolo == $sim_euro) {
-      $new_simbolo = EURO;
+      $new_simbolo = 'EURO';
     } elseif ($simbolo == $sim_yen) {
-      $new_simbolo = JPY;
+      $new_simbolo = 'JPY';
     } elseif ($simbolo == $sim_libra) {
-      $new_simbolo = GBP;
+      $new_simbolo = 'GBP';
     } else {
       $new_simbolo = $simbolo;
     }
 
-    include ('../Libraries/fpdf182/fpdf.php');
+    // Incluye la biblioteca phpqrcode
+    include('../Libraries/phpqrcode/qrlib.php');
+
+    // URL o texto que quieres convertir en un código QR
+    $url = 'https://japipos.appsauri.com/Reports/' . $reg['num_comprobante'];
+
+    // Nombre del archivo donde se guardará el código QR
+    $filename = '../Assets/qr_' . $reg['num_comprobante'] . '.png';
+
+    // Genera el código QR y guárdalo en el archivo
+    QRcode::png($url, $filename, QR_ECLEVEL_L, 3);
+
+    include('../Libraries/fpdf182/fpdf.php');
     $pdf = new FPDF($orientation = 'P', $unit = 'mm', array(80, 350));
     $pdf->AddPage();
-    $pdf->SetFont('Helvetica', 'B', 12);    //Letra Arial, negrita (Bold), tam. 20
+    $pdf->SetFont('Helvetica', 'B', 12); // Letra Arial, negrita (Bold), tam. 20
     $textypos = 5;
     $pdf->setY(2);
     $pdf->setX(2);
@@ -90,7 +101,7 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->Cell(76, $textypos, utf8_decode(strtoupper($reg['tipo_comprobante']) . " N°: " . $reg['serie_comprobante'] . " - " . $reg['num_comprobante']));
 
     $pdf->Ln(5);
-    //SI ESTA ANULADO LA VENTA
+    // SI ESTA ANULADO LA VENTA
     $text = $reg['estado'];
     if ($text == 'Anulado') {
       $pdf->SetFont('Helvetica', 'B', 30);
@@ -100,7 +111,7 @@ if (!isset($_SESSION['nombre'])) {
       $pdf->SetTextColor(0, 0, 0);
     }
 
-    //COLUMNAS
+    // COLUMNAS
     $pdf->Ln(5);
     $pdf->setX(2);
     $pdf->Cell(76, 0, '', 'T');
@@ -132,18 +143,14 @@ if (!isset($_SESSION['nombre'])) {
       $pdf->Cell(10, -5, number_format(round($regd['precio_venta'], 2), 2, '.', ' ,'), 0, 0, 'R');
       $pdf->setX(63);
       $pdf->Cell(15, -5, number_format(round($regd['subtotal'], 2), 2, '.', ' ,'), 0, 0, 'R');
-      // $pdf->setX(2);
-      // $pdf->Cell(76,0,'','T');  
       $cantidad += $regd['cantidad'];
       $pdf->Ln(2);
     }
 
-
     // SUMATORIO DE LOS PRODUCTOS Y EL IVA
-    $total_venta = $reg['total_venta']; // Ejemplo: 20.00
-    $igv = round($total_venta * 18 / 100, 2); // Calcula el IGV
-    $subtotal = round($total_venta - $igv, 2); // Calcula el subtotal sin IGV
-
+    $total_venta = $reg['total_venta'];
+    $igv = round($total_venta * 18 / 100, 2);
+    $subtotal = round($total_venta - $igv, 2);
 
     $pdf->setX(2);
     $pdf->Cell(76, 0, '', 'T');
@@ -166,26 +173,26 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->setX(63);
     $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ' ,') . ' ', 0, 0, 'R');
 
+    // Agrega la imagen del código QR
+    $pdf->Image($filename, 25, 90, 30, 30); // Ajusta las coordenadas y el tamaño según tus necesidades
 
-    //PIE DE PAGINA  
+    // PIE DE PAGINA  
     $pdf->Ln(2);
     $pdf->setX(2);
     $pdf->Cell(76, $textypos + 10, utf8_decode('CANT. ARTICULOS: ' . $cantidad));
     $pdf->setX(2);
     $pdf->Cell(76, $textypos + 25, utf8_decode('¡GRACIAS POR SU COMPRA!'), 0, 0, 'C');
 
-
-    //SALIDA DEL ARCHIVO
+    // SALIDA DEL ARCHIVO
     $pdf->Output($reg['tipo_comprobante'] . '_' . $reg['serie_comprobante'] . '_' . $reg['num_comprobante'] . '.pdf', 'i');
 
-
+    // Elimina el archivo temporal del código QR
+    unlink($filename);
 
   } else {
     echo "No tiene permiso para visualizar el reporte";
   }
-
 }
-
 
 ob_end_flush();
 ?>
