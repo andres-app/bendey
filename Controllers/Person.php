@@ -92,4 +92,10 @@ switch ($_GET["op"]) {
 			echo '<option value="'. $reg['idpersona'].'">'.$reg['nombre'].'</option>';
 		}
 		break;
+
+	case 'getCustomerInfo':
+		$num_documento = $_POST["num_documento"];
+		$rspta = $person->getCustomerInfo($num_documento);
+		echo json_encode($rspta);
+		break;
 }
