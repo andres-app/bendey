@@ -1,64 +1,95 @@
 <?php 
-//incluir la conexion de base de datos
+// Incluir la conexión a la base de datos
 require_once "Connect.php";
-class Person{
 
-    private $tableName='persona';
+class Person {
+
+    private $tableName = 'persona';
     private $conexion;
+    private $apiKey = 'cGVydWRldnMucHJvZHVjdGlvbi5maXRjb2RlcnMuNjZhYmNjOGFkNDFiOTQxMTE0OGI1OTRi'; // Reemplaza con tu clave de API
 
-	//implementamos nuestro constructor
-	public function __construct(){
-		$this->conexion = new Conexion();
-	}
-
-	//metodo insertar regiustro
-    public function insertar($tipo_persona,$nombre,$tipo_documento,$num_documento,$direccion,$telefono,$email){
-        $sql="INSERT INTO $this->tableName (tipo_persona,nombre,tipo_documento,num_documento,direccion,telefono,email) VALUES (?,?,?,?,?,?,?)";
-        $arrData = array($tipo_persona,$nombre,$tipo_documento,$num_documento,$direccion,$telefono,$email);
-        return $this->conexion->setData($sql,$arrData);
+    // Implementamos el constructor
+    public function __construct() {
+        $this->conexion = new Conexion();
     }
 
-    public function editar($idpersona,$tipo_persona,$nombre,$tipo_documento,$num_documento,$direccion,$telefono,$email){
-	$sql="UPDATE $this->tableName SET tipo_persona=?, nombre=?, tipo_documento=?, num_documento=?, direccion=?, telefono=?, email=? WHERE idpersona=?";
-        $arrData = array($tipo_persona,$nombre,$tipo_documento,$num_documento,$direccion,$telefono,$email,$idpersona);
-        return $this->conexion->setData($sql,$arrData);
+    // Método para insertar registros
+    public function insertar($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email) {
+        $sql = "INSERT INTO $this->tableName (tipo_persona, nombre, tipo_documento, num_documento, direccion, telefono, email) VALUES (?,?,?,?,?,?,?)";
+        $arrData = array($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email);
+        return $this->conexion->setData($sql, $arrData);
+    }
+
+    // Método para editar registros
+    public function editar($idpersona, $tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email) {
+        $sql = "UPDATE $this->tableName SET tipo_persona=?, nombre=?, tipo_documento=?, num_documento=?, direccion=?, telefono=?, email=? WHERE idpersona=?";
+        $arrData = array($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email, $idpersona);
+        return $this->conexion->setData($sql, $arrData);
     }
     
-	//funcion para eliminar datos
-	public function eliminar($idpersona){
-		$sql="DELETE FROM $this->tableName WHERE idpersona=?";
-		$arrData = array($idpersona);
-		return $this->conexion->setData($sql,$arrData);
-	}
-
-	//metodo para mostrar registros
-	public function mostrar(string $idpersona){
-		$sql="SELECT * FROM $this->tableName WHERE idpersona=?";
-		$arrData = array($idpersona);
-		return  $this->conexion->getData($sql,$arrData); 
-	}
-
-	//listar registros
-	public function listarp(){
-		$sql="SELECT * FROM $this->tableName WHERE tipo_persona='Proveedor'";
-		return  $this->conexion->getDataAll($sql); 
-	}
-	public function listarc(){
-		$sql="SELECT * FROM $this->tableName WHERE tipo_persona='Cliente'";
-		return  $this->conexion->getDataAll($sql); 
-	}
-
-    //listar y mostrar en Select
-    public function selectp(){
-        $sql="SELECT * FROM $this->tableName WHERE tipo_persona='Proveedor'";
-        return  $this->conexion->getDataAll($sql); 
+    // Método para eliminar registros
+    public function eliminar($idpersona) {
+        $sql = "DELETE FROM $this->tableName WHERE idpersona=?";
+        $arrData = array($idpersona);
+        return $this->conexion->setData($sql, $arrData);
     }
 
-    //listar y mostrar en Select
-    public function selectc(){
-        $sql="SELECT * FROM $this->tableName WHERE tipo_persona='Cliente'";
-        return  $this->conexion->getDataAll($sql); 
+    // Método para mostrar registros
+    public function mostrar(string $idpersona) {
+        $sql = "SELECT * FROM $this->tableName WHERE idpersona=?";
+        $arrData = array($idpersona);
+        return $this->conexion->getData($sql, $arrData); 
     }
 
+    // Listar registros de proveedores
+    public function listarp() {
+        $sql = "SELECT * FROM $this->tableName WHERE tipo_persona='Proveedor'";
+        return $this->conexion->getDataAll($sql); 
+    }
+
+    // Listar registros de clientes
+    public function listarc() {
+        $sql = "SELECT * FROM $this->tableName WHERE tipo_persona='Cliente'";
+        return $this->conexion->getDataAll($sql); 
+    }
+
+    // Seleccionar proveedores para un select
+    public function selectp() {
+        $sql = "SELECT * FROM $this->tableName WHERE tipo_persona='Proveedor'";
+        return $this->conexion->getDataAll($sql); 
+    }
+
+    // Seleccionar clientes para un select
+    public function selectc() {
+        $sql = "SELECT * FROM $this->tableName WHERE tipo_persona='Cliente'";
+        return $this->conexion->getDataAll($sql); 
+    }
+
+    // Método para obtener información del cliente desde la API
+	public function getCustomerInfo($document) {
+        $url = "https://api.perudevs.com/api/v1/dni/complete?document=$document&key=$this->apiKey";
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPGET, true);
+
+        $response = curl_exec($ch);
+
+        if (curl_errno($ch)) {
+            echo 'Error en cURL: ' . curl_error($ch);
+            return null;
+        }	
+        curl_close($ch);
+
+        $data = json_decode($response, true);
+
+        if (isset($data['estado']) && $data['estado']) {
+            return $data['resultado'];
+        } else {
+            echo 'Error: ' . (isset($data['mensaje']) ? $data['mensaje'] : 'Unknown error');
+            return null;
+        }
+    }
 }
-
+?>

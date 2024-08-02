@@ -53,14 +53,7 @@ header("location: login");
                             <div id="formularioregistros">
                                 <form action="" name="formulario" id="formulario" method="POST">
                                     <div class="row">
-                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Nombre</label>
-                                            <input class="form-control" type="hidden" name="idpersona" id="idpersona">
-                                            <input class="form-control" type="hidden" name="tipo_persona"
-                                                id="tipo_persona" value="Cliente">
-                                            <input class="form-control" type="text" name="nombre" id="nombre"
-                                                maxlength="100" placeholder="Nombre del proveedor" required>
-                                        </div>
+
                                         <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                             <label for="">Tipo Dcumento</label>
                                             <select class="form-control" name="tipo_documento" id="tipo_documento"
@@ -70,11 +63,23 @@ header("location: login");
                                                 <option value="CEDULA">CEDULA</option>
                                             </select>
                                         </div>
+
                                         <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                             <label for="">Número Documento</label>
                                             <input class="form-control" type="text" name="num_documento"
                                                 id="num_documento" maxlength="20" placeholder="Número de Documento">
+                                            <button type="button" class="btn btn-primary mt-2" onclick="consultarCliente()"><i class="fa fa-search"></i> Consultar</button>
                                         </div>
+
+                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
+                                            <label for="">Nombre</label>
+                                            <input class="form-control" type="hidden" name="idpersona" id="idpersona">
+                                            <input class="form-control" type="hidden" name="tipo_persona"
+                                                id="tipo_persona" value="Cliente">
+                                            <input class="form-control" type="text" name="nombre" id="nombre"
+                                                maxlength="100" placeholder="Nombre del cliente" required>
+                                        </div>
+                                        
                                         <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                             <label for="">Direccion</label>
                                             <input class="form-control" type="text" name="direccion" id="direccion"

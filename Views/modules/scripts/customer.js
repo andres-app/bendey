@@ -166,4 +166,31 @@ function eliminar(idpersona) {
   });
 }
 
+function consultarCliente() {
+  let num_documento = $("#num_documento").val();
+  
+  $.ajax({
+      url: "Controllers/Person.php?op=getCustomerInfo",
+      type: "POST",
+      data: { num_documento: num_documento },
+      success: function(response) {
+          console.log("Response from server:", response);  // Log response
+          let data = JSON.parse(response);
+          if (data.error) {
+              alert(data.error);
+          } else {
+              $("#nombre").val(data.nombre_completo);
+          }
+      },
+      error: function (xhr, status, error) {
+          alert("Error al consultar los datos del cliente.");
+          console.log("Error:", error);
+      }
+  });
+}
+
+
+
+
+
 init();
