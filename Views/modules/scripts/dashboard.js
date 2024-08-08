@@ -226,4 +226,30 @@ function cat_vendidas() {
     }
   );
 }
+
+// Ejemplo de configuración de la gráfica de stock por categorías
+document.addEventListener('DOMContentLoaded', function () {
+  Highcharts.chart('stock_por_categorias', {
+      chart: {
+          type: 'column'
+      },
+      title: {
+          text: 'Stock por Categorías'
+      },
+      xAxis: {
+          categories: ['Categoría 1', 'Categoría 2', 'Categoría 3'] // Reemplaza con tus categorías
+      },
+      yAxis: {
+          min: 0,
+          title: {
+              text: 'Stock'
+          }
+      },
+      series: [{
+          name: 'Stock',
+          data: [29, 71, 106] // Reemplaza con los datos de stock por categoría
+      }]
+  });
+});
+
 init();
