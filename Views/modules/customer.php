@@ -58,7 +58,6 @@ header("location: login");
                 <select class="form-control" name="tipo_documento" id="tipo_documento" required>
                     <option value="DNI">DNI</option>
                     <option value="RUC">RUC</option>
-                    <option value="CEDULA">CEDULA</option>
                 </select>
             </div>
             <div class="form-group col-lg-4 col-md-4 col-xs-12">

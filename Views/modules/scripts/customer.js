@@ -168,26 +168,40 @@ function eliminar(idpersona) {
 
 function consultarCliente() {
   let num_documento = $("#num_documento").val();
-  
+  let tipo_documento = $("#tipo_documento").val();
+
+  if (!num_documento || !tipo_documento) {
+    alert("Todos los campos son necesarios para la consulta.");
+    return;
+  }
+
   $.ajax({
-      url: "Controllers/Person.php?op=getCustomerInfo",
-      type: "POST",
-      data: { num_documento: num_documento },
-      success: function(response) {
-          console.log("Response from server:", response);  // Log response
-          let data = JSON.parse(response);
-          if (data.error) {
-              alert(data.error);
-          } else {
-              $("#nombre").val(data.nombre_completo);
-          }
-      },
-      error: function (xhr, status, error) {
-          alert("Error al consultar los datos del cliente.");
-          console.log("Error:", error);
+    url: "Controllers/Person.php?op=getCustomerInfo",
+    type: "POST",
+    data: { num_documento: num_documento, tipo_documento: tipo_documento },
+    success: function (response) {
+      let data = JSON.parse(response);
+      if (data.estado) {
+        $("#nombre").val(data.resultado.nombre || data.resultado.razon_social);
+        $("#direccion").val(data.resultado.direccion || '');
+      } else {
+        alert("Documento no encontrado: " + (data.mensaje || 'Sin detalles adicionales'));
       }
+    },
+    error: function (xhr, status, error) {
+      console.error("Error en la petición: ", error);
+      alert("Error al consultar el documento: " + xhr.responseText);
+    }
   });
 }
+
+
+
+
+
+
+
+
 
 
 
