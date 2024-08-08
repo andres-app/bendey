@@ -51,61 +51,49 @@ header("location: login");
 
                             <!--FORMULARIO PARA DE REGISTRO-->
                             <div id="formularioregistros">
-                                <form action="" name="formulario" id="formulario" method="POST">
-                                    <div class="row">
+    <form action="" name="formulario" id="formulario" method="POST">
+        <div class="row">
+            <div class="form-group col-lg-4 col-md-4 col-xs-12">
+                <label for="">Tipo Documento</label>
+                <select class="form-control" name="tipo_documento" id="tipo_documento" required>
+                    <option value="DNI">DNI</option>
+                    <option value="RUC">RUC</option>
+                    <option value="CEDULA">CEDULA</option>
+                </select>
+            </div>
+            <div class="form-group col-lg-4 col-md-4 col-xs-12">
+                <label for="">Número Documento</label>
+                <div class="input-group">
+                    <input class="form-control" type="text" name="num_documento" id="num_documento" maxlength="20" placeholder="Número de Documento">
+                    <button type="button" class="btn btn-primary" onclick="consultarCliente()"><i class="fa fa-search"></i></button>
+                </div>
+            </div>
+            <div class="form-group col-lg-4 col-md-4 col-xs-12">
+                <label for="">Nombre</label>
+                <input class="form-control" type="hidden" name="idpersona" id="idpersona">
+                <input class="form-control" type="hidden" name="tipo_persona" id="tipo_persona" value="Cliente">
+                <input class="form-control" type="text" name="nombre" id="nombre" maxlength="100" placeholder="Nombre del cliente" required>
+            </div>
+            <div class="form-group col-lg-4 col-md-6 col-xs-12">
+                <label for="">Dirección</label>
+                <input class="form-control" type="text" name="direccion" id="direccion" maxlength="70" placeholder="Dirección">
+            </div>
+            <div class="form-group col-lg-4 col-md-6 col-xs-12">
+                <label for="">Teléfono</label>
+                <input class="form-control" type="text" name="telefono" id="telefono" maxlength="20" placeholder="Número de Teléfono">
+            </div>
+            <div class="form-group col-lg-4 col-md-6 col-xs-12">
+                <label for="">Email</label>
+                <input class="form-control" type="email" name="email" id="email" maxlength="50" placeholder="Email">
+            </div>
+            <div class="form-group col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                <button class="btn btn-primary" type="submit" id="btnGuardar"><i class="fa fa-save"></i> Guardar</button>
+                <button class="btn btn-danger" onclick="cancelarform()" type="button"><i class="fa fa-arrow-circle-left"></i> Cancelar</button>
+            </div>
+        </div>
+    </form>
+</div>
 
-                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Tipo Dcumento</label>
-                                            <select class="form-control" name="tipo_documento" id="tipo_documento"
-                                                required>
-                                                <option value="DNI">DNI</option>
-                                                <option value="RUC">RUC</option>
-                                                <option value="CEDULA">CEDULA</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Número Documento</label>
-                                            <input class="form-control" type="text" name="num_documento"
-                                                id="num_documento" maxlength="20" placeholder="Número de Documento">
-                                            <button type="button" class="btn btn-primary mt-2" onclick="consultarCliente()"><i class="fa fa-search"></i> Consultar</button>
-                                        </div>
-
-                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Nombre</label>
-                                            <input class="form-control" type="hidden" name="idpersona" id="idpersona">
-                                            <input class="form-control" type="hidden" name="tipo_persona"
-                                                id="tipo_persona" value="Cliente">
-                                            <input class="form-control" type="text" name="nombre" id="nombre"
-                                                maxlength="100" placeholder="Nombre del cliente" required>
-                                        </div>
-                                        
-                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Direccion</label>
-                                            <input class="form-control" type="text" name="direccion" id="direccion"
-                                                maxlength="70" placeholder="Direccion">
-                                        </div>
-                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Telefono</label>
-                                            <input class="form-control" type="text" name="telefono" id="telefono"
-                                                maxlength="20" placeholder="Número de Telefono">
-                                        </div>
-                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Email</label>
-                                            <input class="form-control" type="email" name="email" id="email"
-                                                maxlength="50" placeholder="Email">
-                                        </div>
-                                        <div class="form-group col-lg-12 col-md-12 col-sm-12 col-xs-12">
-                                            <button class="btn btn-primary" type="submit" id="btnGuardar"><i
-                                                    class="fa fa-save"></i> Guardar</button>
-
-                                            <button class="btn btn-danger" onclick="cancelarform()" type="button"><i
-                                                    class="fa fa-arrow-circle-left"></i>
-                                                Cancelar</button>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
                             <!--FORMULARIO PARA DE REGISTRO FIN-->
                         </div>
                     </div>
