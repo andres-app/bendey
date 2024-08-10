@@ -1,5 +1,5 @@
 <?php 
-//activamos almacenamiento en el buffer
+// activamos almacenamiento en el buffer
 ob_start();
 if (strlen(session_id()) < 1) 
   session_start();
@@ -52,12 +52,11 @@ if (!isset($_SESSION['nombre'])) {
       $new_simbolo = $simbolo;
     }
 
-
-        // Incluye la biblioteca phpqrcode
+    // Incluye la biblioteca phpqrcode
     include('../Libraries/phpqrcode/qrlib.php');
 
-    // URL o texto que quieres convertir en un código QR
-    $url = 'https://japipos.appsauri.com/Reports/' . $reg['num_comprobante'];
+    // Construye dinámicamente la URL utilizando $_SERVER
+    $url = 'https://' . $_SERVER['HTTP_HOST'] . '/Reports/' . $reg['num_comprobante'];
 
     // Nombre del archivo donde se guardará el código QR
     $filename = '../Assets/qr_' . $reg['num_comprobante'] . '.png';
@@ -65,6 +64,7 @@ if (!isset($_SESSION['nombre'])) {
     // Genera el código QR y guárdalo en el archivo
     QRcode::png($url, $filename, QR_ECLEVEL_L, 3);
 
+    // Incluye la biblioteca FPDF para generar el PDF
     include('../Libraries/fpdf182/fpdf.php');
     $pdf = new FPDF($orientation='P', $unit='mm', array(58, 350));
     $pdf->AddPage();
@@ -150,43 +150,41 @@ if (!isset($_SESSION['nombre'])) {
       $pdf->Ln(2);
     }
 
-// SUMATORIO DE LOS PRODUCTOS Y EL IVA
-$total_venta = $reg['total_venta']; // Ejemplo: 20.00
-$igv = round($total_venta * 18 / 100, 2); // Calcula el IGV
-$subtotal = round($total_venta - $igv, 2); // Calcula el subtotal sin IGV
+    // SUMATORIO DE LOS PRODUCTOS Y EL IVA
+    $total_venta = $reg['total_venta']; // Ejemplo: 20.00
+    $igv = round($total_venta * 18 / 100, 2); // Calcula el IGV
+    $subtotal = round($total_venta - $igv, 2); // Calcula el subtotal sin IGV
 
-// Formato de los valores en el PDF
-$pdf->setX(2);
-$pdf->Cell(54, 0, '', 'T');  
-$pdf->Ln(0);
+    // Formato de los valores en el PDF
+    $pdf->setX(2);
+    $pdf->Cell(54, 0, '', 'T');  
+    $pdf->Ln(0);
 
-// Impresión del subtotal
-$pdf->setX(2);    
-$pdf->Cell(25, 10, 'SUBTOTAL');    
-$pdf->Cell(20, 10, '', 0);
-$pdf->setX(42);
-$pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($subtotal, 2, '.', ','), 0, 0, 'R');
-$pdf->Ln(3);
+    // Impresión del subtotal
+    $pdf->setX(2);    
+    $pdf->Cell(25, 10, 'SUBTOTAL');    
+    $pdf->Cell(20, 10, '', 0);
+    $pdf->setX(42);
+    $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($subtotal, 2, '.', ','), 0, 0, 'R');
+    $pdf->Ln(3);
 
-// Impresión del IGV
-$pdf->setX(2);    
-$pdf->Cell(25, 10, $nombre_impuesto . ' 18%', 0);    
-$pdf->Cell(20, 10, '', 0);
-$pdf->setX(42);
-$pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($igv, 2, '.', ','), 0, 0, 'R');
-$pdf->Ln(3);
+    // Impresión del IGV
+    $pdf->setX(2);    
+    $pdf->Cell(25, 10, $nombre_impuesto . ' 18%', 0);    
+    $pdf->Cell(20, 10, '', 0);
+    $pdf->setX(42);
+    $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($igv, 2, '.', ','), 0, 0, 'R');
+    $pdf->Ln(3);
 
-// Impresión del total
-$pdf->setX(2);
-$pdf->Cell(25, 10, 'TOTAL', 0);
-$pdf->Cell(20, 10, '', 0);
-$pdf->setX(42);
-$pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ','), 0, 0, 'R');
- // Agrega la imagen del código QR
- $pdf->Image($filename, 15, 90, 30, 30); // Ajusta las coordenadas y el tamaño según tus necesidades
+    // Impresión del total
+    $pdf->setX(2);
+    $pdf->Cell(25, 10, 'TOTAL', 0);
+    $pdf->Cell(20, 10, '', 0);
+    $pdf->setX(42);
+    $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ','), 0, 0, 'R');
 
-
-
+    // Agrega la imagen del código QR
+    $pdf->Image($filename, 15, 90, 30, 30); // Ajusta las coordenadas y el tamaño según tus necesidades
 
     // PIE DE PAGINA  
     $pdf->Ln(2);   
@@ -197,7 +195,8 @@ $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ',')
 
     // SALIDA DEL ARCHIVO
     $pdf->Output($reg['tipo_comprobante'] . '_' . $reg['serie_comprobante'] . '_' . $reg['num_comprobante'] . '.pdf', 'I');
-     // Elimina el archivo temporal del código QR
+
+    // Elimina el archivo temporal del código QR
     unlink($filename);
   } else {
     echo "No tiene permiso para visualizar el reporte";
