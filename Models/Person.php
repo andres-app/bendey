@@ -79,31 +79,40 @@ class Person
     public function getCustomerInfo($document, $type)
     {
         $baseUrl = "https://api.perudevs.com/api/v1/";
-        $url = ($type === "DNI") ? "{$baseUrl}dni?document=$document&key=$this->apiKey" : "{$baseUrl}ruc?document=$document&key=$this->apiKey";
-
+        $url = ($type === "DNI") ? "{$baseUrl}dni/simple?document=$document&key=$this->apiKey" : "{$baseUrl}ruc?document=$document&key=$this->apiKey";
+    
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPGET, true);
-
+    
         $response = curl_exec($ch);
+    
         if (curl_errno($ch)) {
+            $error_msg = curl_error($ch);
             curl_close($ch);
-            return json_encode(['estado' => false, 'mensaje' => 'Error en cURL: ' . curl_error($ch)]);
+            return json_encode(['estado' => false, 'mensaje' => 'Error en cURL: ' . $error_msg]);
         }
+    
         curl_close($ch);
-
+    
         $data = json_decode($response, true);
-        if (!$data) {
+    
+        if (!$data || !isset($data['estado'])) {
             return json_encode(['estado' => false, 'mensaje' => 'Respuesta inválida o error de API']);
         }
-
-        if (isset($data['estado']) && $data['estado']) {
-            return json_encode(['estado' => true, 'resultado' => $data['resultado']]);
+    
+        if ($data['estado']) {
+            // Ajuste para manejar la respuesta de DNI
+            if ($type === "DNI") {
+                $nombreCompleto = $data['resultado']['nombre_completo'];
+                return json_encode(['estado' => true, 'resultado' => ['nombre' => $nombreCompleto, 'direccion' => '']]);
+            } else {
+                return json_encode(['estado' => true, 'resultado' => $data['resultado']]);
+            }
         } else {
-            return json_encode(['estado' => false, 'mensaje' => 'Documento no encontrado', 'detalle' => $data['mensaje']]);
+            return json_encode(['estado' => false, 'mensaje' => 'Documento no encontrado', 'detalle' => $data['mensaje'] ?? 'Sin detalles adicionales']);
         }
     }
-
+    
 }
-?>

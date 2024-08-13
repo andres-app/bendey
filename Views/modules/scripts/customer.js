@@ -182,7 +182,12 @@ function consultarCliente() {
     success: function (response) {
       let data = JSON.parse(response);
       if (data.estado) {
-        $("#nombre").val(data.resultado.nombre || data.resultado.razon_social);
+        // Diferenciar entre RUC y DNI al asignar los valores
+        if (tipo_documento === 'RUC') {
+          $("#nombre").val(data.resultado.razon_social || '');
+        } else if (tipo_documento === 'DNI') {
+          $("#nombre").val(data.resultado.nombre || '');
+        }
         $("#direccion").val(data.resultado.direccion || '');
       } else {
         alert("Documento no encontrado: " + (data.mensaje || 'Sin detalles adicionales'));

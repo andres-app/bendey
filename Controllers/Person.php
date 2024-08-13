@@ -95,18 +95,23 @@ switch ($_GET["op"]) {
 		}
 		break;
 
-	case 'getCustomerInfo':
-		if (!isset($_POST["tipo_documento"]) || !isset($_POST["num_documento"])) {
-			echo json_encode(["estado" => false, "mensaje" => "Datos incompletos"]);
-			exit;
-		}
-		$tipo_documento = $_POST["tipo_documento"];
-		$num_documento = $_POST["num_documento"];
-		$respuesta = $person->getCustomerInfo($num_documento, $tipo_documento);
-		echo $respuesta; // Asegúrate de que este es el formato correcto de respuesta.
-		break;
-
-
+		case 'getCustomerInfo':
+			// Verificar que se recibieron los datos necesarios
+			if (!isset($_POST["tipo_documento"]) || !isset($_POST["num_documento"])) {
+				echo json_encode(["estado" => false, "mensaje" => "Datos incompletos"]);
+				exit;
+			}
+		
+			$tipo_documento = $_POST["tipo_documento"];
+			$num_documento = $_POST["num_documento"];
+		
+			// Llamar al método para obtener la información del cliente
+			$respuesta = $person->getCustomerInfo($num_documento, $tipo_documento);
+		
+			// Devolver la respuesta directamente al cliente
+			echo $respuesta;
+			break;
+		
 
 
 }
