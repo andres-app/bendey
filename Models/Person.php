@@ -7,7 +7,7 @@ class Person
 
     private $tableName = 'persona';
     private $conexion;
-    private $apiKey = 'cGVydWRldnMucHJvZHVjdGlvbi5maXRjb2RlcnMuNjZkODY3NmU5ZmE0MTczZjYxMzIwMzU1cGVydWRldnMucHJvZHVjdGlvbi5maXRjb2RlcnMuNjZkODY3NmU5ZmE0MTczZjYxMzIwMzU1'; // Reemplaza con tu clave de API DE PERUDEVS TOKENhttps://admin.perudevs.com/
+    private $apiKey = 'cGVydWRldnMucHJvZHVjdGlvbi5maXRjb2RlcnMuNjZkODY3NmU5ZmE0MTczZjYxMzIwMzU1'; // Reemplaza con tu clave de API DE PERUDEVS TOKENhttps://admin.perudevs.com/
 
     // Implementamos el constructor
     public function __construct()
