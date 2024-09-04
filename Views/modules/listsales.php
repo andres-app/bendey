@@ -41,16 +41,6 @@ header("location: login");
                                     </thead>
                                     <tbody>
                                     </tbody>
-                                    <tfoot>
-                                        <th>Opciones</th>
-                                        <th>Fecha</th>
-                                        <th>Cliente</th>
-                                        <th>Usuario</th>
-                                        <th>Documento</th>
-                                        <th>Número</th>
-                                        <th>Total Venta</th>
-                                        <th>Estado</th>
-                                    </tfoot>
                                 </table>
                             </div>
                             <!--TABLA DE LISTADO DE REGISTROS FIN-->
