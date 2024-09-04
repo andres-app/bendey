@@ -227,48 +227,53 @@ switch ($_GET["op"]) {
 			$url = 'Reports/a4.php?id=';
 			$url = 'Reports/58mm.php?id=';
 
-			$data[] = array(
-				"0" => '<a target="_blank" href="' . $url . $reg['idventa'] . '"> 
-									<button class="btn btn-primary btn-sm">
-										<i class="far fa-file-pdf"></i>
-									</button>
-								</a>' . ' ' .
-					'<a target="_blank" href="' . $urlt . $reg['idventa'] . '"> 
-									<button class="btn btn-success btn-sm">
-										<i class="fas fa-print"></i>
-									</button>
-								</a>' . ' ' .
-					(($reg['estado'] == 'Aceptado') ?
-						'<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
-										<i class="fas fa-eye"></i>
-									</button>' . ' ' .
-						'<a target="_blank" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa']) . '"> 
-										<button class="btn btn-success btn-sm">
-											<i class="fab fa-whatsapp"></i>
-										</button>
-									</a>' . ' ' .
-						'<a href="editsale?op=new&id=' . $reg['idventa'] . '"> 
-										<button class="btn btn-warning btn-sm">
-											<i class="fas fa-pen"></i>
-										</button>
-									</a>' . ' ' .
-						'<button class="btn btn-danger btn-sm" onclick="anular(' . $reg['idventa'] . ')">
-										<i class="fas fa-times"></i>
-									</button>' :
-						'<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
-										<i class="fas fa-eye"></i>
-									</button>'
-					),
-				"1" => $reg['fecha'],
-				"2" => $reg['cliente'],
-				"3" => $reg['usuario'],
-				"4" => $reg['tipo_comprobante'],
-				"5" => $reg['serie_comprobante'] . '-' . $reg['num_comprobante'],
-				"6" => $reg['total_venta'],
-				"7" => ($reg['estado'] == 'Aceptado') ?
-					'<div class="badge badge-success">Aceptado</div>' :
-					'<div class="badge badge-danger">Anulado</div>'
-			);
+			// Obtener la URL base dinámica
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+$base_url = $protocol . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . '/';
+
+$data[] = array(
+    "0" => '<a target="_blank" href="' . $base_url . $url . $reg['idventa'] . '"> 
+                <button class="btn btn-primary btn-sm">
+                    <i class="far fa-file-pdf"></i>
+                </button>
+            </a>' . ' ' .
+            '<a target="_blank" href="' . $base_url . $urlt . $reg['idventa'] . '"> 
+                <button class="btn btn-success btn-sm">
+                    <i class="fas fa-print"></i>
+                </button>
+            </a>' . ' ' .
+            (($reg['estado'] == 'Aceptado') ?
+                '<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
+                    <i class="fas fa-eye"></i>
+                </button>' . ' ' .
+                '<a target="_blank" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . $url . $reg['idventa']) . '"> 
+                    <button class="btn btn-success btn-sm">
+                        <i class="fab fa-whatsapp"></i>
+                    </button>
+                </a>' . ' ' .
+                '<a href="editsale?op=new&id=' . $reg['idventa'] . '"> 
+                    <button class="btn btn-warning btn-sm">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                </a>' . ' ' .
+                '<button class="btn btn-danger btn-sm" onclick="anular(' . $reg['idventa'] . ')">
+                    <i class="fas fa-times"></i>
+                </button>' :
+                '<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
+                    <i class="fas fa-eye"></i>
+                </button>'
+            ),
+    "1" => $reg['fecha'],
+    "2" => $reg['cliente'],
+    "3" => $reg['usuario'],
+    "4" => $reg['tipo_comprobante'],
+    "5" => $reg['serie_comprobante'] . '-' . $reg['num_comprobante'],
+    "6" => $reg['total_venta'],
+    "7" => ($reg['estado'] == 'Aceptado') ? 
+           '<div class="badge badge-success">Aceptado</div>' : 
+           '<div class="badge badge-danger">Anulado</div>'
+);
+
 
 
 		}
