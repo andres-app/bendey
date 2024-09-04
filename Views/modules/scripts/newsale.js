@@ -524,4 +524,43 @@ function agregarCliente(e) {
 	location.reload(true);
 }
 
+function consultarCliente() {
+    var tipo_documento = $('#tipo_documento').val();
+    var num_documento = $('#num_documento').val();
+
+    $.ajax({
+        url: 'Controllers/Person.php?op=getCustomerInfo', // Asegúrate que esta ruta sea la correcta
+        type: 'POST',
+        data: { tipo_documento: tipo_documento, num_documento: num_documento },
+        success: function(response) {
+            var data;
+            try {
+                data = JSON.parse(response);
+            } catch (e) {
+                alert('Error al procesar la respuesta del servidor.');
+                console.error('Respuesta inválida:', response);
+                return;
+            }
+
+            if (data.estado) {
+                       // Diferenciar entre RUC y DNI al asignar los valores
+        if (tipo_documento === 'RUC') {
+			$("#nombre").val(data.resultado.razon_social || '');
+		  } else if (tipo_documento === 'DNI') {
+			$("#nombre").val(data.resultado.nombre || '');
+		  }
+		  $("#direccion").val(data.resultado.direccion || '');
+            } else {
+                alert('Cliente no encontrado.');
+            }
+        },
+        error: function(xhr, status, error) {
+            alert('Error al consultar el cliente.');
+            console.error('Error de AJAX:', status, error);
+        }
+    });
+}
+
+
+
 init();
