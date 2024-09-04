@@ -7,14 +7,22 @@ class Person
 
     private $tableName = 'persona';
     private $conexion;
-    private $apiKey = 'cGVydWRldnMucHJvZHVjdGlvbi5maXRjb2RlcnMuNjZkODY3NmU5ZmE0MTczZjYxMzIwMzU1'; // Reemplaza con tu clave de API DE PERUDEVS TOKENhttps://admin.perudevs.com/
+    private $apiKey;
 
     // Implementamos el constructor
     public function __construct()
     {
         $this->conexion = new Conexion();
+        $this->apiKey = $this->obtenerApiKey();  // Obtener el token desde la base de datos
     }
 
+    // Método para obtener el API Key desde la base de datos
+    private function obtenerApiKey()
+    {
+        $sql = "SELECT token_reniec_sunat FROM datos_negocio LIMIT 1";
+        $resultado = $this->conexion->getData($sql, []);
+        return $resultado['token_reniec_sunat'] ?? '';  // Retornar el valor del token o una cadena vacía si no se encuentra
+    }
     // Método para insertar registros
     public function insertar($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email)
     {

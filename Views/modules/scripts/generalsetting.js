@@ -9,7 +9,7 @@ function init() {
     guardaryeditar(e);
   });
 
-  //cargamos los items al celect categoria
+  //ocultar la imagen del logo al inicio
   $("#logomuestra").hide();
 }
 
@@ -19,7 +19,6 @@ function limpiar() {
   $("#nombre").val("");
   $("#ndocumento").val("");
   $("#documento").val("");
-  $("#direccion").val("");
   $("#direccion").val("");
   $("#telefono").val("");
   $("#email").val("");
@@ -32,6 +31,7 @@ function limpiar() {
   $("#moneda").val("");
   $("#simbolo").val("");
   $("#id_negocio").val("");
+  $("#tokendniruc").val(""); // Limpiar el campo del token
 }
 
 //funcion mostrar formulario
@@ -48,6 +48,7 @@ function mostrarform(flag) {
     $("#btnagregar").show();
   }
 }
+
 //cancelar form
 function cancelarform() {
   limpiar();
@@ -76,6 +77,7 @@ function listar() {
     })
     .DataTable();
 }
+
 //funcion para guardaryeditar
 function guardaryeditar(e) {
   e.preventDefault(); //no se activara la accion predeterminada
@@ -107,6 +109,23 @@ function guardaryeditar(e) {
   limpiar();
 }
 
+document.getElementById('toggleTokenVisibility').addEventListener('click', function () {
+  var tokenInput = document.getElementById('tokendniruc');
+  var eyeIcon = document.getElementById('eyeIcon');
+  
+  if (tokenInput.type === 'password') {
+      tokenInput.type = 'text';
+      eyeIcon.classList.remove('fa-eye');
+      eyeIcon.classList.add('fa-eye-slash');
+  } else {
+      tokenInput.type = 'password';
+      eyeIcon.classList.remove('fa-eye-slash');
+      eyeIcon.classList.add('fa-eye');
+  }
+});
+
+
+//funcion para mostrar datos en el formulario
 function mostrar(id_negocio) {
   $.post(
     "Controllers/Company.php?op=mostrar",
@@ -131,6 +150,7 @@ function mostrar(id_negocio) {
       $("#moneda").val(data.moneda);
       $("#simbolo").val(data.simbolo);
       $("#id_negocio").val(data.id_negocio);
+      $("#tokendniruc").val(data.token_reniec_sunat); // Mostrar el token en el formulario
     }
   );
 }
