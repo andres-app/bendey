@@ -227,17 +227,26 @@ switch ($_GET["op"]) {
 			$url = 'Reports/a4.php?id=';
 			$url = 'Reports/58mm.php?id=';
 
-			// Obtener la URL base dinámica
+// Obtener la URL base dinámica
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-$base_url = $protocol . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . '/';
+$host = $_SERVER['HTTP_HOST'];
+
+// Obtener el directorio base del proyecto
+$project_root = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\') . '/';
+
+// Construir la URL base completa sin Controllers
+$base_url = $protocol . $host . $project_root;
+
+// Ajusta la ruta al PDF para reflejar la estructura correcta de tu servidor
+$pdf_path = 'Reports/58mm.php?id='; // Ruta pública relativa desde el raíz del proyecto
 
 $data[] = array(
-    "0" => '<a target="_blank" href="' . $base_url . $url . $reg['idventa'] . '"> 
+    "0" => '<a target="_blank" href="' . $base_url . $pdf_path . $reg['idventa'] . '"> 
                 <button class="btn btn-primary btn-sm">
                     <i class="far fa-file-pdf"></i>
                 </button>
             </a>' . ' ' .
-            '<a target="_blank" href="' . $base_url . $urlt . $reg['idventa'] . '"> 
+            '<a target="_blank" href="' . $urlt . $reg['idventa'] . '"> 
                 <button class="btn btn-success btn-sm">
                     <i class="fas fa-print"></i>
                 </button>
@@ -246,7 +255,7 @@ $data[] = array(
                 '<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
                     <i class="fas fa-eye"></i>
                 </button>' . ' ' .
-                '<a target="_blank" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . $url . $reg['idventa']) . '"> 
+                '<a target="_blank" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . $pdf_path . $reg['idventa']) . '"> 
                     <button class="btn btn-success btn-sm">
                         <i class="fab fa-whatsapp"></i>
                     </button>
@@ -273,6 +282,9 @@ $data[] = array(
            '<div class="badge badge-success">Aceptado</div>' : 
            '<div class="badge badge-danger">Anulado</div>'
 );
+
+
+
 
 
 
