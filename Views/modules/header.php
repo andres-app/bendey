@@ -42,7 +42,7 @@ else{
                             </a>
                         </li>
                         <li>
-                            <a href="/newsale" class="nav-link nav-link-lg">
+                            <a href="newsale" class="nav-link nav-link-lg">
                                 <i data-feather="shopping-cart"></i>
                             </a>
                         </li>

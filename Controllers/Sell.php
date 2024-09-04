@@ -106,7 +106,7 @@ switch ($_GET["op"]) {
 				}
 				$ns= substr($numeros,-3);
 				$nums = (int)$ns;
-				$nuew_serie=0;
+				$nuew_serie=0;             
 				$numc = (int)$numeroco;
 				if($numc==9999999 or empty($numeroco)){
 					$nuew_serie=$nums+1;
