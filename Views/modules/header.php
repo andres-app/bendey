@@ -19,14 +19,13 @@
 
     <link rel='shortcut icon' type='image/x-icon' href='Assets/img/favicon.ico' />
 </head>
-<?php if($_GET["url"]=="newsale" || $_GET["url"]=="editsale"){
-$class='sidebar-mini';
-}
-else{
-    $class=' ';
-}?>
+<?php if ($_GET["url"] == "newsale" || $_GET["url"] == "editsale") {
+    $class = 'sidebar-mini';
+} else {
+    $class = ' ';
+} ?>
 
-<body class="<?php echo $class;?>">
+<body class="<?php echo $class; ?>">
     <!--<body class="dark dark-sidebar theme-black">-->
 
     <div class="loader"></div>
@@ -46,7 +45,7 @@ else{
                                 <i data-feather="shopping-cart"></i>
                             </a>
                         </li>
-                        
+
                     </ul>
                 </div>
                 <ul class="navbar-nav navbar-right">
@@ -73,7 +72,7 @@ else{
                         <div class="dropdown-menu dropdown-menu-right pullDown">
                             <div class="dropdown-title"><?php echo $_SESSION['nombre']; ?></div>
                             <a href="#" class="dropdown-item has-icon"> <i class="far
-										fa-user"></i> Perfil
+                                        fa-user"></i> Perfil
                             </a>
                             <div class="dropdown-divider"></div>
                             <a href="salir" class="dropdown-item has-icon text-danger"> <i
