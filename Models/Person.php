@@ -26,10 +26,13 @@ class Person
     // Método para insertar registros
     public function insertar($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email)
     {
-        $sql = "INSERT INTO $this->tableName (tipo_persona, nombre, tipo_documento, num_documento, direccion, telefono, email) VALUES (?,?,?,?,?,?,?)";
+        $sql = "INSERT INTO persona (tipo_persona, nombre, tipo_documento, num_documento, direccion, telefono, email) VALUES (?,?,?,?,?,?,?)";
         $arrData = array($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email);
-        return $this->conexion->setData($sql, $arrData);
+        
+        // Asegúrate de que estás obteniendo el ID del cliente recién insertado
+        return $this->conexion->getReturnId($sql, $arrData);  // Devuelve el idpersona recién creado
     }
+    
 
     // Método para editar registros
     public function editar($idpersona, $tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email)
