@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
-    <title>JapiPOS<?php //echo SYSTEMNAME; ?></title>
+    <title>TiquePOS<?php //echo SYSTEMNAME; ?></title>
     <!-- General CSS Files -->
     <link rel="stylesheet" href="Assets/css/app.min.css">
 

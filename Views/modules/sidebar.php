@@ -3,7 +3,7 @@
         <div class="sidebar-brand">
             <a href="dashboard">
                 <img alt="image" src="Assets/img/logo.png" class="header-logo" />
-                <span class="logo-name">JapiPOS</span>
+                <span class="logo-name">TiquePOS</span>
             </a>
         </div>
         <ul class="sidebar-menu">
