@@ -173,15 +173,17 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->setX(63);
     $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ' ,') . ' ', 0, 0, 'R');
 
-    // Agrega la imagen del código QR
-    $pdf->Image($filename, 25, 90, 30, 30); // Ajusta las coordenadas y el tamaño según tus necesidades
+// PIE DE PAGINA  
+$pdf->Ln(10); // Aumentamos el salto de línea para dejar más espacio
+$pdf->setX(2);
+$pdf->Cell(76, $textypos + 10, utf8_decode('CANT. ARTICULOS: ' . $cantidad));
+$pdf->Ln(5); // Aumentamos el salto para dar más espacio entre el conteo de artículos y el agradecimiento
+$pdf->setX(2);
+$pdf->Cell(76, $textypos + 25, utf8_decode('¡GRACIAS POR SU COMPRA!'), 0, 0, 'C'); // Esto coloca el mensaje "Gracias por su compra"
 
-    // PIE DE PAGINA  
-    $pdf->Ln(2);
-    $pdf->setX(2);
-    $pdf->Cell(76, $textypos + 10, utf8_decode('CANT. ARTICULOS: ' . $cantidad));
-    $pdf->setX(2);
-    $pdf->Cell(76, $textypos + 25, utf8_decode('¡GRACIAS POR SU COMPRA!'), 0, 0, 'C');
+// Aumentamos otro salto de línea para colocar el QR sin superposición
+$pdf->Ln(17); // Aumentamos el salto de línea para que el QR esté por debajo del mensaje
+$pdf->Image($filename, 25, $pdf->GetY(), 30, 30); // Ajustamos las coordenadas del QR para que esté más abajo
 
     // SALIDA DEL ARCHIVO
     $pdf->Output($reg['tipo_comprobante'] . '_' . $reg['serie_comprobante'] . '_' . $reg['num_comprobante'] . '.pdf', 'i');

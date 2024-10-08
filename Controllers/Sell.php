@@ -19,39 +19,81 @@ $num_transac = isset($_POST["num_transac"]) ? $_POST["num_transac"] : "";
 
 
 switch ($_GET["op"]) {
-    case 'guardaryeditar':
-        require_once "../Models/Person.php";
-        $person = new Person();
+	case 'guardaryeditar':
+		require_once "../Models/Person.php";
+		$person = new Person();
+	
+		// Datos del cliente
+		$tipo_documento = $_POST["tipo_documento"];
+		$num_documento = $_POST["num_documento"];
+		$nombre = $_POST["nombre"]; // Nombre del cliente
+		$direccion = $_POST["direccion"] ?? ''; // Dirección si está disponible
+	
+		// Verificar si el cliente ya está registrado
+		$clienteExistente = $person->mostrarPorDocumento($num_documento);
+	
+		if (!$clienteExistente) {
+			// Si el cliente no existe, lo insertamos en la tabla 'persona'
+			$idcliente = $person->insertar("Cliente", $nombre, $tipo_documento, $num_documento, $direccion, "", "");
+			// echo "Cliente insertado, ID: " . $idcliente; // Depuración
+		} else {
+			// Si el cliente ya existe, obtenemos su id
+			$idcliente = $clienteExistente['idpersona'];
+			// echo "Cliente ya registrado, ID: " . $idcliente; // Depuración
+		}
+	
+		// Verificar que el idcliente sea válido antes de registrar la venta
+		if (!is_numeric($idcliente)) {
+			echo "Error: ID del cliente no es válido. Valor recibido: " . $idcliente;
+			exit;
+		}
+	
+// Calcular Subtotal, Impuesto e Importe Total antes de registrar la venta
+$total_venta = 0;
+$tasa_impuesto = 0.18; // 18% de IGV en Perú
 
-        // Datos del cliente
-        $tipo_documento = $_POST["tipo_documento"];
-        $num_documento = $_POST["num_documento"];
-        $nombre = $_POST["nombre"]; // Nombre del cliente
-        $direccion = $_POST["direccion"] ?? ''; // Dirección si está disponible
+// Calculamos el total sumando los precios de venta multiplicados por la cantidad de cada artículo
+for ($i = 0; $i < count($_POST["idarticulo"]); $i++) {
+    $cantidad = $_POST["cantidad"][$i];
+    $precio_venta = $_POST["precio_venta"][$i];
+    $total_venta += $cantidad * $precio_venta;
+}
 
-        // Verificar si el cliente ya está registrado
-        $clienteExistente = $person->mostrarPorDocumento($num_documento);
+// Calcular el IGV sobre el total
+$igv = $total_venta * $tasa_impuesto;
 
-        if (!$clienteExistente) {
-            // Si el cliente no existe, lo insertamos en la tabla 'persona'
-            $idcliente = $person->insertar("Cliente", $nombre, $tipo_documento, $num_documento, $direccion, "", "");
-            echo "Cliente insertado, ID: " . $idcliente; // Depuración
-        } else {
-            // Si el cliente ya existe, obtenemos su id
-            $idcliente = $clienteExistente['idpersona'];
-            echo "Cliente ya registrado, ID: " . $idcliente; // Depuración
-        }
+// El subtotal es la diferencia entre el total y el IGV
+$subtotal = $total_venta - $igv;
 
-        // Verificar que el idcliente sea válido antes de registrar la venta
-        if (!is_numeric($idcliente)) {
-            echo "Error: ID del cliente no es válido. Valor recibido: " . $idcliente;
-            exit;
-        }
+// Mostramos los valores para verificar
+// echo "Subtotal: S/ " . number_format($subtotal, 2, '.', '') . "<br>";
+// echo "IGV (18%): S/ " . number_format($igv, 2, '.', '') . "<br>";
+// echo "Total: S/ " . number_format($total_venta, 2, '.', '') . "<br>";
 
-        // Registrar la venta
-        $rspta = $sell->insertar($idcliente, $idusuario, $tipo_comprobante, $serie_comprobante, $num_comprobante, $impuesto, $total_venta, $tipo_pago, $num_transac, $_POST["idingreso"], $_POST["idarticulo"], $_POST["cantidad"], $_POST["precio_compra"], $_POST["precio_venta"], $_POST["descuento"]);
-        echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
-        break;
+
+	
+		// Registrar la venta con los cálculos actualizados
+		$rspta = $sell->insertar(
+			$idcliente, 
+			$idusuario, 
+			$tipo_comprobante, 
+			$serie_comprobante, 
+			$num_comprobante, 
+			$impuesto, 
+			$total_venta, 
+			$tipo_pago, 
+			$num_transac, 
+			$_POST["idingreso"], 
+			$_POST["idarticulo"], 
+			$_POST["cantidad"], 
+			$_POST["precio_compra"], 
+			$_POST["precio_venta"], 
+			$_POST["descuento"]
+		);
+	
+		echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
+		break;
+	
 	
 
 	case 'anular':
