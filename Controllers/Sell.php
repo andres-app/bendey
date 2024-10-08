@@ -198,56 +198,65 @@ $subtotal = $total_venta - $igv;
 		require_once "../Models/Company.php";
 		$cnegocio = new Company();
 		$rsptan = $cnegocio->listar();
-		//$regn=$rsptan->fetch_object();
+	
 		if (empty($rsptan)) {
 			$smoneda = 'Simbolo de moneda';
 		} else {
 			$smoneda = $rsptan[0]['simbolo'];
 			$nom_imp = $rsptan[0]['nombre_impuesto'];
 		}
-		;
-		//recibimos el idventa
+	
+		// Recibimos el idventa
 		$id = $_GET['id'];
-
+	
 		$rspta = $sell->listarDetalle($id);
-		$total = 0;
-
+		$total_venta = 0;
+	
 		echo ' <thead style="background-color:#A9D0F5">
-        <th>Opciones</th>
-        <th>Articulo</th>
-        <th>Cantidad</th>
-        <th>Precio Venta</th>
-        <th>Descuento</th>
-        <th>Subtotal</th>
-       </thead>';
+			<th>Opciones</th>
+			<th>Articulo</th>
+			<th>Cantidad</th>
+			<th>Precio Venta</th>
+			<th>Descuento</th>
+			<th>Total</th>
+		   </thead>';
+	
 		foreach ($rspta as $reg) {
+			// Cálculo del total por artículo
+			$total_articulo = $reg['precio_venta'] * $reg['cantidad'] - $reg['descuento'];
+			$total_venta += $total_articulo; // Sumamos el total de cada artículo al total de la venta
+	
 			echo '<tr class="filas">
-			<td></td>
-			<td>' . $reg['nombre'] . '</td>
-			<td>' . $reg['cantidad'] . '</td> 
-			<td>' . $reg['precio_venta'] . '</td>
-			<td>' . $reg['descuento'] . '</td>
-			<td>' . $reg['subtotal'] . '</td></tr>';
-			//$total=$total+($reg['precio_venta']*$reg['cantidad']-$reg['descuento']);
-			$t_venta = $reg['total_venta'];
-			$subtotal = round(($t_venta / 1.18), 1, PHP_ROUND_HALF_UP);
-			$igv = $t_venta - $subtotal;
-			//$imp=$reg['impuesto'];
-			//$most_igv=$t_venta-$total;
+				<td></td>
+				<td>' . $reg['nombre'] . '</td>
+				<td>' . $reg['cantidad'] . '</td>
+				<td>' . number_format($reg['precio_venta'], 2) . '</td>
+				<td>' . number_format($reg['descuento'], 2) . '</td>
+				<td>' . number_format($total_articulo, 2) . '</td>
+			  </tr>';
 		}
+	
+		// Cálculo del IGV y el subtotal
+		$igv = round($total_venta * 0.18, 2); // IGV es el 18% del total de la venta
+		$subtotal = round($total_venta - $igv, 2); // Subtotal es la diferencia entre el total y el IGV
+	
+		// Mostramos el pie de la tabla
 		echo '<tfoot>
-        <th><span>SubTotal</span><br><span id="valor_impuestoc">' . $nom_imp . ' ' . $imp . ' %</span><br><span>TOTAL</span></th>
-         <th></th>
-         <th></th>
-         <th></th>
-         <th></th>
-         <th>
-		 <span class="pull-right" id="total">' . $smoneda . ' ' . number_format((float) $subtotal, 2, '.', '') . '</span><br>
-		 <span class="pull-right" id="most_imp">' . $smoneda . ' ' . number_format((float) $igv, 2, '.', '') . '</span><br>
-		 <span class="pull-right" id="most_total" maxlength="4">' . $smoneda . ' ' . $t_venta . '</span></th>
-       </tfoot>';
+			<th><span>SubTotal</span><br><span id="valor_impuestoc">' . $nom_imp . ' 18%</span><br><span>TOTAL</span></th>
+			<th></th>
+			<th></th>
+			<th></th>
+			<th></th>
+			<th>
+				<span class="pull-right" id="total">' . $smoneda . ' ' . number_format((float) $subtotal, 2, '.', '') . '</span><br>
+				<span class="pull-right" id="most_imp">' . $smoneda . ' ' . number_format((float) $igv, 2, '.', '') . '</span><br>
+				<span class="pull-right" id="most_total" maxlength="4">' . $smoneda . ' ' . number_format((float) $total_venta, 2, '.', '') . '</span>
+			</th>
+		</tfoot>';
+	
 		break;
 
+		
 	case 'listarDetalle_editar':
 		require_once "../Models/Company.php";
 		$cnegocio = new Company();
