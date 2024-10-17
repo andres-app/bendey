@@ -364,24 +364,24 @@ function addCols( $tab )
 
     $colX = $r1;
     $colonnes = $tab;
-    while ( list( $lib, $pos ) = each ($tab) )
+    foreach ($tab as $lib => $pos)
     {
         $this->SetXY( $colX, $y1+2 );
         $this->Cell( $pos, 1, $lib, 0, 0, "C");
         $colX += $pos;
         $this->Line( $colX, $y1, $colX, $y1+$y2);
-    }
+    }    
 }
 
 function addLineFormat( $tab )
 {
     global $format, $colonnes;
     
-    while ( list( $lib, $pos ) = each ($colonnes) )
+    foreach ($colonnes as $lib => $pos)
     {
         if ( isset( $tab["$lib"] ) )
             $format[ $lib ] = $tab["$lib"];
-    }
+    }    
 }
 
 function lineVert( $tab )
@@ -390,14 +390,14 @@ function lineVert( $tab )
 
     reset( $colonnes );
     $maxSize=0;
-    while ( list( $lib, $pos ) = each ($colonnes) )
+    foreach ($colonnes as $lib => $pos)
     {
         $texte = $tab[ $lib ];
-        $longCell  = $pos -2;
+        $longCell  = $pos - 2;
         $size = $this->sizeOfText( $texte, $longCell );
         if ($size > $maxSize)
             $maxSize = $size;
-    }
+    }    
     return $maxSize;
 }
 
@@ -417,19 +417,19 @@ function addLine( $ligne, $tab )
     $maxSize      = $ligne;
 
     reset( $colonnes );
-    while ( list( $lib, $pos ) = each ($colonnes) )
+    foreach ($colonnes as $lib => $pos)
     {
-        $longCell  = $pos -2;
+        $longCell  = $pos - 2;
         $texte     = $tab[ $lib ];
         $length    = $this->GetStringWidth( $texte );
         $tailleTexte = $this->sizeOfText( $texte, $length );
         $formText  = $format[ $lib ];
-        $this->SetXY( $ordonnee, $ligne-1);
+        $this->SetXY( $ordonnee, $ligne - 1);
         $this->MultiCell( $longCell, 4 , $texte, 0, $formText);
-        if ( $maxSize < ($this->GetY()  ) )
-            $maxSize = $this->GetY() ;
+        if ($maxSize < ($this->GetY()))
+            $maxSize = $this->GetY();
         $ordonnee += $pos;
-    }
+    }    
     return ( $maxSize - $ligne );
 }
 

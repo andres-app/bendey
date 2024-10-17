@@ -2,11 +2,10 @@
 // Activamos almacenamiento en el buffer
 ob_start();
 
-// Incluye las clases necesarias
-require_once "../Models/Sell.php";
-require_once "../Models/Company.php";
-include('../Libraries/phpqrcode/qrlib.php');
-include('../Libraries/fpdf182/fpdf.php');
+// Iniciar sesión si no está iniciada
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Verifica si el ID de venta está presente
 if (!isset($_GET['id'])) {
@@ -14,7 +13,18 @@ if (!isset($_GET['id'])) {
     exit();
 }
 
+// Validar que la variable de sesión 'nombre' esté definida
+if (!isset($_SESSION['nombre'])) {
+    $_SESSION['nombre'] = "Usuario desconocido"; // Valor por defecto si no está disponible
+}
+
 $id_venta = $_GET['id'];
+
+// Incluye las clases necesarias
+require_once "../Models/Sell.php";
+require_once "../Models/Company.php";
+include('../Libraries/phpqrcode/qrlib.php');
+include('../Libraries/fpdf182/fpdf.php');
 
 // Obtener datos de la venta y la empresa
 $venta = new Sell();

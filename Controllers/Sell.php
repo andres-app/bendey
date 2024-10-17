@@ -256,7 +256,7 @@ $subtotal = $total_venta - $igv;
 	
 		break;
 
-		
+
 	case 'listarDetalle_editar':
 		require_once "../Models/Company.php";
 		$cnegocio = new Company();
@@ -299,7 +299,7 @@ $subtotal = $total_venta - $igv;
 
 		foreach ($rspta as $reg) {
 
-			$urlt = 'Reports/ticket.php?id=';
+			$urlt = 'Reports/80mm.php?id=';
 			$url = 'Reports/a4.php?id=';
 			$url = 'Reports/58mm.php?id=';
 
@@ -314,7 +314,7 @@ $project_root = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\') . '/';
 $base_url = $protocol . $host . $project_root;
 
 // Ajusta la ruta al PDF para reflejar la estructura correcta de tu servidor
-$pdf_path = 'Reports/58mm.php?id='; // Ruta pública relativa desde el raíz del proyecto
+$pdf_path = 'Reports/a4.php?id='; // Ruta pública relativa desde el raíz del proyecto
 
 $data[] = array(
     "0" => '<a target="_blank" href="' . $base_url . $pdf_path . $reg['idventa'] . '"> 
