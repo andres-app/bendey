@@ -22,16 +22,16 @@ switch ($_GET["op"]) {
 	case 'guardaryeditar':
 		require_once "../Models/Person.php";
 		$person = new Person();
-	
+
 		// Datos del cliente
 		$tipo_documento = $_POST["tipo_documento"];
 		$num_documento = $_POST["num_documento"];
 		$nombre = $_POST["nombre"]; // Nombre del cliente
 		$direccion = $_POST["direccion"] ?? ''; // Dirección si está disponible
-	
+
 		// Verificar si el cliente ya está registrado
 		$clienteExistente = $person->mostrarPorDocumento($num_documento);
-	
+
 		if (!$clienteExistente) {
 			// Si el cliente no existe, lo insertamos en la tabla 'persona'
 			$idcliente = $person->insertar("Cliente", $nombre, $tipo_documento, $num_documento, $direccion, "", "");
@@ -41,60 +41,65 @@ switch ($_GET["op"]) {
 			$idcliente = $clienteExistente['idpersona'];
 			// echo "Cliente ya registrado, ID: " . $idcliente; // Depuración
 		}
-	
+
 		// Verificar que el idcliente sea válido antes de registrar la venta
 		if (!is_numeric($idcliente)) {
 			echo "Error: ID del cliente no es válido. Valor recibido: " . $idcliente;
 			exit;
 		}
-	
-// Calcular Subtotal, Impuesto e Importe Total antes de registrar la venta
-$total_venta = 0;
-$tasa_impuesto = 0.18; // 18% de IGV en Perú
 
-// Calculamos el total sumando los precios de venta multiplicados por la cantidad de cada artículo
-for ($i = 0; $i < count($_POST["idarticulo"]); $i++) {
-    $cantidad = $_POST["cantidad"][$i];
-    $precio_venta = $_POST["precio_venta"][$i];
-    $total_venta += $cantidad * $precio_venta;
-}
+		// Calcular Subtotal, Impuesto e Importe Total antes de registrar la venta
+		$total_venta = 0;
+		$tasa_impuesto = 0.18; // 18% de IGV en Perú
 
-// Calcular el IGV sobre el total
-$igv = $total_venta * $tasa_impuesto;
+		// Calculamos el total sumando los precios de venta multiplicados por la cantidad de cada artículo
+		for ($i = 0; $i < count($_POST["idarticulo"]); $i++) {
+			$cantidad = $_POST["cantidad"][$i];
+			$precio_venta = $_POST["precio_venta"][$i];
+			$total_venta += $cantidad * $precio_venta;
+		}
 
-// El subtotal es la diferencia entre el total y el IGV
-$subtotal = $total_venta - $igv;
+		// Calcular el IGV sobre el total
+		$igv = $total_venta * $tasa_impuesto;
 
-// Mostramos los valores para verificar
+		// El subtotal es la diferencia entre el total y el IGV
+		$subtotal = $total_venta - $igv;
+
+		// Mostramos los valores para verificar
 // echo "Subtotal: S/ " . number_format($subtotal, 2, '.', '') . "<br>";
 // echo "IGV (18%): S/ " . number_format($igv, 2, '.', '') . "<br>";
 // echo "Total: S/ " . number_format($total_venta, 2, '.', '') . "<br>";
 
 
-	
+
+		// Registrar la venta con los cálculos actualizados
+// Asegurar que impuesto tenga un valor numérico o NULL
+		$impuesto = isset($impuesto) && $impuesto !== '' ? (float) $impuesto : null;
+
 		// Registrar la venta con los cálculos actualizados
 		$rspta = $sell->insertar(
-			$idcliente, 
-			$idusuario, 
-			$tipo_comprobante, 
-			$serie_comprobante, 
-			$num_comprobante, 
-			$impuesto, 
-			$total_venta, 
-			$tipo_pago, 
-			$num_transac, 
-			$_POST["idingreso"], 
-			$_POST["idarticulo"], 
-			$_POST["cantidad"], 
-			$_POST["precio_compra"], 
-			$_POST["precio_venta"], 
+			$idcliente,
+			$idusuario,
+			$tipo_comprobante,
+			$serie_comprobante,
+			$num_comprobante,
+			$impuesto, // Ahora impuesto es NULL si está vacío
+			$total_venta,
+			$tipo_pago,
+			$num_transac,
+			$_POST["idingreso"],
+			$_POST["idarticulo"],
+			$_POST["cantidad"],
+			$_POST["precio_compra"],
+			$_POST["precio_venta"],
 			$_POST["descuento"]
 		);
-	
+
 		echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
 		break;
-	
-	
+
+
+
 
 	case 'anular':
 		$rspta = $sell->anular($idventa);
@@ -198,20 +203,20 @@ $subtotal = $total_venta - $igv;
 		require_once "../Models/Company.php";
 		$cnegocio = new Company();
 		$rsptan = $cnegocio->listar();
-	
+
 		if (empty($rsptan)) {
 			$smoneda = 'Simbolo de moneda';
 		} else {
 			$smoneda = $rsptan[0]['simbolo'];
 			$nom_imp = $rsptan[0]['nombre_impuesto'];
 		}
-	
+
 		// Recibimos el idventa
 		$id = $_GET['id'];
-	
+
 		$rspta = $sell->listarDetalle($id);
 		$total_venta = 0;
-	
+
 		echo ' <thead style="background-color:#A9D0F5">
 			<th>Opciones</th>
 			<th>Articulo</th>
@@ -220,12 +225,12 @@ $subtotal = $total_venta - $igv;
 			<th>Descuento</th>
 			<th>Total</th>
 		   </thead>';
-	
+
 		foreach ($rspta as $reg) {
 			// Cálculo del total por artículo
 			$total_articulo = $reg['precio_venta'] * $reg['cantidad'] - $reg['descuento'];
 			$total_venta += $total_articulo; // Sumamos el total de cada artículo al total de la venta
-	
+
 			echo '<tr class="filas">
 				<td></td>
 				<td>' . $reg['nombre'] . '</td>
@@ -235,11 +240,11 @@ $subtotal = $total_venta - $igv;
 				<td>' . number_format($total_articulo, 2) . '</td>
 			  </tr>';
 		}
-	
+
 		// Cálculo del IGV y el subtotal
 		$igv = round($total_venta * 0.18, 2); // IGV es el 18% del total de la venta
 		$subtotal = round($total_venta - $igv, 2); // Subtotal es la diferencia entre el total y el IGV
-	
+
 		// Mostramos el pie de la tabla
 		echo '<tfoot>
 			<th><span>SubTotal</span><br><span id="valor_impuestoc">' . $nom_imp . ' 18%</span><br><span>TOTAL</span></th>
@@ -253,7 +258,7 @@ $subtotal = $total_venta - $igv;
 				<span class="pull-right" id="most_total" maxlength="4">' . $smoneda . ' ' . number_format((float) $total_venta, 2, '.', '') . '</span>
 			</th>
 		</tfoot>';
-	
+
 		break;
 
 
@@ -303,61 +308,61 @@ $subtotal = $total_venta - $igv;
 			$url = 'Reports/a4.php?id=';
 			$url = 'Reports/58mm.php?id=';
 
-// Obtener la URL base dinámica
-$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-$host = $_SERVER['HTTP_HOST'];
+			// Obtener la URL base dinámica
+			$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+			$host = $_SERVER['HTTP_HOST'];
 
-// Obtener el directorio base del proyecto
-$project_root = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\') . '/';
+			// Obtener el directorio base del proyecto
+			$project_root = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\') . '/';
 
-// Construir la URL base completa sin Controllers
-$base_url = $protocol . $host . $project_root;
+			// Construir la URL base completa sin Controllers
+			$base_url = $protocol . $host . $project_root;
 
-// Ajusta la ruta al PDF para reflejar la estructura correcta de tu servidor
-$pdf_path = 'Reports/a4.php?id='; // Ruta pública relativa desde el raíz del proyecto
+			// Ajusta la ruta al PDF para reflejar la estructura correcta de tu servidor
+			$pdf_path = 'Reports/a4.php?id='; // Ruta pública relativa desde el raíz del proyecto
 
-$data[] = array(
-    "0" => '<a target="_blank" href="' . $base_url . $pdf_path . $reg['idventa'] . '"> 
+			$data[] = array(
+				"0" => '<a target="_blank" href="' . $base_url . $pdf_path . $reg['idventa'] . '"> 
                 <button class="btn btn-primary btn-sm">
                     <i class="far fa-file-pdf"></i>
                 </button>
             </a>' . ' ' .
-            '<a target="_blank" href="' . $urlt . $reg['idventa'] . '"> 
+					'<a target="_blank" href="' . $urlt . $reg['idventa'] . '"> 
                 <button class="btn btn-success btn-sm">
                     <i class="fas fa-print"></i>
                 </button>
             </a>' . ' ' .
-            (($reg['estado'] == 'Aceptado') ?
-                '<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
+					(($reg['estado'] == 'Aceptado') ?
+						'<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
                     <i class="fas fa-eye"></i>
                 </button>' . ' ' .
-                '<a target="_blank" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . $pdf_path . $reg['idventa']) . '"> 
+						'<a target="_blank" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . $pdf_path . $reg['idventa']) . '"> 
                     <button class="btn btn-success btn-sm">
                         <i class="fab fa-whatsapp"></i>
                     </button>
                 </a>' . ' ' .
-                '<a href="editsale?op=new&id=' . $reg['idventa'] . '"> 
+						'<a href="editsale?op=new&id=' . $reg['idventa'] . '"> 
                     <button class="btn btn-warning btn-sm">
                         <i class="fas fa-pen"></i>
                     </button>
                 </a>' . ' ' .
-                '<button class="btn btn-danger btn-sm" onclick="anular(' . $reg['idventa'] . ')">
+						'<button class="btn btn-danger btn-sm" onclick="anular(' . $reg['idventa'] . ')">
                     <i class="fas fa-times"></i>
                 </button>' :
-                '<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
+						'<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
                     <i class="fas fa-eye"></i>
                 </button>'
-            ),
-    "1" => $reg['fecha'],
-    "2" => $reg['cliente'],
-    "3" => $reg['usuario'],
-    "4" => $reg['tipo_comprobante'],
-    "5" => $reg['serie_comprobante'] . '-' . $reg['num_comprobante'],
-    "6" => $reg['total_venta'],
-    "7" => ($reg['estado'] == 'Aceptado') ? 
-           '<div class="badge badge-success">Aceptado</div>' : 
-           '<div class="badge badge-danger">Anulado</div>'
-);
+					),
+				"1" => $reg['fecha'],
+				"2" => $reg['cliente'],
+				"3" => $reg['usuario'],
+				"4" => $reg['tipo_comprobante'],
+				"5" => $reg['serie_comprobante'] . '-' . $reg['num_comprobante'],
+				"6" => $reg['total_venta'],
+				"7" => ($reg['estado'] == 'Aceptado') ?
+					'<div class="badge badge-success">Aceptado</div>' :
+					'<div class="badge badge-danger">Anulado</div>'
+			);
 
 
 
