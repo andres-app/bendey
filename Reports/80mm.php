@@ -89,10 +89,10 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->Cell(76, $textypos, utf8_decode("Fecha: " . $reg['fecha']));
     $pdf->setY(25);
     $pdf->setX(2);
-    $pdf->Cell(76, $textypos, utf8_decode("Cliente: " . $reg['cliente']));
+    $pdf->Cell(76, $textypos, utf8_decode($reg['tipo_documento'] . ": " . $reg['num_documento']));    
     $pdf->setY(28);
     $pdf->setX(2);
-    $pdf->Cell(76, $textypos, utf8_decode("Atendió: " . $_SESSION['nombre']));
+    $pdf->Cell(76, $textypos, utf8_decode("Cliente: " . $reg['cliente']));
     $pdf->Ln(5);
     $pdf->setX(2);
     $pdf->Cell(76, 0, '', 'T');
@@ -174,16 +174,26 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ' ,') . ' ', 0, 0, 'R');
 
 // PIE DE PAGINA  
-$pdf->Ln(10); // Aumentamos el salto de línea para dejar más espacio
-$pdf->setX(2);
-$pdf->Cell(76, $textypos + 10, utf8_decode('CANT. ARTICULOS: ' . $cantidad));
-$pdf->Ln(5); // Aumentamos el salto para dar más espacio entre el conteo de artículos y el agradecimiento
-$pdf->setX(2);
-$pdf->Cell(76, $textypos + 25, utf8_decode('¡GRACIAS POR SU COMPRA!'), 0, 0, 'C'); // Esto coloca el mensaje "Gracias por su compra"
+$pdf->Ln(10); // Espacio antes del resumen final
 
-// Aumentamos otro salto de línea para colocar el QR sin superposición
-$pdf->Ln(17); // Aumentamos el salto de línea para que el QR esté por debajo del mensaje
-$pdf->Image($filename, 25, $pdf->GetY(), 30, 30); // Ajustamos las coordenadas del QR para que esté más abajo
+// CANTIDAD DE ARTICULOS
+$pdf->setX(2);
+$pdf->Cell(76, $textypos, utf8_decode('CANT. ARTICULOS: ' . $cantidad));
+
+// ATENDIDO POR
+$pdf->Ln(3);
+$pdf->setX(2);
+$pdf->Cell(76, $textypos, utf8_decode('Atendió: ' . $_SESSION['nombre']));
+
+// MENSAJE FINAL
+$pdf->Ln(5);
+$pdf->setX(2);
+$pdf->Cell(76, $textypos + 25, utf8_decode('¡GRACIAS POR SU COMPRA!'), 0, 0, 'C');
+
+// CÓDIGO QR
+$pdf->Ln(17);
+$pdf->Image($filename, 25, $pdf->GetY(), 30, 30);
+
 
     // SALIDA DEL ARCHIVO
     $pdf->Output($reg['tipo_comprobante'] . '_' . $reg['serie_comprobante'] . '_' . $reg['num_comprobante'] . '.pdf', 'i');
