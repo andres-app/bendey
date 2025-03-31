@@ -73,7 +73,7 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->SetFont('Helvetica', '', 10);
     $pdf->setY(7);
     $pdf->setX(2);
-    $pdf->Cell(76, $textypos, utf8_decode($ndocumento . ": " . $documento), 0, 0, 'C');
+    $pdf->Cell(76, $textypos, utf8_decode($ndocumento . "RUC:" . $documento), 0, 0, 'C');
     $pdf->setY(11);
     $pdf->setX(2);
     $pdf->Cell(76, $textypos, utf8_decode("Direc: " . $direccion), 0, 0, 'C');
@@ -86,10 +86,11 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->setY(22);
     $pdf->setX(2);
     $pdf->SetFont('Helvetica', '', 8);
-    $pdf->Cell(76, $textypos, utf8_decode("Fecha: " . $reg['fecha']));
+    $fecha_formateada = date("d/m/Y", strtotime($reg['fecha']));
+    $pdf->Cell(76, $textypos, utf8_decode("Fecha: " . $fecha_formateada));
     $pdf->setY(25);
     $pdf->setX(2);
-    $pdf->Cell(76, $textypos, utf8_decode($reg['tipo_documento'] . ": " . $reg['num_documento']));    
+    $pdf->Cell(76, $textypos, utf8_decode($reg['tipo_documento'] . ": " . $reg['num_documento']));
     $pdf->setY(28);
     $pdf->setX(2);
     $pdf->Cell(76, $textypos, utf8_decode("Cliente: " . $reg['cliente']));
@@ -98,9 +99,12 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->Cell(76, 0, '', 'T');
     $pdf->setY(34);
     $pdf->setX(2);
+    $pdf->SetFont('Helvetica', 'B', 8);
+    $pdf->setX(2);
     $pdf->Cell(76, $textypos, utf8_decode(strtoupper($reg['tipo_comprobante']) . " N°: " . $reg['serie_comprobante'] . " - " . $reg['num_comprobante']));
 
-    $pdf->Ln(5);
+
+    $pdf->Ln(1);
     // SI ESTA ANULADO LA VENTA
     $text = $reg['estado'];
     if ($text == 'Anulado') {
@@ -173,26 +177,26 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->setX(63);
     $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($total_venta, 2, '.', ' ,') . ' ', 0, 0, 'R');
 
-// PIE DE PAGINA  
-$pdf->Ln(10); // Espacio antes del resumen final
+    // PIE DE PAGINA  
+    $pdf->Ln(10); // Espacio antes del resumen final
 
-// CANTIDAD DE ARTICULOS
-$pdf->setX(2);
-$pdf->Cell(76, $textypos, utf8_decode('CANT. ARTICULOS: ' . $cantidad));
+    // CANTIDAD DE ARTICULOS
+    $pdf->setX(2);
+    $pdf->Cell(76, $textypos, utf8_decode('CANT. ARTICULOS: ' . $cantidad));
 
-// ATENDIDO POR
-$pdf->Ln(3);
-$pdf->setX(2);
-$pdf->Cell(76, $textypos, utf8_decode('Atendió: ' . $_SESSION['nombre']));
+    // ATENDIDO POR
+    $pdf->Ln(3);
+    $pdf->setX(2);
+    $pdf->Cell(76, $textypos, utf8_decode('Atendió: ' . $_SESSION['nombre']));
 
-// MENSAJE FINAL
-$pdf->Ln(5);
-$pdf->setX(2);
-$pdf->Cell(76, $textypos + 25, utf8_decode('¡GRACIAS POR SU COMPRA!'), 0, 0, 'C');
+    // MENSAJE FINAL
+    $pdf->Ln(5);
+    $pdf->setX(2);
+    $pdf->Cell(76, $textypos + 25, utf8_decode('¡GRACIAS POR SU COMPRA!'), 0, 0, 'C');
 
-// CÓDIGO QR
-$pdf->Ln(17);
-$pdf->Image($filename, 25, $pdf->GetY(), 30, 30);
+    // CÓDIGO QR
+    $pdf->Ln(17);
+    $pdf->Image($filename, 25, $pdf->GetY(), 30, 30);
 
 
     // SALIDA DEL ARCHIVO
