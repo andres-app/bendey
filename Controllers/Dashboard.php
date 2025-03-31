@@ -1,4 +1,4 @@
-<?php 
+<?php
 require_once "../Models/Consult.php";
 
 $consult = new Consult();
@@ -7,16 +7,16 @@ switch ($_GET["op"]) {
     case 'compras10dias':
         //COMPRAS DE LOS ULTIMOS 10 DIAS
         $compras10 = $consult->comprasultimos_10dias();
-        $fechas=Array();
-        $totales=Array();
+        $fechas = array();
+        $totales = array();
 
-        $meses = array("Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre");
+        $meses = array("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre");
 
         foreach ($compras10 as $regfechac) {
-            array_push($fechas,$meses[date("n", strtotime($regfechac["fecha"]))-1]);
-            array_push($totales,$regfechac['total']);
+            array_push($fechas, $meses[date("n", strtotime($regfechac["fecha"])) - 1]);
+            array_push($totales, $regfechac['total']);
         }
-        $respuesta=[
+        $respuesta = [
             "fechas" => $fechas,
             "totales" => $totales,
         ];
@@ -27,16 +27,16 @@ switch ($_GET["op"]) {
     case 'ventas12meses':
         //COMPRAS DE LOS ULTIMOS 10 DIAS
         $compras10 = $consult->ventasultimos_12meses();
-        $fechas=Array();
-        $totales=Array();
+        $fechas = array();
+        $totales = array();
 
-        $meses = array("Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre");
+        $meses = array("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre");
 
         foreach ($compras10 as $regfechac) {
-            array_push($fechas,$meses[date("n", strtotime($regfechac["fecha"]))-1]);
-            array_push($totales,$regfechac['total']);
+            array_push($fechas, $meses[date("n", strtotime($regfechac["fecha"])) - 1]);
+            array_push($totales, $regfechac['total']);
         }
-        $respuesta=[
+        $respuesta = [
             "fechas" => $fechas,
             "totales" => $totales,
         ];
@@ -46,22 +46,22 @@ switch ($_GET["op"]) {
 
     case 'cuadros1':
         $rsptac = $consult->totalcomprahoy();
-        $regc=$rsptac[0];
-        $totalc=$regc['total_compra'];
+        $regc = $rsptac[0];
+        $totalc = $regc['total_compra'];
 
         $rsptav = $consult->totalventahoy();
-        $regv=$rsptav[0];
-        $totalv=$regv['total_venta'];
+        $regv = $rsptav[0];
+        $totalv = $regv['total_venta'];
 
         $rsptav = $consult->cantidadclientes();
-        $regv=$rsptav[0];
-        $totalclientes=$regv['totalc'];
+        $regv = $rsptav[0];
+        $totalclientes = $regv['totalc'];
 
         $rsptav = $consult->cantidadproveedores();
-        $regv=$rsptav[0];
-        $totalproveedores=$regv['totalp'];
+        $regv = $rsptav[0];
+        $totalproveedores = $regv['totalp'];
 
-        $data=[
+        $data = [
             "totalcomprahoy" => $totalc,
             "totalventahoy" => $totalv,
             "cantidadclientes" => $totalclientes,
@@ -72,19 +72,19 @@ switch ($_GET["op"]) {
 
     case 'cuadros2':
         $rsptav = $consult->cantidadarticulos();
-        $regv=$rsptav[0];
-        $totalarticulos=$regv['totalar'];
+        $regv = $rsptav[0];
+        $totalarticulos = $regv['totalar'];
 
         $rsptav = $consult->totalstock();
-        $regv=$rsptav[0];
-        $totalstock=$regv['totalstock'];
-        $cap_almacen=3000;
+        $regv = $rsptav[0];
+        $totalstock = $regv['totalstock'];
+        $cap_almacen = 3000;
 
         $rsptav = $consult->cantidadcategorias();
-        $regv=$rsptav[0];
-        $totalcategorias=$regv['totalca'];
+        $regv = $rsptav[0];
+        $totalcategorias = $regv['totalca'];
 
-        $data=[
+        $data = [
             "cantidadarticulos" => $totalarticulos,
             "totalstock" => $totalstock,
             "cantidadcategorias" => $totalcategorias,
@@ -98,4 +98,14 @@ switch ($_GET["op"]) {
         echo json_encode($cateogriasMasVendidas);
 
         break;
+
+    case 'stockCategoria':
+        require_once "../Models/Category.php";
+        $categoria = new Category();
+
+        $rspta = $categoria->stockPorCategoria();
+
+        echo json_encode($rspta);
+        break;
+
 }

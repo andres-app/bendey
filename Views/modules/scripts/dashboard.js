@@ -227,6 +227,35 @@ function cat_vendidas() {
   );
 }
 
+$.get("Controllers/Dashboard.php?op=stockCategoria", function(data) {
+  let categorias = data.map(item => item.categoria);
+  let stock = data.map(item => parseInt(item.stock_total));
+
+  Highcharts.chart('stock_por_categorias', {
+      chart: {
+          type: 'column'
+      },
+      title: {
+          text: 'Stock por Categoría'
+      },
+      xAxis: {
+          categories: categorias,
+          crosshair: true
+      },
+      yAxis: {
+          min: 0,
+          title: {
+              text: 'Unidades en stock'
+          }
+      },
+      series: [{
+          name: 'Stock',
+          data: stock
+      }]
+  });
+}, "json");
+
+
 // Ejemplo de configuración de la gráfica de stock por categorías
 document.addEventListener('DOMContentLoaded', function () {
   Highcharts.chart('stock_por_categorias', {
