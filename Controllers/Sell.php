@@ -342,9 +342,6 @@ switch ($_GET["op"]) {
                     </button>
                 </a>' . ' ' .
 						'<a href="editsale?op=new&id=' . $reg['idventa'] . '"> 
-                    <button class="btn btn-warning btn-sm">
-                        <i class="fas fa-pen"></i>
-                    </button>
                 </a>' . ' ' .
 						'<button class="btn btn-danger btn-sm" onclick="anular(' . $reg['idventa'] . ')">
                     <i class="fas fa-times"></i>
