@@ -13,13 +13,13 @@ if (ENVIRONMENT == 'development') {
     define("HOST", 'localhost');
     define("DB_USER", 'root');
     define("DB_PASS", '');
-    define("DB_NAME", 'bendey');
+    define("DB_NAME", 'japipos');
     define("API_KEY", 'your_development_api_key');
 } else {
     define("HOST", 'localhost');
-    define("DB_USER", 'u274409976_japipos');
-    define("DB_PASS", 'Redes2804751$$$');
-    define("DB_NAME", 'u274409976_japipos');
+    define("DB_USER", 'root');
+    define("DB_PASS", '');
+    define("DB_NAME", 'japipos');
     define("API_KEY", 'your_production_api_key');
 }
 

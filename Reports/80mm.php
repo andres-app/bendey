@@ -54,7 +54,7 @@ if (!isset($_SESSION['nombre'])) {
     include('../Libraries/phpqrcode/qrlib.php');
 
     // URL o texto que quieres convertir en un código QR
-    $url = 'https://japipos.appsauri.com/Reports/' . $reg['num_comprobante'];
+    $url = 'https://localhost:8080/bendey/Reports/' . $reg['num_comprobante'];
 
     // Nombre del archivo donde se guardará el código QR
     $filename = '../Assets/qr_' . $reg['num_comprobante'] . '.png';
