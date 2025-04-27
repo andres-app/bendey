@@ -11,18 +11,28 @@ $nombreArchivo = "20123456789-01-F001-0000002";
 $rutaXmlFirmado = __DIR__ . "/xml/{$nombreArchivo}.xml";
 $rutaZip = __DIR__ . "/zip/{$nombreArchivo}.zip";
 
-// Verifica que el XML firmado exista
+// Verificar que el XML firmado exista
 if (!file_exists($rutaXmlFirmado)) {
-    die("❌ El archivo XML firmado no existe: $rutaXmlFirmado");
+    die("❌ El archivo XML firmado no existe: $rutaXmlFirmado\n");
+}
+
+// Eliminar ZIP anterior si existe
+if (file_exists($rutaZip)) {
+    unlink($rutaZip);
 }
 
 // Crear ZIP con el XML firmado
 $zip = new ZipArchive();
 if ($zip->open($rutaZip, ZipArchive::CREATE) === true) {
-    $zip->addFile($rutaXmlFirmado, "{$nombreArchivo}.xml");
+    $zip->addFile($rutaXmlFirmado, "{$nombreArchivo}.xml"); // nombre dentro del ZIP
     $zip->close();
 } else {
-    exit("❌ No se pudo crear el archivo ZIP");
+    exit("❌ No se pudo crear el archivo ZIP\n");
+}
+
+// Verificar que el ZIP contenga datos
+if (!file_exists($rutaZip) || filesize($rutaZip) === 0) {
+    die("❌ El archivo ZIP está vacío o no contiene comprobantes válidos.\n");
 }
 
 // Codificar el ZIP en base64
@@ -63,6 +73,5 @@ try {
     echo "❌ Error al enviar: " . $e->faultstring . "\n";
     echo "\nRequest:\n" . $cliente->__getLastRequest();
     echo "\nResponse:\n" . $cliente->__getLastResponse();
-    
 }
 ?>

@@ -8,6 +8,7 @@ if(isset($_GET["url"])){
   ||$_GET["url"]=="product"
   ||$_GET["url"]=="supplier"
   ||$_GET["url"]=="customer"
+  ||$_GET["url"]=="sunat"
   ||$_GET["url"]=="newsale"
   ||$_GET["url"]=="listsales"
   ||$_GET["url"]=="generalsetting"

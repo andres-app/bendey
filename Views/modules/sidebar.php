@@ -42,6 +42,7 @@
                         <li><a class="nav-link" href="newsale">Nueva venta</a></li>
                         <li><a class="nav-link" href="listsales">Ventas</a></li>
                         <li><a class="nav-link" href="customer">Clientes</a></li>
+                        <li><a class="nav-link" href="sunat">SUNAT</a></li>
                     </ul>
                 </li>
             <?php } ?>

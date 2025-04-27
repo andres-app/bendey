@@ -86,7 +86,7 @@ if (!isset($_SESSION['nombre'])) {
                                 </div>
                                 <a href="customer">
                                     <div class="l-bg-orange">
-                                        Clientes
+                                        Cliente
                                         <i class="fas fa-arrow-circle-right"></i>
                                     </div>
                                 </a>
