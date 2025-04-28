@@ -7,9 +7,6 @@ if (!$idventa) {
     die("❌ ID de venta no proporcionado.");
 }
 
-// ahora puedes usar $conn->prepare sin error
-
-
 // 1. Obtener venta y cliente
 $stmt = $conn->prepare("SELECT v.*, p.nombre AS cliente_nombre, p.num_documento, p.direccion
                         FROM venta v 
@@ -30,13 +27,13 @@ $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // 3. Preparar datos para XML
 $emisor = [
-    "ruc" => "20123456789",
-    "razonSocial" => "Mi empresa",
-    "direccion" => "Av. Tomas Valle 124",
+    "ruc" => "20609068800",
+    "razonSocial" => "Mi Empresa SAC",
+    "direccion" => "Av. Principal 123, Lima",
 ];
 
 $cliente = [
-    "tipoDoc" => "1",
+    "tipoDoc" => "1", // 1 = DNI, 6 = RUC
     "numDoc" => $venta['num_documento'],
     "nombre" => $venta['cliente_nombre']
 ];
@@ -52,7 +49,7 @@ foreach ($detalles as $d) {
     $items[] = [
         "descripcion" => $d['articulo_nombre'],
         "cantidad" => $d['cantidad'],
-        "valorUnitario" => number_format($d['precio_venta'] / 1.18, 2, '.', ''),
+        "valorUnitario" => number_format(($d['precio_venta'] / 1.18), 2, '.', ''),
         "precioVenta" => number_format($d['precio_venta'], 2, '.', '')
     ];
 }
@@ -63,6 +60,8 @@ $total = $subtotal + $igv;
 $xml = new DOMDocument('1.0', 'UTF-8');
 $xml->formatOutput = true;
 
+
+
 $Invoice = $xml->createElementNS("urn:oasis:names:specification:ubl:schema:xsd:Invoice-2", "Invoice");
 $Invoice->setAttribute("xmlns:cac", "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2");
 $Invoice->setAttribute("xmlns:cbc", "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2");
@@ -70,11 +69,16 @@ $xml->appendChild($Invoice);
 
 $cbc_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
 $cac_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+
 function createElementNS($doc, $ns, $name, $value = null) {
     $el = $doc->createElementNS($ns, $name);
     if ($value !== null) $el->nodeValue = $value;
     return $el;
 }
+
+// NUEVAS ETIQUETAS UBL
+$Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:UBLVersionID", "2.1"));
+$Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:CustomizationID", "2.0"));
 
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:ID", "$serie-$numero"));
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:IssueDate", $fecha));
@@ -124,15 +128,11 @@ foreach ($items as $i => $item) {
 }
 
 // Guardar XML
-$nombreXML = "20123456789-01-$serie-$numero.xml";
-// Asegura que la carpeta exista
+$nombreXML = "20609068800-01-$serie-$numero.xml";
 $xmlDir = __DIR__ . '/xml/';
 if (!is_dir($xmlDir)) {
     mkdir($xmlDir, 0777, true);
 }
-
-// Guarda el XML en la ruta correcta
 file_put_contents($xmlDir . $nombreXML, $xml->saveXML());
 
 echo "✅ XML generado: $nombreXML";
-?>
