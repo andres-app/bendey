@@ -56,7 +56,7 @@ $Invoice->appendChild(createElementNS($doc, $cbc_ns, "cbc:DocumentCurrencyCode",
 
 $supplier = $doc->createElementNS($cac_ns, "cac:AccountingSupplierParty");
 $party = $doc->createElementNS($cac_ns, "cac:Party");
-$party->appendChild(createElementNS($doc, $cbc_ns, "cbc:RegistrationName", "Mi Empresa SAC"));
+$party->appendChild(createElementNS($doc, $cbc_ns, "cbc:RegistrationName", "FELICITY GIRLS E.I.R.L."));
 $party->appendChild(createElementNS($doc, $cbc_ns, "cbc:CompanyID", $ruc));
 $supplier->appendChild($party);
 $Invoice->appendChild($supplier);

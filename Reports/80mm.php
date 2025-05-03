@@ -73,7 +73,7 @@ if (!isset($_SESSION['nombre'])) {
     $pdf->SetFont('Helvetica', '', 10);
     $pdf->setY(7);
     $pdf->setX(2);
-    $pdf->Cell(76, $textypos, utf8_decode($ndocumento . "RUC:" . $documento), 0, 0, 'C');
+    $pdf->Cell(76, $textypos, utf8_decode($ndocumento . ":" . $documento), 0, 0, 'C');
     $pdf->setY(11);
     $pdf->setX(2);
     $pdf->Cell(76, $textypos, utf8_decode("Direc: " . $direccion), 0, 0, 'C');
