@@ -16,8 +16,8 @@ $usuarioSol = "OODICERA";
 $claveSol = "itylvelon";
 
 $serie = "F001";
-$numero = "00000025";
-$idventa = 25; // Aquí pon el ID correcto de la venta a enviar
+$numero = "00000026";
+$idventa = 114; // Aquí pon el ID correcto de la venta a enviar
 
 $xmlDir = __DIR__ . '/xml/';
 $zipDir = __DIR__ . '/zip/';

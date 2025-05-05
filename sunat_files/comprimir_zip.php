@@ -2,10 +2,10 @@
 // comprimir_zip.php
 
 // Nombre del XML ya firmado
-$xmlFirmado = '20609068800-01-F001-00000025.xml';
+$xmlFirmado = '20609068800-01-F001-00000026.xml';
 
 // Nombre del ZIP (sin el -SIGNED)
-$zipNombre = '20609068800-01-F001-00000025.zip';
+$zipNombre = '20609068800-01-F001-00000026.zip';
 
 // Rutas (ajustar si tu carpeta es diferente)
 $rutaXml = __DIR__ . '/xml/' . $xmlFirmado; // Ajusta si tu XML está en otra carpeta

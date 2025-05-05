@@ -5,7 +5,7 @@ $usuarioSol = "OODICERA"; // Tu usuario SOL
 $claveSol = "itylvelon"; // Tu clave SOL
 
 // Archivo ZIP
-$nombreZip = "$ruc-01-F001-00000025.zip";
+$nombreZip = "20609068800-01-F001-00000026.zip";
 $rutaZip = __DIR__ . "/zip/" . $nombreZip;
 
 if (!file_exists($rutaZip)) {

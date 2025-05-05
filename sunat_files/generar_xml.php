@@ -28,7 +28,7 @@ $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // 3. Preparar datos para XML
 $emisor = [
     "ruc" => "20609068800",
-    "razonSocial" => "Mi Empresa SAC",
+    "razonSocial" => "FELICITY GIRLS E.I.R.L.",
     "direccion" => "Av. Principal 123, Lima",
 ];
 
@@ -60,12 +60,11 @@ $total = $subtotal + $igv;
 $xml = new DOMDocument('1.0', 'UTF-8');
 $xml->formatOutput = true;
 
-
-
 $Invoice = $xml->createElementNS("urn:oasis:names:specification:ubl:schema:xsd:Invoice-2", "Invoice");
 $Invoice->setAttribute("xmlns:cac", "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2");
 $Invoice->setAttribute("xmlns:cbc", "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2");
 $xml->appendChild($Invoice);
+$Invoice->setAttribute("ID", "$serie-$numero"); // 👈 ESTE ES CLAVE
 
 $cbc_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
 $cac_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
@@ -79,7 +78,6 @@ function createElementNS($doc, $ns, $name, $value = null) {
 // NUEVAS ETIQUETAS UBL
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:UBLVersionID", "2.1"));
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:CustomizationID", "2.0"));
-
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:ID", "$serie-$numero"));
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:IssueDate", $fecha));
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:InvoiceTypeCode", "01"));

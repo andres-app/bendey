@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" ID="F001-00000026" Id="pfxff7b9d8e-1fcc-5693-acea-c1e2040021e2">
+  <cbc:UBLVersionID xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">2.1</cbc:UBLVersionID>
+  <cbc:CustomizationID xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">2.0</cbc:CustomizationID>
+  <cbc:ID xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">F001-00000026</cbc:ID>
+  <cbc:IssueDate xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">2025-05-02</cbc:IssueDate>
+  <cbc:InvoiceTypeCode xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">01</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">PEN</cbc:DocumentCurrencyCode>
+  <cac:AccountingSupplierParty xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+    <cac:Party xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+      <cbc:RegistrationName xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">FELICITY GIRLS E.I.R.L.</cbc:RegistrationName>
+      <cbc:CompanyID xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">20609068800</cbc:CompanyID>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+    <cac:Party xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+      <cbc:RegistrationName xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">CENTRO SUIZO RELOJERO SAN ISIDRO S.A.C.</cbc:RegistrationName>
+      <cbc:CompanyID xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">20102020511</cbc:CompanyID>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:LegalMonetaryTotal xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+    <cbc:PayableAmount xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" currencyID="PEN">23.60</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+    <cbc:ID xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">1</cbc:ID>
+    <cbc:InvoicedQuantity xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" unitCode="NIU">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" currencyID="PEN">20.00</cbc:LineExtensionAmount>
+    <cac:Item xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+      <cbc:Description xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">Galleta x 6 pack</cbc:Description>
+    </cac:Item>
+    <cac:Price xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+      <cbc:PriceAmount xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">20.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+  <ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+    <ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+  <ds:Reference URI="#pfxff7b9d8e-1fcc-5693-acea-c1e2040021e2"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>nIFHknvnXOsKij9ruws3hUxuCiE=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>uifvX73sFLwstvN3T/rqecKKZxk4qFnUSQKoCcK6XN45ohKn6xPt0qO2zxRWgmPeR4qw9ZOI+bMB4TYlsC7vjuJZylGuklNn1/MumAfqkbtrxkBDFyQWHe4cyq2xHr2ae6B+Q5+BvKb51Dj4T+d3SzXcb+4FhkkY8HqjbTA5CLePLBmoi+PmKAhsJZ/eIXqUTcu21Tau9wDleEDB+NEpum43xD1Z2S9SCEkG7ycN1XCKXTiWV0cRHsO0HN4pLDEJ4azAfUBBv/pVJuJzCktjOQCbAHspzKmSevBnZwk5fe1utsyfHiOf+M/7/JHq83zshYR85kC0I91l3on9i5lbMA==</ds:SignatureValue>
+<ds:KeyInfo><ds:X509Data><ds:X509Certificate>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</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature>
+</Invoice>
