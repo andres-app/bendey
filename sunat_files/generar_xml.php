@@ -7,7 +7,6 @@ if (!$idventa) {
     die("❌ ID de venta no proporcionado.");
 }
 
-// 1. Obtener venta y cliente
 $stmt = $conn->prepare("SELECT v.*, p.nombre AS cliente_nombre, p.num_documento, p.direccion
                         FROM venta v 
                         JOIN persona p ON v.idcliente = p.idpersona 
@@ -17,7 +16,6 @@ $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$venta) die("❌ Venta no encontrada.");
 
-// 2. Obtener detalles
 $stmt = $conn->prepare("SELECT dv.*, a.nombre AS articulo_nombre 
                         FROM detalle_venta dv 
                         JOIN articulo a ON dv.idarticulo = a.idarticulo 
@@ -25,7 +23,6 @@ $stmt = $conn->prepare("SELECT dv.*, a.nombre AS articulo_nombre
 $stmt->execute([$idventa]);
 $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// 3. Preparar datos para XML
 $emisor = [
     "ruc" => "20609068800",
     "razonSocial" => "FELICITY GIRLS E.I.R.L.",
@@ -33,7 +30,7 @@ $emisor = [
 ];
 
 $cliente = [
-    "tipoDoc" => "1", // 1 = DNI, 6 = RUC
+    "tipoDoc" => "6",
     "numDoc" => $venta['num_documento'],
     "nombre" => $venta['cliente_nombre']
 ];
@@ -41,6 +38,7 @@ $cliente = [
 $serie = $venta['serie_comprobante'];
 $numero = str_pad($venta['num_comprobante'], 8, '0', STR_PAD_LEFT);
 $fecha = substr($venta['fecha_hora'], 0, 10);
+$hora = substr($venta['fecha_hora'], 11, 8);
 
 $subtotal = 0;
 $items = [];
@@ -53,34 +51,55 @@ foreach ($detalles as $d) {
         "precioVenta" => number_format($d['precio_venta'], 2, '.', '')
     ];
 }
-$igv = $subtotal * 0.18;
-$total = $subtotal + $igv;
+$igv = round($subtotal * 0.18, 2);
+$total = round($subtotal + $igv, 2);
 
-// 4. Crear XML
+// Crear XML
 $xml = new DOMDocument('1.0', 'UTF-8');
 $xml->formatOutput = true;
 
-$Invoice = $xml->createElementNS("urn:oasis:names:specification:ubl:schema:xsd:Invoice-2", "Invoice");
+$Invoice = $xml->createElementNS(
+    "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
+    "Invoice"
+);
 $Invoice->setAttribute("xmlns:cac", "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2");
 $Invoice->setAttribute("xmlns:cbc", "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2");
+$Invoice->setAttribute("xmlns:ds", "http://www.w3.org/2000/09/xmldsig#");
+$Invoice->setAttribute("xmlns:ext", "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2");
+$Invoice->setAttribute("xmlns:qdt", "urn:oasis:names:specification:ubl:schema:xsd:QualifiedDatatypes-2");
+$Invoice->setAttribute("xmlns:sac", "urn:sunat:names:specification:ubl:peru:schema:xsd:SunatAggregateComponents-1");
+$Invoice->setAttribute("xmlns:udt", "urn:un:unece:uncefact:data:specification:UnqualifiedDataTypesSchemaModule:2");
+$Invoice->setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+$Invoice->setAttribute("ID", "$serie-$numero"); // obligatorio para firma
 $xml->appendChild($Invoice);
-$Invoice->setAttribute("ID", "$serie-$numero"); // 👈 ESTE ES CLAVE
 
-$cbc_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
-$cac_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
-
+// Helpers
 function createElementNS($doc, $ns, $name, $value = null) {
     $el = $doc->createElementNS($ns, $name);
     if ($value !== null) $el->nodeValue = $value;
     return $el;
 }
 
-// NUEVAS ETIQUETAS UBL
+// Namespaces
+$cbc_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+$cac_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+$ext_ns = "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2";
+
+// UBLExtensions
+$ext = $xml->createElementNS($ext_ns, "ext:UBLExtensions");
+$ext1 = $xml->createElementNS($ext_ns, "ext:UBLExtension");
+$content = $xml->createElementNS($ext_ns, "ext:ExtensionContent");
+$ext1->appendChild($content);
+$ext->appendChild($ext1);
+$Invoice->appendChild($ext);
+
+// Cabecera
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:UBLVersionID", "2.1"));
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:CustomizationID", "2.0"));
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:ID", "$serie-$numero"));
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:IssueDate", $fecha));
-$Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:InvoiceTypeCode", "01"));
+$Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:IssueTime", $hora));
+$Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:InvoiceTypeCode", "01")); // 01 = factura
 $Invoice->appendChild(createElementNS($xml, $cbc_ns, "cbc:DocumentCurrencyCode", "PEN"));
 
 // Emisor

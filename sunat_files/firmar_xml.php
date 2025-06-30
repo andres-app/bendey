@@ -1,57 +1,54 @@
 <?php
 require __DIR__ . '/../vendor/autoload.php';
-
 use RobRichards\XMLSecLibs\XMLSecurityDSig;
 use RobRichards\XMLSecLibs\XMLSecurityKey;
 
-// === Configuración ===
+// Rutas
+$xmlPath = __DIR__ . '/../sunat_files/xml/20609068800-01-F001-00000026.xml';
 $pfxPath = __DIR__ . '/../sunat_files/certificados/certi.pfx';
 $pfxPassword = 'Dev2804751';
 
-$serie = 'F001';
-$numero = '00000026'; // 👈 usa el número correcto dinámicamente si deseas
-$idComprobante = "$serie-$numero";
-$xmlPath = __DIR__ . "/../sunat_files/xml/20609068800-01-$idComprobante.xml";
-$signedXmlPath = $xmlPath; // mismo archivo
-
-// === Cargar PFX ===
-if (!file_exists($pfxPath)) {
-    die('❌ Archivo PFX no encontrado.');
+if (!file_exists($pfxPath) || !file_exists($xmlPath)) {
+    die("❌ Certificado o XML no encontrado.");
 }
+
+// Leer certificado
 $pfx = file_get_contents($pfxPath);
 if (!openssl_pkcs12_read($pfx, $certs, $pfxPassword)) {
-    die('❌ No se pudo abrir el certificado PFX. Verifica la clave.');
+    die("❌ No se pudo leer el PFX.");
 }
-$privateKey = $certs['pkey'];
-$publicCert = $certs['cert'];
 
-// === Cargar XML ===
 $doc = new DOMDocument();
 $doc->preserveWhiteSpace = false;
 $doc->formatOutput = true;
 $doc->load($xmlPath);
 
-// === Asegurar que el nodo raíz tenga atributo ID ===
+// Obtener nodo raíz y colocar atributo ID si no existe
 $root = $doc->documentElement;
-$root->setAttribute("ID", $idComprobante);
+$idFactura = $doc->getElementsByTagName('ID')->item(0)->nodeValue; // F001-00000026
+$root->setAttribute("ID", $idFactura);
 
-// === Firmar ===
+// Preparar firma
 $objDSig = new XMLSecurityDSig();
 $objDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
+
+// Agregar referencia CON ID explícito
 $objDSig->addReference(
     $root,
     XMLSecurityDSig::SHA1,
     ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
-    ['uri' => "#$idComprobante"] // referenciar por ID
+    ['uri' => '#' . $idFactura]
 );
 
-$objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
-$objKey->loadKey($privateKey, false);
+// Clave privada
+$objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type'=>'private']);
+$objKey->loadKey($certs['pkey'], false);
 
+// Firmar y adjuntar
 $objDSig->sign($objKey);
-$objDSig->add509Cert($publicCert);
+$objDSig->add509Cert($certs['cert']);
 $objDSig->appendSignature($root);
 
-// === Guardar firmado ===
-$doc->save($signedXmlPath);
-echo "✅ XML firmado correctamente: $idComprobante";
+// Guardar XML firmado
+$doc->save($xmlPath);
+echo "✅ XML firmado correctamente: $idFactura";

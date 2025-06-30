@@ -1,28 +1,15 @@
 <?php
 // comprimir_zip.php
 
-// Nombre del XML ya firmado
-$xmlFirmado = '20609068800-01-F001-00000026.xml';
-
-// Nombre del ZIP (sin el -SIGNED)
-$zipNombre = '20609068800-01-F001-00000026.zip';
-
-// Rutas (ajustar si tu carpeta es diferente)
-$rutaXml = __DIR__ . '/xml/' . $xmlFirmado; // Ajusta si tu XML está en otra carpeta
-$rutaZip = __DIR__ . '/zip/' . $zipNombre;  // Carpeta destino del ZIP
-
-// Crear carpeta zip si no existe
-if (!is_dir(dirname($rutaZip))) {
-    mkdir(dirname($rutaZip), 0777, true);
-}
-
-// Crear ZIP
 $zip = new ZipArchive();
-if ($zip->open($rutaZip, ZipArchive::CREATE) === true) {
-    // Agregar el XML firmado al ZIP (el nombre dentro del zip debe ser igual)
-    $zip->addFile($rutaXml, $xmlFirmado);
+$zipFile = __DIR__ . '/zip/20609068800-01-F001-00000026.zip';
+$xmlPath = __DIR__ . '/xml/20609068800-01-F001-00000026.xml';
+
+if ($zip->open($zipFile, ZipArchive::CREATE) === true) {
+    $zip->addFile($xmlPath, "20609068800-01-F001-00000026.xml");
     $zip->close();
-    echo "✅ ZIP creado correctamente: $zipNombre";
+    echo "✅ ZIP creado.";
 } else {
     echo "❌ Error al crear ZIP.";
 }
+
