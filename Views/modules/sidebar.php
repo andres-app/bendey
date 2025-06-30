@@ -68,6 +68,8 @@
                     <ul class="dropdown-menu">
                         <li><a class="nav-link" href="category">Categorías</a></li>
                         <li><a class="nav-link" href="medida">Medidas</a></li>
+                        <li><a class="nav-link" href="atributos">Atributos</a></li>
+                        <li><a class="nav-link" href="almacenes">Almacenes</a></li>
                     </ul>
                 </li>
             <?php } ?>

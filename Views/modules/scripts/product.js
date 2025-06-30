@@ -16,12 +16,12 @@ function init() {
   });
   $("#imagenmuestra").hide();
 
-    //cargamos los items al select medida
-    $.post("Controllers/Medida.php?op=selectMedida", function (r) {
-      $("#idmedida").html(r);
-      //$("#idcategoria").selectpicker("refresh");
-    });
-    $("#imagenmuestra").hide();
+  //cargamos los items al select medida
+  $.post("Controllers/Medida.php?op=selectMedida", function (r) {
+    $("#idmedida").html(r);
+    //$("#idcategoria").selectpicker("refresh");
+  });
+  $("#imagenmuestra").hide();
 }
 
 
@@ -227,5 +227,12 @@ function generarbarcode() {
 function imprimir() {
   $("#print").printArea();
 }
+
+
+function toggleAtributos() {
+  const checked = document.getElementById("activar_atributos").checked;
+  document.getElementById("atributos_section").style.display = checked ? "flex" : "none";
+}
+
 
 init();

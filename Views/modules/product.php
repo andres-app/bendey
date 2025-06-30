@@ -46,30 +46,45 @@ if (!isset($_SESSION['nombre'])) {
                                     </div>
                                     <!--TABLA DE LISTADO DE REGISTROS FIN-->
 
-                                    <!--FORMULARIO PARA DE REGISTRO-->
+                                    <!-- FORMULARIO DE REGISTRO -->
                                     <div id="formularioregistros">
                                         <form action="" name="formulario" id="formulario" method="POST">
                                             <div class="row">
+                                                <!-- Datos principales -->
+                                                <input type="hidden" name="idarticulo" id="idarticulo">
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                                    <label for="">Nombre(*):</label>
-                                                    <input class="form-control" type="hidden" name="idarticulo" id="idarticulo">
+                                                    <label for="nombre">Nombre(*):</label>
                                                     <input class="form-control" type="text" name="nombre" id="nombre"
                                                         maxlength="100" placeholder="Nombre" required>
                                                 </div>
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                                    <label for="">Categoria(*):</label>
+                                                    <label for="idcategoria">Categoría(*):</label>
                                                     <select name="idcategoria" id="idcategoria" class="form-control"
                                                         required></select>
                                                 </div>
-                                                <!-- <div class=" form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Stock</label>
-                                            <input class="form-control" type="number" name="stock" id="stock">
-                                        </div>-->
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                                    <label for="">Unidad de medida</label>
+                                                    <label for="idalmacen">Almacén(*):</label>
+                                                    <select name="idalmacen" id="idalmacen" class="form-control" required>
+                                                        <option value="">Seleccione un almacén</option>
+                                                        <option value="1">Almacén Principal</option>
+                                                        <option value="2">Almacén Secundario</option>
+                                                        <option value="3">Almacén Lima</option>
+                                                        <option value="4">Almacén Arequipa</option>
+                                                    </select>
+                                                </div>
+                                                <!-- Código y Unidad de medida -->
+                                                <div class="form-group col-lg-6 col-md-6 col-xs-12">
+                                                    <label for="codigo">Código:</label>
+                                                    <input class="form-control" type="text" name="codigo" id="codigo"
+                                                        placeholder="Código del producto" required>
+                                                </div>
+                                                <div class="form-group col-lg-6 col-md-6 col-xs-12">
+                                                    <label for="idmedida">Unidad de Medida:</label>
                                                     <select name="idmedida" id="idmedida" class="form-control"
                                                         required></select>
                                                 </div>
+
+                                                <!-- Imagen -->
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                                     <label for="imagen">Imagen:</label>
                                                     <div class="custom-file">
@@ -85,30 +100,51 @@ if (!isset($_SESSION['nombre'])) {
                                                 </div>
 
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                                    <label for="">Codigo:</label>
-                                                    <input class="form-control" type="text" name="codigo" id="codigo"
-                                                        placeholder="codigo del prodcuto" required>
-                                                        <br>    
-                                                    <button class="btn btn-success" type="button"
-                                                        onclick="generarbarcode()">Generar</button>
-                                                    <button class="btn btn-info" type="button"
-                                                        onclick="imprimir()">Imprimir</button>
-                                                    <div id="print">
-                                                        <svg id="barcode"></svg>
+                                                    <label for="activar_atributos">¿Activar atributos?</label><br>
+                                                    <label class="switch">
+                                                        <input type="checkbox" id="activar_atributos"
+                                                            onchange="toggleAtributos()">
+                                                        <span class="slider round"></span>
+                                                    </label>
+                                                </div>
+
+
+                                                <!-- Sección de atributos (oculta por defecto) -->
+                                                <div id="atributos_section" class="col-12" style="display:none;">
+                                                    <div class="row">
+                                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
+                                                            <label for="color">Color:</label>
+                                                            <select class="form-control" name="color" id="color">
+                                                                <option value="">Seleccionar</option>
+                                                                <option value="Rojo">Rojo</option>
+                                                                <option value="Negro">Negro</option>
+                                                                <option value="Blanco">Blanco</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="form-group col-lg-6 col-md-6 col-xs-12">
+                                                            <label for="talla">Talla:</label>
+                                                            <select class="form-control" name="talla" id="talla">
+                                                                <option value="">Seleccionar</option>
+                                                                <option value="S">S</option>
+                                                                <option value="M">M</option>
+                                                                <option value="L">L</option>
+                                                            </select>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div class="form-group col-lg-12 col-md-12 col-sm-12 col-xs-12">
+
+                                                <!-- Botones de acción -->
+                                                <div
+                                                    class="form-group col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center mt-3">
                                                     <button class="btn btn-primary" type="submit" id="btnGuardar"><i
                                                             class="fa fa-save"></i> Guardar</button>
-
                                                     <button class="btn btn-danger" onclick="cancelarform()" type="button"><i
-                                                            class="fa fa-arrow-circle-left"></i>
-                                                        Cancelar</button>
+                                                            class="fa fa-arrow-circle-left"></i> Cancelar</button>
                                                 </div>
                                             </div>
                                         </form>
                                     </div>
-                                    <!--FORMULARIO PARA DE REGISTRO FIN-->
+                                    <!-- FORMULARIO DE REGISTRO FIN -->
                                 </div>
                             </div>
                         </div>
