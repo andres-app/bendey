@@ -145,6 +145,10 @@ function mostrar(idarticulo) {
       mostrarform(true);
 
       $("#idcategoria").val(data.idcategoria);
+      $.post("Controllers/subcategoria.php?op=selectSubcategoria", { categoria_id: data.idcategoria }, function (r) {
+        $("#idsubcategoria").html(r);
+        $("#idsubcategoria").val(data.idsubcategoria);
+      });
       $("#idmedida").val(data.idmedida);
       //$("#idcategoria").selectpicker("refresh");
       $("#codigo").val(data.codigo);
@@ -233,6 +237,20 @@ function toggleAtributos() {
   const checked = document.getElementById("activar_atributos").checked;
   document.getElementById("atributos_section").style.display = checked ? "flex" : "none";
 }
+
+$("#idcategoria").on("change", function () {
+  let categoriaId = $(this).val();
+
+  $.ajax({
+    url: "Controllers/Subcategoria.php?op=selectSubcategoria",
+    method: "POST",
+    data: { categoria_id: categoriaId },
+    success: function (data) {
+      $("#idsubcategoria").html(data);
+    }
+  });
+});
+
 
 
 init();

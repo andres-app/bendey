@@ -10,7 +10,7 @@ if (!isset($_SESSION['nombre'])) {
     require "sidebar.php";
 
     if ($_SESSION['almacen'] == 1) {
-        ?>
+?>
 
         <div class="main-content">
             <section class="section">
@@ -25,29 +25,29 @@ if (!isset($_SESSION['nombre'])) {
                                 <!--TABLA DE LISTADO DE REGISTROS-->
                                 <div class="card-body">
                                     <div class="table-responsive" id="listadoregistros">
-                                        <table id="tbllistado" class="table table-striped table-hover text-nowrap"
-                                            style="width:100%;">
+                                        <table id="tbllistado" class="table table-striped table-hover text-nowrap" style="width:100%;">
                                             <thead>
-                                                <th>Codigo</th>
-                                                <th>Nombre</th>
-                                                <th>Categoria</th>
-                                                <th>Und.Medida</th>
-                                                <th>Stock</th>
-                                                <th>Imagen</th>
-                                                <th>P. Compra</th>
-                                                <th>P. Venta</th>
-                                                <th>Estado</th>
-                                                <th>Opciones</th>
+                                                <tr>
+                                                    <th>Codigo</th>
+                                                    <th>Nombre</th>
+                                                    <th>Categoria</th>
+                                                    <th>Subcategoría</th>
+                                                    <th>Und.Medida</th>
+                                                    <th>Stock</th>
+                                                    <th>Imagen</th>
+                                                    <th>P. Compra</th>
+                                                    <th>P. Venta</th>
+                                                    <th>Estado</th>
+                                                    <th>Opciones</th>
+                                                </tr>
                                             </thead>
-                                            <tbody>
-                                            </tbody>
-
+                                            <tbody></tbody>
                                         </table>
                                     </div>
                                     <!--TABLA DE LISTADO DE REGISTROS FIN-->
 
                                     <!-- FORMULARIO DE REGISTRO -->
-                                    <div id="formularioregistros">
+                                    <div id="formularioregistros" style="display: none;">
                                         <form action="" name="formulario" id="formulario" method="POST">
                                             <div class="row">
                                                 <!-- Datos principales -->
@@ -59,9 +59,20 @@ if (!isset($_SESSION['nombre'])) {
                                                 </div>
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                                     <label for="idcategoria">Categoría(*):</label>
-                                                    <select name="idcategoria" id="idcategoria" class="form-control"
-                                                        required></select>
+                                                    <select name="idcategoria" id="idcategoria" class="form-control" required>
+                                                        <option value="">Seleccione categoría</option>
+                                                        <!-- se llenará dinámicamente -->
+                                                    </select>
                                                 </div>
+
+                                                <div class="form-group col-lg-6 col-md-6 col-xs-12">
+                                                    <label for="idsubcategoria">Subcategoría</label>
+                                                    <select name="idsubcategoria" id="idsubcategoria" class="form-control">
+                                                        <option value="">Seleccione subcategoría</option>
+                                                        <!-- se llenará dinámicamente -->
+                                                    </select>
+                                                </div>
+
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                                     <label for="idalmacen">Almacén(*):</label>
                                                     <select name="idalmacen" id="idalmacen" class="form-control" required>
@@ -153,7 +164,7 @@ if (!isset($_SESSION['nombre'])) {
         </div>
         </section>
         </div>
-        <?php
+    <?php
     } else {
         require "access.php";
     }
@@ -162,7 +173,7 @@ if (!isset($_SESSION['nombre'])) {
     <script src="Assets/js/JsBarcode.all.min.js"></script>
     <script src="Assets/js/jquery.PrintArea.js"></script>
     <script src="Views/modules/scripts/product.js"></script>
-    <?php
+<?php
 }
 ob_end_flush();
 ?>
