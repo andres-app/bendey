@@ -4,6 +4,7 @@ require_once "../Models/Product.php";
 $product = new Product();
 
 $idarticulo = isset($_POST["idarticulo"]) ? $_POST["idarticulo"] : "";
+$idsubcategoria = isset($_POST["idsubcategoria"]) ? $_POST["idsubcategoria"] : "";
 $idcategoria = isset($_POST["idcategoria"]) ? $_POST["idcategoria"] : "";
 $idmedida = isset($_POST["idmedida"]) ? $_POST["idmedida"] : "";
 $codigo = isset($_POST["codigo"]) ? $_POST["codigo"] : "";
