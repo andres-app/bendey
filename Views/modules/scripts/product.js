@@ -9,6 +9,11 @@ function init() {
     guardaryeditar(e);
   });
 
+  //cargamos los items al select almacen
+  $.post("Controllers/Almacen.php?op=selectAlmacen", function (r) {
+    $("#idalmacen").html(r);
+  });
+
   //cargamos los items al celect categoria
   $.post("Controllers/Category.php?op=selectCategoria", function (r) {
     $("#idcategoria").html(r);
