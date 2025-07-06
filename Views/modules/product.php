@@ -52,16 +52,12 @@ if (!isset($_SESSION['nombre'])) {
                                             <input class="form-control" type="text" name="nombre" id="nombre" maxlength="100" placeholder="Nombre" required>
                                         </div>
 
-                                        <div class="form-group col-md-3">
+                                        <div class="form-group col-md-4">
                                             <label for="codigo">SKU</label>
                                             <input type="text" name="codigo" id="codigo" class="form-control">
                                         </div>
 
-                                        <div class="form-group col-md-2 d-flex align-items-end">
-                                            <button type="button" class="btn btn-secondary w-100"><i class="fas fa-bolt"></i> Generar</button>
-                                        </div>
-
-                                        <div class="form-group col-md-3">
+                                        <div class="form-group col-md-4">
                                             <label for="stock">Cantidad</label>
                                             <input type="number" class="form-control" name="stock" id="stock" min="0">
                                         </div>
