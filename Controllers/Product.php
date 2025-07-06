@@ -110,4 +110,14 @@ switch ($_GET["op"]) {
 			echo '<option value="' . $reg['idarticulo'] . '">' . $reg['nombre'] . '</option>';
 		}
 		break;
+
+	case 'listar_json':
+		require_once "../Models/Product.php";
+		$product = new Product();
+		// Usa listarActivosVenta porque trae precios y más datos
+		$rspta = $product->listarActivosVenta();
+		// Devolver JSON
+		echo json_encode($rspta);
+		break;
+
 }
