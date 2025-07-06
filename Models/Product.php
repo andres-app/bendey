@@ -102,7 +102,27 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen -- ← agrega esto cuando ten
 	//listar y mostrar en Select
 	public function listarActivosVenta()
 	{
-		$sql = "SELECT a.idarticulo, a.idcategoria, c.nombre as categoria, a.codigo, a.nombre, a.stock, (SELECT precio_venta FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' ORDER BY iddetalle_ingreso DESC LIMIT 0,1) AS precio_venta, (SELECT precio_compra FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' ORDER BY iddetalle_ingreso ASC LIMIT 0,1) AS precio_compra, (SELECT idingreso FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' LIMIT 0,1) AS idingreso, a.descripcion, a.imagen, a.condicion, m.nombre as medida FROM articulo a INNER JOIN categoria c ON a.idcategoria=c.idcategoria INNER JOIN medida m ON a.idmedida=m.idmedida WHERE a.condicion='1' AND a.stock > 0";
+		$sql = "SELECT 
+			a.idarticulo, 
+			a.idcategoria, 
+			c.nombre as categoria, 
+			a.codigo, 
+			a.nombre, 
+			a.stock, 
+			(SELECT precio_venta FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' ORDER BY iddetalle_ingreso DESC LIMIT 0,1) AS precio_venta, 
+			(SELECT precio_compra FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' ORDER BY iddetalle_ingreso ASC LIMIT 0,1) AS precio_compra, 
+			(SELECT idingreso FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' LIMIT 0,1) AS idingreso, 
+			a.descripcion, 
+			a.imagen, 
+			a.condicion, 
+			m.nombre as medida,
+			a.idalmacen, 
+			al.nombre as almacen -- ← agregamos el nombre del almacén
+		FROM articulo a 
+		INNER JOIN categoria c ON a.idcategoria=c.idcategoria 
+		INNER JOIN medida m ON a.idmedida=m.idmedida 
+		LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
+		WHERE a.condicion='1' AND a.stock > 0";
 		return $this->conexion->getDataAll($sql);
 	}
 

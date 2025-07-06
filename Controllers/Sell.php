@@ -415,7 +415,7 @@ switch ($_GET["op"]) {
 			}
 			$data[] = array(
 				"0" => '<button class="btn btn-success btn-sm" id="addetalle" name="' . $reg['idarticulo'] . '" onclick="agregarDetalle(' . $reg['idingreso'] . ',' . $reg['idarticulo'] . ',\'' . $reg['nombre'] . '\',' . $reg['precio_compra'] . ',' . $reg['precio_venta'] . ',' . $reg['stock'] . ',' . $op . ')"><span class="fa fa-plus"></span> Añadir</button>',
-				"1" => $reg['nombre'],
+				"1" => $reg['nombre'] . '<br><span style="font-size:0.95em; color:#888;">(' . ($reg['almacen'] ?? 'Sin almacén') . ')</span>',
 				"2" => $reg['codigo'],
 				"3" => $btncolor,
 				"4" => "<img src='Assets/img/products/" . $reg['imagen'] . "' height='40px' width='40px'>"

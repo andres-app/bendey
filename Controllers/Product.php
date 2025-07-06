@@ -77,7 +77,7 @@ switch ($_GET["op"]) {
 
 			$data[] = array(
 				"0" => $reg['codigo'],
-				"1" => $reg['nombre'],
+				"1" => $reg['nombre'] . '<br><span style="font-size:0.95em; color:#888;">(' . ($reg['almacen'] ?? 'Sin almacén') . ')</span>',
 				"2" => $reg['categoria'],
 				"3" => $reg['subcategoria'], // ← Añade esta columna
 				"4" => $reg['medida'],
