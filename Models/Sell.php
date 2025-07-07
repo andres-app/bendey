@@ -244,7 +244,7 @@ class Sell
                 $totalKardex = $cantVenta * $stPrecioCompra;
                 $totalex = $cantidadExistente * $stPrecioCompra;
                 $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-                $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $stPrecioCompra, $totalex, 'Salida', 'Activo');
+                $arrKardex = array($idventa, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $stPrecioCompra, $totalex, 'Salida', 'Activo');
                 $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
 
             } else {
@@ -272,7 +272,7 @@ class Sell
                         $totalKardex = $cantVenta * $stPrecioCompra;
                         $totalex = $cantidadExistente * $stPrecioCompra;
                         $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-                        $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $stPrecioCompra, $totalex, 'Salida', 'Activo');
+                        $arrKardex = array($idventa, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $stPrecioCompra, $totalex, 'Salida', 'Activo');
                         $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
 
                         $cantVenta = $cantVenta - $sotckDisponible;
@@ -290,7 +290,7 @@ class Sell
                         $costus = $stPrecioCompra * $cantidadExistente;
 
                         $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-                        $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
+                        $arrKardex = array($idventa, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
                         $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
                         //  }
                         $cantVenta = $cantVenta - $sotckDisponible;
@@ -309,7 +309,7 @@ class Sell
                         $costus = $stPrecioCompra * $cantidadExistente;
 
                         $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-                        $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $sotckDisponible, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
+                        $arrKardex = array($idventa, $idarticulo[$num_elementos], $fecha_hora, $detalle, $sotckDisponible, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
                         $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
 
                     }
