@@ -215,49 +215,49 @@ function listarArticulos() {
 	//alert( 'Rows '+tabla.rows( '.selected' ).count()+' are selected' );
 }
 function guardaryeditar(e) {
-	e.preventDefault(); //no se activara la accion predeterminada
-	$("#btnGuardar").prop("disabled", true);
-	var formData = new FormData($("#formulario")[0]);
+    e.preventDefault();
+    $("#btnGuardar").prop("disabled", true);
+    var formData = new FormData($("#formulario")[0]);
 
-	$.ajax({
-		url: "Controllers/Sell.php?op=guardaryeditar",
-		type: "POST",
-		data: formData,
-		contentType: false,
-		processData: false,
+    $.ajax({
+        url: "Controllers/Sell.php?op=guardaryeditar",
+        type: "POST",
+        data: formData,
+        contentType: false,
+        processData: false,
+        success: function (datos) {
+            let data;
+            try {
+                data = JSON.parse(datos);
+            } catch (e) {
+                swal("Error", "Respuesta inesperada: " + datos, "error");
+                $("#btnGuardar").prop("disabled", false);
+                return;
+            }
 
-		success: function (datos) {
-			let data;
-			try {
-				data = JSON.parse(datos);
-			} catch (e) {
-				swal("Error", "Respuesta inesperada: " + datos, "error");
-				$("#btnGuardar").prop("disabled", false);
-				return;
-			}
-
-			if (data.success) {
-				swal({
-					title: "Venta Registrada",
-					text: data.mensaje,
-					icon: "success",
-				}).then(() => {
-					// Redirige al detalle o impresión usando el idventa
-					window.open('Reports/80mm.php?id=' + data.idventa, '_blank');
-					// O usa la ruta que desees, por ejemplo: `detalleventa.php?id=${data.idventa}`
-				});
-			} else {
-				swal("Error", data.mensaje, "error");
-				$("#btnGuardar").prop("disabled", false);
-			}
-		},
-		error: function () {
-			swal("Error", "No se pudo conectar con el servidor.", "error");
-			$("#btnGuardar").prop("disabled", false);
-		}
-	});
-	// Puedes limpiar/formatear aquí si deseas (opcional)
+            if (data.success) {
+                swal({
+                    title: "Venta Registrada",
+                    text: data.mensaje,
+                    icon: "success",
+                }).then(() => {
+                    window.open('Reports/80mm.php?id=' + data.idventa, '_blank');
+                    limpiar(); // <--- AQUÍ LIMPIA LOS CAMPOS
+                    listarArticulos && listarArticulos(); // si tienes esta función de recarga
+                    $("#btnGuardar").prop("disabled", false);
+                });
+            } else {
+                swal("Error", data.mensaje, "error");
+                $("#btnGuardar").prop("disabled", false);
+            }
+        },
+        error: function () {
+            swal("Error", "No se pudo conectar con el servidor.", "error");
+            $("#btnGuardar").prop("disabled", false);
+        }
+    });
 }
+
 
 
 //funcion para anular
