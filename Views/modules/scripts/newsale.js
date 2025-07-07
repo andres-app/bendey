@@ -214,7 +214,6 @@ function listarArticulos() {
 		.DataTable();
 	//alert( 'Rows '+tabla.rows( '.selected' ).count()+' are selected' );
 }
-//funcion para guardaryeditar
 function guardaryeditar(e) {
 	e.preventDefault(); //no se activara la accion predeterminada
 	$("#btnGuardar").prop("disabled", true);
@@ -228,22 +227,38 @@ function guardaryeditar(e) {
 		processData: false,
 
 		success: function (datos) {
-			//console.log(datos);
-			var tabla = $("#tbllistado").DataTable();
-			swal({
-				title: "Registro",
-				text: datos,
-				icon: "info",
-				buttons: {
-					confirm: "OK",
-				},
-			}),
-				tabla.ajax.reload();
+			let data;
+			try {
+				data = JSON.parse(datos);
+			} catch (e) {
+				swal("Error", "Respuesta inesperada: " + datos, "error");
+				$("#btnGuardar").prop("disabled", false);
+				return;
+			}
+
+			if (data.success) {
+				swal({
+					title: "Venta Registrada",
+					text: data.mensaje,
+					icon: "success",
+				}).then(() => {
+					// Redirige al detalle o impresión usando el idventa
+					window.open('Reports/80mm.php?id=' + data.idventa, '_blank');
+					// O usa la ruta que desees, por ejemplo: `detalleventa.php?id=${data.idventa}`
+				});
+			} else {
+				swal("Error", data.mensaje, "error");
+				$("#btnGuardar").prop("disabled", false);
+			}
 		},
+		error: function () {
+			swal("Error", "No se pudo conectar con el servidor.", "error");
+			$("#btnGuardar").prop("disabled", false);
+		}
 	});
-	limpiar();
-	listarArticulos();
+	// Puedes limpiar/formatear aquí si deseas (opcional)
 }
+
 
 //funcion para anular
 function anular(idventa) {

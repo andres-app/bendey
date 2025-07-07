@@ -29,15 +29,13 @@ class Sell
         $sw = true;
 
         while ($num_elementos < count($idarticulo)) {
-            //REGISTRO DE DATOS EN EL DETALLE DE VENTAS
             $sql_detalle = "INSERT INTO $this->tableNameDetalle (idventa,idarticulo,cantidad,precio_compra,precio_venta,descuento,estado) VALUES(?,?,?,?,?,?,?)";
             $arrDatadet = array($idventanew, $idarticulo[$num_elementos], $cantidad[$num_elementos], $precio_compra[$num_elementos], $precio_venta[$num_elementos], $descuento[$num_elementos], '1');
             $this->conexion->setData($sql_detalle, $arrDatadet) or $sw = false;
-
             $num_elementos = $num_elementos + 1;
         }
 
-        //ACTUALIZAR STOCK DESPUES DE REALIZAR UNA VENTA
+        //ACTUALIZAR STOCK DESPUÉS DE REALIZAR UNA VENTA
         $sql_stock = "SELECT idarticulo, cantidad FROM $this->tableNameDetalle WHERE idventa='$idventanew'";
         $res = $this->conexion->getDataAll($sql_stock);
         $idart = 0;
@@ -45,37 +43,32 @@ class Sell
             $cantidad[$idart] = isset($reg['cantidad']) ? $cantidad[$idart] = $reg['cantidad'] : null;
             $idarticulo[$idart] = isset($reg['idarticulo']) ? $idarticulo[$idart] = $reg['idarticulo'] : null;
             $sql_detalle = "UPDATE articulo SET stock= stock-'$cantidad[$idart]' WHERE idarticulo=?";
-            //ejecutarConsulta($sql_detalle) or $sw=false;
             $arrData = array($idarticulo[$idart]);
             $this->conexion->setData($sql_detalle, $arrData) or $sw = false;
             $idart = $idart + 1;
-
         }
 
         $num_elementos = 0;
         $sw = true;
 
         while ($num_elementos < count($idarticulo)) {
-
             $sqlIdViejo = "SELECT iddetalle_ingreso FROM detalle_ingreso WHERE idarticulo=? AND stock_estado='1' ORDER BY iddetalle_ingreso ASC LIMIT 0,1";
             $arrDataViejo = array($idarticulo[$num_elementos]);
             $idIn = $this->conexion->getData($sqlIdViejo, $arrDataViejo);
-            $idViejo = isset($idIn['iddetalle_ingreso']) ? $idViejo = $idIn['iddetalle_ingreso'] : null;
+            $idViejo = isset($idIn['iddetalle_ingreso']) ? $idIn['iddetalle_ingreso'] : null;
 
             $sqlStockViejo = "SELECT stock_venta, precio_compra FROM detalle_ingreso WHERE iddetalle_ingreso=?";
             $arrDataViejoStock = array($idViejo);
             $stockVenta = $this->conexion->getData($sqlStockViejo, $arrDataViejoStock);
-            (int) $sotckDisponible = isset($stockVenta['stock_venta']) ? (int) $sotckDisponible = $stockVenta['stock_venta'] : null;
-            $stPrecioCompra = isset($stockVenta['precio_compra']) ? $stPrecioCompra = $stockVenta['precio_compra'] : null;
+            (int) $sotckDisponible = isset($stockVenta['stock_venta']) ? (int) $stockVenta['stock_venta'] : null;
+            $stPrecioCompra = isset($stockVenta['precio_compra']) ? $stockVenta['precio_compra'] : null;
 
             $cantVenta = (int) $cantidad[$num_elementos];
 
             if ($cantVenta < $sotckDisponible) {
-
                 $sql_update = "UPDATE detalle_ingreso SET stock_venta=stock_venta-'$cantVenta' WHERE iddetalle_ingreso=?";
                 $arrUpdate = array($idViejo);
                 $this->conexion->setData($sql_update, $arrUpdate) or $sw = false;
-
                 //DATOS PARA EL KARDEX
                 $cantidadExistente = $sotckDisponible - $cantVenta;
                 $totalKardex = $cantVenta * $stPrecioCompra;
@@ -86,24 +79,21 @@ class Sell
 
             } else {
                 do {
-
                     $sqlIdViejo = "SELECT iddetalle_ingreso FROM detalle_ingreso WHERE idarticulo=? AND stock_estado='1' ORDER BY iddetalle_ingreso ASC LIMIT 0,1";
                     $arrDataViejo = array($idarticulo[$num_elementos]);
                     $idIn = $this->conexion->getData($sqlIdViejo, $arrDataViejo);
-                    $idViejo = isset($idIn['iddetalle_ingreso']) ? $idViejo = $idIn['iddetalle_ingreso'] : null;
+                    $idViejo = isset($idIn['iddetalle_ingreso']) ? $idIn['iddetalle_ingreso'] : null;
 
                     $sqlStockViejo = "SELECT stock_venta, precio_compra FROM detalle_ingreso WHERE iddetalle_ingreso=?";
                     $arrDataViejoStock = array($idViejo);
                     $stockVenta = $this->conexion->getData($sqlStockViejo, $arrDataViejoStock);
-                    (int) $sotckDisponible = isset($stockVenta['stock_venta']) ? (int) $sotckDisponible = $stockVenta['stock_venta'] : null;
-                    $stPrecioCompra = isset($stockVenta['precio_compra']) ? $stPrecioCompra = $stockVenta['precio_compra'] : null;
+                    (int) $sotckDisponible = isset($stockVenta['stock_venta']) ? (int) $stockVenta['stock_venta'] : null;
+                    $stPrecioCompra = isset($stockVenta['precio_compra']) ? $stockVenta['precio_compra'] : null;
 
                     if ($cantVenta < $sotckDisponible) {
-
                         $sql_update = "UPDATE detalle_ingreso SET stock_venta=stock_venta-'$cantVenta' WHERE iddetalle_ingreso=?";
                         $arrUpdate = array($idViejo);
                         $this->conexion->setData($sql_update, $arrUpdate) or $sw = false;
-
                         //DATOS PARA EL KARDEX
                         $cantidadExistente = $sotckDisponible - $cantVenta;
                         $totalKardex = $cantVenta * $stPrecioCompra;
@@ -115,13 +105,11 @@ class Sell
                         $cantVenta = $cantVenta - $sotckDisponible;
 
                     } elseif ($cantVenta == $sotckDisponible) {
-
                         $sql_update = "UPDATE detalle_ingreso SET stock_venta='0',stock_estado='0' WHERE iddetalle_ingreso=?";
                         $arrUpdate = array($idViejo);
                         $this->conexion->setData($sql_update, $arrUpdate) or $sw = false;
 
                         $cantidadExistente = (int) $sotckDisponible - (int) $cantVenta;
-
                         $totalKardex = $cantVenta * $stPrecioCompra;
                         $totalex = $cantidadExistente * $stPrecioCompra;
                         $costus = $stPrecioCompra * $cantidadExistente;
@@ -129,22 +117,18 @@ class Sell
                         $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
                         $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
                         $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
-                        //  }
+
                         $cantVenta = $cantVenta - $sotckDisponible;
                     } elseif ($cantVenta > $sotckDisponible) {
-
                         $sql_update = "UPDATE detalle_ingreso SET stock_venta='0',stock_estado='0' WHERE iddetalle_ingreso=?";
                         $arrUpdate = array($idViejo);
                         $this->conexion->setData($sql_update, $arrUpdate) or $sw = false;
 
                         $cantVenta = $cantVenta - $sotckDisponible;
-
                         $cantidadExistente = $sotckDisponible - $sotckDisponible;
-
                         $totalKardex = $sotckDisponible * $stPrecioCompra;
                         $totalex = $cantidadExistente * $stPrecioCompra;
                         $costus = $stPrecioCompra * $cantidadExistente;
-
                         $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
                         $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $sotckDisponible, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
                         $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
@@ -152,13 +136,18 @@ class Sell
                     }
 
                 } while ($cantVenta >= 1);
-
             }
 
             $num_elementos = $num_elementos + 1;
         }
 
-        return $sw;
+        // CAMBIO PRINCIPAL:
+        // Si todo fue OK, retorna el id de la venta, si no, retorna false
+        if ($sw && $idventanew) {
+            return $idventanew;
+        } else {
+            return false;
+        }
     }
 
 

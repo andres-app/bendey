@@ -83,7 +83,7 @@ switch ($_GET["op"]) {
 			$tipo_comprobante,
 			$serie_comprobante,
 			$num_comprobante,
-			$impuesto, // Ahora impuesto es NULL si está vacío
+			$impuesto,
 			$total_venta,
 			$tipo_pago,
 			$num_transac,
@@ -95,8 +95,21 @@ switch ($_GET["op"]) {
 			$_POST["descuento"]
 		);
 
-		echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
+		// Si $rspta retorna el ID de la venta (ajusta si no)
+		if ($rspta && is_numeric($rspta)) {
+			echo json_encode([
+				"success" => true,
+				"idventa" => $rspta,
+				"mensaje" => "Datos registrados correctamente"
+			]);
+		} else {
+			echo json_encode([
+				"success" => false,
+				"mensaje" => "No se pudo registrar los datos"
+			]);
+		}
 		break;
+
 
 
 
