@@ -343,34 +343,35 @@ switch ($_GET["op"]) {
 			$pdf_path = 'Reports/a4.php?id='; // Ruta pública relativa desde el raíz del proyecto
 
 			$data[] = array(
-				"0" => '<a target="_blank" href="' . $base_url . $pdf_path . $reg['idventa'] . '"> 
-                <button class="btn btn-primary btn-sm">
-                    <i class="far fa-file-pdf"></i>
-                </button>
-            </a>' . ' ' .
-					'<a target="_blank" href="' . $urlt . $reg['idventa'] . '"> 
-                <button class="btn btn-success btn-sm">
-                    <i class="fas fa-print"></i>
-                </button>
-            </a>' . ' ' .
-					(($reg['estado'] == 'Aceptado') ?
-						'<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
-                    <i class="fas fa-eye"></i>
-                </button>' . ' ' .
-						'<a target="_blank" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . $pdf_path . $reg['idventa']) . '"> 
-                    <button class="btn btn-success btn-sm">
-                        <i class="fab fa-whatsapp"></i>
-                    </button>
-                </a>' . ' ' .
-						'<a href="editsale?op=new&id=' . $reg['idventa'] . '"> 
-                </a>' . ' ' .
-						'<button class="btn btn-danger btn-sm" onclick="anular(' . $reg['idventa'] . ')">
-                    <i class="fas fa-times"></i>
-                </button>' :
-						'<button class="btn btn-info btn-sm" onclick="mostrar(' . $reg['idventa'] . ')">
-                    <i class="fas fa-eye"></i>
-                </button>'
-					),
+				"0" => '
+					<div class="btn-group">
+						<button class="btn btn-info btn-sm" title="Ver" onclick="mostrar('.$reg['idventa'].')">
+							<i class="fas fa-eye"></i>
+						</button>
+						<button class="btn btn-success btn-sm" title="Imprimir Ticket" onclick="window.open(\''.$base_url.'Reports/a4.php?id='.$reg['idventa'].'\', \'_blank\')">
+							<i class="fas fa-print"></i>
+						</button>
+						<button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Más">
+							<span>...</span>
+						</button>
+						<div class="dropdown-menu">
+							<a class="dropdown-item" href="'.$base_url.'Reports/a4.php?id='.$reg['idventa'].'" target="_blank">
+								<i class="far fa-file-pdf"></i> Imprimir A4
+							</a>
+							<a class="dropdown-item" href="https://wa.me/?text='.urlencode('Detalle de la venta: '.$reg['idventa'].' - Ver PDF: '.$base_url.'Reports/a4.php?id='.$reg['idventa']).'" target="_blank">
+								<i class="fab fa-whatsapp"></i> WhatsApp
+							</a>
+							<a class="dropdown-item" href="editsale?op=new&id='.$reg['idventa'].'">
+								<i class="fas fa-edit"></i> Editar
+							</a>
+							'.(($reg['estado']=='Aceptado')?'
+							<a class="dropdown-item text-danger" href="#" onclick="anular('.$reg['idventa'].')">
+								<i class="fas fa-times"></i> Anular
+							</a>
+							':'').'
+						</div>
+					</div>
+				',
 				"1" => $reg['fecha'],
 				"2" => $reg['cliente'],
 				"3" => $reg['usuario'],
@@ -381,7 +382,8 @@ switch ($_GET["op"]) {
 					'<div class="badge badge-success">Aceptado</div>' :
 					'<div class="badge badge-danger">Anulado</div>'
 			);
-
+			
+			
 
 
 
