@@ -95,23 +95,38 @@ switch ($_GET["op"]) {
 		}
 		break;
 
-		case 'getCustomerInfo':
-			// Verificar que se recibieron los datos necesarios
-			if (!isset($_POST["tipo_documento"]) || !isset($_POST["num_documento"])) {
-				echo json_encode(["estado" => false, "mensaje" => "Datos incompletos"]);
-				exit;
-			}
-		
-			$tipo_documento = $_POST["tipo_documento"];
-			$num_documento = $_POST["num_documento"];
-		
-			// Llamar al método para obtener la información del cliente
-			$respuesta = $person->getCustomerInfo($num_documento, $tipo_documento);
-		
-			// Devolver la respuesta directamente al cliente
-			echo $respuesta;
-			break;
-		
+	case 'getCustomerInfo':
+		if (empty($_POST["tipo_documento"]) || empty($_POST["num_documento"])) {
+			echo json_encode(["estado" => false, "mensaje" => "Datos incompletos"]);
+			exit;
+		}
+		$tipo_documento = $_POST["tipo_documento"];
+		$num_documento = $_POST["num_documento"];
+		if (strlen($num_documento) < 8) { // O la longitud que consideres válida para DNI/RUC
+			echo json_encode(["estado" => false, "mensaje" => "Documento inválido"]);
+			exit;
+		}
+		$respuesta = $person->getCustomerInfo($num_documento, $tipo_documento);
+		echo $respuesta;
+		break;
+
+
+	case 'getCustomerByDocument':
+		if (!isset($_POST["num_documento"])) {
+			echo json_encode(["estado" => false, "mensaje" => "Falta el número de documento"]);
+			exit;
+		}
+		$num_documento = $_POST["num_documento"];
+		$cliente = $person->mostrarPorDocumento($num_documento);
+
+		if ($cliente && !empty($cliente['nombre'])) {
+			echo json_encode(['estado' => true, 'resultado' => $cliente]);
+		} else {
+			echo json_encode(['estado' => false]);
+		}
+		break;
+
+
 
 
 }

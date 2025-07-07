@@ -18,6 +18,7 @@
     <link rel="manifest" href="/manifest.json">
 
     <link rel='shortcut icon' type='image/x-icon' href='Assets/img/favicon.ico' />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <?php if ($_GET["url"] == "newsale" || $_GET["url"] == "editsale") {
     $class = 'sidebar-mini';

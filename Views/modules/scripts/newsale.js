@@ -529,7 +529,7 @@ function consultarCliente() {
     var num_documento = $('#num_documento').val();
 
     $.ajax({
-        url: 'Controllers/Person.php?op=getCustomerInfo', // Asegúrate que esta ruta sea la correcta
+        url: 'Controllers/Person.php?op=getCustomerByDocument',
         type: 'POST',
         data: { tipo_documento: tipo_documento, num_documento: num_documento },
         success: function(response) {
@@ -538,29 +538,76 @@ function consultarCliente() {
                 data = JSON.parse(response);
             } catch (e) {
                 alert('Error al procesar la respuesta del servidor.');
-                console.error('Respuesta inválida:', response);
                 return;
             }
 
             if (data.estado) {
-                       // Diferenciar entre RUC y DNI al asignar los valores
-        if (tipo_documento === 'RUC') {
-			$("#nombre").val(data.resultado.razon_social || '');
-		  } else if (tipo_documento === 'DNI') {
-			$("#nombre").val(data.resultado.nombre || '');
-		  }
-		  $("#direccion").val(data.resultado.direccion || '');
+                // Cliente encontrado en la BD, llena los campos
+                $("#nombre").val(data.resultado.nombre || '');
+                $("#direccion").val(data.resultado.direccion || '');
+                $("#idpersona").val(data.resultado.idpersona || '');
             } else {
-                alert('Cliente no encontrado.');
+                // Cliente NO encontrado en la BD, preguntar con SweetAlert
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cliente no registrado',
+                    text: 'El cliente no está en la base de datos. ¿Deseas buscar en RENIEC/SUNAT?',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, buscar',
+                    cancelButtonText: 'No, cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        consultarClienteReniec(tipo_documento, num_documento);
+                    }
+                });
             }
         },
-        error: function(xhr, status, error) {
-            alert('Error al consultar el cliente.');
-            console.error('Error de AJAX:', status, error);
+        error: function() {
+            alert('Error al consultar el cliente en la base de datos.');
         }
     });
 }
 
+function consultarClienteReniec(tipo_documento, num_documento) {
+    if (!num_documento || num_documento.trim() === "") {
+        Swal.fire("Error", "Debe ingresar un número de documento válido", "error");
+        return;
+    }
+    // Ahora sí, llamada AJAX
+    $.ajax({
+        url: 'Controllers/Person.php?op=getCustomerInfo',
+        type: 'POST',
+        data: { tipo_documento: tipo_documento, num_documento: num_documento },
+        success: function(response) {
+            var data;
+            try {
+                data = JSON.parse(response);
+            } catch (e) {
+                Swal.fire('Error', 'Error al procesar la respuesta del servidor.', 'error');
+                return;
+            }
+
+            if (data.estado) {
+                // Si existe en RENIEC o SUNAT, llena los campos
+                if (tipo_documento === 'RUC') {
+                    $("#nombre").val(data.resultado.razon_social || '');
+                } else if (tipo_documento === 'DNI') {
+                    $("#nombre").val(data.resultado.nombre || '');
+                }
+                $("#direccion").val(data.resultado.direccion || '');
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'No encontrado',
+                    text: data.mensaje || 'No se encontró información del documento.'
+                });
+            }
+        },
+        error: function() {
+            Swal.fire('Error', 'Error al consultar la RENIEC/SUNAT.', 'error');
+        }
+    });
+}
 
 
 init();
