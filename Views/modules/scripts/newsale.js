@@ -214,6 +214,7 @@ function listarArticulos() {
 		.DataTable();
 	//alert( 'Rows '+tabla.rows( '.selected' ).count()+' are selected' );
 }
+
 function guardaryeditar(e) {
     e.preventDefault();
     $("#btnGuardar").prop("disabled", true);
@@ -230,29 +231,60 @@ function guardaryeditar(e) {
             try {
                 data = JSON.parse(datos);
             } catch (e) {
-                swal("Error", "Respuesta inesperada: " + datos, "error");
+                Swal.fire("Error", "Respuesta inesperada: " + datos, "error");
                 $("#btnGuardar").prop("disabled", false);
                 return;
             }
 
             if (data.success) {
-                swal({
-                    title: "Venta Registrada",
-                    text: data.mensaje,
-                    icon: "success",
-                }).then(() => {
-                    window.open('Reports/80mm.php?id=' + data.idventa, '_blank');
-                    limpiar(); // <--- AQUÍ LIMPIA LOS CAMPOS
-                    listarArticulos && listarArticulos(); // si tienes esta función de recarga
+                // Extraer celular sin 51
+                let celularBase = data.celular ? data.celular.replace(/^51/, '') : '';
+				Swal.fire({
+					title: 'Venta registrada',
+					html: `
+						<p>¿Qué deseas hacer ahora?</p>
+						<div style="display: flex; align-items: center; justify-content:center;">
+							<input id="swal-prefix" class="swal2-input" style="width:55px; text-align:center; margin-right:5px; font-weight:bold;" value="51" readonly>
+							<input id="swal-input-cel" class="swal2-input" style="width:180px;" maxlength="9" placeholder="Celular" value="${celularBase}">
+						</div>
+						
+					`,
+					icon: 'success',
+					showDenyButton: true,
+					showCancelButton: true,
+					confirmButtonText: 'Imprimir',
+					denyButtonText: 'Enviar WhatsApp',
+					cancelButtonText: 'Cerrar',
+					preConfirm: () => {
+						return document.getElementById('swal-input-cel').value.trim();
+					}
+                }).then((result) => {
+                    let celularSinPrefijo = document.getElementById('swal-input-cel').value.trim();
+                    limpiar();
+                    if (typeof listarArticulos === 'function') listarArticulos();
                     $("#btnGuardar").prop("disabled", false);
+
+                    if (result.isConfirmed) {
+                        window.open('Reports/80mm.php?id=' + data.idventa, '_blank');
+                    } else if (result.isDenied) {
+                        // Validación simple: 9 dígitos numéricos
+                        if (!/^\d{9}$/.test(celularSinPrefijo)) {
+                            Swal.fire('Número inválido', 'Ingrese los 9 dígitos del celular', 'warning');
+                        } else {
+                            let celularCompleto = '51' + celularSinPrefijo;
+                            let urlPDF = location.origin + "/Reports/80mm.php?id=" + data.idventa;
+                            let whatsappLink = `https://wa.me/${celularCompleto}?text=${encodeURIComponent('Hola ' + (data.nombre || '') + ', aquí está tu comprobante de venta: ' + urlPDF)}`;
+                            window.open(whatsappLink, '_blank');
+                        }
+                    }
                 });
             } else {
-                swal("Error", data.mensaje, "error");
+                Swal.fire("Error", data.mensaje, "error");
                 $("#btnGuardar").prop("disabled", false);
             }
         },
         error: function () {
-            swal("Error", "No se pudo conectar con el servidor.", "error");
+            Swal.fire("Error", "No se pudo conectar con el servidor.", "error");
             $("#btnGuardar").prop("disabled", false);
         }
     });

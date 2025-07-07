@@ -96,11 +96,18 @@ switch ($_GET["op"]) {
 		);
 
 		// Si $rspta retorna el ID de la venta (ajusta si no)
+// En Sell.php después de registrar:
 		if ($rspta && is_numeric($rspta)) {
+			// Busca datos del cliente (nombre y celular)
+			$cliente = $person->mostrar($idcliente);
+			$celular = $cliente['telefono'] ?? ''; // O como se llame tu campo
+			$nombre = $cliente['nombre'] ?? '';
 			echo json_encode([
 				"success" => true,
 				"idventa" => $rspta,
-				"mensaje" => "Datos registrados correctamente"
+				"mensaje" => "Datos registrados correctamente",
+				"celular" => $celular,
+				"nombre" => $nombre,
 			]);
 		} else {
 			echo json_encode([
@@ -108,6 +115,7 @@ switch ($_GET["op"]) {
 				"mensaje" => "No se pudo registrar los datos"
 			]);
 		}
+
 		break;
 
 
