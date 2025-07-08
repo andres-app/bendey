@@ -26,10 +26,8 @@ if (!isset($_SESSION['nombre'])) {
                                             <div class="row g-3 mb-4">
                                                 <div class="col-md-6">
                                                     <label>Tipo de Comprobante</label>
-                                                    <select class="form-control form-select">
-                                                        <option>Boleta de venta electrónica</option>
-                                                        <!-- Puedes agregar más opciones si lo requieres -->
-                                                    </select>
+                                                    <select id="tipo_comprobante" class="form-control form-select" name="tipo_comprobante"></select>
+
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label>Cliente</label>
@@ -226,11 +224,15 @@ if (!isset($_SESSION['nombre'])) {
         <!-- Bootstrap Icons CDN -->
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
-<?php
+    <?php
     } else {
         require "access.php";
     }
     require "footer.php";
+    ?>
+    <script src="Views/modules/scripts/generaldata.js"></script>
+    <script src="Views/modules/scripts/newsale3.js"></script>
+<?php
 }
 ob_end_flush();
 ?>
