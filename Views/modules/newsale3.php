@@ -71,27 +71,31 @@ if (!isset($_SESSION['nombre'])) {
 
                                             <div class="row mb-4">
                                                 <div class="col-12 d-flex justify-content-center">
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <input class="form-check-input me-2" type="checkbox" id="descuentoSwitch">
-                                                        <label class="form-check-label me-2" for="descuentoSwitch">Descuento en % </label>
-                                                        <input type="number" class="form-control text-center" style="width:90px;" value="0.0" min="0" max="100" step="0.1">
+                                                    <div class="d-flex align-items-center">
+                                                        <label class="custom-switch">
+                                                            <input type="radio" name="option" value="1" class="custom-switch-input" checked="">
+                                                            <span class="custom-switch-indicator bg-success"></span>
+                                                            <span class="custom-switch-description">Descuento en %</span>
+                                                        </label>            
+                                                        <input type="number" class="form-control text-center" style="width:90px; margin-left:24px;" value="0.0" min="0" max="100" step="0.1">
                                                     </div>
                                                 </div>
                                             </div>
+
                                             <div class="row g-3 mb-4">
                                                 <div class="col-md-6">
                                                     <label class="form-label">Total recibido soles</label>
-                                                    <input class="form-control text-success fw-bold fs-5" value="S/150.00" readonly>
+                                                    <input class="form-control text-success fw-bold fs-5" value="S/150.00">
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label">Vuelto soles</label>
-                                                    <input class="form-control text-secondary fw-bold fs-5" value="S/16.50" readonly>
+                                                    <input class="form-control text-secondary fw-bold fs-5" value="S/16.50">
                                                 </div>
                                             </div>
 
                                             <div class="mb-4">
                                                 <label class="form-label">Observación</label>
-                                                <input class="form-control" placeholder="Opcional">
+                                                <textarea class="form-control" spellcheck="false" data-ms-editor="true"></textarea>
                                             </div>
                                             <div class="mb-4">
                                                 <label class="form-label">Modo de envío</label>
@@ -101,10 +105,20 @@ if (!isset($_SESSION['nombre'])) {
                                             </div>
                                         </form>
                                     </div>
+                                    <div class="card-footer bg-white border-0 p-0">
+                                        <hr class="my-0" style="border-top: 1.5px solid #ececec;">
+                                        <div class="row align-items-center g-0 py-4 px-4">
+                                            <div class="col-md-8 col-6 d-flex align-items-center">
+                                                <span class="fw-normal text-dark fs-4" style="min-width:80px;">Total:</span>
+                                                <span class="fw-bold text-dark ms-2" style="font-size:2.5rem; line-height:1;">S/133.50</span>
+                                            </div>
+                                            <div class="col-md-4 col-6 text-end">
+                                                <button class="btn btn-success fw-semibold" style="font-size:1.45rem; padding: 0.7rem 3rem; border-radius:8px;">Procesar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </div>
-
-
-
                             </div>
                         </div>
                         <!-- Panel Derecho: Carrito/Pedido Actual -->
@@ -118,6 +132,7 @@ if (!isset($_SESSION['nombre'])) {
                                         <!-- Producto 1 -->
                                         <div class="card border-0 shadow-sm mb-3 bg-white">
                                             <div class="card-body d-flex justify-content-between align-items-start p-3">
+                                                <!-- Info del producto -->
                                                 <div>
                                                     <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo | Standard</div>
                                                     <div class="text-muted small">Almacén: Huaquio 1</div>
@@ -126,62 +141,77 @@ if (!isset($_SESSION['nombre'])) {
                                                     <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span></div>
                                                     <div class="fw-bold mt-2 text-dark">Total: S/50.00</div>
                                                 </div>
-                                                <div class="d-flex flex-column align-items-center gap-2 ms-3">
-                                                    <button class="btn btn-outline-success btn-sm px-2 py-1"><i class="bi bi-plus"></i></button>
-                                                    <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
-                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1"><i class="bi bi-trash"></i></button>
+                                                <!-- Columna derecha: botones -->
+                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto" style="min-width:48px;">
+                                                    <div class="d-flex flex-column align-items-center gap-1">
+                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i class="bi bi-plus"></i></button>
+                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
+                                                    </div>
+                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3" style="min-width:32px;"><i class="bi bi-trash"></i></button>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <!-- Producto 2 -->
-                                        <div class="card border-0 shadow-sm mb-3">
+                                        <div class="card border-0 shadow-sm mb-3 bg-white">
                                             <div class="card-body d-flex justify-content-between align-items-start p-3">
+                                                <!-- Info del producto -->
                                                 <div>
-                                                    <div class="fw-semibold mb-1 text-dark">Pantalón boyfriend | Oscuro | 26</div>
+                                                    <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo | Standard</div>
                                                     <div class="text-muted small">Almacén: Huaquio 1</div>
-                                                    <div class="text-muted small">SKU: PB260</div>
-                                                    <div class="text-muted small">Precio Unitario: <span class="fw-semibold">S/50.00</span></div>
-                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">1</span></div>
+                                                    <div class="text-muted small">SKU: PC208</div>
+                                                    <div class="text-muted small">Precio Unitario: <span class="fw-semibold">S/25.00</span></div>
+                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span></div>
                                                     <div class="fw-bold mt-2 text-dark">Total: S/50.00</div>
                                                 </div>
-                                                <div class="d-flex flex-column align-items-center gap-2 ms-3">
-                                                    <button class="btn btn-outline-success btn-sm px-2 py-1"><i class="bi bi-plus"></i></button>
-                                                    <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
-                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1"><i class="bi bi-trash"></i></button>
+                                                <!-- Columna derecha: botones -->
+                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto" style="min-width:48px;">
+                                                    <div class="d-flex flex-column align-items-center gap-1">
+                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i class="bi bi-plus"></i></button>
+                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
+                                                    </div>
+                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3" style="min-width:32px;"><i class="bi bi-trash"></i></button>
                                                 </div>
                                             </div>
                                         </div>
+
                                         <!-- Producto 3 -->
-                                        <div class="card border-0 shadow-sm mb-3">
+                                        <div class="card border-0 shadow-sm mb-3 bg-white">
                                             <div class="card-body d-flex justify-content-between align-items-start p-3">
+                                                <!-- Info del producto -->
                                                 <div>
-                                                    <div class="fw-semibold mb-1 text-dark">Top con tiras BTS algodón rib acanalado | Azul acero | 26</div>
-                                                    <div class="text-muted small">Almacén: Retlu</div>
-                                                    <div class="text-muted small">SKU: TR680</div>
-                                                    <div class="text-muted small">Precio Unitario: <span class="fw-semibold">S/50.00</span></div>
-                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">1</span></div>
-                                                    <div class="fw-bold mt-2 text-dark">Total: S/150.00</div>
+                                                    <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo | Standard</div>
+                                                    <div class="text-muted small">Almacén: Huaquio 1</div>
+                                                    <div class="text-muted small">SKU: PC208</div>
+                                                    <div class="text-muted small">Precio Unitario: <span class="fw-semibold">S/25.00</span></div>
+                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span></div>
+                                                    <div class="fw-bold mt-2 text-dark">Total: S/50.00</div>
                                                 </div>
-                                                <div class="d-flex flex-column align-items-center gap-2 ms-3">
-                                                    <button class="btn btn-outline-success btn-sm px-2 py-1"><i class="bi bi-plus"></i></button>
-                                                    <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
-                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1"><i class="bi bi-trash"></i></button>
+                                                <!-- Columna derecha: botones -->
+                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto" style="min-width:48px;">
+                                                    <div class="d-flex flex-column align-items-center gap-1">
+                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i class="bi bi-plus"></i></button>
+                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
+                                                    </div>
+                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3" style="min-width:32px;"><i class="bi bi-trash"></i></button>
                                                 </div>
                                             </div>
                                         </div>
+
                                     </div>
 
-                                    <!-- Totales y botones -->
-                                    <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-3 bg-white border shadow-sm">
-                                        <span class="fw-bold fs-5">Total:</span>
-                                        <span class="fw-bold fs-3 text-success">S/233.50</span>
+                                    <!-- ... productos ... -->
+                                    <div class="d-flex justify-content-end gap-3 pt-3 pb-1 px-2" style="position: relative;">
+                                        <button class="btn btn-success rounded-circle shadow fs-2 d-flex align-items-center justify-content-center"
+                                            style="width:50px; height:50px;" title="Escanear">
+                                            <i class="bi bi-qr-code-scan"></i>
+                                        </button>
+                                        <button class="btn btn-success rounded-circle shadow fs-2 d-flex align-items-center justify-content-center"
+                                            style="width:50px; height:50px;" title="Agregar">
+                                            <i class="bi bi-plus"></i>
+                                        </button>
                                     </div>
-                                    <div class="d-flex gap-2">
-                                        <button class="btn btn-success flex-grow-1 fs-5 fw-semibold">Procesar</button>
-                                        <button class="btn btn-outline-success rounded-circle fs-4 d-flex align-items-center justify-content-center" title="Escanear"><i class="bi bi-qr-code-scan"></i></button>
-                                        <button class="btn btn-success rounded-circle fs-4 d-flex align-items-center justify-content-center" title="Agregar"><i class="bi bi-plus"></i></button>
-                                    </div>
+
                                 </div>
 
                             </div>
