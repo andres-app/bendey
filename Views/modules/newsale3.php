@@ -105,18 +105,18 @@ if (!isset($_SESSION['nombre'])) {
                                             </div>
                                         </form>
                                     </div>
-                                    <div class="card-footer bg-white border-0 p-0">
-                                        <hr class="my-0" style="border-top: 1.5px solid #ececec;">
-                                        <div class="row align-items-center g-0 py-4 px-4">
-                                            <div class="col-md-8 col-6 d-flex align-items-center">
-                                                <span class="fw-normal text-dark fs-4" style="min-width:80px;">Total:</span>
-                                                <span class="fw-bold text-dark ms-2" style="font-size:2.5rem; line-height:1;">S/133.50</span>
+                                    <div class="card-footer bg-white border-0 px-4 pb-4 pt-2">
+                                        <div class="row align-items-center">
+                                            <div class="col-12 col-md-8 text-center text-md-start mb-3 mb-md-0">
+                                                <span class="fs-4 fw-normal text-dark">Total:</span>
+                                                <span class="fw-bold fs-1 ms-2 text-dark">S/133.50</span>
                                             </div>
-                                            <div class="col-md-4 col-6 text-end">
-                                                <button class="btn btn-success fw-semibold" style="font-size:1.45rem; padding: 0.7rem 3rem; border-radius:8px;">Procesar</button>
+                                            <div class="col-12 col-md-4 text-center text-md-end">
+                                                <button class="btn btn-success btn-lg w-100 px-5 fw-semibold" style="min-width:180px;">Procesar</button>
                                             </div>
                                         </div>
                                     </div>
+
 
                                 </div>
                             </div>
