@@ -76,7 +76,7 @@ if (!isset($_SESSION['nombre'])) {
                                                             <input type="radio" name="option" value="1" class="custom-switch-input" checked="">
                                                             <span class="custom-switch-indicator bg-success"></span>
                                                             <span class="custom-switch-description">Descuento en %</span>
-                                                        </label>            
+                                                        </label>
                                                         <input type="number" class="form-control text-center" style="width:90px; margin-left:24px;" value="0.0" min="0" max="100" step="0.1">
                                                     </div>
                                                 </div>
@@ -197,20 +197,23 @@ if (!isset($_SESSION['nombre'])) {
                                                 </div>
                                             </div>
                                         </div>
-
                                     </div>
 
-                                    <!-- ... productos ... -->
-                                    <div class="d-flex justify-content-end gap-3 pt-3 pb-1 px-2" style="position: relative;">
-                                        <button class="btn btn-success rounded-circle shadow fs-2 d-flex align-items-center justify-content-center"
-                                            style="width:50px; height:50px;" title="Escanear">
-                                            <i class="bi bi-qr-code-scan"></i>
-                                        </button>
-                                        <button class="btn btn-success rounded-circle shadow fs-2 d-flex align-items-center justify-content-center"
-                                            style="width:50px; height:50px;" title="Agregar">
-                                            <i class="bi bi-plus"></i>
-                                        </button>
+                                    <!-- Botones flotantes, siempre abajo a la derecha -->
+
+                                    <div class="d-flex justify-content-end align-items-end" style="height: 100px; pointer-events: none;">
+                                        <div style="pointer-events: auto; display: flex; gap: 24px;">
+                                            <button class="btn btn-success shadow d-flex align-items-center justify-content-center"
+                                                style="width:72px; height:52px; border-radius:18px;" title="Escanear">
+                                                <i class="bi bi-qr-code-scan" style="font-size:2rem;"></i>
+                                            </button>
+                                            <button class="btn btn-success shadow d-flex align-items-center justify-content-center"
+                                                style="width:72px; height:52px; border-radius:18px;" title="Agregar">
+                                                <i class="bi bi-plus" style="font-size:2rem;"></i>
+                                            </button>
+                                        </div>
                                     </div>
+
 
                                 </div>
 
