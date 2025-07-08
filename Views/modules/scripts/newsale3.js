@@ -50,7 +50,7 @@ function inicializarEventos() {
                 $('#celular').val(data.celular || '');
                 $('#direccion').val(data.direccion || '');
                 // ...otros campos si tienes
-            } catch (e) {}
+            } catch (e) { }
         });
     });
 
@@ -90,7 +90,7 @@ function mostrarSerieNumero() {
             data = JSON.parse(data);
             $('#serie_comprobante').val(data.serie || '');
             $('#num_comprobante').val(data.numero || '');
-        } catch (e) {}
+        } catch (e) { }
     });
 }
 
@@ -107,7 +107,7 @@ function guardarVenta() {
         processData: false,
         success: function (resp) {
             let data;
-            try { data = JSON.parse(resp); } catch (e) { data = {success: false, mensaje: resp}; }
+            try { data = JSON.parse(resp); } catch (e) { data = { success: false, mensaje: resp }; }
             if (data.success) {
                 Swal.fire("¡Venta registrada!", "La venta se guardó correctamente.", "success");
                 // Limpiar el formulario, recargar carrito, totales, etc.
@@ -141,3 +141,49 @@ function calcularTotales() {
     // Puedes calcular vuelto y mostrarlo donde necesites
 }
 
+function consultarCliente() {
+    var tipo_documento = $('#tipo_documento').val();
+    var num_documento = $('#num_documento').val();
+
+    $.ajax({
+        url: 'Controllers/Person.php?op=getCustomerByDocument',
+        type: 'POST',
+        data: { tipo_documento: tipo_documento, num_documento: num_documento },
+        success: function (response) {
+            var data;
+            try {
+                data = JSON.parse(response);
+            } catch (e) {
+                alert('Error al procesar la respuesta del servidor.');
+                return;
+            }
+
+            if (data.estado && data.resultado && data.resultado.nombre) {
+                // REEMPLAZA el valor del input con el nombre
+                $("#num_documento").val(data.resultado.nombre || '');
+                // Si quieres guardar el idpersona de forma oculta:
+                $("#idpersona").val(data.resultado.idpersona || '');
+                // Opcional: autollenar otros campos, pero solo si existen
+                // $("#direccion").val(data.resultado.direccion || '');
+            } else {
+                // Cliente NO encontrado: el mismo flujo que ya tienes
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cliente no registrado',
+                    text: 'El cliente no está en la base de datos. ¿Deseas buscar en RENIEC/SUNAT?',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, buscar',
+                    cancelButtonText: 'No, cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        consultarClienteReniec(tipo_documento, num_documento);
+                    }
+                });
+            }
+
+        },
+        error: function () {
+            alert('Error al consultar el cliente en la base de datos.');
+        }
+    });
+}

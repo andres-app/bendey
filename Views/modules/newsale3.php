@@ -30,14 +30,23 @@ if (!isset($_SESSION['nombre'])) {
 
                                                 </div>
                                                 <div class="col-md-6">
-                                                    <label>Cliente</label>
+                                                    <label for="num_documento">Cliente</label>
                                                     <div class="input-group">
-                                                        <input class="form-control" value="72050413 | Orlando Joaquin Ahumada Chávez">
-                                                        <button class="btn btn-outline-secondary" type="button">
+                                                        <input class="form-control"
+                                                            type="text"
+                                                            name="num_documento"
+                                                            id="num_documento"
+                                                            maxlength="20"
+                                                            placeholder="DNI o Nombre">
+                                                        <button type="button" class="btn btn-outline-secondary"
+                                                            onclick="consultarCliente()">
                                                             <i class="bi bi-arrow-repeat"></i>
                                                         </button>
                                                     </div>
+                                                    <!-- Nombre de cliente autollenado -->
+                                                    <small id="nombre_cliente" class="text-muted d-block mt-2"></small>
                                                 </div>
+
                                             </div>
 
                                             <div class="row g-3 mb-4">
