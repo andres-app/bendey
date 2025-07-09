@@ -8,7 +8,7 @@ if (!isset($_SESSION['nombre'])) {
     require "sidebar.php";
 
     if ($_SESSION['ventas'] == 1) {
-        ?>
+?>
         <div class="main-content">
             <section class="section">
                 <div class="section-body">
@@ -119,18 +119,24 @@ if (!isset($_SESSION['nombre'])) {
                                     </div>
                                     <div class="card-footer bg-white border-0 px-4 pb-4 pt-2">
                                         <div class="row align-items-center">
-                                            <div class="col-12 col-md-8 text-center text-md-start mb-3 mb-md-0">
-                                                <span class="fs-4 fw-normal text-dark">Total:</span>
-                                                <span class="fw-bold fs-1 ms-2 text-dark">S/133.50</span>
+                                            <!-- Total -->
+                                            <div class="col-12 col-md-8 mb-3 mb-md-0">
+                                                <div class="d-flex justify-content-md-start justify-content-center align-items-center h-100">
+                                                    <span style="font-size:1.3rem; color:#353535; font-weight:400;">Total:&nbsp;</span>
+                                                    <span style="font-size:2.4rem; color:#353535; font-weight:700;">S/133.50</span>
+                                                </div>
                                             </div>
-                                            <div class="col-12 col-md-4 text-center text-md-end">
-                                                <button class="btn btn-success btn-lg w-100 px-5 fw-semibold"
-                                                    style="min-width:180px;">Procesar</button>
+                                            <!-- Botón -->
+                                            <div class="col-12 col-md-4">
+                                                <div class="d-flex justify-content-md-end justify-content-center">
+                                                    <button class="btn fw-normal"
+                                                        style="background:#52b848; color:white; min-width:190px; height:60px; font-size:1.2rem; border-radius:10px;">
+                                                        Procesar
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-
-
                                 </div>
                             </div>
                         </div>
@@ -263,7 +269,7 @@ if (!isset($_SESSION['nombre'])) {
         <!-- Bootstrap Icons CDN -->
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
-        <?php
+    <?php
     } else {
         require "access.php";
     }
@@ -271,7 +277,7 @@ if (!isset($_SESSION['nombre'])) {
     ?>
     <script src="Views/modules/scripts/generaldata.js"></script>
     <script src="Views/modules/scripts/newsale3.js"></script>
-    <?php
+<?php
 }
 ob_end_flush();
 ?>
