@@ -248,3 +248,7 @@ function consultarClienteReniec(tipo_documento, num_documento) {
         }
     });
 }
+
+$('#btnAbrirModal').on('click', function() {
+    $('#modalProductos').modal('show');
+});
