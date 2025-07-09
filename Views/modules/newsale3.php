@@ -280,9 +280,18 @@ if (!isset($_SESSION['nombre'])) {
                         </button>
                     </div>
                     <!-- Tabs -->
-                    <div class="px-4 pt-3 pb-0 bg-white" style="border-bottom:1px solid #eee;">
-                        <nav>
-                            <ul class="nav" style="white-space:nowrap;overflow-x:auto;">
+                    <div class="px-4 pt-3 pb-0 bg-white" style="border-bottom:1px solid #eee; position:relative;">
+                        <!-- Flecha Izquierda -->
+                        <button id="catPrev" class="btn btn-link p-0 m-0" style="position:absolute; left:0; top:60%; transform:translateY(-50%); z-index:2;">
+                            <i class="bi bi-chevron-left" style="font-size:1rem; color:#aaa;"></i>
+                        </button>
+                        <!-- Flecha Derecha -->
+                        <button id="catNext" class="btn btn-link p-0 m-0" style="position:absolute; right:0; top:60%; transform:translateY(-50%); z-index:2;">
+                            <i class="bi bi-chevron-right" style="font-size:1rem; color:#aaa;"></i>
+                        </button>
+
+                        <nav class="mx-5"> <!-- Espacio para que no tapen las flechas -->
+                            <ul class="nav flex-nowrap" id="catList" style="white-space:nowrap; overflow-x:auto; scroll-behavior:smooth;">
                                 <li class="nav-item"><a class="nav-link active px-2" href="#">Pantalones</a></li>
                                 <li class="nav-item"><a class="nav-link px-2" href="#">Polos</a></li>
                                 <li class="nav-item"><a class="nav-link px-2" href="#">Tops</a></li>
@@ -295,6 +304,7 @@ if (!isset($_SESSION['nombre'])) {
                             </ul>
                         </nav>
                     </div>
+
                     <!-- Buscador -->
                     <div class="px-4 py-3 bg-white">
                         <div class="input-group" style="max-width: 540px;">
@@ -313,14 +323,14 @@ if (!isset($_SESSION['nombre'])) {
                     <div class="modal-body pt-0">
                         <div class="row px-4">
                             <div class="col-12 col-md-6 col-lg-4 mb-4">
-                                <div class="card border-0 shadow-sm h-100" style="min-width:330px; max-width:370px;">
+                                <div class="card border-0 shadow-sm h-100" style="min-width:330px; max-width:330px;">
                                     <div class="card-body">
                                         <div class="mb-2 fw-bold fs-5" style="color:#353535;">Polo crop Simpson | Amarillo | Standard</div>
                                         <div class="d-flex align-items-center mb-3">
-                                            <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                                            <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:32px;">
                                                 <i class="bi bi-image fs-1 text-secondary"></i>
                                             </div>
-                                            <div class="ms-3 small">
+                                            <div class="small">
                                                 <div><strong>Almacén:</strong> Huequito 1</div>
                                                 <div><strong>Categoría:</strong> Polos</div>
                                                 <div><strong>SKU:</strong> PC208</div>
@@ -328,14 +338,9 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div><strong>Precio unitario:</strong> S/25.00</div>
                                             </div>
                                         </div>
-                                        <button
-                                            class="btn btn-success shadow d-flex align-items-center justify-content-center ms-auto"
-                                            style="width:52px; height:52px; border-radius:18px;"
-                                            title="Agregar">
-                                            <i class="bi bi-plus" style="font-size:2rem;"></i>
-                                        </button>
                                     </div>
                                 </div>
+
                             </div>
                             <!-- Repite .col para más productos -->
                         </div>
