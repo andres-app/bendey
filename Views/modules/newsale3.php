@@ -8,7 +8,7 @@ if (!isset($_SESSION['nombre'])) {
     require "sidebar.php";
 
     if ($_SESSION['ventas'] == 1) {
-?>
+        ?>
         <div class="main-content">
             <section class="section">
                 <div class="section-body">
@@ -26,23 +26,24 @@ if (!isset($_SESSION['nombre'])) {
                                             <div class="row g-3 mb-4">
                                                 <div class="col-md-6">
                                                     <label>Tipo de Comprobante</label>
-                                                    <select id="tipo_comprobante" class="form-control form-select" name="tipo_comprobante"></select>
+                                                    <select id="tipo_comprobante" class="form-control form-select"
+                                                        name="tipo_comprobante"></select>
 
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label for="num_documento">Cliente</label>
                                                     <div class="input-group">
-                                                        <input class="form-control"
-                                                            type="text"
-                                                            name="num_documento"
-                                                            id="num_documento"
-                                                            maxlength="20"
-                                                            placeholder="DNI o Nombre">
+                                                        <input class="form-control" type="text" name="num_documento"
+                                                            id="num_documento" maxlength="20"
+                                                            placeholder="N° Documento o Nombre">
                                                         <button type="button" class="btn btn-outline-secondary"
                                                             onclick="consultarCliente()">
                                                             <i class="bi bi-arrow-repeat"></i>
                                                         </button>
                                                     </div>
+                                                    <!-- AGREGADO: input oculto para el valor real -->
+                                                    <input type="hidden" id="num_doc_real" name="num_doc_real">
+
                                                     <!-- Nombre de cliente autollenado -->
                                                     <small id="nombre_cliente" class="text-muted d-block mt-2"></small>
                                                 </div>
@@ -80,11 +81,14 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-12 d-flex justify-content-center">
                                                     <div class="d-flex align-items-center">
                                                         <label class="custom-switch">
-                                                            <input type="radio" name="option" value="1" class="custom-switch-input" checked="">
+                                                            <input type="radio" name="option" value="1"
+                                                                class="custom-switch-input" checked="">
                                                             <span class="custom-switch-indicator bg-success"></span>
                                                             <span class="custom-switch-description">Descuento en %</span>
                                                         </label>
-                                                        <input type="number" class="form-control text-center" style="width:90px; margin-left:24px;" value="0.0" min="0" max="100" step="0.1">
+                                                        <input type="number" class="form-control text-center"
+                                                            style="width:90px; margin-left:24px;" value="0.0" min="0" max="100"
+                                                            step="0.1">
                                                     </div>
                                                 </div>
                                             </div>
@@ -102,7 +106,8 @@ if (!isset($_SESSION['nombre'])) {
 
                                             <div class="mb-4">
                                                 <label class="form-label">Observación</label>
-                                                <textarea class="form-control" spellcheck="false" data-ms-editor="true"></textarea>
+                                                <textarea class="form-control" spellcheck="false"
+                                                    data-ms-editor="true"></textarea>
                                             </div>
                                             <div class="mb-4">
                                                 <label class="form-label">Modo de envío</label>
@@ -119,7 +124,8 @@ if (!isset($_SESSION['nombre'])) {
                                                 <span class="fw-bold fs-1 ms-2 text-dark">S/133.50</span>
                                             </div>
                                             <div class="col-12 col-md-4 text-center text-md-end">
-                                                <button class="btn btn-success btn-lg w-100 px-5 fw-semibold" style="min-width:180px;">Procesar</button>
+                                                <button class="btn btn-success btn-lg w-100 px-5 fw-semibold"
+                                                    style="min-width:180px;">Procesar</button>
                                             </div>
                                         </div>
                                     </div>
@@ -141,20 +147,27 @@ if (!isset($_SESSION['nombre'])) {
                                             <div class="card-body d-flex justify-content-between align-items-start p-3">
                                                 <!-- Info del producto -->
                                                 <div>
-                                                    <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo | Standard</div>
+                                                    <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo |
+                                                        Standard</div>
                                                     <div class="text-muted small">Almacén: Huaquio 1</div>
                                                     <div class="text-muted small">SKU: PC208</div>
-                                                    <div class="text-muted small">Precio Unitario: <span class="fw-semibold">S/25.00</span></div>
-                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span></div>
+                                                    <div class="text-muted small">Precio Unitario: <span
+                                                            class="fw-semibold">S/25.00</span></div>
+                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span>
+                                                    </div>
                                                     <div class="fw-bold mt-2 text-dark">Total: S/50.00</div>
                                                 </div>
                                                 <!-- Columna derecha: botones -->
-                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto" style="min-width:48px;">
+                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto"
+                                                    style="min-width:48px;">
                                                     <div class="d-flex flex-column align-items-center gap-1">
-                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i class="bi bi-plus"></i></button>
-                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
+                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i
+                                                                class="bi bi-plus"></i></button>
+                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i
+                                                                class="bi bi-dash"></i></button>
                                                     </div>
-                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3" style="min-width:32px;"><i class="bi bi-trash"></i></button>
+                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3"
+                                                        style="min-width:32px;"><i class="bi bi-trash"></i></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -164,20 +177,27 @@ if (!isset($_SESSION['nombre'])) {
                                             <div class="card-body d-flex justify-content-between align-items-start p-3">
                                                 <!-- Info del producto -->
                                                 <div>
-                                                    <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo | Standard</div>
+                                                    <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo |
+                                                        Standard</div>
                                                     <div class="text-muted small">Almacén: Huaquio 1</div>
                                                     <div class="text-muted small">SKU: PC208</div>
-                                                    <div class="text-muted small">Precio Unitario: <span class="fw-semibold">S/25.00</span></div>
-                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span></div>
+                                                    <div class="text-muted small">Precio Unitario: <span
+                                                            class="fw-semibold">S/25.00</span></div>
+                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span>
+                                                    </div>
                                                     <div class="fw-bold mt-2 text-dark">Total: S/50.00</div>
                                                 </div>
                                                 <!-- Columna derecha: botones -->
-                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto" style="min-width:48px;">
+                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto"
+                                                    style="min-width:48px;">
                                                     <div class="d-flex flex-column align-items-center gap-1">
-                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i class="bi bi-plus"></i></button>
-                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
+                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i
+                                                                class="bi bi-plus"></i></button>
+                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i
+                                                                class="bi bi-dash"></i></button>
                                                     </div>
-                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3" style="min-width:32px;"><i class="bi bi-trash"></i></button>
+                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3"
+                                                        style="min-width:32px;"><i class="bi bi-trash"></i></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -187,20 +207,27 @@ if (!isset($_SESSION['nombre'])) {
                                             <div class="card-body d-flex justify-content-between align-items-start p-3">
                                                 <!-- Info del producto -->
                                                 <div>
-                                                    <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo | Standard</div>
+                                                    <div class="fw-bold fs-6 mb-1 text-dark">Polo crop Simpson | Amarillo |
+                                                        Standard</div>
                                                     <div class="text-muted small">Almacén: Huaquio 1</div>
                                                     <div class="text-muted small">SKU: PC208</div>
-                                                    <div class="text-muted small">Precio Unitario: <span class="fw-semibold">S/25.00</span></div>
-                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span></div>
+                                                    <div class="text-muted small">Precio Unitario: <span
+                                                            class="fw-semibold">S/25.00</span></div>
+                                                    <div class="text-muted small">Cantidad: <span class="fw-semibold">2</span>
+                                                    </div>
                                                     <div class="fw-bold mt-2 text-dark">Total: S/50.00</div>
                                                 </div>
                                                 <!-- Columna derecha: botones -->
-                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto" style="min-width:48px;">
+                                                <div class="d-flex flex-column justify-content-between align-items-end ms-auto"
+                                                    style="min-width:48px;">
                                                     <div class="d-flex flex-column align-items-center gap-1">
-                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i class="bi bi-plus"></i></button>
-                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i class="bi bi-dash"></i></button>
+                                                        <button class="btn btn-outline-success btn-sm px-2 py-1 mb-1"><i
+                                                                class="bi bi-plus"></i></button>
+                                                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"><i
+                                                                class="bi bi-dash"></i></button>
                                                     </div>
-                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3" style="min-width:32px;"><i class="bi bi-trash"></i></button>
+                                                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3"
+                                                        style="min-width:32px;"><i class="bi bi-trash"></i></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -208,13 +235,16 @@ if (!isset($_SESSION['nombre'])) {
 
                                     <!-- Botones flotantes, siempre abajo a la derecha -->
 
-                                    <div class="d-flex justify-content-end align-items-end" style="height: 100px; pointer-events: none;">
+                                    <div class="d-flex justify-content-end align-items-end"
+                                        style="height: 100px; pointer-events: none;">
                                         <div style="pointer-events: auto; display: flex; gap: 24px;">
-                                            <button class="btn btn-success shadow d-flex align-items-center justify-content-center"
+                                            <button
+                                                class="btn btn-success shadow d-flex align-items-center justify-content-center"
                                                 style="width:72px; height:52px; border-radius:18px;" title="Escanear">
                                                 <i class="bi bi-qr-code-scan" style="font-size:2rem;"></i>
                                             </button>
-                                            <button class="btn btn-success shadow d-flex align-items-center justify-content-center"
+                                            <button
+                                                class="btn btn-success shadow d-flex align-items-center justify-content-center"
                                                 style="width:72px; height:52px; border-radius:18px;" title="Agregar">
                                                 <i class="bi bi-plus" style="font-size:2rem;"></i>
                                             </button>
@@ -233,7 +263,7 @@ if (!isset($_SESSION['nombre'])) {
         <!-- Bootstrap Icons CDN -->
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
-    <?php
+        <?php
     } else {
         require "access.php";
     }
@@ -241,7 +271,7 @@ if (!isset($_SESSION['nombre'])) {
     ?>
     <script src="Views/modules/scripts/generaldata.js"></script>
     <script src="Views/modules/scripts/newsale3.js"></script>
-<?php
+    <?php
 }
 ob_end_flush();
 ?>

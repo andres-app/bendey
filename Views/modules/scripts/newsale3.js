@@ -150,6 +150,8 @@ function consultarCliente() {
         type: 'POST',
         data: { tipo_documento: tipo_documento, num_documento: num_documento },
         success: function (response) {
+            // -----> AGREGA ESTO:
+            console.log('Respuesta de getCustomerByDocument:', response);
             var data;
             try {
                 data = JSON.parse(response);
@@ -184,6 +186,65 @@ function consultarCliente() {
         },
         error: function () {
             alert('Error al consultar el cliente en la base de datos.');
+        }
+    });
+}
+
+function consultarClienteReniec(tipo_documento, num_documento) {
+    if (!num_documento || num_documento.trim() === "") {
+        Swal.fire("Error", "Debe ingresar un número de documento válido", "error");
+        return;
+    }
+
+    // Detecta el tipo automáticamente
+    let tipo_detectado = "";
+    if (num_documento.length === 8) {
+        tipo_detectado = "DNI";
+    } else if (num_documento.length === 11) {
+        tipo_detectado = "RUC";
+    } else {
+        Swal.fire("Error", "El número de documento debe tener 8 (DNI) u 11 (RUC) dígitos.", "error");
+        return;
+    }
+
+    $.ajax({
+        url: 'Controllers/Person.php?op=getCustomerInfo',
+        type: 'POST',
+        data: { tipo_documento: tipo_detectado, num_documento: num_documento },
+        success: function (response) {
+            var data;
+            try {
+                data = JSON.parse(response);
+            } catch (e) {
+                Swal.fire('Error', 'Error al procesar la respuesta del servidor.', 'error');
+                return;
+            }
+
+            if (data.estado) {
+                let nombre = data.resultado.nombre || data.resultado.razon_social || '';
+                if (nombre.trim() !== '') {
+                    // SOLO NOMBRE en el input
+                    $('#num_documento').val(nombre);
+                    $('#direccion').val(data.resultado.direccion || '');
+                } else {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Datos incompletos',
+                        text: data.mensaje || 'No se encontraron los datos completos del cliente.'
+                    });
+                    $('#num_documento').addClass('is-invalid');
+                }
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'No encontrado',
+                    text: data.mensaje || 'No se encontró información del documento.'
+                });
+                $('#num_documento').addClass('is-invalid');
+            }
+        },
+        error: function () {
+            Swal.fire('Error', 'Error al consultar la RENIEC/SUNAT.', 'error');
         }
     });
 }
