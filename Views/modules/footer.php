@@ -1,9 +1,9 @@
             <footer class="main-footer">
                 <div class="footer-left">
-                    Todos los derechos reservados &copy; <div class="bullet"></div> appsauri.com
+                    Todos los derechos reservados &copy; <div class="bullet"></div> tiquepos.com
                 </div>
                 <div class="footer-right">
-                  v. 1.7
+                  v. 1.8
                 </div>
             </footer>
         </div>

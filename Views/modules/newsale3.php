@@ -35,7 +35,7 @@ if (!isset($_SESSION['nombre'])) {
                                                     <div class="input-group">
                                                         <input class="form-control" type="text" name="num_documento"
                                                             id="num_documento" maxlength="20"
-                                                            placeholder="N° Documento o Nombre">
+                                                            placeholder="N° Documento">
                                                         <button type="button" class="btn btn-outline-secondary"
                                                             onclick="consultarCliente()">
                                                             <i class="bi bi-arrow-repeat"></i>
@@ -54,7 +54,7 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-md-4">
                                                     <label>Celular</label>
                                                     <div class="form-group mb-0">
-                                                        <input class="form-control" value="986634352">
+                                                        <input class="form-control" placeholder="986634352">
                                                     </div>
                                                 </div>
                                                 <div class="col-md-4">
