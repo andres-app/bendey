@@ -43,7 +43,7 @@ if (!isset($_SESSION['nombre'])) {
                             <!-- FIN TABLA -->
 
                             <!-- FORMULARIO DE REGISTRO -->
-                            <div id="formularioregistros">
+                            <div id="formularioregistros" style="display: none;">
                                 <form name="formulario" id="formulario" method="POST">
                                     <div class="row">
                                         <div class="form-group col-lg-4 col-md-6 col-xs-12">
