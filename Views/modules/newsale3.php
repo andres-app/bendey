@@ -292,15 +292,6 @@ if (!isset($_SESSION['nombre'])) {
 
                         <nav class="mx-5"> <!-- Espacio para que no tapen las flechas -->
                             <ul class="nav flex-nowrap" id="catList" style="white-space:nowrap; overflow-x:auto; scroll-behavior:smooth;">
-                                <li class="nav-item"><a class="nav-link active px-2" href="#">Pantalones</a></li>
-                                <li class="nav-item"><a class="nav-link px-2" href="#">Polos</a></li>
-                                <li class="nav-item"><a class="nav-link px-2" href="#">Tops</a></li>
-                                <li class="nav-item"><a class="nav-link px-2" href="#">Shorts</a></li>
-                                <li class="nav-item"><a class="nav-link px-2" href="#">Accesorios</a></li>
-                                <li class="nav-item"><a class="nav-link px-2" href="#">Poleras</a></li>
-                                <li class="nav-item"><a class="nav-link px-2" href="#">Bodys</a></li>
-                                <li class="nav-item"><a class="nav-link px-2" href="#">Vestidos</a></li>
-                                <li class="nav-item"><a class="nav-link px-2" href="#">Corsets</a></li>
                             </ul>
                         </nav>
                     </div>
@@ -321,138 +312,7 @@ if (!isset($_SESSION['nombre'])) {
                     </div>
                     <!-- Productos -->
                     <div class="modal-body pt-0">
-                        <div class="row px-3">
-                            <div class="col-12 col-md-6 col-lg-4 mb-4">
-                                <div class="card border-0 shadow-sm h-100" style="min-width:330px; max-width:30px;">
-                                    <div class="card-body">
-                                        <div class="mb-2 fw-bold fs-5" style="color:#353535;">Polo crop Simpson | Amarillo | Standard</div>
-                                        <div class="d-flex align-items-center mb-3">
-                                            <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:32px;">
-                                                <i class="bi bi-image fs-1 text-secondary"></i>
-                                            </div>
-                                            <div class="small">
-                                                <div><strong>Almacén:</strong> Huequito 1</div>
-                                                <div><strong>Categoría:</strong> Polos</div>
-                                                <div><strong>SKU:</strong> PC208</div>
-                                                <div><strong>Stock:</strong> 38 unidades</div>
-                                                <div><strong>Precio unitario:</strong> S/25.00</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                            </div>
-                            <!-- Repite .col para más productos -->
-                            <div class="row px-3">
-                                <div class="col-12 col-md-6 col-lg-4 mb-4">
-                                    <div class="card border-0 shadow-sm h-100" style="min-width:330px; max-width:30px;">
-                                        <div class="card-body">
-                                            <div class="mb-2 fw-bold fs-5" style="color:#353535;">Polo crop Simpson | Amarillo | Standard</div>
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:32px;">
-                                                    <i class="bi bi-image fs-1 text-secondary"></i>
-                                                </div>
-                                                <div class="small">
-                                                    <div><strong>Almacén:</strong> Huequito 1</div>
-                                                    <div><strong>Categoría:</strong> Polos</div>
-                                                    <div><strong>SKU:</strong> PC208</div>
-                                                    <div><strong>Stock:</strong> 38 unidades</div>
-                                                    <div><strong>Precio unitario:</strong> S/25.00</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                            <div class="row px-3">
-                                <div class="col-12 col-md-6 col-lg-4 mb-4">
-                                    <div class="card border-0 shadow-sm h-100" style="min-width:330px; max-width:30px;">
-                                        <div class="card-body">
-                                            <div class="mb-2 fw-bold fs-5" style="color:#353535;">Polo crop Simpson | Amarillo | Standard</div>
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:32px;">
-                                                    <i class="bi bi-image fs-1 text-secondary"></i>
-                                                </div>
-                                                <div class="small">
-                                                    <div><strong>Almacén:</strong> Huequito 1</div>
-                                                    <div><strong>Categoría:</strong> Polos</div>
-                                                    <div><strong>SKU:</strong> PC208</div>
-                                                    <div><strong>Stock:</strong> 38 unidades</div>
-                                                    <div><strong>Precio unitario:</strong> S/25.00</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                            <div class="row px-3">
-                                <div class="col-12 col-md-6 col-lg-4 mb-4">
-                                    <div class="card border-0 shadow-sm h-100" style="min-width:330px; max-width:30px;">
-                                        <div class="card-body">
-                                            <div class="mb-2 fw-bold fs-5" style="color:#353535;">Polo crop Simpson | Amarillo | Standard</div>
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:32px;">
-                                                    <i class="bi bi-image fs-1 text-secondary"></i>
-                                                </div>
-                                                <div class="small">
-                                                    <div><strong>Almacén:</strong> Huequito 1</div>
-                                                    <div><strong>Categoría:</strong> Polos</div>
-                                                    <div><strong>SKU:</strong> PC208</div>
-                                                    <div><strong>Stock:</strong> 38 unidades</div>
-                                                    <div><strong>Precio unitario:</strong> S/25.00</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                            <div class="row px-3">
-                                <div class="col-12 col-md-6 col-lg-4 mb-4">
-                                    <div class="card border-0 shadow-sm h-100" style="min-width:330px; max-width:30px;">
-                                        <div class="card-body">
-                                            <div class="mb-2 fw-bold fs-5" style="color:#353535;">Polo crop Simpson | Amarillo | Standard</div>
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:32px;">
-                                                    <i class="bi bi-image fs-1 text-secondary"></i>
-                                                </div>
-                                                <div class="small">
-                                                    <div><strong>Almacén:</strong> Huequito 1</div>
-                                                    <div><strong>Categoría:</strong> Polos</div>
-                                                    <div><strong>SKU:</strong> PC208</div>
-                                                    <div><strong>Stock:</strong> 38 unidades</div>
-                                                    <div><strong>Precio unitario:</strong> S/25.00</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                            <div class="row px-3">
-                                <div class="col-12 col-md-6 col-lg-4 mb-4">
-                                    <div class="card border-0 shadow-sm h-100" style="min-width:330px; max-width:30px;">
-                                        <div class="card-body">
-                                            <div class="mb-2 fw-bold fs-5" style="color:#353535;">Polo crop Simpson | Amarillo | Standard</div>
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:32px;">
-                                                    <i class="bi bi-image fs-1 text-secondary"></i>
-                                                </div>
-                                                <div class="small">
-                                                    <div><strong>Almacén:</strong> Huequito 1</div>
-                                                    <div><strong>Categoría:</strong> Polos</div>
-                                                    <div><strong>SKU:</strong> PC208</div>
-                                                    <div><strong>Stock:</strong> 38 unidades</div>
-                                                    <div><strong>Precio unitario:</strong> S/25.00</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="row px-3" id="productosList">
                     </div>
                     <!-- Footer SIEMPRE al pie del modal, derecha -->
                     <div class="modal-footer border-0 bg-white px-4 pb-4 pt-2 justify-content-end" style="border-top:none;">
@@ -463,20 +323,20 @@ if (!isset($_SESSION['nombre'])) {
                     </div>
                 </div>
             </div>
+        </div>
 
+        <!-- Bootstrap Icons CDN -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
-            <!-- Bootstrap Icons CDN -->
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-
-        <?php
+    <?php
     } else {
         require "access.php";
     }
     require "footer.php";
-        ?>
-        <script src="Views/modules/scripts/generaldata.js"></script>
-        <script src="Views/modules/scripts/newsale3.js"></script>
-    <?php
+    ?>
+    <script src="Views/modules/scripts/generaldata.js"></script>
+    <script src="Views/modules/scripts/newsale3.js"></script>
+<?php
 }
 ob_end_flush();
-    ?>
+?>

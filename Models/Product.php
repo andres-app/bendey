@@ -143,4 +143,16 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen -- ← agrega esto cuando ten
 		$sql = "SELECT * FROM $this->tableName WHERE condicion=1";
 		return $this->conexion->getDataAll($sql);
 	}
+
+	public function listarCategoriasActivas()
+	{
+		$sql = "SELECT idcategoria, nombre FROM categoria WHERE condicion=1";
+		return $this->conexion->getDataAll($sql);
+	}
+
+	public function listarActivosVentaPorCategoria($idcategoria)
+	{
+		$sql = "SELECT * FROM articulo WHERE idcategoria=? AND condicion=1";
+		return $this->conexion->getDataAll($sql, [$idcategoria]);
+	}
 }

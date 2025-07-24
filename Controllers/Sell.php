@@ -66,14 +66,14 @@ switch ($_GET["op"]) {
 		$subtotal = $total_venta - $igv;
 
 		// Mostramos los valores para verificar
-// echo "Subtotal: S/ " . number_format($subtotal, 2, '.', '') . "<br>";
-// echo "IGV (18%): S/ " . number_format($igv, 2, '.', '') . "<br>";
-// echo "Total: S/ " . number_format($total_venta, 2, '.', '') . "<br>";
+		// echo "Subtotal: S/ " . number_format($subtotal, 2, '.', '') . "<br>";
+		// echo "IGV (18%): S/ " . number_format($igv, 2, '.', '') . "<br>";
+		// echo "Total: S/ " . number_format($total_venta, 2, '.', '') . "<br>";
 
 
 
 		// Registrar la venta con los cálculos actualizados
-// Asegurar que impuesto tenga un valor numérico o NULL
+		// Asegurar que impuesto tenga un valor numérico o NULL
 		$impuesto = isset($impuesto) && $impuesto !== '' ? (float) $impuesto : null;
 
 		// Registrar la venta con los cálculos actualizados
@@ -96,7 +96,7 @@ switch ($_GET["op"]) {
 		);
 
 		// Si $rspta retorna el ID de la venta (ajusta si no)
-// En Sell.php después de registrar:
+		// En Sell.php después de registrar:
 		if ($rspta && is_numeric($rspta)) {
 			// Busca datos del cliente (nombre y celular)
 			$cliente = $person->mostrar($idcliente);
@@ -293,8 +293,7 @@ switch ($_GET["op"]) {
 		} else {
 			$smoneda = $regn['simbolo'];
 			$nom_imp = $regn['nombre_impuesto'];
-		}
-		;
+		};
 		//recibimos el idventa
 		$id = $_GET['id'];
 
@@ -345,30 +344,30 @@ switch ($_GET["op"]) {
 			$data[] = array(
 				"0" => '
 					<div class="btn-group">
-						<button class="btn btn-info btn-sm" title="Ver" onclick="mostrar('.$reg['idventa'].')">
+						<button class="btn btn-info btn-sm" title="Ver" onclick="mostrar(' . $reg['idventa'] . ')">
 							<i class="fas fa-eye"></i>
 						</button>
-						<button class="btn btn-success btn-sm" title="Imprimir Ticket" onclick="window.open(\''.$base_url.'Reports/a4.php?id='.$reg['idventa'].'\', \'_blank\')">
+						<button class="btn btn-success btn-sm" title="Imprimir Ticket" onclick="window.open(\'' . $base_url . 'Reports/a4.php?id=' . $reg['idventa'] . '\', \'_blank\')">
 							<i class="fas fa-print"></i>
 						</button>
 						<button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Más">
 							<span>...</span>
 						</button>
 						<div class="dropdown-menu">
-							<a class="dropdown-item" href="'.$base_url.'Reports/a4.php?id='.$reg['idventa'].'" target="_blank">
+							<a class="dropdown-item" href="' . $base_url . 'Reports/a4.php?id=' . $reg['idventa'] . '" target="_blank">
 								<i class="far fa-file-pdf"></i> Imprimir A4
 							</a>
-							<a class="dropdown-item" href="https://wa.me/?text='.urlencode('Detalle de la venta: '.$reg['idventa'].' - Ver PDF: '.$base_url.'Reports/a4.php?id='.$reg['idventa']).'" target="_blank">
+							<a class="dropdown-item" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . 'Reports/a4.php?id=' . $reg['idventa']) . '" target="_blank">
 								<i class="fab fa-whatsapp"></i> WhatsApp
 							</a>
-							<a class="dropdown-item" href="editsale?op=new&id='.$reg['idventa'].'">
+							<a class="dropdown-item" href="editsale?op=new&id=' . $reg['idventa'] . '">
 								<i class="fas fa-edit"></i> Editar
 							</a>
-							'.(($reg['estado']=='Aceptado')?'
-							<a class="dropdown-item text-danger" href="#" onclick="anular('.$reg['idventa'].')">
+							' . (($reg['estado'] == 'Aceptado') ? '
+							<a class="dropdown-item text-danger" href="#" onclick="anular(' . $reg['idventa'] . ')">
 								<i class="fas fa-times"></i> Anular
 							</a>
-							':'').'
+							' : '') . '
 						</div>
 					</div>
 				',
@@ -382,18 +381,11 @@ switch ($_GET["op"]) {
 					'<div class="badge badge-success">Aceptado</div>' :
 					'<div class="badge badge-danger">Anulado</div>'
 			);
-			
-			
-
-
-
-
-
 		}
 		$results = array(
-			"sEcho" => 1,//info para datatables
-			"iTotalRecords" => count($data),//enviamos el total de registros al datatable
-			"iTotalDisplayRecords" => count($data),//enviamos el total de registros a visualizar
+			"sEcho" => 1, //info para datatables
+			"iTotalRecords" => count($data), //enviamos el total de registros al datatable
+			"iTotalDisplayRecords" => count($data), //enviamos el total de registros a visualizar
 			"aaData" => $data
 		);
 		echo json_encode($results);
@@ -447,9 +439,9 @@ switch ($_GET["op"]) {
 		}
 
 		$results = array(
-			"sEcho" => 1,//info para datatables
-			"iTotalRecords" => count($data),//enviamos el total de registros al datatable
-			"iTotalDisplayRecords" => count($data),//enviamos el total de registros a visualizar
+			"sEcho" => 1, //info para datatables
+			"iTotalRecords" => count($data), //enviamos el total de registros al datatable
+			"iTotalDisplayRecords" => count($data), //enviamos el total de registros a visualizar
 			"aaData" => $data
 		);
 		echo json_encode($results);
@@ -478,6 +470,18 @@ switch ($_GET["op"]) {
 		}
 		break;
 
+	case 'listarCategorias':
+		require_once "../Models/Product.php";
+		$product = new Product();
+		$categorias = $product->listarCategoriasActivas();
+		echo json_encode($categorias);
+		break;
 
+	case 'listarArticulosPorCategoria':
+		require_once "../Models/Product.php";
+		$product = new Product();
+		$idcategoria = $_GET['idcategoria'];
+		$articulos = $product->listarActivosVentaPorCategoria($idcategoria);
+		echo json_encode($articulos);
+		break;
 }
-?>

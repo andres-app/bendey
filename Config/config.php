@@ -9,8 +9,8 @@ if ($_SERVER['SERVER_NAME'] == 'localhost' || $_SERVER['SERVER_NAME'] == '127.0.
 if (ENVIRONMENT == 'development') {
     define("HOST", 'localhost');
     define("DB_USER", 'root');
-    define("DB_PASS", '');
-    define("DB_NAME", 'bendey');
+    define("DB_PASS", 'Dev2804751$$$');
+    define("DB_NAME", 'japipos');
     define("API_KEY", 'your_development_api_key');
 } else {
     define("HOST", 'localhost');
