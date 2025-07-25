@@ -14,22 +14,24 @@ class Product
 	}
 
 	//metodo insertar regiustro
-	public function insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $descripcion, $imagen)
+	public function insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
 	{
-		$sql = "INSERT INTO $this->tableName (idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, descripcion, imagen, condicion)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-		$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $descripcion, $imagen, 1);
+		$sql = "INSERT INTO $this->tableName 
+        (idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, condicion)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+		$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
 		return $this->conexion->setData($sql, $arrData);
 	}
 
-	public function editar($idarticulo, $idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $descripcion, $imagen)
+	public function editar($idarticulo, $idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
 	{
 		$sql = "UPDATE $this->tableName 
-				SET idcategoria=?, idsubcategoria=?, idmedida=?, idalmacen=?, codigo=?, nombre=?, stock=?, descripcion=?, imagen=? 
-				WHERE idarticulo=?";
-		$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $descripcion, $imagen, $idarticulo);
+        SET idcategoria=?, idsubcategoria=?, idmedida=?, idalmacen=?, codigo=?, nombre=?, stock=?, precio_compra=?, precio_venta=?, descripcion=?, imagen=?
+        WHERE idarticulo=?";
+		$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen, $idarticulo);
 		return $this->conexion->setData($sql, $arrData);
 	}
+
 
 
 	public function desactivar($idarticulo)
@@ -71,23 +73,22 @@ class Product
     c.nombre as categoria,
     a.idsubcategoria, 
     s.nombre as subcategoria,
-    a.idalmacen,   -- ← aquí tienes el ID almacen
-    al.nombre as almacen, -- ← nombre del almacen (si existe la tabla)
+    a.idalmacen,   
+    al.nombre as almacen, 
     a.codigo, 
     a.nombre, 
     a.stock, 
+    a.precio_compra,   -- << agrega esto
+    a.precio_venta,    -- << agrega esto
     a.descripcion, 
     a.imagen, 
     a.condicion,
-    m.nombre as medida,
-    (SELECT precio_compra FROM detalle_ingreso WHERE idarticulo=a.idarticulo ORDER BY iddetalle_ingreso DESC LIMIT 1) AS precio_compra,
-    (SELECT precio_venta FROM detalle_ingreso WHERE idarticulo=a.idarticulo ORDER BY iddetalle_ingreso DESC LIMIT 1) AS precio_venta
+    m.nombre as medida
 FROM articulo a
 INNER JOIN categoria c ON a.idcategoria=c.idcategoria
 LEFT JOIN subcategoria s ON a.idsubcategoria=s.idsubcategoria
 INNER JOIN medida m ON a.idmedida=m.idmedida
-LEFT JOIN almacen al ON a.idalmacen = al.idalmacen -- ← agrega esto cuando tengas la tabla almacen
-";
+LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 		return $this->conexion->getDataAll($sql);
 	}
 

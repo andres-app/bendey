@@ -11,6 +11,8 @@ $idalmacen = isset($_POST["idalmacen"]) ? $_POST["idalmacen"] : "";
 $codigo = isset($_POST["codigo"]) ? $_POST["codigo"] : "";
 $nombre = isset($_POST["nombre"]) ? $_POST["nombre"] : "";
 $stock = isset($_POST["stock"]) ? $_POST["stock"] : "";
+$precio_compra = isset($_POST["precio_compra"]) ? $_POST["precio_compra"] : null;
+$precio_venta  = isset($_POST["precio_venta"]) ? $_POST["precio_venta"] : null;
 $descripcion = isset($_POST["descripcion"]) ? $_POST["descripcion"] : "";
 $imagen = isset($_POST["imagen"]) ? $_POST["imagen"] : "";
 
@@ -34,13 +36,13 @@ switch ($_GET["op"]) {
 		}
 		if (empty($idarticulo)) {
 			if (empty($rspta['codigo'])) {
-				$rspta = $product->insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $descripcion, $imagen);
+				$rspta = $product->insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
 				echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
 			} else {
 				echo "No se puede registrar...! \n codigo de producto duplicado";
 			}
 		} else {
-			$rspta = $product->editar($idarticulo, $idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $descripcion, $imagen);
+			$rspta = $product->editar($idarticulo, $idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
 			echo $rspta ? "Datos actualizados correctamente" : "No se pudo actualizar los datos";
 		}
 

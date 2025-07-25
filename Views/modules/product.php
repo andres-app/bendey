@@ -9,7 +9,7 @@ if (!isset($_SESSION['nombre'])) {
     require "sidebar.php";
 
     if ($_SESSION['almacen'] == 1) {
-        ?>
+?>
 
         <div class="main-content">
             <section class="section">
@@ -64,6 +64,18 @@ if (!isset($_SESSION['nombre'])) {
                                                     <label for="stock">Cantidad</label>
                                                     <input type="number" class="form-control" name="stock" id="stock" min="0">
                                                 </div>
+
+                                                <div class="form-group col-md-4">
+                                                    <label for="precio_compra">Precio de compra</label>
+                                                    <input type="number" step="0.01" class="form-control" name="precio_compra" id="precio_compra" min="0">
+                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás vender el producto.</small>
+                                                </div>
+                                                <div class="form-group col-md-4">
+                                                    <label for="precio_venta">Precio de venta</label>
+                                                    <input type="number" step="0.01" class="form-control" name="precio_venta" id="precio_venta" min="0">
+                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás vender el producto.</small>
+                                                </div>
+
 
                                                 <div class="form-group col-md-4">
                                                     <label>Categoría</label>
@@ -153,7 +165,7 @@ if (!isset($_SESSION['nombre'])) {
             </section>
         </div>
 
-        <?php
+    <?php
     } else {
         require "access.php";
     }
@@ -162,7 +174,7 @@ if (!isset($_SESSION['nombre'])) {
     <script src="Assets/js/JsBarcode.all.min.js"></script>
     <script src="Assets/js/jquery.PrintArea.js"></script>
     <script src="Views/modules/scripts/product.js"></script>
-    <?php
+<?php
 }
 ob_end_flush();
 ?>
