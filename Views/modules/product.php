@@ -22,6 +22,25 @@ if (!isset($_SESSION['nombre'])) {
                                             id="btnagregar"><i class="fa fa-plus-circle"></i> Agregar</button></h4>
                                 </div>
                                 <div class="card-body">
+                                    <div class="container-fluid mb-3">
+                                        <div class="row">
+                                            <div class="col-12 d-flex justify-content-end">
+                                                <div class="btn-group mr-2">
+                                                    <a href="Assets/plantillas/plantilla_productos.csv" download class="btn btn-outline-primary btn-sm">
+                                                        <i class="fa fa-download"></i> Descargar plantilla Excel
+                                                    </a>
+                                                </div>
+                                                <form id="formSubidaMasiva" enctype="multipart/form-data" class="form-inline">
+                                                    <div class="form-group mb-0 mr-2">
+                                                        <input type="file" class="form-control-file" id="archivo_productos" name="archivo_productos" accept=".xlsx,.csv" required>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-success btn-sm">
+                                                        <i class="fa fa-upload"></i> Cargar productos
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="table-responsive" id="listadoregistros">
                                         <table id="tbllistado" class="table table-striped table-hover text-nowrap"
                                             style="width:100%;">

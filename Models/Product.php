@@ -156,4 +156,78 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 		$sql = "SELECT * FROM articulo WHERE idcategoria=? AND condicion=1";
 		return $this->conexion->getDataAll($sql, [$idcategoria]);
 	}
+
+	public function cargarMasivoDesdeCSV($rutaArchivo)
+	{
+		$mensajes = [];
+		$fila = 1;
+
+		// Abrir el archivo
+		if (($handle = fopen($rutaArchivo, "r")) !== FALSE) {
+			while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+				// Saltar la cabecera
+				if ($fila == 1) {
+					$fila++;
+					continue;
+				}
+
+				// Validar columnas suficientes
+				if (count($data) < 9) {
+					$mensajes[] = "Fila $fila: No tiene el número correcto de columnas.";
+					$fila++;
+					continue;
+				}
+
+				// Ordena aquí tus columnas según tu archivo plantilla:
+				list($nombre, $codigo, $stock, $precio_compra, $precio_venta, $idcategoria, $idsubcategoria, $idalmacen, $idmedida) = $data;
+
+				// Validaciones mínimas
+				if (!$nombre || !$codigo) {
+					$mensajes[] = "Fila $fila: Nombre o Código vacío, no se registró.";
+					$fila++;
+					continue;
+				}
+
+				// Revisar duplicados por código
+				$productoExistente = $this->verificarCodigo($codigo);
+				if (!empty($productoExistente['codigo'])) {
+					$mensajes[] = "Fila $fila: Código '$codigo' duplicado, no se registró.";
+					$fila++;
+					continue;
+				}
+
+				// Ajusta los valores faltantes
+				$descripcion = "";      // Puedes poner otro valor por defecto si gustas
+				$imagen = "default.png";
+
+				// Inserta el producto con el ORDEN CORRECTO
+				$resultado = $this->insertar(
+					$idcategoria,
+					$idsubcategoria,
+					$idmedida,
+					$idalmacen,
+					$codigo,
+					$nombre,
+					$stock,
+					$precio_compra,
+					$precio_venta,
+					$descripcion,
+					$imagen
+				);
+
+				if ($resultado) {
+					// Si quieres, aquí puedes registrar el inventario inicial como ingreso/compra
+					$mensajes[] = "Fila $fila: Producto '$nombre' registrado exitosamente.";
+				} else {
+					$mensajes[] = "Fila $fila: Error al registrar '$nombre'.";
+				}
+				$fila++;
+			}
+			fclose($handle);
+		} else {
+			$mensajes[] = "No se pudo abrir el archivo CSV.";
+		}
+
+		return $mensajes;
+	}
 }

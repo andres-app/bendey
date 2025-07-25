@@ -260,6 +260,51 @@ $("#idcategoria").on("change", function () {
   });
 });
 
+$("#formSubidaMasiva").on("submit", function (e) {
+  e.preventDefault();
+  var formData = new FormData(this);
 
+  $.ajax({
+    url: "Controllers/Product.php?op=subirMasivo",
+    type: "POST",
+    data: formData,
+    contentType: false,
+    processData: false,
+    beforeSend: function () {
+      Swal.fire({ title: "Subiendo productos...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    },
+    success: function (response) {
+      Swal.close();
+      try {
+        var data = JSON.parse(response);
+        if (data.success) {
+          // Muestra todos los mensajes de éxito juntos en un <ul>
+          var html = "<ul style='text-align:left;'>";
+          if (Array.isArray(data.mensajes)) {
+            data.mensajes.forEach(function (msg) {
+              html += "<li>" + msg + "</li>";
+            });
+          }
+          html += "</ul>";
+          Swal.fire({
+            title: "Carga exitosa",
+            html: html,
+            icon: "success",
+            width: 600
+          });
+          if (typeof tabla !== 'undefined') tabla.ajax.reload();
+        } else {
+          Swal.fire("Error", data.mensaje, "error");
+        }
+      } catch (e) {
+        Swal.fire("Error", "Error al procesar la respuesta: " + response, "error");
+      }
+    },
+    error: function () {
+      Swal.close();
+      Swal.fire("Error", "No se pudo conectar con el servidor.", "error");
+    }
+  });
+});
 
 init();

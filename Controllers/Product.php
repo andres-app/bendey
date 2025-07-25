@@ -122,4 +122,24 @@ switch ($_GET["op"]) {
 		echo json_encode($rspta);
 		break;
 
+	case 'subirMasivo':
+		// Cambia 'archivo_csv' por 'archivo_productos'
+		if (isset($_FILES['archivo_productos']) && $_FILES['archivo_productos']['error'] === UPLOAD_ERR_OK) {
+			$nombreTmp = $_FILES['archivo_productos']['tmp_name'];
+			require_once "../Models/Product.php";
+			$product = new Product();
+
+			$mensajes = $product->cargarMasivoDesdeCSV($nombreTmp);
+
+			echo json_encode([
+				"success" => true,
+				"message" => implode("<br>", $mensajes)
+			]);
+		} else {
+			echo json_encode([
+				"success" => false,
+				"message" => "No se recibió ningún archivo válido."
+			]);
+		}
+		break;
 }
