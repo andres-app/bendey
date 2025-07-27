@@ -293,7 +293,8 @@ switch ($_GET["op"]) {
 		} else {
 			$smoneda = $regn['simbolo'];
 			$nom_imp = $regn['nombre_impuesto'];
-		};
+		}
+		;
 		//recibimos el idventa
 		$id = $_GET['id'];
 
@@ -419,35 +420,41 @@ switch ($_GET["op"]) {
 		$rspta = $articulo->listarActivosVenta();
 		$data = array();
 		$op = 1;
+
 		foreach ($rspta as $reg) {
+			// Valores seguros por defecto
+			$idingreso = isset($reg['idingreso']) ? $reg['idingreso'] : 0;
+			$precio_compra = isset($reg['precio_compra']) ? $reg['precio_compra'] : 0;
+			$precio_venta = isset($reg['precio_venta']) ? $reg['precio_venta'] : 0;
+			$stock = isset($reg['stock']) ? $reg['stock'] : 0;
+			$nombre = isset($reg['nombre']) ? addslashes($reg['nombre']) : 'Sin nombre';
+
 			$btncolor = '';
-			if ($reg['stock'] <= 10) {
-				$btncolor = '<button class="btn btn-danger btn-sm">' . $reg['stock'] . '</button>';
-			} elseif ($reg['stock'] > 10 && $reg['stock'] < 30) {
-				$btncolor = '<button class="btn btn-warning btn-sm">' . $reg['stock'] . '</button>';
-			} elseif ($reg['stock'] >= 30) {
-				$btncolor = '<button class="btn btn-success btn-sm">' . $reg['stock'] . '</button>';
+			if ($stock <= 10) {
+				$btncolor = '<button class="btn btn-danger btn-sm">' . $stock . '</button>';
+			} elseif ($stock > 10 && $stock < 30) {
+				$btncolor = '<button class="btn btn-warning btn-sm">' . $stock . '</button>';
+			} elseif ($stock >= 30) {
+				$btncolor = '<button class="btn btn-success btn-sm">' . $stock . '</button>';
 			}
+
 			$data[] = array(
-				"0" => '<button class="btn btn-success btn-sm" id="addetalle" name="' . $reg['idarticulo'] . '" onclick="agregarDetalle(' . $reg['idingreso'] . ',' . $reg['idarticulo'] . ',\'' . $reg['nombre'] . '\',' . $reg['precio_compra'] . ',' . $reg['precio_venta'] . ',' . $reg['stock'] . ',' . $op . ')"><span class="fa fa-plus"></span> Añadir</button>',
+				"0" => '<button class="btn btn-success btn-sm" id="addetalle" name="' . $reg['idarticulo'] . '" onclick="agregarDetalle(' . $idingreso . ',' . $reg['idarticulo'] . ',\'' . $nombre . '\',' . $precio_compra . ',' . $precio_venta . ',' . $stock . ',' . $op . ')"><span class="fa fa-plus"></span> Añadir</button>',
 				"1" => $reg['nombre'] . '<br><span style="font-size:0.95em; color:#888;">(' . ($reg['almacen'] ?? 'Sin almacén') . ')</span>',
 				"2" => $reg['codigo'],
 				"3" => $btncolor,
 				"4" => "<img src='Assets/img/products/" . $reg['imagen'] . "' height='40px' width='40px'>"
-
 			);
 		}
 
 		$results = array(
-			"sEcho" => 1, //info para datatables
-			"iTotalRecords" => count($data), //enviamos el total de registros al datatable
-			"iTotalDisplayRecords" => count($data), //enviamos el total de registros a visualizar
+			"sEcho" => 1,
+			"iTotalRecords" => count($data),
+			"iTotalDisplayRecords" => count($data),
 			"aaData" => $data
 		);
 		echo json_encode($results);
-
 		break;
-
 
 	case 'selectComprobante':
 		require_once "../Models/Voucher.php";

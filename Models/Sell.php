@@ -1,7 +1,7 @@
 <?php
 //incluir la conexion de base de datos
 //incluir la conexion de base de datos
-require_once "Connect.php";
+require_once __DIR__ . '/../Config/Conexion.php';
 class Sell
 {
 

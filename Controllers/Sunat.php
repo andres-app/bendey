@@ -1,5 +1,5 @@
 <?php
-require_once "../Config/Conexion.php";
+require_once __DIR__ . '/../Config/Conexion.php';
 require_once "../Models/Sunat.php";
 
 $sunat = new Sunat();

@@ -1,6 +1,6 @@
 <?php
 // Incluir la conexión a la base de datos
-require_once "Connect.php";
+require_once __DIR__ . '/../Config/Conexion.php';
 
 class Person
 {

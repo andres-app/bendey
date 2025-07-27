@@ -1,6 +1,6 @@
 <?php 
 //incluir la conexion de base de datos
-require_once "Connect.php";
+require_once __DIR__ . '/../Config/Conexion.php';
 class Medida{
 
     private $tableName='medida';

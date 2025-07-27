@@ -1,6 +1,6 @@
 <?php
 // Incluir la conexión de base de datos
-require_once "Connect.php";
+require_once __DIR__ . '/../Config/Conexion.php';
 
 class Almacen
 {

@@ -1,6 +1,6 @@
 <?php
 // Conexion.php
-require_once "config.php"; // Incluye configuración de conexión PDO
+require_once __DIR__ . '/config.php';
 
 class Conexion
 {
@@ -8,8 +8,19 @@ class Conexion
 
 	public function __construct()
 	{
-		global $conn;
-		$this->conect = $conn;
+		try {
+			$this->conect = new PDO(
+				"mysql:host=" . HOST . ";port=" . PORT . ";dbname=" . DB_NAME . ";charset=" . CHARSET,
+				DB_USER,
+				DB_PASS
+			);
+			$this->conect->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+		} catch (PDOException $e) {
+			die(json_encode([
+				"success" => false,
+				"error" => "❌ Error en la conexión: " . $e->getMessage()
+			]));
+		}
 	}
 
 	public function setData($sql, $arrData = [])
