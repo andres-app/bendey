@@ -277,25 +277,39 @@ $("#formSubidaMasiva").on("submit", function (e) {
       Swal.close();
       try {
         var data = JSON.parse(response);
+
         if (data.success) {
-          // Muestra todos los mensajes de éxito juntos en un <ul>
-          var html = "<ul style='text-align:left;'>";
-          if (Array.isArray(data.mensajes)) {
-            data.mensajes.forEach(function (msg) {
-              html += "<li>" + msg + "</li>";
+          let htmlSuccess = "", htmlError = "";
+
+          if (Array.isArray(data.exitosos) && data.exitosos.length > 0) {
+            htmlSuccess = "<ul style='text-align:left'>";
+            data.exitosos.forEach(msg => {
+              htmlSuccess += "<li style='color:green'>" + msg + "</li>";
             });
+            htmlSuccess += "</ul>";
           }
-          html += "</ul>";
+
+          if (Array.isArray(data.errores) && data.errores.length > 0) {
+            htmlError = "<ul style='text-align:left'>";
+            data.errores.forEach(msg => {
+              htmlError += "<li style='color:red'>" + msg + "</li>";
+            });
+            htmlError += "</ul>";
+          }
+
           Swal.fire({
-            title: "Carga exitosa",
-            html: html,
-            icon: "success",
+            title: "Resultado de la carga",
+            html: htmlSuccess + htmlError,
+            icon: data.errores.length > 0 ? "warning" : "success",
             width: 600
           });
+
           if (typeof tabla !== 'undefined') tabla.ajax.reload();
+
         } else {
-          Swal.fire("Error", data.mensaje, "error");
+          Swal.fire("Error", data.mensaje || "Ocurrió un error inesperado.", "error");
         }
+
       } catch (e) {
         Swal.fire("Error", "Error al procesar la respuesta: " + response, "error");
       }

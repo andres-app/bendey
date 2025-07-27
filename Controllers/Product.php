@@ -12,7 +12,7 @@ $codigo = isset($_POST["codigo"]) ? $_POST["codigo"] : "";
 $nombre = isset($_POST["nombre"]) ? $_POST["nombre"] : "";
 $stock = isset($_POST["stock"]) ? $_POST["stock"] : "";
 $precio_compra = isset($_POST["precio_compra"]) ? $_POST["precio_compra"] : null;
-$precio_venta  = isset($_POST["precio_venta"]) ? $_POST["precio_venta"] : null;
+$precio_venta = isset($_POST["precio_venta"]) ? $_POST["precio_venta"] : null;
 $descripcion = isset($_POST["descripcion"]) ? $_POST["descripcion"] : "";
 $imagen = isset($_POST["imagen"]) ? $_POST["imagen"] : "";
 
@@ -123,23 +123,24 @@ switch ($_GET["op"]) {
 		break;
 
 	case 'subirMasivo':
-		// Cambia 'archivo_csv' por 'archivo_productos'
 		if (isset($_FILES['archivo_productos']) && $_FILES['archivo_productos']['error'] === UPLOAD_ERR_OK) {
 			$nombreTmp = $_FILES['archivo_productos']['tmp_name'];
 			require_once "../Models/Product.php";
 			$product = new Product();
 
-			$mensajes = $product->cargarMasivoDesdeCSV($nombreTmp);
+			$resultados = $product->cargarMasivoDesdeCSV($nombreTmp);
 
 			echo json_encode([
 				"success" => true,
-				"message" => implode("<br>", $mensajes)
+				"exitosos" => $resultados['exitosos'] ?? [],
+				"errores" => $resultados['errores'] ?? []
 			]);
 		} else {
 			echo json_encode([
 				"success" => false,
-				"message" => "No se recibió ningún archivo válido."
+				"mensaje" => "No se recibió ningún archivo válido."
 			]);
 		}
 		break;
+
 }

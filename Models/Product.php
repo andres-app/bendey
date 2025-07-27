@@ -159,7 +159,8 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 
 	public function cargarMasivoDesdeCSV($rutaArchivo)
 	{
-		$mensajes = [];
+		$mensajes_exito = [];
+		$mensajes_error = [];
 		$fila = 1;
 	
 		if (($handle = fopen($rutaArchivo, "r")) !== FALSE) {
@@ -170,26 +171,53 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 				}
 	
 				if (count($data) < 9) {
-					$mensajes[] = "Fila $fila: No tiene el número correcto de columnas.";
+					$mensajes_error[] = "⚠️ Fila $fila: El archivo no tiene el número correcto de columnas (esperado: 9).";
 					$fila++;
 					continue;
 				}
 	
 				list($nombre, $codigo, $stock, $precio_compra, $precio_venta, $idcategoria, $idsubcategoria, $idalmacen, $idmedida) = $data;
 	
-				if (!$nombre || !$codigo) {
-					$mensajes[] = "Fila $fila: Nombre o Código vacío, no se registró.";
+				if (empty($nombre) || empty($codigo)) {
+					$mensajes_error[] = "⚠️ Fila $fila: El nombre o código está vacío. Producto no registrado.";
 					$fila++;
 					continue;
 				}
 	
+				// Validar existencia de código duplicado
 				$productoExistente = $this->verificarCodigo($codigo);
-				if (!empty($productoExistente['codigo'])) {
-					$mensajes[] = "Fila $fila: Código '$codigo' duplicado, no se registró.";
+				if (!empty($productoExistente) && isset($productoExistente[0]['codigo'])) {
+					$mensajes_error[] = "🔁 Fila $fila: Ya existe un producto con el código '$codigo'. No se registró.";
 					$fila++;
 					continue;
 				}
 	
+				// Validar claves foráneas
+				$erroresFK = [];
+	
+				if (empty($this->conexion->getData("SELECT idcategoria FROM categoria WHERE idcategoria = ?", [$idcategoria]))) {
+					$erroresFK[] = "Categoría (ID: $idcategoria)";
+				}
+	
+				if (empty($this->conexion->getData("SELECT idsubcategoria FROM subcategoria WHERE idsubcategoria = ?", [$idsubcategoria]))) {
+					$erroresFK[] = "Subcategoría (ID: $idsubcategoria)";
+				}
+	
+				if (empty($this->conexion->getData("SELECT idmedida FROM medida WHERE idmedida = ?", [$idmedida]))) {
+					$erroresFK[] = "Unidad de medida (ID: $idmedida)";
+				}
+	
+				if (empty($this->conexion->getData("SELECT idalmacen FROM almacen WHERE idalmacen = ?", [$idalmacen]))) {
+					$erroresFK[] = "Almacén (ID: $idalmacen)";
+				}
+	
+				if (!empty($erroresFK)) {
+					$mensajes_error[] = "❌ Fila $fila: No se registró el producto porque no se encontraron: " . implode(", ", $erroresFK) . ".";
+					$fila++;
+					continue;
+				}
+	
+				// Valores por defecto
 				$descripcion = "";
 				$imagen = "default.png";
 	
@@ -208,21 +236,22 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 				);
 	
 				if ($resultado) {
-					$mensajes[] = "Fila $fila: Producto '$nombre' registrado exitosamente.";
+					$mensajes_exito[] = "✅ Fila $fila: Producto '$nombre' registrado correctamente.";
 				} else {
-					$mensajes[] = "Fila $fila: Error al registrar '$nombre'.";
+					$mensajes_error[] = "⚠️ Fila $fila: Ocurrió un error al registrar el producto '$nombre'.";
 				}
 	
 				$fila++;
 			}
+	
 			fclose($handle);
 		} else {
-			$mensajes[] = "No se pudo abrir el archivo CSV.";
+			$mensajes_error[] = "🚫 No se pudo abrir el archivo CSV.";
 		}
 	
-		// 👇 Agrega esta línea para guardar un registro en un archivo
-		file_put_contents("log_carga.txt", implode(PHP_EOL, $mensajes));
-	
-		return $mensajes;
+		return [
+			'exitosos' => $mensajes_exito,
+			'errores'  => $mensajes_error
+		];
 	}	
 }
