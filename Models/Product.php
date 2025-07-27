@@ -1,6 +1,6 @@
 <?php
 //incluir la conexion de base de datos
-require_once "Connect.php";
+require_once __DIR__ . '/../Config/Conexion.php';
 class Product
 {
 
@@ -16,12 +16,39 @@ class Product
 	//metodo insertar regiustro
 	public function insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
 	{
-		$sql = "INSERT INTO $this->tableName 
-        (idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, condicion)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
-		$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
-		return $this->conexion->setData($sql, $arrData);
+		try {
+			// Insertar el producto y obtener su ID
+			$sql = "INSERT INTO $this->tableName 
+				(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, condicion)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+			$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
+			$idarticulo = $this->conexion->setDataReturnId($sql, $arrData);
+
+			// Si hay stock inicial, registrar en ingreso y detalle_ingreso
+			if ($stock > 0 && $precio_compra > 0 && $precio_venta > 0) {
+				$idusuario = $_SESSION['idusuario'] ?? 1;
+				$idproveedor = 1; // ← Proveedor genérico para stock inicial
+				$num = str_pad(rand(1, 9999999), 7, '0', STR_PAD_LEFT);
+
+				$sqlIngreso = "INSERT INTO ingreso 
+					(idproveedor, idusuario, tipo_comprobante, serie_comprobante, num_comprobante, fecha_hora, impuesto, estado) 
+					VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(), 0, 'Aceptado')";
+				$idIngreso = $this->conexion->setDataReturnId($sqlIngreso, [$idproveedor, $idusuario, $num]);
+
+				$sqlDetalle = "INSERT INTO detalle_ingreso 
+				(idarticulo, idingreso, cantidad, stock_venta, precio_compra, precio_venta, estado, stock_estado) 
+				VALUES (?, ?, ?, ?, ?, ?, 1, 1)";
+				$arrDetalle = [$idarticulo, $idIngreso, $stock, $stock, $precio_compra, $precio_venta];
+				$this->conexion->setData($sqlDetalle, $arrDetalle);
+			}
+
+			return true;
+		} catch (PDOException $e) {
+			echo "❌ Error en insertar(): " . $e->getMessage();
+			exit;
+		}
 	}
+
 
 	public function editar($idarticulo, $idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
 	{
@@ -162,28 +189,28 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 		$mensajes_exito = [];
 		$mensajes_error = [];
 		$fila = 1;
-	
+
 		if (($handle = fopen($rutaArchivo, "r")) !== FALSE) {
 			while (($data = fgetcsv($handle, 1000, ";")) !== FALSE) {
 				if ($fila == 1) {
 					$fila++;
 					continue;
 				}
-	
+
 				if (count($data) < 9) {
 					$mensajes_error[] = "⚠️ Fila $fila: El archivo no tiene el número correcto de columnas (esperado: 9).";
 					$fila++;
 					continue;
 				}
-	
+
 				list($nombre, $codigo, $stock, $precio_compra, $precio_venta, $idcategoria, $idsubcategoria, $idalmacen, $idmedida) = $data;
-	
+
 				if (empty($nombre) || empty($codigo)) {
 					$mensajes_error[] = "⚠️ Fila $fila: El nombre o código está vacío. Producto no registrado.";
 					$fila++;
 					continue;
 				}
-	
+
 				// Validar existencia de código duplicado
 				$productoExistente = $this->verificarCodigo($codigo);
 				if (!empty($productoExistente) && isset($productoExistente[0]['codigo'])) {
@@ -191,36 +218,36 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 					$fila++;
 					continue;
 				}
-	
+
 				// Validar claves foráneas
 				$erroresFK = [];
-	
+
 				if (empty($this->conexion->getData("SELECT idcategoria FROM categoria WHERE idcategoria = ?", [$idcategoria]))) {
 					$erroresFK[] = "Categoría (ID: $idcategoria)";
 				}
-	
+
 				if (empty($this->conexion->getData("SELECT idsubcategoria FROM subcategoria WHERE idsubcategoria = ?", [$idsubcategoria]))) {
 					$erroresFK[] = "Subcategoría (ID: $idsubcategoria)";
 				}
-	
+
 				if (empty($this->conexion->getData("SELECT idmedida FROM medida WHERE idmedida = ?", [$idmedida]))) {
 					$erroresFK[] = "Unidad de medida (ID: $idmedida)";
 				}
-	
+
 				if (empty($this->conexion->getData("SELECT idalmacen FROM almacen WHERE idalmacen = ?", [$idalmacen]))) {
 					$erroresFK[] = "Almacén (ID: $idalmacen)";
 				}
-	
+
 				if (!empty($erroresFK)) {
 					$mensajes_error[] = "❌ Fila $fila: No se registró el producto porque no se encontraron: " . implode(", ", $erroresFK) . ".";
 					$fila++;
 					continue;
 				}
-	
+
 				// Valores por defecto
 				$descripcion = "";
 				$imagen = "default.png";
-	
+
 				$resultado = $this->insertar(
 					$idcategoria,
 					$idsubcategoria,
@@ -234,24 +261,24 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 					$descripcion,
 					$imagen
 				);
-	
+
 				if ($resultado) {
 					$mensajes_exito[] = "✅ Fila $fila: Producto '$nombre' registrado correctamente.";
 				} else {
 					$mensajes_error[] = "⚠️ Fila $fila: Ocurrió un error al registrar el producto '$nombre'.";
 				}
-	
+
 				$fila++;
 			}
-	
+
 			fclose($handle);
 		} else {
 			$mensajes_error[] = "🚫 No se pudo abrir el archivo CSV.";
 		}
-	
+
 		return [
 			'exitosos' => $mensajes_exito,
-			'errores'  => $mensajes_error
+			'errores' => $mensajes_error
 		];
-	}	
+	}
 }

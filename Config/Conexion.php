@@ -1,23 +1,46 @@
 <?php
-// Config/Conexion.php
+// Conexion.php
+require_once "config.php"; // Incluye configuración de conexión PDO
 
-require_once "Config.php"; // Incluimos la conexión a la base de datos
-
-// Ejecutar una consulta y devolver múltiples filas (PDOStatement)
-function ejecutarConsulta($sql)
+class Conexion
 {
-    global $conn;
-    $stmt = $conn->prepare($sql);
-    $stmt->execute();
-    return $stmt;
-}
+	private $conect;
 
-// Ejecutar una consulta y devolver una sola fila
-function ejecutarConsultaSimpleFila($sql)
-{
-    global $conn;
-    $stmt = $conn->prepare($sql);
-    $stmt->execute();
-    return $stmt->fetch(PDO::FETCH_ASSOC); // Trae una sola fila como array asociativo
+	public function __construct()
+	{
+		global $conn;
+		$this->conect = $conn;
+	}
+
+	public function setData($sql, $arrData = [])
+	{
+		$query = $this->conect->prepare($sql);
+		return $query->execute($arrData);
+	}
+
+	public function getData($sql, $arrData = [])
+	{
+		$query = $this->conect->prepare($sql);
+		$query->execute($arrData);
+		return $query->fetch(PDO::FETCH_ASSOC);
+	}
+
+	public function getDataAll($sql, $arrData = [])
+	{
+		$query = $this->conect->prepare($sql);
+		$query->execute($arrData);
+		return $query->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function setDataReturnId($sql, $arrData = [])
+	{
+		$query = $this->conect->prepare($sql);
+		$query->execute($arrData);
+		return $this->conect->lastInsertId();
+	}
+
+	public function lastInsertId()
+	{
+		return $this->conect->lastInsertId();
+	}
 }
-?>
