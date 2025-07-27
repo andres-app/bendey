@@ -30,10 +30,13 @@ class Product
 				$idproveedor = 1; // ← Proveedor genérico para stock inicial
 				$num = str_pad(rand(1, 9999999), 7, '0', STR_PAD_LEFT);
 
+				$total_compra = $precio_compra * $stock;
+
+				// Insertar ingreso con total_compra
 				$sqlIngreso = "INSERT INTO ingreso 
-					(idproveedor, idusuario, tipo_comprobante, serie_comprobante, num_comprobante, fecha_hora, impuesto, estado) 
-					VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(), 0, 'Aceptado')";
-				$idIngreso = $this->conexion->setDataReturnId($sqlIngreso, [$idproveedor, $idusuario, $num]);
+					(idproveedor, idusuario, tipo_comprobante, serie_comprobante, num_comprobante, fecha_hora, impuesto, total_compra, estado) 
+					VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(), 0, ?, 'Aceptado')";
+				$idIngreso = $this->conexion->setDataReturnId($sqlIngreso, [$idproveedor, $idusuario, $num, $total_compra]);
 
 				$sqlDetalle = "INSERT INTO detalle_ingreso 
 				(idarticulo, idingreso, cantidad, stock_venta, precio_compra, precio_venta, estado, stock_estado) 
