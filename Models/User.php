@@ -16,7 +16,7 @@ class User{
 		$sql="INSERT INTO $this->tableName (nombre,tipo_documento,num_documento,direccion,telefono,email,cargo,login,clave,imagen,condicion) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
 		//return ejecutarConsulta($sql);
 		$arrDataInsert = array($nombre,$tipo_documento,$num_documento,$direccion,$telefono,$email,$cargo,$login,$clave,$imagen,1);
-		$idusuarionew = $this->conexion->getReturnId($sql,$arrDataInsert);
+		$idusuarionew = $this->conexion->setDataReturnId($sql, $arrDataInsert);
 		//$idusuarionew=ejecutarConsulta_retornarID($sql);
 		$num_elementos=0;
 		$sw=true;

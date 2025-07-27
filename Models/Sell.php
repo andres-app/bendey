@@ -23,7 +23,7 @@ class Sell
         $fecha_hora = date("Y-m-d");
         $sql = "INSERT INTO $this->tableName (idcliente,idusuario,tipo_comprobante,serie_comprobante,num_comprobante,fecha_hora,impuesto,total_venta,tipo_pago,num_transac,estado) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
         $arrData = array($idcliente, $idusuario, $tipo_comprobante, $serie_comprobante, $num_comprobante, $fecha_hora, $impuesto, $total_venta, $tipo_pago, $num_transac, 'Aceptado');
-        $idventanew = $this->conexion->getReturnId($sql, $arrData);
+        $idventanew = $this->conexion->setDataReturnId($sql, $arrData);
         $detalle = $tipo_comprobante . ' ' . $serie_comprobante . '-' . $num_comprobante;
         $num_elementos = 0;
         $sw = true;
