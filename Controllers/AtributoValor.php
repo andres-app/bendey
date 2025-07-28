@@ -49,4 +49,11 @@ switch ($_GET["op"]) {
     case 'activar':
         echo $valor->activar($_POST["id"]) ? "Activado" : "Error al activar";
         break;
+
+    case 'valores_por_atributo':
+        $idatributo = $_GET['idatributo'];
+        $rspta = $valor->listarPorAtributo($idatributo); // ← corrección aquí
+        echo json_encode($rspta);
+        break;
+
 }

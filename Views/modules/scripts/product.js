@@ -324,9 +324,9 @@ $("#formSubidaMasiva").on("submit", function (e) {
 function togglePlantilla() {
   const seccion = document.getElementById('plantillaSection');
   if (seccion.style.display === 'none' || seccion.style.display === '') {
-      seccion.style.display = 'block';
+    seccion.style.display = 'block';
   } else {
-      seccion.style.display = 'none';
+    seccion.style.display = 'none';
   }
 }
 
@@ -336,7 +336,7 @@ function cargarAtributos() {
 }
 
 function cargarValoresAtributo(idAtributo, selector) {
-  $.getJSON("Controllers/AtributoValorController.php?op=listar_por_atributo&idatributo=" + idAtributo, function (data) {
+  $.getJSON("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=" + idAtributo, function (data) {
     let opciones = '';
     data.forEach(function (item) {
       opciones += `<option value="${item.idvalor}">${item.valor}</option>`;
@@ -395,5 +395,90 @@ $(document).ready(function () {
   init();
   cargarAtributos();
 });
+
+function toggleAtributos() {
+  const activo = document.getElementById("activar_atributos").checked;
+  document.getElementById("atributos_section").style.display = activo ? "block" : "none";
+
+  if (activo) {
+    cargarAtributos(); // Cargar valores desde la BD
+  }
+}
+
+function cargarAtributos() {
+  $.get("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=1", function (data) {
+    const colores = JSON.parse(data);
+    let html = "";
+    colores.forEach(color => {
+      html += `<option value="${color.valor}">${color.valor}</option>`;
+    });
+    $("#color").html(html);
+  });
+
+  $.get("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=2", function (data) {
+    const tallas = JSON.parse(data);
+    let html = "";
+    tallas.forEach(talla => {
+      html += `<option value="${talla.valor}">${talla.valor}</option>`;
+    });
+    $("#talla").html(html);
+  });
+}
+
+function generarVariaciones() {
+  const colores = $("#color").val() || [];
+  const tallas = $("#talla").val() || [];
+
+  let combinaciones = [];
+  if (colores.length && tallas.length) {
+    colores.forEach(color => {
+      tallas.forEach(talla => {
+        combinaciones.push({ combinacion: `${color} - ${talla}` });
+      });
+    });
+  } else if (colores.length) {
+    colores.forEach(color => {
+      combinaciones.push({ combinacion: color });
+    });
+  } else if (tallas.length) {
+    tallas.forEach(talla => {
+      combinaciones.push({ combinacion: talla });
+    });
+  }
+
+  if (combinaciones.length === 0) {
+    Swal.fire("Aviso", "Selecciona al menos un valor de color o talla", "warning");
+    return;
+  }
+
+  let html = "";
+  combinaciones.forEach((item, index) => {
+    html += `
+          <tr>
+              <td><input type="text" name="variaciones[${index}][combinacion]" class="form-control" value="${item.combinacion}" readonly></td>
+              <td><input type="text" name="variaciones[${index}][sku]" class="form-control" placeholder="SKU"></td>
+              <td><input type="number" name="variaciones[${index}][stock]" class="form-control" placeholder="Stock"></td>
+              <td><input type="number" name="variaciones[${index}][precio]" class="form-control" placeholder="Precio" step="0.01"></td>
+          </tr>`;
+  });
+
+  $("#variaciones-lista").html(html);
+  $("#variaciones-container").show();
+}
+
+$(document).ready(function () {
+  $('#color').select2({
+    placeholder: "Selecciona colores",
+    width: 'resolve',
+    theme: 'bootstrap4'
+  });
+
+  $('#talla').select2({
+    placeholder: "Selecciona tallas",
+    width: 'resolve',
+    theme: 'bootstrap4'
+  });
+});
+
 
 init();

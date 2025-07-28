@@ -1,34 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
-    <title>TiquePOS<?php //echo SYSTEMNAME; ?></title>
+    <title>TiquePOS</title>
+
     <!-- General CSS Files -->
     <link rel="stylesheet" href="Assets/css/app.min.css">
 
-    <!-- DATATABLES -->
-    <!-- Template CSS -->
+    <!-- DataTables -->
     <link rel="stylesheet" href="Assets/bundles/datatables/datatables.min.css">
     <link rel="stylesheet" href="Assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css">
+
+    <!-- Template CSS -->
     <link rel="stylesheet" href="Assets/css/style.css">
     <link rel="stylesheet" href="Assets/css/components.css">
 
-    <link rel="manifest" href="/manifest.json">
+    <!-- Select2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
 
-    <link rel='shortcut icon' type='image/x-icon' href='Assets/img/favicon.ico' />
+    <!-- Favicon -->
+    <link rel="shortcut icon" type="image/x-icon" href="Assets/img/favicon.ico" />
+
+    <!-- jQuery (debe estar antes de Select2 y cualquier plugin JS) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 </head>
-<?php if ($_GET["url"] == "newsale" || $_GET["url"] == "editsale") {
-    $class = 'sidebar-mini';
-} else {
-    $class = ' ';
-} ?>
+
+<?php
+$class = ($_GET["url"] == "newsale" || $_GET["url"] == "editsale") ? 'sidebar-mini' : '';
+?>
 
 <body class="<?php echo $class; ?>">
-    <!--<body class="dark dark-sidebar theme-black">-->
-
     <div class="loader"></div>
     <div id="app">
         <div class="main-wrapper main-wrapper-1">
@@ -46,39 +55,21 @@
                                 <i data-feather="shopping-cart"></i>
                             </a>
                         </li>
-
                     </ul>
                 </div>
                 <ul class="navbar-nav navbar-right">
-                    <!-- <li class="dropdown dropdown-list-toggle">
-                        <a href="#" data-toggle="dropdown" class="nav-link notification-toggle nav-link-lg"><i
-                                data-feather="bell"></i>
-                            <span class="badge headerBadge2">
-                                1 </span> </a>
-                        <div class="dropdown-menu dropdown-list dropdown-menu-right pullDown">
-
-                            <a href="#" class="dropdown-item">
-                                <span class="dropdown-item-icon bg-orange text-white">
-                                    <i class="fas fa-bell"></i>
-                                </span>
-                                <span class="dropdown-item-desc"> Sotck agotado</span>
-                            </a>
-
-                        </div>
-                    </li>-->
-                    <li class="dropdown"><a href="#" data-toggle="dropdown"
-                            class="nav-link dropdown-toggle nav-link-lg nav-link-user">
-                            <img alt="image" src="Assets/img/users/<?php echo $_SESSION['imagen']; ?>"
-                                class="user-img-radious-style"> <span class="d-sm-none d-lg-inline-block"></span></a>
+                    <li class="dropdown">
+                        <a href="#" data-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
+                            <img alt="image" src="Assets/img/users/<?php echo $_SESSION['imagen']; ?>" class="user-img-radious-style">
+                        </a>
                         <div class="dropdown-menu dropdown-menu-right pullDown">
                             <div class="dropdown-title"><?php echo $_SESSION['nombre']; ?></div>
-                            <a href="#" class="dropdown-item has-icon"> <i class="far
-                                        fa-user"></i> Perfil
+                            <a href="#" class="dropdown-item has-icon">
+                                <i class="far fa-user"></i> Perfil
                             </a>
                             <div class="dropdown-divider"></div>
-                            <a href="salir" class="dropdown-item has-icon text-danger"> <i
-                                    class="fas fa-sign-out-alt"></i>
-                                Cerrar sesión
+                            <a href="salir" class="dropdown-item has-icon text-danger">
+                                <i class="fas fa-sign-out-alt"></i> Cerrar sesión
                             </a>
                         </div>
                     </li>
