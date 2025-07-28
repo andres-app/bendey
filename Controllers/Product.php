@@ -87,7 +87,7 @@ switch ($_GET["op"]) {
 				"6" => (!empty($reg['imagen']) ? "<img src='Assets/img/products/" . $reg['imagen'] . "' height='50px'>" : 'Sin imagen'),
 				"7" => ($reg['precio_compra']) ? $reg['precio_compra'] : '<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
 				"8" => ($reg['precio_venta']) ? $reg['precio_venta'] : '<a href="buy"> <button class="btn btn-warning btn-sm"><i class="fas fa-plus"></i></button></a>',
-				"9" => ($reg['condicion']) ? '<div class="badge badge-success">Activado</div>' : '<div class="badge badge-danger">Desactivado</div>',
+				"9" => ($reg['condicion']) ? '<div class="badge badge-success">Aceptado</div>' : '<div class="badge badge-danger">Desactivado</div>',
 				"10" => ($reg['condicion']) ?
 					'<button class="btn btn-warning btn-sm" onclick="mostrar(' . $reg['idarticulo'] . ')"><i class="fas fa-pencil-alt"></i></button>' .
 					' ' . '<button class="btn btn-danger btn-sm" onclick="desactivar(' . $reg['idarticulo'] . ')"><i class="fas fa-times"></i></button>'

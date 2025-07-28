@@ -9,7 +9,7 @@ if (!isset($_SESSION['nombre'])) {
     require "sidebar.php";
 
     if ($_SESSION['almacen'] == 1) {
-?>
+        ?>
 
         <div class="main-content">
             <section class="section">
@@ -17,27 +17,45 @@ if (!isset($_SESSION['nombre'])) {
                     <div class="row">
                         <div class="col-12">
                             <div class="card flex">
-                                <div class="card-header">
-                                    <h4>Productos | <button class="btn btn-success" onclick="mostrarform(true)"
-                                            id="btnagregar"><i class="fa fa-plus-circle"></i> Agregar</button></h4>
+                                <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                                    <h4 class="mb-2 mb-md-0">
+                                        Productos
+                                        <button class="btn btn-success btn-sm ml-2" onclick="mostrarform(true)" id="btnagregar">
+                                            <i class="fa fa-plus-circle"></i> Agregar
+                                        </button>
+                                    </h4>
+
+                                    <!-- Botón para mostrar/ocultar la sección de carga masiva -->
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="togglePlantilla()">
+                                        <i class="fa fa-chevron-down"></i> Plantilla
+                                    </button>
                                 </div>
                                 <div class="card-body">
                                     <div class="container-fluid mb-3">
-                                        <div class="row">
-                                            <div class="col-12 d-flex justify-content-end">
-                                                <div class="btn-group mr-2">
-                                                    <a href="Assets/plantillas/plantilla_productos.csv" download class="btn btn-outline-primary btn-sm">
-                                                        <i class="fa fa-download"></i> Descargar plantilla Excel
-                                                    </a>
-                                                </div>
-                                                <form id="formSubidaMasiva" enctype="multipart/form-data" class="form-inline">
-                                                    <div class="form-group mb-0 mr-2">
-                                                        <input type="file" class="form-control-file" id="archivo_productos" name="archivo_productos" accept=".xlsx,.csv" required>
+                                        <!-- Botón para mostrar/ocultar la sección de plantilla -->
+
+
+                                        <!-- Sección oculta por defecto -->
+                                        <div id="plantillaSection" style="display: none; transition: all 0.4s ease;">
+                                            <div class="row">
+                                                <div class="col-12 d-flex justify-content-end">
+                                                    <div class="btn-group mr-2">
+                                                        <a href="Assets/plantillas/plantilla_productos.csv" download
+                                                            class="btn btn-outline-primary btn-sm">
+                                                            <i class="fa fa-download"></i> Descargar plantilla Excel
+                                                        </a>
                                                     </div>
-                                                    <button type="submit" class="btn btn-success btn-sm">
-                                                        <i class="fa fa-upload"></i> Cargar productos
-                                                    </button>
-                                                </form>
+                                                    <form id="formSubidaMasiva" enctype="multipart/form-data"
+                                                        class="form-inline">
+                                                        <div class="form-group mb-0 mr-2">
+                                                            <input type="file" class="form-control-file" id="archivo_productos"
+                                                                name="archivo_productos" accept=".xlsx,.csv" required>
+                                                        </div>
+                                                        <button type="submit" class="btn btn-success btn-sm">
+                                                            <i class="fa fa-upload"></i> Cargar productos
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -86,13 +104,17 @@ if (!isset($_SESSION['nombre'])) {
 
                                                 <div class="form-group col-md-4">
                                                     <label for="precio_compra">Precio de compra</label>
-                                                    <input type="number" step="0.01" class="form-control" name="precio_compra" id="precio_compra" min="0">
-                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás vender el producto.</small>
+                                                    <input type="number" step="0.01" class="form-control" name="precio_compra"
+                                                        id="precio_compra" min="0">
+                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás vender
+                                                        el producto.</small>
                                                 </div>
                                                 <div class="form-group col-md-4">
                                                     <label for="precio_venta">Precio de venta</label>
-                                                    <input type="number" step="0.01" class="form-control" name="precio_venta" id="precio_venta" min="0">
-                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás vender el producto.</small>
+                                                    <input type="number" step="0.01" class="form-control" name="precio_venta"
+                                                        id="precio_venta" min="0">
+                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás vender
+                                                        el producto.</small>
                                                 </div>
 
 
@@ -184,7 +206,7 @@ if (!isset($_SESSION['nombre'])) {
             </section>
         </div>
 
-    <?php
+        <?php
     } else {
         require "access.php";
     }
@@ -193,7 +215,7 @@ if (!isset($_SESSION['nombre'])) {
     <script src="Assets/js/JsBarcode.all.min.js"></script>
     <script src="Assets/js/jquery.PrintArea.js"></script>
     <script src="Views/modules/scripts/product.js"></script>
-<?php
+    <?php
 }
 ob_end_flush();
 ?>

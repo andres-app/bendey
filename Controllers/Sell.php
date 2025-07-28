@@ -348,7 +348,7 @@ switch ($_GET["op"]) {
 						<button class="btn btn-info btn-sm" title="Ver" onclick="mostrar(' . $reg['idventa'] . ')">
 							<i class="fas fa-eye"></i>
 						</button>
-						<button class="btn btn-success btn-sm" title="Imprimir Ticket" onclick="window.open(\'' . $base_url . 'Reports/a4.php?id=' . $reg['idventa'] . '\', \'_blank\')">
+						<button class="btn btn-success btn-sm" title="Imprimir Ticket" onclick="window.open(\'' . $base_url . 'Reports/80mm.php?id=' . $reg['idventa'] . '\', \'_blank\')">
 							<i class="fas fa-print"></i>
 						</button>
 						<button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Más">
@@ -360,9 +360,6 @@ switch ($_GET["op"]) {
 							</a>
 							<a class="dropdown-item" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . 'Reports/a4.php?id=' . $reg['idventa']) . '" target="_blank">
 								<i class="fab fa-whatsapp"></i> WhatsApp
-							</a>
-							<a class="dropdown-item" href="editsale?op=new&id=' . $reg['idventa'] . '">
-								<i class="fas fa-edit"></i> Editar
 							</a>
 							' . (($reg['estado'] == 'Aceptado') ? '
 							<a class="dropdown-item text-danger" href="#" onclick="anular(' . $reg['idventa'] . ')">

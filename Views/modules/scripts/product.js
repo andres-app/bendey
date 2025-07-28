@@ -321,4 +321,13 @@ $("#formSubidaMasiva").on("submit", function (e) {
   });
 });
 
+function togglePlantilla() {
+  const seccion = document.getElementById('plantillaSection');
+  if (seccion.style.display === 'none' || seccion.style.display === '') {
+      seccion.style.display = 'block';
+  } else {
+      seccion.style.display = 'none';
+  }
+}
+
 init();
