@@ -54,4 +54,23 @@ class Conexion
 	{
 		return $this->conect->lastInsertId();
 	}
+
+	// ✅ Método estático requerido por los modelos antiguos
+	public static function conectar()
+	{
+		try {
+			$conect = new PDO(
+				"mysql:host=" . HOST . ";port=" . PORT . ";dbname=" . DB_NAME . ";charset=" . CHARSET,
+				DB_USER,
+				DB_PASS
+			);
+			$conect->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+			return $conect;
+		} catch (PDOException $e) {
+			die(json_encode([
+				"success" => false,
+				"error" => "❌ Error en la conexión: " . $e->getMessage()
+			]));
+		}
+	}
 }

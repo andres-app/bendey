@@ -330,4 +330,70 @@ function togglePlantilla() {
   }
 }
 
+function cargarAtributos() {
+  cargarValoresAtributo(1, '#color'); // 1 = ID atributo Color
+  cargarValoresAtributo(2, '#talla'); // 2 = ID atributo Talla
+}
+
+function cargarValoresAtributo(idAtributo, selector) {
+  $.getJSON("Controllers/AtributoValorController.php?op=listar_por_atributo&idatributo=" + idAtributo, function (data) {
+    let opciones = '';
+    data.forEach(function (item) {
+      opciones += `<option value="${item.idvalor}">${item.valor}</option>`;
+    });
+    $(selector).html(opciones);
+  });
+}
+
+function generarVariaciones() {
+  const colores = Array.from(document.querySelectorAll('#color option:checked')).map(o => ({ id: o.value, text: o.text }));
+  const tallas = Array.from(document.querySelectorAll('#talla option:checked')).map(o => ({ id: o.value, text: o.text }));
+
+  if (colores.length === 0 || tallas.length === 0) {
+    Swal.fire('Error', 'Selecciona al menos un color y una talla', 'warning');
+    return;
+  }
+
+  const contenedor = document.getElementById("variaciones-lista");
+  contenedor.innerHTML = "";
+
+  colores.forEach(color => {
+    tallas.forEach(talla => {
+      const combinacion = `
+        <div class="col-md-6 mb-3">
+          <div class="card p-2 border">
+            <strong>${color.text} / ${talla.text}</strong>
+            <input type="hidden" name="combinaciones[][atributos][]" value="${color.id}">
+            <input type="hidden" name="combinaciones[][atributos][]" value="${talla.id}">
+            <div class="form-group">
+              <label>SKU</label>
+              <input type="text" class="form-control" name="combinaciones[][sku]" value="SKU-${color.text}-${talla.text}">
+            </div>
+            <div class="form-group">
+              <label>Precio Venta</label>
+              <input type="number" step="0.01" class="form-control" name="combinaciones[][precio_venta]" required>
+            </div>
+            <div class="form-group">
+              <label>Precio Compra</label>
+              <input type="number" step="0.01" class="form-control" name="combinaciones[][precio_compra]">
+            </div>
+            <div class="form-group">
+              <label>Stock</label>
+              <input type="number" class="form-control" name="combinaciones[][stock]" value="0">
+            </div>
+          </div>
+        </div>
+      `;
+      contenedor.insertAdjacentHTML("beforeend", combinacion);
+    });
+  });
+
+  document.getElementById("variaciones-container").style.display = "block";
+}
+
+$(document).ready(function () {
+  init();
+  cargarAtributos();
+});
+
 init();
