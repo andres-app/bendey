@@ -46,8 +46,9 @@ switch ($_GET["op"]) {
                     ? '<span class="badge badge-success">Activo</span>'
                     : '<span class="badge badge-danger">Inactivo</span>',
                 "4" => '<button class="btn btn-info btn-sm" onclick="gestionarValores(' . $reg['idatributo'] . ', \'' . htmlspecialchars($reg['nombre'], ENT_QUOTES) . '\')">
-                                <i class="fas fa-sliders-h"></i>
-                            </button>',
+         <i class="fas fa-sliders-h"></i>
+       </button>',
+
                 "5" => ($reg['estado'])
                     ? '<button class="btn btn-warning btn-sm" onclick="mostrar(' . $reg['idatributo'] . ')"><i class="fas fa-pencil-alt"></i></button>
                            <button class="btn btn-danger btn-sm" onclick="desactivar(' . $reg['idatributo'] . ')"><i class="fas fa-times"></i></button>'

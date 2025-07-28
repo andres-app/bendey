@@ -106,7 +106,7 @@ if (!isset($_SESSION['nombre'])) {
                                 <input type="text" class="form-control" name="valor" id="valor" required>
                             </div>
                             <div class="text-right">
-                                <button type="submit" class="btn btn-success"><i class="fa fa-save"></i> Guardar Valor</button>
+                                <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Guardar Valor</button>
                             </div>
                         </form>
 

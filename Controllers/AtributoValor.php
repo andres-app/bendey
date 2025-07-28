@@ -22,15 +22,10 @@ switch ($_GET["op"]) {
 
         foreach ($rspta as $reg) {
             $data[] = [
-                "0" => $reg["valor"],
-                "1" => ($reg["estado"])
-                    ? '<span class="badge badge-success">Activo</span>'
-                    : '<span class="badge badge-danger">Inactivo</span>',
-                "2" => ($reg["estado"])
-                    ? '<button class="btn btn-warning btn-sm" onclick="mostrarValor(' . $reg['idvalor'] . ')"><i class="fa fa-pencil-alt"></i></button>
-                       <button class="btn btn-danger btn-sm" onclick="desactivarValor(' . $reg['idvalor'] . ')"><i class="fa fa-times"></i></button>'
-                    : '<button class="btn btn-warning btn-sm" onclick="mostrarValor(' . $reg['idvalor'] . ')"><i class="fa fa-pencil-alt"></i></button>
-                       <button class="btn btn-success btn-sm" onclick="activarValor(' . $reg['idvalor'] . ')"><i class="fa fa-check"></i></button>'
+                $reg['valor'],
+                $reg['estado'] ? '<span class="badge badge-success">Activo</span>' : '<span class="badge badge-danger">Inactivo</span>',
+                '<button class="btn btn-warning btn-sm" onclick="editarValor(' . $reg['idvalor'] . ')"><i class="fas fa-pencil-alt"></i></button>
+                 <button class="btn btn-danger btn-sm" onclick="desactivarValor(' . $reg['idvalor'] . ')"><i class="fas fa-times"></i></button>'
             ];
         }
 
@@ -41,6 +36,7 @@ switch ($_GET["op"]) {
             "aaData" => $data
         ]);
         break;
+
 
     case 'mostrar':
         echo json_encode($valor->mostrar($_POST["id"]));
