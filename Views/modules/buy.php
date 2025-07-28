@@ -110,7 +110,7 @@ header("location: login");
                                                     <th>Opciones</th>
                                                     <th>Articulo</th>
                                                     <th>Cantidad</th>
-                                                    <th>Precio Compra Total</th>
+                                                    <th>Precio Compra Un.</th>
                                                     <th>Precio Venta Unitario</th>
                                                     <th>Subtotal</th>
                                                 </thead>

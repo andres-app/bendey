@@ -14,43 +14,56 @@ class Product
 	}
 
 	//metodo insertar regiustro
+
 	public function insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
-	{
-		try {
-			// Insertar el producto y obtener su ID
-			$sql = "INSERT INTO $this->tableName 
-				(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, condicion)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
-			$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
-			$idarticulo = $this->conexion->setDataReturnId($sql, $arrData);
+{
+	try {
+		// Insertar el producto y obtener su ID
+		$sql = "INSERT INTO $this->tableName 
+			(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, condicion)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+		$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
+		$idarticulo = $this->conexion->setDataReturnId($sql, $arrData);
 
-			// Si hay stock inicial, registrar en ingreso y detalle_ingreso
-			if ($stock > 0 && $precio_compra > 0 && $precio_venta > 0) {
-				$idusuario = $_SESSION['idusuario'] ?? 1;
-				$idproveedor = 1; // ← Proveedor genérico para stock inicial
-				$num = str_pad(rand(1, 9999999), 7, '0', STR_PAD_LEFT);
+		// Si hay stock inicial, registrar en ingreso, detalle_ingreso y kardex
+		if ($stock > 0 && $precio_compra > 0 && $precio_venta > 0) {
+			$idusuario = $_SESSION['idusuario'] ?? 1;
+			$idproveedor = 1; // Proveedor genérico para stock inicial
+			$num = str_pad(rand(1, 9999999), 7, '0', STR_PAD_LEFT);
+			$total_compra = $precio_compra * $stock;
 
-				$total_compra = $precio_compra * $stock;
+			// Insertar ingreso
+			$sqlIngreso = "INSERT INTO ingreso 
+				(idproveedor, idusuario, tipo_comprobante, serie_comprobante, num_comprobante, fecha_hora, impuesto, total_compra, estado) 
+				VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(), 0, ?, 'Aceptado')";
+			$idIngreso = $this->conexion->setDataReturnId($sqlIngreso, [$idproveedor, $idusuario, $num, $total_compra]);
 
-				// Insertar ingreso con total_compra
-				$sqlIngreso = "INSERT INTO ingreso 
-					(idproveedor, idusuario, tipo_comprobante, serie_comprobante, num_comprobante, fecha_hora, impuesto, total_compra, estado) 
-					VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(), 0, ?, 'Aceptado')";
-				$idIngreso = $this->conexion->setDataReturnId($sqlIngreso, [$idproveedor, $idusuario, $num, $total_compra]);
-
-				$sqlDetalle = "INSERT INTO detalle_ingreso 
+			// Insertar detalle_ingreso
+			$sqlDetalle = "INSERT INTO detalle_ingreso 
 				(idarticulo, idingreso, cantidad, stock_venta, precio_compra, precio_venta, estado, stock_estado) 
 				VALUES (?, ?, ?, ?, ?, ?, 1, 1)";
-				$arrDetalle = [$idarticulo, $idIngreso, $stock, $stock, $precio_compra, $precio_venta];
-				$this->conexion->setData($sqlDetalle, $arrDetalle);
-			}
+			$arrDetalle = [$idarticulo, $idIngreso, $stock, $stock, $precio_compra, $precio_venta];
+			$this->conexion->setData($sqlDetalle, $arrDetalle);
 
-			return true;
-		} catch (PDOException $e) {
-			echo "❌ Error en insertar(): " . $e->getMessage();
-			exit;
+			// ✅ Insertar en kardex
+			$detalle = 'Stock Inicial INI-' . $num;
+			$precioUnitario = $precio_compra;
+			$total = $stock * $precioUnitario;
+
+			$sqlKardex = "INSERT INTO kardex 
+				(iddetalle, idarticulo, fecha, detalle, cantidadi, costoui, totali, cantidadex, costouex, totalex, tipo, estado) 
+				VALUES (?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, 'Ingreso', 'Activo')";
+			$arrKardex = [$idIngreso, $idarticulo, $detalle, $stock, $precioUnitario, $total, $stock, $precioUnitario, $total];
+			$this->conexion->setData($sqlKardex, $arrKardex);
 		}
+
+		return true;
+	} catch (PDOException $e) {
+		echo "❌ Error en insertar(): " . $e->getMessage();
+		exit;
 	}
+}
+
 
 
 	public function editar($idarticulo, $idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
