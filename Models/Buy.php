@@ -1,6 +1,6 @@
 <?php 
 //incluir la conexion de base de datos
-require_once __DIR__ . '/../Config/Conexion.php';
+require_once __DIR__ . '/../Config/Conexion.php';  // ✅ Esto es correcto
 class Buy{
 
     private $tableName='ingreso';
@@ -18,7 +18,7 @@ class Buy{
 
         $sql="INSERT INTO $this->tableName (idproveedor,idusuario,tipo_comprobante,serie_comprobante,num_comprobante,fecha_hora,impuesto,total_compra,estado) VALUES (?,?,?,?,?,?,?,?,?)";
         $arrData = array($idproveedor,$idusuario,$tipo_comprobante,$serie_comprobante,$num_comprobante,$fecha_hora,$impuesto,$total_compra,'Aceptado');
-        $idingresonew= $this->conexion-> getReturnId($sql,$arrData);
+        $idingresonew = $this->conexion->setDataReturnId($sql, $arrData);
 
         //REGISTRAR EN EL DETALLE DE INGRESO
         $num_elementos=0;
@@ -28,7 +28,7 @@ class Buy{
         while ($num_elementos < count($idarticulo)) {
 
             $sql_detalle="INSERT INTO $this->tableNameDetalle (idingreso,idarticulo,cantidad,stock_venta,precio_compra,precio_venta,estado) VALUES(?,?,?,?,?,?,?)";
-            $precioUnitario=$precio_compra[$num_elementos]/$cantidad[$num_elementos];
+            $precioUnitario = $precio_compra[$num_elementos];
             $arrDatadet = array($idingresonew,$idarticulo[$num_elementos],$cantidad[$num_elementos],$cantidad[$num_elementos],$precioUnitario,$precio_venta[$num_elementos],'1');
             $this->conexion->setData($sql_detalle,$arrDatadet)or $sw=false;
 
@@ -64,7 +64,7 @@ class Buy{
             
             //$cantidadex[$elementos] = isset($reg['stock'])? $cantidadex[$elementos]=$reg['stock']:null;
 
-            $precioUnitario=$precio_compra[$elementos]/$cantidad[$elementos];
+            $precioUnitario = $precio_compra[$elementos];
             //$totalex=$precio_compra[$elementos]/$cantidadex[$elementos];
             $totalex=$cantidad[$elementos]*$precioUnitario;
             $sql_kardex="INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidadi,costoui,totali,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
@@ -133,7 +133,7 @@ class Buy{
         foreach($res as $reg){
             $cantidadex[$elementos] = isset($reg['stock'])? $cantidadex[$elementos]=$reg['stock']:null;
 
-            $precioUnitario=$precio_compra[$elementos]/$cantidad[$elementos];
+            $precioUnitario = $precio_compra[$elementos];
             //$totalex=$precio_compra[$elementos]/$cantidadex[$elementos];
             $totalex=$cantidadex[$elementos]*$precioUnitario;
             $sql_kardex="INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidadi,costoui,totali,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";

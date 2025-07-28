@@ -191,14 +191,6 @@ header("location: login");
                             <tbody>
 
                             </tbody>
-                            <tfoot>
-                                <th>Opciones</th>
-                                <th>Nombre</th>
-                                <th>Categoria</th>
-                                <th>Código</th>
-                                <th>Stock</th>
-                                <th>Imagen</th>
-                            </tfoot>
                         </table>
                     </div>
                 </div>
