@@ -1,6 +1,11 @@
 var tabla;
 
-//funcion que se ejecuta al inicio
+$(document).ready(function () {
+  init();
+  cargarValoresAtributo(1, '#color'); // Color
+  cargarValoresAtributo(2, '#talla'); // Talla
+});
+
 function init() {
   mostrarform(false);
   listar();
@@ -9,42 +14,14 @@ function init() {
     guardaryeditar(e);
   });
 
-  //cargamos los items al select almacen
-  $.post("Controllers/Almacen.php?op=selectAlmacen", function (r) {
-    $("#idalmacen").html(r);
-  });
+  // Cargar selects principales
+  $.post("Controllers/Almacen.php?op=selectAlmacen", r => $("#idalmacen").html(r));
+  $.post("Controllers/Category.php?op=selectCategoria", r => $("#idcategoria").html(r));
+  $.post("Controllers/Medida.php?op=selectMedida", r => $("#idmedida").html(r));
 
-  //cargamos los items al celect categoria
-  $.post("Controllers/Category.php?op=selectCategoria", function (r) {
-    $("#idcategoria").html(r);
-    //$("#idcategoria").selectpicker("refresh");
-  });
-  $("#imagenmuestra").hide();
-
-  //cargamos los items al select medida
-  $.post("Controllers/Medida.php?op=selectMedida", function (r) {
-    $("#idmedida").html(r);
-    //$("#idcategoria").selectpicker("refresh");
-  });
   $("#imagenmuestra").hide();
 }
 
-
-//funcion limpiar
-function limpiar() {
-  $("#codigo").val("");
-  $("#nombre").val("");
-  $("#descripcion").val("");
-  $("#stock").val("");
-  $("#precio_compra").val("");
-  $("#precio_venta").val("");
-  $("#imagenmuestra").attr("src", "");
-  $("#imagenactual").val("");
-  $("#print").hide();
-  $("#idarticulo").val("");
-}
-
-//funcion mostrar formulario
 function mostrarform(flag) {
   limpiar();
   if (flag) {
@@ -61,60 +38,53 @@ function mostrarform(flag) {
   }
 }
 
-//cancelar form
+function limpiar() {
+  $("#formulario")[0].reset();
+  $("#imagenmuestra").attr("src", "").hide();
+  $("#imagenactual").val("");
+  $("#idarticulo").val("");
+  $("#variaciones-lista").empty();
+  $("#variaciones-container").hide();
+}
+
 function cancelarform() {
   limpiar();
   mostrarform(false);
 }
 
-//funcion listar
 function listar() {
-  tabla = $("#tbllistado")
-    .dataTable({
-      aProcessing: true, //activamos el procedimiento del datatable
-      aServerSide: true, //paginacion y filrado realizados por el server
-      dom: "Bfrtip", //definimos los elementos del control de la tabla
-      buttons: [
-        {
-          extend: "excelHtml5",
-          text: '<i class="fa fa-file-excel-o"></i> Excel',
-          titleAttr: "Exportar a Excel",
-          title: "Reporte de Productos",
-          sheetName: "Productos",
-          exportOptions: {
-            columns: [1, 2, 3, 5, 6, 7],
-          },
-        },
-        {
-          extend: "pdfHtml5",
-          text: '<i class="fa fa-file-pdf-o"></i> PDF',
-          titleAttr: "Exportar a PDF",
-          title: "Reporte de Articulos",
-          //messageTop: "Reporte de usuarios",
-          pageSize: "A4",
-          //orientation: 'landscape',
-          exportOptions: {
-            columns: [1, 2, 3, 5, 6, 7],
-          },
-        },
-      ],
-      ajax: {
-        url: "Controllers/Product.php?op=listar",
-        type: "get",
-        dataType: "json",
-        error: function (e) {
-          console.log(e.responseText);
-        },
+  tabla = $("#tbllistado").DataTable({
+    aProcessing: true,
+    aServerSide: true,
+    dom: "Bfrtip",
+    buttons: [
+      {
+        extend: "excelHtml5",
+        text: '<i class="fa fa-file-excel-o"></i> Excel',
+        title: "Reporte de Productos",
+        exportOptions: { columns: [1, 2, 3, 5, 6, 7] }
       },
-      bDestroy: true,
-      iDisplayLength: 10, //paginacion
-      order: [[0, "desc"]], //ordenar (columna, orden)
-    })
-    .DataTable();
+      {
+        extend: "pdfHtml5",
+        text: '<i class="fa fa-file-pdf-o"></i> PDF',
+        title: "Reporte de Articulos",
+        exportOptions: { columns: [1, 2, 3, 5, 6, 7] }
+      }
+    ],
+    ajax: {
+      url: "Controllers/Product.php?op=listar",
+      type: "get",
+      dataType: "json",
+      error: e => console.log(e.responseText)
+    },
+    bDestroy: true,
+    iDisplayLength: 10,
+    order: [[0, "desc"]]
+  });
 }
-//funcion para guardaryeditar
+
 function guardaryeditar(e) {
-  e.preventDefault(); //no se activara la accion predeterminada
+  e.preventDefault();
   $("#btnGuardar").prop("disabled", true);
   var formData = new FormData($("#formulario")[0]);
 
@@ -124,115 +94,81 @@ function guardaryeditar(e) {
     data: formData,
     contentType: false,
     processData: false,
-
     success: function (datos) {
-      var tabla = $("#tbllistado").DataTable();
       swal({
         title: "Registro",
         text: datos,
         icon: "info",
-        buttons: {
-          confirm: "OK",
-        },
-      }),
-        mostrarform(false);
+        buttons: { confirm: "OK" }
+      });
+      mostrarform(false);
       tabla.ajax.reload();
-    },
+    }
   });
 
   limpiar();
 }
 
 function mostrar(idarticulo) {
-  $.post(
-    "Controllers/Product.php?op=mostrar",
-    { idarticulo: idarticulo },
-    function (data, status) {
-      data = JSON.parse(data);
-      mostrarform(true);
+  $.post("Controllers/Product.php?op=mostrar", { idarticulo }, function (data) {
+    data = JSON.parse(data);
+    mostrarform(true);
 
-      $("#idcategoria").val(data.idcategoria);
-      $.post("Controllers/subcategoria.php?op=selectSubcategoria", { categoria_id: data.idcategoria }, function (r) {
-        $("#idsubcategoria").html(r);
-        $("#idsubcategoria").val(data.idsubcategoria);
-      });
-      $("#idmedida").val(data.idmedida);
-      //$("#idcategoria").selectpicker("refresh");
-      $("#codigo").val(data.codigo);
-      $("#nombre").val(data.nombre);
-      $("#stock").val(data.stock);
-      $("#precio_compra").val(data.precio_compra ?? "");
-      $("#precio_venta").val(data.precio_venta ?? "");
-      $("#descripcion").val(data.descripcion);
-      $("#imagenmuestra").show();
-      $("#imagenmuestra").attr("src", "Assets/img/products/" + data.imagen);
-      $("#imagenactual").val(data.imagen);
-      $("#idarticulo").val(data.idarticulo);
-      generarbarcode();
-    }
-  );
+    $("#idcategoria").val(data.idcategoria);
+    $.post("Controllers/Subcategoria.php?op=selectSubcategoria", { categoria_id: data.idcategoria }, function (r) {
+      $("#idsubcategoria").html(r);
+      $("#idsubcategoria").val(data.idsubcategoria);
+    });
+
+    $("#idmedida").val(data.idmedida);
+    $("#codigo").val(data.codigo);
+    $("#nombre").val(data.nombre);
+    $("#stock").val(data.stock);
+    $("#precio_compra").val(data.precio_compra ?? "");
+    $("#precio_venta").val(data.precio_venta ?? "");
+    $("#descripcion").val(data.descripcion);
+    $("#imagenmuestra").show().attr("src", "Assets/img/products/" + data.imagen);
+    $("#imagenactual").val(data.imagen);
+    $("#idarticulo").val(data.idarticulo);
+    generarbarcode();
+  });
 }
 
-//funcion para desactivar
-//funcion para desactivar
 function desactivar(idarticulo) {
   swal({
     title: "Desactivar?",
-    text: "Esá seguro de desactivar?",
+    text: "¿Está seguro?",
     icon: "warning",
-    buttons: {
-      cancel: "No, cancelar",
-      confirm: "Si, desactivar",
-    },
-    //buttons: true,
-    dangerMode: true,
-  }).then((willDelete) => {
+    buttons: { cancel: "Cancelar", confirm: "Sí, desactivar" },
+    dangerMode: true
+  }).then(willDelete => {
     if (willDelete) {
-      $.post(
-        "Controllers/Product.php?op=desactivar",
-        { idarticulo: idarticulo },
-        function (e) {
-          swal(e, "Desactivado!", {
-            icon: "success",
-          });
-          var tabla = $("#tbllistado").DataTable();
-          tabla.ajax.reload();
-        }
-      );
+      $.post("Controllers/Product.php?op=desactivar", { idarticulo }, function (e) {
+        swal(e, { icon: "success" });
+        tabla.ajax.reload();
+      });
     }
   });
 }
 
 function activar(idarticulo) {
   swal({
-    //title: "Activar?",
-    text: "Esá seguro de activar?",
+    text: "¿Está seguro?",
     icon: "warning",
-    buttons: {
-      cancel: "No, cancelar",
-      confirm: "Si, activar",
-    },
-    //buttons: true,
-    dangerMode: true,
-  }).then((willDelete) => {
+    buttons: { cancel: "Cancelar", confirm: "Sí, activar" },
+    dangerMode: true
+  }).then(willDelete => {
     if (willDelete) {
-      $.post(
-        "Controllers/Product.php?op=activar",
-        { idarticulo: idarticulo },
-        function (e) {
-          swal(e, "Activado!", {
-            icon: "success",
-          });
-          var tabla = $("#tbllistado").DataTable();
-          tabla.ajax.reload();
-        }
-      );
+      $.post("Controllers/Product.php?op=activar", { idarticulo }, function (e) {
+        swal(e, { icon: "success" });
+        tabla.ajax.reload();
+      });
     }
   });
 }
 
 function generarbarcode() {
-  codigo = $("#codigo").val();
+  let codigo = $("#codigo").val();
   JsBarcode("#barcode", codigo);
   $("#print").show();
 }
@@ -241,22 +177,73 @@ function imprimir() {
   $("#print").printArea();
 }
 
-
 function toggleAtributos() {
-  const checked = document.getElementById("activar_atributos").checked;
-  document.getElementById("atributos_section").style.display = checked ? "flex" : "none";
+  const activo = document.getElementById("activar_atributos").checked;
+  document.getElementById("atributos_section").style.display = activo ? "block" : "none";
+  if (activo) {
+    cargarValoresAtributo(1, '#color');
+    cargarValoresAtributo(2, '#talla');
+  }
+}
+
+function cargarValoresAtributo(idAtributo, selector) {
+  $.get("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=" + idAtributo, function (data) {
+    const valores = JSON.parse(data);
+    let html = "";
+    valores.forEach(item => {
+      html += `<option value="${item.valor}">${item.valor}</option>`;
+    });
+    $(selector).html(html);
+
+    $(selector).select2({
+      placeholder: $(selector).data("placeholder") || "Selecciona",
+      allowClear: true,
+      width: 'resolve'
+    });
+  });
+}
+
+function generarVariaciones() {
+  const colores = $("#color").val() || [];
+  const tallas = $("#talla").val() || [];
+  const combinaciones = [];
+
+  if (colores.length && tallas.length) {
+    colores.forEach(color => {
+      tallas.forEach(talla => {
+        combinaciones.push({ combinacion: `${color} - ${talla}` });
+      });
+    });
+  } else if (colores.length) {
+    colores.forEach(color => combinaciones.push({ combinacion: color }));
+  } else if (tallas.length) {
+    tallas.forEach(talla => combinaciones.push({ combinacion: talla }));
+  }
+
+  if (combinaciones.length === 0) {
+    Swal.fire("Aviso", "Selecciona al menos un valor de color o talla", "warning");
+    return;
+  }
+
+  let html = "";
+  combinaciones.forEach((item, index) => {
+    html += `
+      <tr>
+        <td><input type="text" name="variaciones[${index}][combinacion]" class="form-control" value="${item.combinacion}" readonly></td>
+        <td><input type="text" name="variaciones[${index}][sku]" class="form-control" placeholder="SKU"></td>
+        <td><input type="number" name="variaciones[${index}][stock]" class="form-control" placeholder="Stock"></td>
+        <td><input type="number" name="variaciones[${index}][precio]" class="form-control" placeholder="Precio" step="0.01"></td>
+      </tr>`;
+  });
+
+  $("#variaciones-lista").html(html);
+  $("#variaciones-container").show();
 }
 
 $("#idcategoria").on("change", function () {
   let categoriaId = $(this).val();
-
-  $.ajax({
-    url: "Controllers/Subcategoria.php?op=selectSubcategoria",
-    method: "POST",
-    data: { categoria_id: categoriaId },
-    success: function (data) {
-      $("#idsubcategoria").html(data);
-    }
+  $.post("Controllers/Subcategoria.php?op=selectSubcategoria", { categoria_id: categoriaId }, function (data) {
+    $("#idsubcategoria").html(data);
   });
 });
 
@@ -270,215 +257,39 @@ $("#formSubidaMasiva").on("submit", function (e) {
     data: formData,
     contentType: false,
     processData: false,
-    beforeSend: function () {
-      Swal.fire({ title: "Subiendo productos...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    },
+    beforeSend: () => Swal.fire({ title: "Subiendo productos...", didOpen: () => Swal.showLoading() }),
     success: function (response) {
       Swal.close();
       try {
         var data = JSON.parse(response);
+        let htmlSuccess = "", htmlError = "";
 
-        if (data.success) {
-          let htmlSuccess = "", htmlError = "";
-
-          if (Array.isArray(data.exitosos) && data.exitosos.length > 0) {
-            htmlSuccess = "<ul style='text-align:left'>";
-            data.exitosos.forEach(msg => {
-              htmlSuccess += "<li style='color:green'>" + msg + "</li>";
-            });
-            htmlSuccess += "</ul>";
-          }
-
-          if (Array.isArray(data.errores) && data.errores.length > 0) {
-            htmlError = "<ul style='text-align:left'>";
-            data.errores.forEach(msg => {
-              htmlError += "<li style='color:red'>" + msg + "</li>";
-            });
-            htmlError += "</ul>";
-          }
-
-          Swal.fire({
-            title: "Resultado de la carga",
-            html: htmlSuccess + htmlError,
-            icon: data.errores.length > 0 ? "warning" : "success",
-            width: 600
-          });
-
-          if (typeof tabla !== 'undefined') tabla.ajax.reload();
-
-        } else {
-          Swal.fire("Error", data.mensaje || "Ocurrió un error inesperado.", "error");
+        if (Array.isArray(data.exitosos)) {
+          htmlSuccess = "<ul>" + data.exitosos.map(msg => `<li style='color:green'>${msg}</li>`).join("") + "</ul>";
         }
 
+        if (Array.isArray(data.errores)) {
+          htmlError = "<ul>" + data.errores.map(msg => `<li style='color:red'>${msg}</li>`).join("") + "</ul>";
+        }
+
+        Swal.fire({
+          title: "Resultado de la carga",
+          html: htmlSuccess + htmlError,
+          icon: data.errores.length > 0 ? "warning" : "success",
+          width: 600
+        });
+
+        if (tabla) tabla.ajax.reload();
+
       } catch (e) {
-        Swal.fire("Error", "Error al procesar la respuesta: " + response, "error");
+        Swal.fire("Error", "Respuesta inesperada: " + response, "error");
       }
     },
-    error: function () {
-      Swal.close();
-      Swal.fire("Error", "No se pudo conectar con el servidor.", "error");
-    }
+    error: () => Swal.fire("Error", "No se pudo conectar con el servidor.", "error")
   });
 });
 
 function togglePlantilla() {
   const seccion = document.getElementById('plantillaSection');
-  if (seccion.style.display === 'none' || seccion.style.display === '') {
-    seccion.style.display = 'block';
-  } else {
-    seccion.style.display = 'none';
-  }
+  seccion.style.display = (seccion.style.display === 'none' || !seccion.style.display) ? 'block' : 'none';
 }
-
-function cargarAtributos() {
-  cargarValoresAtributo(1, '#color'); // 1 = ID atributo Color
-  cargarValoresAtributo(2, '#talla'); // 2 = ID atributo Talla
-}
-
-function cargarValoresAtributo(idAtributo, selector) {
-  $.getJSON("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=" + idAtributo, function (data) {
-    let opciones = '';
-    data.forEach(function (item) {
-      opciones += `<option value="${item.idvalor}">${item.valor}</option>`;
-    });
-    $(selector).html(opciones);
-  });
-}
-
-function generarVariaciones() {
-  const colores = Array.from(document.querySelectorAll('#color option:checked')).map(o => ({ id: o.value, text: o.text }));
-  const tallas = Array.from(document.querySelectorAll('#talla option:checked')).map(o => ({ id: o.value, text: o.text }));
-
-  if (colores.length === 0 || tallas.length === 0) {
-    Swal.fire('Error', 'Selecciona al menos un color y una talla', 'warning');
-    return;
-  }
-
-  const contenedor = document.getElementById("variaciones-lista");
-  contenedor.innerHTML = "";
-
-  colores.forEach(color => {
-    tallas.forEach(talla => {
-      const combinacion = `
-        <div class="col-md-6 mb-3">
-          <div class="card p-2 border">
-            <strong>${color.text} / ${talla.text}</strong>
-            <input type="hidden" name="combinaciones[][atributos][]" value="${color.id}">
-            <input type="hidden" name="combinaciones[][atributos][]" value="${talla.id}">
-            <div class="form-group">
-              <label>SKU</label>
-              <input type="text" class="form-control" name="combinaciones[][sku]" value="SKU-${color.text}-${talla.text}">
-            </div>
-            <div class="form-group">
-              <label>Precio Venta</label>
-              <input type="number" step="0.01" class="form-control" name="combinaciones[][precio_venta]" required>
-            </div>
-            <div class="form-group">
-              <label>Precio Compra</label>
-              <input type="number" step="0.01" class="form-control" name="combinaciones[][precio_compra]">
-            </div>
-            <div class="form-group">
-              <label>Stock</label>
-              <input type="number" class="form-control" name="combinaciones[][stock]" value="0">
-            </div>
-          </div>
-        </div>
-      `;
-      contenedor.insertAdjacentHTML("beforeend", combinacion);
-    });
-  });
-
-  document.getElementById("variaciones-container").style.display = "block";
-}
-
-$(document).ready(function () {
-  init();
-  cargarAtributos();
-});
-
-function toggleAtributos() {
-  const activo = document.getElementById("activar_atributos").checked;
-  document.getElementById("atributos_section").style.display = activo ? "block" : "none";
-
-  if (activo) {
-    cargarAtributos(); // Cargar valores desde la BD
-  }
-}
-
-function cargarAtributos() {
-  $.get("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=1", function (data) {
-    const colores = JSON.parse(data);
-    let html = "";
-    colores.forEach(color => {
-      html += `<option value="${color.valor}">${color.valor}</option>`;
-    });
-    $("#color").html(html);
-  });
-
-  $.get("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=2", function (data) {
-    const tallas = JSON.parse(data);
-    let html = "";
-    tallas.forEach(talla => {
-      html += `<option value="${talla.valor}">${talla.valor}</option>`;
-    });
-    $("#talla").html(html);
-  });
-}
-
-function generarVariaciones() {
-  const colores = $("#color").val() || [];
-  const tallas = $("#talla").val() || [];
-
-  let combinaciones = [];
-  if (colores.length && tallas.length) {
-    colores.forEach(color => {
-      tallas.forEach(talla => {
-        combinaciones.push({ combinacion: `${color} - ${talla}` });
-      });
-    });
-  } else if (colores.length) {
-    colores.forEach(color => {
-      combinaciones.push({ combinacion: color });
-    });
-  } else if (tallas.length) {
-    tallas.forEach(talla => {
-      combinaciones.push({ combinacion: talla });
-    });
-  }
-
-  if (combinaciones.length === 0) {
-    Swal.fire("Aviso", "Selecciona al menos un valor de color o talla", "warning");
-    return;
-  }
-
-  let html = "";
-  combinaciones.forEach((item, index) => {
-    html += `
-          <tr>
-              <td><input type="text" name="variaciones[${index}][combinacion]" class="form-control" value="${item.combinacion}" readonly></td>
-              <td><input type="text" name="variaciones[${index}][sku]" class="form-control" placeholder="SKU"></td>
-              <td><input type="number" name="variaciones[${index}][stock]" class="form-control" placeholder="Stock"></td>
-              <td><input type="number" name="variaciones[${index}][precio]" class="form-control" placeholder="Precio" step="0.01"></td>
-          </tr>`;
-  });
-
-  $("#variaciones-lista").html(html);
-  $("#variaciones-container").show();
-}
-
-$(document).ready(function () {
-  $('#color').select2({
-    placeholder: "Selecciona colores",
-    width: 'resolve',
-    theme: 'bootstrap4'
-  });
-
-  $('#talla').select2({
-    placeholder: "Selecciona tallas",
-    width: 'resolve',
-    theme: 'bootstrap4'
-  });
-});
-
-
-init();

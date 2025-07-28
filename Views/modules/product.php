@@ -166,7 +166,7 @@ if (!isset($_SESSION['nombre'])) {
                                                                 <select class="form-control select2" id="color"
                                                                     multiple="multiple" data-placeholder="Selecciona colores"
                                                                     style="width: 100%;">
-                                                                    <!-- Opciones se llenarán dinámicamente -->
+                                                                    <!-- Opciones dinámicas -->
                                                                 </select>
                                                             </div>
                                                             <div class="form-group col-lg-6">
@@ -174,7 +174,7 @@ if (!isset($_SESSION['nombre'])) {
                                                                 <select class="form-control select2" id="talla"
                                                                     multiple="multiple" data-placeholder="Selecciona tallas"
                                                                     style="width: 100%;">
-                                                                    <!-- Opciones se llenarán dinámicamente -->
+                                                                    <!-- Opciones dinámicas -->
                                                                 </select>
                                                             </div>
                                                         </div>
@@ -202,9 +202,6 @@ if (!isset($_SESSION['nombre'])) {
                                                         </div>
                                                     </fieldset>
                                                 </div>
-
-
-
                                                 <div class="form-group col-12 text-center mt-3">
                                                     <button class="btn btn-primary" type="submit" id="btnGuardar">
                                                         <i class="fa fa-save"></i> Guardar

@@ -6,31 +6,31 @@
     <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
     <title>TiquePOS</title>
 
-    <!-- General CSS Files -->
+    <!-- ✅ General CSS de Stisla -->
     <link rel="stylesheet" href="Assets/css/app.min.css">
 
-    <!-- DataTables -->
+    <!-- ✅ DataTables (ya estilizado por Stisla) -->
     <link rel="stylesheet" href="Assets/bundles/datatables/datatables.min.css">
     <link rel="stylesheet" href="Assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css">
 
-    <!-- Template CSS -->
+    <!-- ✅ Select2 integrado con Stisla -->
+    <link rel="stylesheet" href="Assets/bundles/select2/dist/css/select2.min.css" />
+
+    <!-- ✅ Template principal -->
     <link rel="stylesheet" href="Assets/css/style.css">
     <link rel="stylesheet" href="Assets/css/components.css">
 
-    <!-- Select2 CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
-
-    <!-- Favicon -->
+    <!-- ✅ Ícono de pestaña -->
     <link rel="shortcut icon" type="image/x-icon" href="Assets/img/favicon.ico" />
 
-    <!-- jQuery (debe estar antes de Select2 y cualquier plugin JS) -->
+    <!-- ✅ jQuery primero -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    <!-- SweetAlert2 -->
+    <!-- ✅ SweetAlert2 (CDN está bien) -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- Select2 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <!-- ✅ Select2 de Stisla -->
+    <script src="Assets/bundles/select2/dist/js/select2.full.min.js"></script>
 </head>
 
 <?php
@@ -60,7 +60,8 @@ $class = ($_GET["url"] == "newsale" || $_GET["url"] == "editsale") ? 'sidebar-mi
                 <ul class="navbar-nav navbar-right">
                     <li class="dropdown">
                         <a href="#" data-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
-                            <img alt="image" src="Assets/img/users/<?php echo $_SESSION['imagen']; ?>" class="user-img-radious-style">
+                            <img alt="image" src="Assets/img/users/<?php echo $_SESSION['imagen']; ?>"
+                                class="user-img-radious-style">
                         </a>
                         <div class="dropdown-menu dropdown-menu-right pullDown">
                             <div class="dropdown-title"><?php echo $_SESSION['nombre']; ?></div>
