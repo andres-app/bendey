@@ -1,5 +1,13 @@
 <?php
 //activamos almacenamiento en el buffer
+
+function convertirNumeroALetras($numero)
+{
+    require_once "../Libraries/NumeroALetras.php";
+    $formatter = new NumeroALetras();
+    return $formatter->toWords($numero);
+}
+
 ob_start();
 if (strlen(session_id()) < 1)
   session_start();
@@ -153,6 +161,7 @@ if (!isset($_SESSION['nombre'])) {
 
     // SUMATORIO DE LOS PRODUCTOS Y EL IVA
     $total_venta = $reg['total_venta'];
+    $total_letras = strtoupper(convertirNumeroALetras($total_venta)) . ' ' . $new_simbolo;
     $igv = round($total_venta * 18 / 100, 2);
     $subtotal = round($total_venta - $igv, 2);
 
@@ -179,6 +188,11 @@ if (!isset($_SESSION['nombre'])) {
 
     // PIE DE PAGINA  
     $pdf->Ln(10); // Espacio antes del resumen final
+
+    $pdf->setX(2);
+    $pdf->SetFont('Helvetica', 'B', 7);
+    $pdf->MultiCell(76, 4, utf8_decode('SON: ' . $total_letras));
+    $pdf->Ln(1);
 
     // CANTIDAD DE ARTICULOS
     $pdf->setX(2);
