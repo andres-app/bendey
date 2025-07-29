@@ -21,33 +21,65 @@ switch ($_GET["op"]) {
 
 		$rspta = $product->verificarCodigo($codigo);
 
-
-		if (!file_exists($_FILES['imagen']['tmp_name']) || !is_uploaded_file($_FILES['imagen']['tmp_name'])) {
-			(empty($_POST["imagenactual"])) ? $imagen = 'default.png' : $imagen = $_POST["imagenactual"];
-		} else {
-			if (!empty($_POST["imagenactual"]) && $_POST["imagenactual"] != 'default.png') {
-				unlink("../Assets/img/products/" . $_POST["imagenactual"]);
-			}
-			$ext = explode(".", $_FILES["imagen"]["name"]);
-			if ($_FILES['imagen']['type'] == "image/jpg" || $_FILES['imagen']['type'] == "image/jpeg" || $_FILES['imagen']['type'] == "image/png") {
-				$imagen = round(microtime(true)) . '.' . end($ext);
-				move_uploaded_file($_FILES["imagen"]["tmp_name"], "../Assets/img/products/" . $imagen);
-			}
-		}
 		if (empty($idarticulo)) {
 			if (empty($rspta['codigo'])) {
-				$rspta = $product->insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
-				echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
+
+				// ⚠️ Generar código automático si está vacío
+				if (empty($codigo)) {
+					$codigo = 'VAR-' . uniqid();
+				}
+
+				// ✅ Subir imagen si existe
+				if (!file_exists($_FILES['imagen']['tmp_name']) || !is_uploaded_file($_FILES['imagen']['tmp_name'])) {
+					$imagen = empty($_POST["imagenactual"]) ? 'default.png' : $_POST["imagenactual"];
+				} else {
+					if (!empty($_POST["imagenactual"]) && $_POST["imagenactual"] != 'default.png') {
+						unlink("../Assets/img/products/" . $_POST["imagenactual"]);
+					}
+					$ext = explode(".", $_FILES["imagen"]["name"]);
+					if (in_array($_FILES['imagen']['type'], ["image/jpg", "image/jpeg", "image/png"])) {
+						$imagen = round(microtime(true)) . '.' . end($ext);
+						move_uploaded_file($_FILES["imagen"]["tmp_name"], "../Assets/img/products/" . $imagen);
+					}
+				}
+
+				// ✅ Insertar producto principal
+				$idproducto = $product->insertar(
+					$idcategoria,
+					$idsubcategoria,
+					$idmedida,
+					$idalmacen,
+					$codigo,
+					$nombre,
+					$stock,
+					$precio_compra,
+					$precio_venta,
+					$descripcion,
+					$imagen
+				);
+
+				// ✅ Insertar variaciones
+				if (isset($_POST['variaciones_json'])) {
+					$variaciones = json_decode($_POST['variaciones_json'], true);
+
+					foreach ($variaciones as $var) {
+						$combinacion = $var['combinacion'] ?? '';
+						$sku = $var['sku'] ?? '';
+						$stock_var = $var['stock'] ?? 0;
+						$precio_compra_var = $var['precio_compra'] ?? 0;
+						$precio_venta_var = $var['precio_venta'] ?? 0;
+
+						$product->insertarVariacion($idproducto, $combinacion, $sku, $stock_var, $precio_compra_var, $precio_venta_var);
+					}
+				}
+
+				echo $idproducto ? "Datos registrados correctamente" : "No se pudo registrar los datos";
 			} else {
-				echo "No se puede registrar...! \n codigo de producto duplicado";
+				echo "No se puede registrar...! \n código de producto duplicado";
 			}
-		} else {
-			$rspta = $product->editar($idarticulo, $idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
-			echo $rspta ? "Datos actualizados correctamente" : "No se pudo actualizar los datos";
 		}
 
 		break;
-
 
 	case 'desactivar':
 		$rspta = $product->desactivar($idarticulo);
@@ -143,4 +175,30 @@ switch ($_GET["op"]) {
 		}
 		break;
 
+		case 'listar_json_todo':
+			$productosSimples = $product->listarActivosVenta();
+			$variaciones = $product->listarVariacionesVenta();
+		
+			$todo = array_merge($productosSimples, $variaciones);
+		
+			foreach ($todo as &$item) {
+				// Uniformiza el campo condicion
+				if (!isset($item['condicion']) && isset($item['estado'])) {
+					$item['condicion'] = $item['estado'];
+				}
+		
+				// Uniformiza el código
+				if (!isset($item['codigo']) && isset($item['sku'])) {
+					$item['codigo'] = $item['sku'];
+				}
+		
+				// Uniformiza el ID para que JS solo use idarticulo
+				if (!isset($item['idarticulo']) && isset($item['idvariacion'])) {
+					$item['idarticulo'] = $item['idvariacion'];
+				}
+			}
+			unset($item);
+		
+			echo json_encode($todo);
+			break;
 }

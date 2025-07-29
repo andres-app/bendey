@@ -61,21 +61,61 @@ function listar() {
         extend: "excelHtml5",
         text: '<i class="fa fa-file-excel-o"></i> Excel',
         title: "Reporte de Productos",
-        exportOptions: { columns: [1, 2, 3, 5, 6, 7] }
+        exportOptions: { columns: [0, 1, 2, 4, 5, 6] }
       },
       {
         extend: "pdfHtml5",
         text: '<i class="fa fa-file-pdf-o"></i> PDF',
-        title: "Reporte de Articulos",
-        exportOptions: { columns: [1, 2, 3, 5, 6, 7] }
+        title: "Reporte de Artículos",
+        exportOptions: { columns: [0, 1, 2, 4, 5, 6] }
       }
     ],
     ajax: {
-      url: "Controllers/Product.php?op=listar",
+      url: "Controllers/Product.php?op=listar_json_todo",
       type: "get",
       dataType: "json",
-      error: e => console.log(e.responseText)
+      dataSrc: "" // porque el JSON es un array plano
     },
+    columns: [
+      { data: "codigo" },
+      { data: "nombre" },
+      { data: "categoria", defaultContent: "Sin categoría" },
+      { data: "subcategoria", defaultContent: "Sin subcategoría" },
+      { data: "medida", defaultContent: "-" },
+      { data: "stock" },
+      {
+        data: "imagen",
+        render: function (data) {
+          return data
+            ? `<img src="Assets/img/products/${data}" height="40">`
+            : "Sin imagen";
+        }
+      },
+      { data: "precio_compra", defaultContent: "-" },
+      { data: "precio_venta", defaultContent: "-" },
+      {
+        data: "condicion",
+        render: function (data) {
+          return data == 1
+            ? '<div class="badge badge-success">Activo</div>'
+            : '<div class="badge badge-danger">Inactivo</div>';
+        },
+        defaultContent: "-"
+      },
+      {
+        data: null,
+        render: function (data, type, row) {
+          const id = row.idarticulo || row.idvariacion;
+          const estado = row.condicion == 1;
+          return `
+            <button class="btn btn-warning btn-sm" onclick="mostrar(${id})"><i class="fas fa-pencil-alt"></i></button>
+            <button class="btn ${estado ? 'btn-danger' : 'btn-primary'} btn-sm" onclick="${estado ? 'desactivar' : 'activar'}(${id})">
+              <i class="fas ${estado ? 'fa-times' : 'fa-check'}"></i>
+            </button>
+          `;
+        }
+      }
+    ],
     bDestroy: true,
     iDisplayLength: 10,
     order: [[0, "desc"]]
@@ -86,6 +126,28 @@ function guardaryeditar(e) {
   e.preventDefault();
   $("#btnGuardar").prop("disabled", true);
   var formData = new FormData($("#formulario")[0]);
+
+  // Recoger variaciones manualmente
+  const variaciones = [];
+
+  $("#variaciones-lista tr").each(function () {
+    const combinacion = $(this).find("input[name*='combinacion']").val();
+    const sku = $(this).find("input[name*='sku']").val();
+    const stock = $(this).find("input[name*='stock']").val();
+    const precio_compra = $(this).find("input[name*='precio_compra']").val();
+    const precio_venta = $(this).find("input[name*='precio_venta']").val();
+
+    variaciones.push({
+      combinacion,
+      sku,
+      stock,
+      precio_compra,
+      precio_venta
+    });
+  });
+
+  // Agregar variaciones como string JSON
+  formData.append("variaciones_json", JSON.stringify(variaciones));
 
   $.ajax({
     url: "Controllers/Product.php?op=guardaryeditar",
@@ -236,8 +298,10 @@ function generarVariaciones() {
         <td><input type="text" name="variaciones[${index}][combinacion]" class="form-control" value="${combinacionTexto}" readonly></td>
         <td><input type="text" name="variaciones[${index}][sku]" class="form-control" placeholder="SKU"></td>
         <td><input type="number" name="variaciones[${index}][stock]" class="form-control" placeholder="Stock"></td>
-        <td><input type="number" name="variaciones[${index}][precio]" class="form-control" placeholder="Precio" step="0.01"></td>
-      </tr>`;
+        <td><input type="number" name="variaciones[${index}][precio_compra]" class="form-control" placeholder="Precio Compra" step="0.01"></td>
+        <td><input type="number" name="variaciones[${index}][precio_venta]" class="form-control" placeholder="Precio Venta" step="0.01"></td>
+      </tr>
+    `;
   });
 
   $("#variaciones-lista").html(html);
@@ -326,6 +390,12 @@ function cargarAtributosDinamicos() {
 function toggleAtributos() {
   const activo = document.getElementById("activar_atributos").checked;
   document.getElementById("atributos_section").style.display = activo ? "block" : "none";
+
+  // Oculta campos principales si se usan atributos
+  $("#grupo_sku_principal").toggle(!activo);
+  $("#grupo_stock_principal").toggle(!activo);
+  $("#grupo_precio_compra_principal").toggle(!activo);
+  $("#grupo_precio_venta_principal").toggle(!activo);
 
   if (activo) {
     const seleccionados = $("#atributos_seleccionados").val() || [];

@@ -16,53 +16,53 @@ class Product
 	//metodo insertar regiustro
 
 	public function insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
-{
-	try {
-		// Insertar el producto y obtener su ID
-		$sql = "INSERT INTO $this->tableName 
+	{
+		try {
+			// Insertar el producto y obtener su ID
+			$sql = "INSERT INTO $this->tableName 
 			(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, condicion)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
-		$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
-		$idarticulo = $this->conexion->setDataReturnId($sql, $arrData);
+			$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
+			$idarticulo = $this->conexion->setDataReturnId($sql, $arrData);
 
-		// Si hay stock inicial, registrar en ingreso, detalle_ingreso y kardex
-		if ($stock > 0 && $precio_compra > 0 && $precio_venta > 0) {
-			$idusuario = $_SESSION['idusuario'] ?? 1;
-			$idproveedor = 1; // Proveedor genérico para stock inicial
-			$num = str_pad(rand(1, 9999999), 7, '0', STR_PAD_LEFT);
-			$total_compra = $precio_compra * $stock;
+			// Si hay stock inicial, registrar en ingreso, detalle_ingreso y kardex
+			if ($stock > 0 && $precio_compra > 0 && $precio_venta > 0) {
+				$idusuario = $_SESSION['idusuario'] ?? 1;
+				$idproveedor = 1; // Proveedor genérico para stock inicial
+				$num = str_pad(rand(1, 9999999), 7, '0', STR_PAD_LEFT);
+				$total_compra = $precio_compra * $stock;
 
-			// Insertar ingreso
-			$sqlIngreso = "INSERT INTO ingreso 
+				// Insertar ingreso
+				$sqlIngreso = "INSERT INTO ingreso 
 				(idproveedor, idusuario, tipo_comprobante, serie_comprobante, num_comprobante, fecha_hora, impuesto, total_compra, estado) 
 				VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(), 0, ?, 'Aceptado')";
-			$idIngreso = $this->conexion->setDataReturnId($sqlIngreso, [$idproveedor, $idusuario, $num, $total_compra]);
+				$idIngreso = $this->conexion->setDataReturnId($sqlIngreso, [$idproveedor, $idusuario, $num, $total_compra]);
 
-			// Insertar detalle_ingreso
-			$sqlDetalle = "INSERT INTO detalle_ingreso 
+				// Insertar detalle_ingreso
+				$sqlDetalle = "INSERT INTO detalle_ingreso 
 				(idarticulo, idingreso, cantidad, stock_venta, precio_compra, precio_venta, estado, stock_estado) 
 				VALUES (?, ?, ?, ?, ?, ?, 1, 1)";
-			$arrDetalle = [$idarticulo, $idIngreso, $stock, $stock, $precio_compra, $precio_venta];
-			$this->conexion->setData($sqlDetalle, $arrDetalle);
+				$arrDetalle = [$idarticulo, $idIngreso, $stock, $stock, $precio_compra, $precio_venta];
+				$this->conexion->setData($sqlDetalle, $arrDetalle);
 
-			// ✅ Insertar en kardex
-			$detalle = 'Stock Inicial INI-' . $num;
-			$precioUnitario = $precio_compra;
-			$total = $stock * $precioUnitario;
+				// ✅ Insertar en kardex
+				$detalle = 'Stock Inicial INI-' . $num;
+				$precioUnitario = $precio_compra;
+				$total = $stock * $precioUnitario;
 
-			$sqlKardex = "INSERT INTO kardex 
+				$sqlKardex = "INSERT INTO kardex 
 				(iddetalle, idarticulo, fecha, detalle, cantidadi, costoui, totali, cantidadex, costouex, totalex, tipo, estado) 
 				VALUES (?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, 'Ingreso', 'Activo')";
-			$arrKardex = [$idIngreso, $idarticulo, $detalle, $stock, $precioUnitario, $total, $stock, $precioUnitario, $total];
-			$this->conexion->setData($sqlKardex, $arrKardex);
-		}
+				$arrKardex = [$idIngreso, $idarticulo, $detalle, $stock, $precioUnitario, $total, $stock, $precioUnitario, $total];
+				$this->conexion->setData($sqlKardex, $arrKardex);
+			}
 
-		return true;
-	} catch (PDOException $e) {
-		echo "❌ Error en insertar(): " . $e->getMessage();
-		exit;
+			return $idarticulo;
+		} catch (PDOException $e) {
+			echo "❌ Error en insertar(): " . $e->getMessage();
+			exit;
+		}
 	}
-}
 
 
 
@@ -110,70 +110,54 @@ class Product
 	//listar registros
 	public function listar()
 	{
-		$sql = "SELECT 
-    a.idarticulo, 
-    a.idcategoria, 
-    c.nombre as categoria,
-    a.idsubcategoria, 
-    s.nombre as subcategoria,
-    a.idalmacen,   
-    al.nombre as almacen, 
-    a.codigo, 
-    a.nombre, 
-    a.stock, 
-    a.precio_compra,   -- << agrega esto
-    a.precio_venta,    -- << agrega esto
-    a.descripcion, 
-    a.imagen, 
-    a.condicion,
-    m.nombre as medida
-FROM articulo a
-INNER JOIN categoria c ON a.idcategoria=c.idcategoria
-LEFT JOIN subcategoria s ON a.idsubcategoria=s.idsubcategoria
-INNER JOIN medida m ON a.idmedida=m.idmedida
-LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
-		return $this->conexion->getDataAll($sql);
+		$sql = "
+			SELECT 
+				a.idarticulo,
+				a.codigo,
+				a.nombre,
+				c.nombre AS categoria,
+				s.nombre AS subcategoria,
+				m.nombre AS medida,
+				al.nombre AS almacen,
+				a.stock,
+				a.precio_compra,
+				a.precio_venta,
+				a.descripcion,
+				a.imagen,
+				a.condicion
+			FROM articulo a
+			INNER JOIN categoria c ON a.idcategoria = c.idcategoria
+			LEFT JOIN subcategoria s ON a.idsubcategoria = s.idsubcategoria
+			LEFT JOIN medida m ON a.idmedida = m.idmedida
+			LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
+	
+			UNION
+	
+			SELECT 
+				av.idarticulo_variacion AS idarticulo,
+				av.sku AS codigo,
+				CONCAT(a.nombre, ' - ', av.combinacion) AS nombre,
+				c.nombre AS categoria,
+				s.nombre AS subcategoria,
+				m.nombre AS medida,
+				al.nombre AS almacen,
+				av.stock,
+				av.precio_compra,
+				av.precio_venta,
+				a.descripcion,
+				a.imagen,
+				a.condicion
+			FROM articulo_variacion av
+			INNER JOIN articulo a ON av.idarticulo = a.idarticulo
+			INNER JOIN categoria c ON a.idcategoria = c.idcategoria
+			LEFT JOIN subcategoria s ON a.idsubcategoria = s.idsubcategoria
+			LEFT JOIN medida m ON a.idmedida = m.idmedida
+			LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
+			WHERE av.estado = 1
+		";
+
+		return $this->conexion->getData($sql);
 	}
-
-
-	//listar registros activos
-	public function listarActivos()
-	{
-		$sql = "SELECT a.idarticulo, a.idcategoria, c.nombre as categoria, a.codigo, a.nombre, a.stock, a.descripcion, a.imagen, a.condicion, m.nombre as medida FROM $this->tableName a INNER JOIN categoria c ON a.idcategoria=c.idcategoria INNER JOIN medida m ON a.idmedida=m.idmedida WHERE a.condicion='1'";
-		return $this->conexion->getDataAll($sql);
-	}
-
-	//listar y mostrar en Select
-	public function listarActivosVenta()
-	{
-		$sql = "SELECT 
-			a.idarticulo, 
-			a.idcategoria, 
-			c.nombre as categoria, 
-			a.codigo, 
-			a.nombre, 
-			a.stock, 
-			(SELECT precio_venta FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' ORDER BY iddetalle_ingreso DESC LIMIT 0,1) AS precio_venta, 
-			(SELECT precio_compra FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' ORDER BY iddetalle_ingreso ASC LIMIT 0,1) AS precio_compra, 
-			(SELECT idingreso FROM detalle_ingreso WHERE idarticulo=a.idarticulo AND stock_estado='1' LIMIT 0,1) AS idingreso, 
-			a.descripcion, 
-			a.imagen, 
-			a.condicion, 
-			m.nombre as medida,
-			a.idalmacen, 
-			al.nombre as almacen -- ← agregamos el nombre del almacén
-		FROM articulo a 
-		INNER JOIN categoria c ON a.idcategoria=c.idcategoria 
-		INNER JOIN medida m ON a.idmedida=m.idmedida 
-		LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
-		WHERE a.condicion='1' AND a.stock > 0";
-		return $this->conexion->getDataAll($sql);
-	}
-
-	/*public function listarActivosVenta(){
-		$sql="SELECT m.idingreso,m.fecha_hora,a.idarticulo,a.codigo,a.nombre,a.stock,m.cantidad,m.precio_venta, m.precio_compra,a.descripcion,a.imagen,a.condicion FROM ( SELECT di.idarticulo, di.cantidad, di.precio_compra,di.precio_venta,i.idingreso,i.fecha_hora, di.stock_estado FROM ingreso i INNER JOIN detalle_ingreso di ON i.idingreso=di.idingreso) AS m INNER JOIN articulo a ON m.idarticulo = a.idarticulo WHERE a.stock>0 AND a.condicion='1' AND m.stock_estado='1' ORDER BY m.fecha_hora ASC LIMIT 0,1";
-		return  $this->conexion->getDataAll($sql);
-	}*/
 
 	public function cantidadarticulos()
 	{
@@ -296,5 +280,80 @@ LEFT JOIN almacen al ON a.idalmacen = al.idalmacen";
 			'exitosos' => $mensajes_exito,
 			'errores' => $mensajes_error
 		];
+	}
+
+	public function insertarVariacion($idarticulo, $combinacion, $sku, $stock, $precio_compra, $precio_venta)
+	{
+		try {
+			// Validaciones mínimas
+			if (empty($sku)) {
+				$sku = 'SKU-' . uniqid();
+			}
+
+			if ($stock < 0)
+				$stock = 0;
+			if ($precio_compra < 0)
+				$precio_compra = 0;
+			if ($precio_venta < 0)
+				$precio_venta = 0;
+
+			$sql = "INSERT INTO articulo_variacion 
+			(idarticulo, combinacion, sku, stock, precio_compra, precio_venta, estado) 
+			VALUES (?, ?, ?, ?, ?, ?, 1)";
+			$arrData = [$idarticulo, $combinacion, $sku, $stock, $precio_compra, $precio_venta];
+
+			return $this->conexion->setData($sql, $arrData);
+		} catch (PDOException $e) {
+			echo "❌ Error en insertarVariacion(): " . $e->getMessage();
+			return false;
+		}
+	}
+
+	public function listarVariacionesVenta()
+	{
+		$sql = "SELECT 
+				av.idvariacion,
+				av.idarticulo,
+				av.sku AS codigo,
+				CONCAT(a.nombre, ' - ', av.combinacion) AS nombre,
+				av.stock,
+				av.precio_compra,
+				av.precio_venta,
+				a.descripcion,
+				a.imagen,
+				a.condicion,
+				m.nombre AS medida,
+				a.idalmacen,
+				al.nombre AS almacen
+			FROM articulo_variacion av
+			INNER JOIN articulo a ON av.idarticulo = a.idarticulo
+			INNER JOIN medida m ON a.idmedida = m.idmedida
+			LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
+			WHERE av.estado = 1 AND av.stock > 0 AND a.condicion = 1";
+		return $this->conexion->getDataAll($sql);
+	}
+
+	public function listarActivosVenta()
+	{
+		$sql = "SELECT 
+					a.idarticulo,
+					a.codigo,
+					a.nombre,
+					a.precio_compra,
+					a.precio_venta,
+					a.stock,
+					a.imagen,
+					a.condicion,
+					c.nombre AS categoria,
+					s.nombre AS subcategoria,
+					m.nombre AS medida,
+					al.nombre AS almacen        -- ✅ Aquí se agrega el almacén
+				FROM articulo a
+				INNER JOIN categoria c ON a.idcategoria = c.idcategoria
+				LEFT JOIN subcategoria s ON a.idsubcategoria = s.idsubcategoria
+				LEFT JOIN medida m ON a.idmedida = m.idmedida
+				LEFT JOIN almacen al ON a.idalmacen = al.idalmacen   -- ✅ JOIN con almacén
+				WHERE a.condicion = 1 AND a.stock > 0";
+		return $this->conexion->getDataAll($sql);
 	}
 }

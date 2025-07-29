@@ -440,6 +440,23 @@ class Sell
         return $this->conexion->getDataAll($sql);
     }
 
+    public function listarActivosVenta()
+    {
+        $sql = "SELECT 
+				a.idarticulo,
+				a.codigo,
+				a.nombre,
+				a.precio_venta,
+				a.stock,
+				a.imagen 
+			FROM articulo a 
+			WHERE a.condicion = 1 AND a.stock > 0";
+        return $this->conexion->getData($sql);
+    }
+
+    
+
 }
+
 
 ?>

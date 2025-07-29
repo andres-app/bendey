@@ -84,17 +84,17 @@ if (!isset($_SESSION['nombre'])) {
                                                         maxlength="100" placeholder="Nombre" required>
                                                 </div>
 
-                                                <div class="form-group col-md-4">
+                                                <div id="grupo_sku_principal" class="form-group col-md-4">
                                                     <label for="codigo">SKU</label>
                                                     <input type="text" name="codigo" id="codigo" class="form-control">
                                                 </div>
 
-                                                <div class="form-group col-md-4">
+                                                <div id="grupo_stock_principal" class="form-group col-md-4">
                                                     <label for="stock">Cantidad</label>
                                                     <input type="number" class="form-control" name="stock" id="stock" min="0">
                                                 </div>
 
-                                                <div class="form-group col-md-4">
+                                                <div id="grupo_precio_compra_principal" class="form-group col-md-4">
                                                     <label for="precio_compra">Precio de compra</label>
                                                     <input type="number" step="0.01" class="form-control" name="precio_compra"
                                                         id="precio_compra" min="0">
@@ -102,7 +102,7 @@ if (!isset($_SESSION['nombre'])) {
                                                         el producto.</small>
                                                 </div>
 
-                                                <div class="form-group col-md-4">
+                                                <div id="grupo_precio_venta_principal" class="form-group col-md-4">
                                                     <label for="precio_venta">Precio de venta</label>
                                                     <input type="number" step="0.01" class="form-control" name="precio_venta"
                                                         id="precio_venta" min="0">
@@ -170,7 +170,6 @@ if (!isset($_SESSION['nombre'])) {
                                                             </select>
                                                         </div>
 
-
                                                         <div class="row" id="contenedor_atributos">
                                                             <!-- Aquí se insertarán los selects dinámicamente -->
                                                         </div>
@@ -191,7 +190,8 @@ if (!isset($_SESSION['nombre'])) {
                                                                             <th>Combinación</th>
                                                                             <th>SKU</th>
                                                                             <th>Stock</th>
-                                                                            <th>Precio</th>
+                                                                            <th>Precio Compra</th>
+                                                                            <th>Precio Venta</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody id="variaciones-lista"></tbody>
@@ -212,6 +212,7 @@ if (!isset($_SESSION['nombre'])) {
                                             </div>
                                         </form>
                                     </div>
+
                                 </div>
                             </div>
                         </div>
