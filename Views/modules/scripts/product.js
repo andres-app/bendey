@@ -77,27 +77,39 @@ function listar() {
       dataSrc: "" // porque el JSON es un array plano
     },
     columns: [
-      { // Columna del botón +
-        className: 'details-control',
-        orderable: false,
-        data: null,
-        defaultContent: '<button class="btn btn-sm btn-info">+</button>'
-      },
       { data: "codigo" },
       { data: "nombre" },
       { data: "categoria", defaultContent: "Sin categoría" },
       { data: "subcategoria", defaultContent: "Sin subcategoría" },
       { data: "medida", defaultContent: "-" },
       { data: "stock" },
+      {
+        data: "imagen",
+        render: function (data, type, row) {
+          return data
+            ? `<img src="Assets/img/products/${data}" height="40" style="border-radius:4px;">`
+            : "Sin imagen";
+        }
+      },
       { data: "precio_compra", defaultContent: "-" },
       { data: "precio_venta", defaultContent: "-" },
-      { data: "almacen", defaultContent: "Sin almacén" },
+      {
+        data: "condicion",
+        render: function (data) {
+          return data == 1
+            ? '<div class="badge badge-success">Activo</div>'
+            : '<div class="badge badge-danger">Inactivo</div>';
+        },
+        defaultContent: "-"
+      },
+      { data: "almacen", defaultContent: "Sin almacén" }, // <- ya corresponde con <th>Almacén</th>
       {
         data: null,
         render: function (data, type, row) {
           const id = row.idarticulo || row.idvariacion;
           const estado = row.condicion == 1;
           return `
+            <button class="btn btn-primary btn-sm details-control"><i class="fas fa-eye"></i></button>
             <button class="btn btn-warning btn-sm" onclick="mostrar(${id})"><i class="fas fa-pencil-alt"></i></button>
             <button class="btn ${estado ? 'btn-danger' : 'btn-primary'} btn-sm" onclick="${estado ? 'desactivar' : 'activar'}(${id})">
               <i class="fas ${estado ? 'fa-times' : 'fa-check'}"></i>
@@ -106,13 +118,16 @@ function listar() {
         }
       }
     ],
-        
+    
+    
+    
+
     bDestroy: true,
     iDisplayLength: 10,
     order: [[0, "desc"]]
   });
 
-  $('#tbllistado tbody').on('click', 'td.details-control', function () {
+  $('#tbllistado tbody').on('click', '.details-control', function () {
     var tr = $(this).closest('tr');
     var row = tabla.row(tr);
   
@@ -120,7 +135,6 @@ function listar() {
       row.child.hide();
       tr.removeClass('shown');
     } else {
-      // Llama al backend para obtener las variaciones de ese producto padre
       $.post("Controllers/Product.php?op=variaciones_por_articulo", { idarticulo: row.data().idarticulo }, function (res) {
         const variaciones = JSON.parse(res);
   
@@ -148,7 +162,7 @@ function listar() {
       });
     }
   });
-  
+
 }
 
 function guardaryeditar(e) {

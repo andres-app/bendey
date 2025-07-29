@@ -66,6 +66,7 @@ if (!isset($_SESSION['nombre'])) {
                                                     <th>P. Compra</th>
                                                     <th>P. Venta</th>
                                                     <th>Estado</th>
+                                                    <th>Almacén</th>
                                                     <th>Opciones</th>
                                                 </tr>
                                             </thead>
@@ -184,19 +185,20 @@ if (!isset($_SESSION['nombre'])) {
                                                         <div id="variaciones-container" class="mt-4" style="display: none;">
                                                             <h5>Combinaciones generadas:</h5>
                                                             <div class="table-responsive">
-                                                                <table id="tbllistado"
+                                                                <table id="tblvariaciones"
                                                                     class="table table-bordered table-striped">
                                                                     <thead>
                                                                         <tr>
-                                                                            <th></th> <!-- para el botón + -->
                                                                             <th>Código</th>
                                                                             <th>Nombre</th>
                                                                             <th>Categoría</th>
                                                                             <th>Subcategoría</th>
                                                                             <th>Unidad</th>
                                                                             <th>Stock</th>
+                                                                            <th>Imagen</th>
                                                                             <th>Precio Compra</th>
                                                                             <th>Precio Venta</th>
+                                                                            <th>Estado</th>
                                                                             <th>Almacén</th>
                                                                             <th>Opciones</th>
                                                                         </tr>
