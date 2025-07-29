@@ -350,13 +350,20 @@ class Product
 					c.nombre AS categoria,
 					s.nombre AS subcategoria,
 					m.nombre AS medida,
-					al.nombre AS almacen        -- ✅ Aquí se agrega el almacén
+					al.nombre AS almacen
 				FROM articulo a
 				INNER JOIN categoria c ON a.idcategoria = c.idcategoria
 				LEFT JOIN subcategoria s ON a.idsubcategoria = s.idsubcategoria
 				LEFT JOIN medida m ON a.idmedida = m.idmedida
-				LEFT JOIN almacen al ON a.idalmacen = al.idalmacen   -- ✅ JOIN con almacén
-				WHERE a.condicion = 1 AND a.stock > 0";
+				LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
+				WHERE a.condicion = 1
+				AND (
+					a.stock > 0
+					OR EXISTS (
+						SELECT 1 FROM articulo_variacion av 
+						WHERE av.idarticulo = a.idarticulo AND av.estado = 1
+					)
+				)";
 		return $this->conexion->getDataAll($sql);
-	}
+	}	
 }
