@@ -65,4 +65,13 @@ class Atributo
         $sql = "SELECT * FROM $this->tableName WHERE estado = 1";
         return $this->conexion->getDataAll($sql);
     }
+
+    // Listar valores activos de un atributo (por ejemplo: todos los colores)
+    public function listarValores($idatributo)
+    {
+        $sql = "SELECT idatributo_valor AS id, nombre AS text FROM atributo_valor WHERE idatributo = ? AND estado = 1";
+        $arrData = array($idatributo);
+        return $this->conexion->getData($sql, $arrData);
+    }
+
 }

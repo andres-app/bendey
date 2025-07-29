@@ -73,4 +73,15 @@ switch ($_GET["op"]) {
             echo '<option value="' . $reg['idatributo'] . '">' . $reg['nombre'] . '</option>';
         }
         break;
+
+    case 'listarValores':
+        $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+        $rspta = $atributo->listarValores($id);
+        echo json_encode($rspta);
+        break;
+
+    case 'atributos_activos':
+        $rspta = $atributo->select();
+        echo json_encode($rspta);
+        break;
 }

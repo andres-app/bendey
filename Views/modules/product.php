@@ -160,30 +160,28 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div id="atributos_section" class="col-12" style="display:none;">
                                                     <fieldset class="border p-3 mb-4 rounded">
                                                         <legend class="w-auto px-2">Atributos del Producto</legend>
-                                                        <div class="row">
-                                                            <div class="form-group col-lg-6">
-                                                                <label for="color">Color:</label>
-                                                                <select class="form-control select2" id="color"
-                                                                    multiple="multiple" data-placeholder="Selecciona colores"
-                                                                    style="width: 100%;">
-                                                                    <!-- Opciones dinámicas -->
-                                                                </select>
-                                                            </div>
-                                                            <div class="form-group col-lg-6">
-                                                                <label for="talla">Talla:</label>
-                                                                <select class="form-control select2" id="talla"
-                                                                    multiple="multiple" data-placeholder="Selecciona tallas"
-                                                                    style="width: 100%;">
-                                                                    <!-- Opciones dinámicas -->
-                                                                </select>
-                                                            </div>
+
+                                                        <div class="form-group col-lg-12">
+                                                            <label for="atributos_seleccionados">Selecciona los atributos que
+                                                                deseas usar:</label>
+                                                            <select id="atributos_seleccionados" class="form-control select2"
+                                                                multiple style="width: 100%;">
+                                                                <!-- Opciones se cargarán dinámicamente -->
+                                                            </select>
                                                         </div>
+
+
+                                                        <div class="row" id="contenedor_atributos">
+                                                            <!-- Aquí se insertarán los selects dinámicamente -->
+                                                        </div>
+
                                                         <div class="text-center mt-3">
                                                             <button type="button" class="btn btn-info btn-sm"
                                                                 onclick="generarVariaciones()">
                                                                 <i class="fa fa-cogs"></i> Generar combinaciones
                                                             </button>
                                                         </div>
+
                                                         <div id="variaciones-container" class="mt-4" style="display: none;">
                                                             <h5>Combinaciones generadas:</h5>
                                                             <div class="table-responsive">
@@ -202,6 +200,7 @@ if (!isset($_SESSION['nombre'])) {
                                                         </div>
                                                     </fieldset>
                                                 </div>
+
                                                 <div class="form-group col-12 text-center mt-3">
                                                     <button class="btn btn-primary" type="submit" id="btnGuardar">
                                                         <i class="fa fa-save"></i> Guardar

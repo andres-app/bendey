@@ -2,8 +2,7 @@ var tabla;
 
 $(document).ready(function () {
   init();
-  cargarValoresAtributo(1, '#color'); // Color
-  cargarValoresAtributo(2, '#talla'); // Talla
+  cargarOpcionesAtributos();
 });
 
 function init() {
@@ -177,15 +176,6 @@ function imprimir() {
   $("#print").printArea();
 }
 
-function toggleAtributos() {
-  const activo = document.getElementById("activar_atributos").checked;
-  document.getElementById("atributos_section").style.display = activo ? "block" : "none";
-  if (activo) {
-    cargarValoresAtributo(1, '#color');
-    cargarValoresAtributo(2, '#talla');
-  }
-}
-
 function cargarValoresAtributo(idAtributo, selector) {
   $.get("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=" + idAtributo, function (data) {
     const valores = JSON.parse(data);
@@ -204,32 +194,46 @@ function cargarValoresAtributo(idAtributo, selector) {
 }
 
 function generarVariaciones() {
-  const colores = $("#color").val() || [];
-  const tallas = $("#talla").val() || [];
-  const combinaciones = [];
+  const seleccionados = $("#atributos_seleccionados").val() || [];
 
-  if (colores.length && tallas.length) {
-    colores.forEach(color => {
-      tallas.forEach(talla => {
-        combinaciones.push({ combinacion: `${color} - ${talla}` });
-      });
-    });
-  } else if (colores.length) {
-    colores.forEach(color => combinaciones.push({ combinacion: color }));
-  } else if (tallas.length) {
-    tallas.forEach(talla => combinaciones.push({ combinacion: talla }));
-  }
-
-  if (combinaciones.length === 0) {
-    Swal.fire("Aviso", "Selecciona al menos un valor de color o talla", "warning");
+  if (seleccionados.length === 0) {
+    Swal.fire("Aviso", "Selecciona al menos un atributo y sus valores", "warning");
     return;
   }
 
+  const valoresPorAtributo = [];
+
+  let hayValores = false;
+
+  seleccionados.forEach(id => {
+    const selector = `#atributo_${id}`;
+    const valores = $(selector).val() || [];
+
+    if (valores.length > 0) hayValores = true;
+
+    valoresPorAtributo.push(valores);
+  });
+
+  if (!hayValores) {
+    Swal.fire("Aviso", "Selecciona al menos un valor para generar combinaciones", "warning");
+    return;
+  }
+
+  // Generar combinaciones usando producto cartesiano
+  function combinar(listas) {
+    return listas.reduce((a, b) =>
+      a.flatMap(d => b.map(e => [...d, e])), [[]]);
+  }
+
+  const combinacionesCrudas = combinar(valoresPorAtributo);
+
   let html = "";
-  combinaciones.forEach((item, index) => {
+
+  combinacionesCrudas.forEach((combo, index) => {
+    const combinacionTexto = combo.join(" - ");
     html += `
       <tr>
-        <td><input type="text" name="variaciones[${index}][combinacion]" class="form-control" value="${item.combinacion}" readonly></td>
+        <td><input type="text" name="variaciones[${index}][combinacion]" class="form-control" value="${combinacionTexto}" readonly></td>
         <td><input type="text" name="variaciones[${index}][sku]" class="form-control" placeholder="SKU"></td>
         <td><input type="number" name="variaciones[${index}][stock]" class="form-control" placeholder="Stock"></td>
         <td><input type="number" name="variaciones[${index}][precio]" class="form-control" placeholder="Precio" step="0.01"></td>
@@ -239,6 +243,7 @@ function generarVariaciones() {
   $("#variaciones-lista").html(html);
   $("#variaciones-container").show();
 }
+
 
 $("#idcategoria").on("change", function () {
   let categoriaId = $(this).val();
@@ -293,3 +298,89 @@ function togglePlantilla() {
   const seccion = document.getElementById('plantillaSection');
   seccion.style.display = (seccion.style.display === 'none' || !seccion.style.display) ? 'block' : 'none';
 }
+
+function cargarAtributosDinamicos() {
+  $.get("Controllers/Atributo.php?op=atributos_activos", function (data) {
+    const atributos = JSON.parse(data);
+    const contenedor = $("#contenedor_atributos");
+    contenedor.empty();
+
+    atributos.forEach(attr => {
+      const selectId = `atributo_${attr.idatributo}`;
+      const placeholder = `Selecciona ${attr.nombre.toLowerCase()}`;
+      const label = `<label for="${selectId}">${attr.nombre}:</label>`;
+      const select = `
+        <select id="${selectId}" class="form-control select2" multiple
+                data-id="${attr.idatributo}" data-placeholder="${placeholder}" style="width: 100%;">
+        </select>`;
+
+      const formGroup = `<div class="form-group col-lg-6">${label}${select}</div>`;
+      contenedor.append(formGroup);
+
+      // Cargar valores por atributo
+      cargarValoresAtributo(attr.idatributo, `#${selectId}`);
+    });
+  });
+}
+
+function toggleAtributos() {
+  const activo = document.getElementById("activar_atributos").checked;
+  document.getElementById("atributos_section").style.display = activo ? "block" : "none";
+
+  if (activo) {
+    const seleccionados = $("#atributos_seleccionados").val() || [];
+    cargarAtributosDinamicosSeleccionados(seleccionados);
+  }
+}
+
+function cargarOpcionesAtributos() {
+  $.get("Controllers/Atributo.php?op=atributos_activos", function (data) {
+    const atributos = JSON.parse(data);
+    const select = $("#atributos_seleccionados");
+    select.empty();
+
+    atributos.forEach(attr => {
+      select.append(`<option value="${attr.idatributo}">${attr.nombre}</option>`);
+    });
+
+    // Inicializar select2
+    select.select2({
+      placeholder: "Selecciona los atributos a utilizar",
+      allowClear: true,
+      width: 'resolve'
+    });
+  });
+}
+
+function cargarAtributosDinamicosSeleccionados(idsSeleccionados) {
+  $.get("Controllers/Atributo.php?op=atributos_activos", function (data) {
+    const atributos = JSON.parse(data);
+    const contenedor = $("#contenedor_atributos");
+    contenedor.empty();
+
+    atributos.forEach(attr => {
+      if (!idsSeleccionados.includes(attr.idatributo.toString())) return;
+
+      const selectId = `atributo_${attr.idatributo}`;
+      const placeholder = `Selecciona ${attr.nombre.toLowerCase()}`;
+      const label = `<label for="${selectId}">${attr.nombre}:</label>`;
+      const select = `
+        <select id="${selectId}" class="form-control select2" multiple
+                data-id="${attr.idatributo}" data-nombre="${attr.nombre}"
+                data-placeholder="${placeholder}" style="width: 100%;">
+        </select>`;
+
+      const formGroup = `<div class="form-group col-lg-6">${label}${select}</div>`;
+      contenedor.append(formGroup);
+
+      cargarValoresAtributo(attr.idatributo, `#${selectId}`);
+    });
+  });
+}
+
+$("#atributos_seleccionados").on("change", function () {
+  const seleccionados = $(this).val();
+  cargarAtributosDinamicosSeleccionados(seleccionados);
+});
+
+
