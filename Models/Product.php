@@ -312,26 +312,29 @@ class Product
 	public function listarVariacionesVenta()
 	{
 		$sql = "SELECT 
-				av.idvariacion,
-				av.idarticulo,
-				av.sku AS codigo,
-				CONCAT(a.nombre, ' - ', av.combinacion) AS nombre,
-				av.stock,
-				av.precio_compra,
-				av.precio_venta,
-				a.descripcion,
-				a.imagen,
-				a.condicion,
-				m.nombre AS medida,
-				a.idalmacen,
-				al.nombre AS almacen
-			FROM articulo_variacion av
-			INNER JOIN articulo a ON av.idarticulo = a.idarticulo
-			INNER JOIN medida m ON a.idmedida = m.idmedida
-			LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
-			WHERE av.estado = 1 AND av.stock > 0 AND a.condicion = 1";
+					av.idvariacion,
+					av.idarticulo,
+					av.sku AS codigo,
+					CONCAT(a.nombre, ' - ', av.combinacion) AS nombre,
+					av.stock,
+					av.precio_compra,
+					av.precio_venta,
+					a.descripcion,
+					a.imagen,
+					a.condicion,
+					c.nombre AS categoria,
+					s.nombre AS subcategoria,
+					m.nombre AS medida,
+					al.nombre AS almacen
+				FROM articulo_variacion av
+				INNER JOIN articulo a ON av.idarticulo = a.idarticulo
+				INNER JOIN categoria c ON a.idcategoria = c.idcategoria
+				LEFT JOIN subcategoria s ON a.idsubcategoria = s.idsubcategoria
+				LEFT JOIN medida m ON a.idmedida = m.idmedida
+				LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
+				WHERE av.estado = 1 AND av.stock > 0 AND a.condicion = 1";
 		return $this->conexion->getDataAll($sql);
-	}
+	}	
 
 	public function listarActivosVenta()
 	{
