@@ -365,5 +365,21 @@ class Product
 					)
 				)";
 		return $this->conexion->getDataAll($sql);
-	}	
+	}
+
+	public function listarVariacionesPorArticulo($idarticulo)
+{
+	$sql = "SELECT 
+				av.idvariacion,
+				av.idarticulo,
+				av.combinacion,
+				av.sku,
+				av.stock,
+				av.precio_compra,
+				av.precio_venta
+			FROM articulo_variacion av
+			WHERE av.estado = 1 AND av.idarticulo = ?";
+	return $this->conexion->getDataAll($sql, [$idarticulo]);
+}
+
 }

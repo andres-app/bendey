@@ -77,31 +77,21 @@ function listar() {
       dataSrc: "" // porque el JSON es un array plano
     },
     columns: [
+      { // Columna del botón +
+        className: 'details-control',
+        orderable: false,
+        data: null,
+        defaultContent: '<button class="btn btn-sm btn-info">+</button>'
+      },
       { data: "codigo" },
       { data: "nombre" },
       { data: "categoria", defaultContent: "Sin categoría" },
       { data: "subcategoria", defaultContent: "Sin subcategoría" },
       { data: "medida", defaultContent: "-" },
       { data: "stock" },
-      {
-        data: "imagen",
-        render: function (data) {
-          return data
-            ? `<img src="Assets/img/products/${data}" height="40">`
-            : "Sin imagen";
-        }
-      },
       { data: "precio_compra", defaultContent: "-" },
       { data: "precio_venta", defaultContent: "-" },
-      {
-        data: "condicion",
-        render: function (data) {
-          return data == 1
-            ? '<div class="badge badge-success">Activo</div>'
-            : '<div class="badge badge-danger">Inactivo</div>';
-        },
-        defaultContent: "-"
-      },
+      { data: "almacen", defaultContent: "Sin almacén" },
       {
         data: null,
         render: function (data, type, row) {
@@ -116,10 +106,49 @@ function listar() {
         }
       }
     ],
+        
     bDestroy: true,
     iDisplayLength: 10,
     order: [[0, "desc"]]
   });
+
+  $('#tbllistado tbody').on('click', 'td.details-control', function () {
+    var tr = $(this).closest('tr');
+    var row = tabla.row(tr);
+  
+    if (row.child.isShown()) {
+      row.child.hide();
+      tr.removeClass('shown');
+    } else {
+      // Llama al backend para obtener las variaciones de ese producto padre
+      $.post("Controllers/Product.php?op=variaciones_por_articulo", { idarticulo: row.data().idarticulo }, function (res) {
+        const variaciones = JSON.parse(res);
+  
+        if (variaciones.length === 0) {
+          row.child("<em>Este producto no tiene variaciones registradas.</em>").show();
+          tr.addClass('shown');
+          return;
+        }
+  
+        let html = "<table class='table table-bordered table-sm mb-0'><thead><tr><th>Combinación</th><th>SKU</th><th>Stock</th><th>Precio Compra</th><th>Precio Venta</th></tr></thead><tbody>";
+  
+        variaciones.forEach(v => {
+          html += `<tr>
+            <td>${v.combinacion}</td>
+            <td>${v.sku}</td>
+            <td>${v.stock}</td>
+            <td>${v.precio_compra}</td>
+            <td>${v.precio_venta}</td>
+          </tr>`;
+        });
+  
+        html += "</tbody></table>";
+        row.child(html).show();
+        tr.addClass('shown');
+      });
+    }
+  });
+  
 }
 
 function guardaryeditar(e) {

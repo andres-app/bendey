@@ -184,18 +184,26 @@ if (!isset($_SESSION['nombre'])) {
                                                         <div id="variaciones-container" class="mt-4" style="display: none;">
                                                             <h5>Combinaciones generadas:</h5>
                                                             <div class="table-responsive">
-                                                                <table class="table table-bordered table-sm">
-                                                                    <thead class="thead-dark">
+                                                                <table id="tbllistado"
+                                                                    class="table table-bordered table-striped">
+                                                                    <thead>
                                                                         <tr>
-                                                                            <th>Combinación</th>
-                                                                            <th>SKU</th>
+                                                                            <th></th> <!-- para el botón + -->
+                                                                            <th>Código</th>
+                                                                            <th>Nombre</th>
+                                                                            <th>Categoría</th>
+                                                                            <th>Subcategoría</th>
+                                                                            <th>Unidad</th>
                                                                             <th>Stock</th>
                                                                             <th>Precio Compra</th>
                                                                             <th>Precio Venta</th>
+                                                                            <th>Almacén</th>
+                                                                            <th>Opciones</th>
                                                                         </tr>
                                                                     </thead>
-                                                                    <tbody id="variaciones-lista"></tbody>
+                                                                    <tbody></tbody>
                                                                 </table>
+
                                                             </div>
                                                         </div>
                                                     </fieldset>
