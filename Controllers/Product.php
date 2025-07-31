@@ -177,29 +177,8 @@ switch ($_GET["op"]) {
 
 	case 'listar_json_todo':
 		$productosSimples = $product->listarActivosVenta();
-		$variaciones = $product->listarVariacionesVenta();
-
-		$todo = array_merge($productosSimples, $variaciones);
-
-		foreach ($todo as &$item) {
-			// Uniformiza el campo condicion
-			if (!isset($item['condicion']) && isset($item['estado'])) {
-				$item['condicion'] = $item['estado'];
-			}
-
-			// Uniformiza el código
-			if (!isset($item['codigo']) && isset($item['sku'])) {
-				$item['codigo'] = $item['sku'];
-			}
-
-			// Uniformiza el ID para que JS solo use idarticulo
-			if (!isset($item['idarticulo']) && isset($item['idvariacion'])) {
-				$item['idarticulo'] = $item['idvariacion'];
-			}
-		}
-		unset($item);
-
-		echo json_encode($todo);
+		// Solo manda productos simples/padres, NO las variaciones aquí
+		echo json_encode($productosSimples);
 		break;
 
 	case 'variaciones_por_articulo':
@@ -211,5 +190,4 @@ switch ($_GET["op"]) {
 			echo json_encode([]);
 		}
 		break;
-
 }
