@@ -189,23 +189,15 @@ if (!isset($_SESSION['nombre'])) {
                                                                     class="table table-bordered table-striped">
                                                                     <thead>
                                                                         <tr>
-                                                                            <th>Código</th>
-                                                                            <th>Nombre</th>
-                                                                            <th>Categoría</th>
-                                                                            <th>Subcategoría</th>
-                                                                            <th>Unidad</th>
+                                                                            <th>Combinación</th>
+                                                                            <th>SKU</th>
                                                                             <th>Stock</th>
-                                                                            <th>Imagen</th>
                                                                             <th>Precio Compra</th>
                                                                             <th>Precio Venta</th>
-                                                                            <th>Estado</th>
-                                                                            <th>Almacén</th>
-                                                                            <th>Opciones</th>
                                                                         </tr>
                                                                     </thead>
-                                                                    <tbody></tbody>
+                                                                    <tbody id="variaciones-lista"></tbody>
                                                                 </table>
-
                                                             </div>
                                                         </div>
                                                     </fieldset>
