@@ -73,4 +73,12 @@ class Conexion
 			]));
 		}
 	}
+
+	public function getValue($sql, $arrData = [])
+	{
+		$query = $this->conect->prepare($sql);
+		$query->execute($arrData);
+		return $query->fetchColumn();
+	}
+
 }

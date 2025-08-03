@@ -334,47 +334,52 @@ class Product
 				LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
 				WHERE av.estado = 1 AND av.stock > 0 AND a.condicion = 1";
 		return $this->conexion->getDataAll($sql);
-	}	
+	}
 
-public function listarActivosVenta()
-{
-    $sql = "SELECT 
-                a.idarticulo,
-                a.codigo,
-                a.nombre,
-                a.precio_compra,
-                a.precio_venta,
-                a.stock,
-                a.imagen,
-                a.condicion,
-                c.nombre AS categoria,
-                s.nombre AS subcategoria,
-                m.nombre AS medida,
-                al.nombre AS almacen,
-                EXISTS (
-                    SELECT 1 FROM articulo_variacion av
-                    WHERE av.idarticulo = a.idarticulo AND av.estado = 1
-                ) AS tiene_variaciones
-            FROM articulo a
-            INNER JOIN categoria c ON a.idcategoria = c.idcategoria
-            LEFT JOIN subcategoria s ON a.idsubcategoria = s.idsubcategoria
-            LEFT JOIN medida m ON a.idmedida = m.idmedida
-            LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
-            WHERE a.condicion = 1
-            AND (
-                a.stock > 0
-                OR EXISTS (
-                    SELECT 1 FROM articulo_variacion av 
-                    WHERE av.idarticulo = a.idarticulo AND av.estado = 1
-                )
-            )";
-    return $this->conexion->getDataAll($sql);
-}
-
-
+	public function listarActivosVenta()
+	{
+		$sql = "SELECT 
+					a.idarticulo,
+					a.codigo,
+					a.nombre,
+					a.precio_compra,
+					a.precio_venta,
+					a.stock,
+					a.imagen,
+					a.condicion,
+					c.nombre AS categoria,
+					s.nombre AS subcategoria,
+					m.nombre AS medida,
+					al.nombre AS almacen,
+					EXISTS (
+						SELECT 1 FROM articulo_variacion av
+						WHERE av.idarticulo = a.idarticulo AND av.estado = 1
+					) AS tiene_variaciones
+				FROM articulo a
+				INNER JOIN categoria c ON a.idcategoria = c.idcategoria
+				LEFT JOIN subcategoria s ON a.idsubcategoria = s.idsubcategoria
+				LEFT JOIN medida m ON a.idmedida = m.idmedida
+				LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
+				WHERE a.condicion = 1";
+	
+		$productos = $this->conexion->getDataAll($sql);
+	
+		foreach ($productos as &$p) {
+			if (!empty($p['tiene_variaciones'])) {
+				$id = $p['idarticulo'];
+				$sqlSum = "SELECT SUM(stock) FROM articulo_variacion WHERE estado = 1 AND idarticulo = ?";
+				$total = $this->conexion->getValue($sqlSum, [$id]);
+				$p['stock'] = ($total !== null) ? (int)$total : 0;
+			}
+		}
+	
+		return $productos;
+	}
+	
+	
 	public function listarVariacionesPorArticulo($idarticulo)
-{
-	$sql = "SELECT 
+	{
+		$sql = "SELECT 
 				av.idvariacion,
 				av.idarticulo,
 				av.combinacion,
@@ -384,7 +389,7 @@ public function listarActivosVenta()
 				av.precio_venta
 			FROM articulo_variacion av
 			WHERE av.estado = 1 AND av.idarticulo = ?";
-	return $this->conexion->getDataAll($sql, [$idarticulo]);
-}
+		return $this->conexion->getDataAll($sql, [$idarticulo]);
+	}
 
 }

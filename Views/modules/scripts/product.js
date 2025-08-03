@@ -74,15 +74,30 @@ function listar() {
       url: "Controllers/Product.php?op=listar_json_todo",
       type: "get",
       dataType: "json",
-      dataSrc: "" // porque el JSON es un array plano
-    },
+      dataSrc: function (json) {
+        console.log("📦 Datos recibidos del backend:", json); // 👈 Agrega esto
+        return json;
+      }
+    },    
     columns: [
       { data: "codigo" },
       { data: "nombre" },
       { data: "categoria", defaultContent: "Sin categoría" },
       { data: "subcategoria", defaultContent: "Sin subcategoría" },
       { data: "medida", defaultContent: "-" },
-      { data: "stock" },
+      {
+        data: "stock",
+        render: function (data, type, row) {
+          const stock = parseInt(data);
+          if (stock <= 10) {
+            return `<button class="btn btn-danger btn-sm">${stock}</button>`;
+          } else if (stock > 10 && stock < 30) {
+            return `<button class="btn btn-warning btn-sm">${stock}</button>`;
+          } else {
+            return `<button class="btn btn-success btn-sm">${stock}</button>`;
+          }
+        }
+      },      
       {
         data: "imagen",
         render: function (data, type, row) {
