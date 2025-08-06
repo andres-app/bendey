@@ -489,7 +489,6 @@ function cargarOpcionesAtributos() {
 
     // Inicializar select2
     select.select2({
-      placeholder: "Selecciona los atributos a utilizar",
       allowClear: true,
       width: 'resolve'
     });
