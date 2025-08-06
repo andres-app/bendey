@@ -182,12 +182,20 @@ function listar() {
 
 function guardaryeditar(e) {
   e.preventDefault();
+
+  // 🚨 Validación obligatoria si está activado el modo atributos
+  if ($("#activar_atributos").is(":checked")) {
+    if ($("#variaciones-lista tr").length === 0) {
+      Swal.fire("Aviso", "Debes generar al menos una combinación antes de guardar.", "warning");
+      return; // No sigue con el guardado
+    }
+  }
+
   $("#btnGuardar").prop("disabled", true);
   var formData = new FormData($("#formulario")[0]);
 
   // Recoger variaciones manualmente
   const variaciones = [];
-
   $("#variaciones-lista tr").each(function () {
     const combinacion = $(this).find("input[name*='combinacion']").val();
     const sku = $(this).find("input[name*='sku']").val();
@@ -447,19 +455,27 @@ function cargarAtributosDinamicos() {
 
 function toggleAtributos() {
   const activo = document.getElementById("activar_atributos").checked;
-  document.getElementById('activarAtributosContainer').style.display = 'none';
 
-  // Oculta campos principales si se usan atributos
+  // Mostrar u ocultar la sección de atributos
+  $("#atributos_section").toggle(activo);
+
+  // Ocultar o mostrar los campos principales según el estado
   $("#grupo_sku_principal").toggle(!activo);
   $("#grupo_stock_principal").toggle(!activo);
   $("#grupo_precio_compra_principal").toggle(!activo);
   $("#grupo_precio_venta_principal").toggle(!activo);
 
+  // Si se activa, cargar atributos dinámicos
   if (activo) {
     const seleccionados = $("#atributos_seleccionados").val() || [];
     cargarAtributosDinamicosSeleccionados(seleccionados);
+  } else {
+    $("#contenedor_atributos").empty();
+    $("#variaciones-lista").empty();
+    $("#variaciones-container").hide();
   }
 }
+
 
 function cargarOpcionesAtributos() {
   $.get("Controllers/Atributo.php?op=atributos_activos", function (data) {
