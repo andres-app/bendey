@@ -78,7 +78,7 @@ function listar() {
         console.log("📦 Datos recibidos del backend:", json); // 👈 Agrega esto
         return json;
       }
-    },    
+    },
     columns: [
       { data: "codigo" },
       { data: "nombre" },
@@ -97,7 +97,7 @@ function listar() {
             return `<button class="btn btn-success btn-sm">${stock}</button>`;
           }
         }
-      },      
+      },
       {
         data: "imagen",
         render: function (data, type, row) {
@@ -106,8 +106,26 @@ function listar() {
             : "Sin imagen";
         }
       },
-      { data: "precio_compra", defaultContent: "-" },
-      { data: "precio_venta", defaultContent: "-" },
+      {
+        data: "precio_compra",
+        render: function (data, type, row) {
+          // Si es producto padre y tiene variaciones
+          if (row.tiene_variaciones && parseFloat(data) === 0) {
+            return "-";
+          }
+          return parseFloat(data) === 0 ? "-" : parseFloat(data).toFixed(2);
+        }
+      },
+      {
+        data: "precio_venta",
+        render: function (data, type, row) {
+          if (row.tiene_variaciones && parseFloat(data) === 0) {
+            return "-";
+          }
+          return parseFloat(data) === 0 ? "-" : parseFloat(data).toFixed(2);
+        }
+      },
+
       {
         data: "condicion",
         render: function (data) {
@@ -133,9 +151,9 @@ function listar() {
         }
       }
     ],
-    
-    
-    
+
+
+
 
     bDestroy: true,
     iDisplayLength: 10,
@@ -145,22 +163,22 @@ function listar() {
   $('#tbllistado tbody').on('click', '.details-control', function () {
     var tr = $(this).closest('tr');
     var row = tabla.row(tr);
-  
+
     if (row.child.isShown()) {
       row.child.hide();
       tr.removeClass('shown');
     } else {
       $.post("Controllers/Product.php?op=variaciones_por_articulo", { idarticulo: row.data().idarticulo }, function (res) {
         const variaciones = JSON.parse(res);
-  
+
         if (variaciones.length === 0) {
           row.child("<em>Este producto no tiene variaciones registradas.</em>").show();
           tr.addClass('shown');
           return;
         }
-  
+
         let html = "<table class='table table-bordered table-sm mb-0'><thead><tr><th>Combinación</th><th>SKU</th><th>Stock</th><th>Precio Compra</th><th>Precio Venta</th></tr></thead><tbody>";
-  
+
         variaciones.forEach(v => {
           html += `<tr>
             <td>${v.combinacion}</td>
@@ -170,7 +188,7 @@ function listar() {
             <td>${v.precio_venta}</td>
           </tr>`;
         });
-  
+
         html += "</tbody></table>";
         row.child(html).show();
         tr.addClass('shown');
