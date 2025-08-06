@@ -16,16 +16,33 @@ if (!isset($_SESSION['nombre'])) {
                         <div class="col-12">
                             <div class="card flex">
                                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                                    <h4 class="mb-2 mb-md-0">
-                                        Productos
-                                        <button class="btn btn-success btn-sm ml-2" onclick="mostrarform(true)" id="btnagregar">
-                                            <i class="fa fa-plus-circle"></i> Agregar
-                                        </button>
-                                    </h4>
+                                    <div class="d-flex align-items-center flex-wrap">
+                                        <h4 class="mb-2 mb-md-0 mr-3">
+                                            Productos
+                                            <button class="btn btn-success btn-sm ml-2" onclick="mostrarform(true)"
+                                                id="btnagregar">
+                                                <i class="fa fa-plus-circle"></i> Agregar
+                                            </button>
+                                        </h4>
+
+                                        <!-- Switch oculto por defecto -->
+                                        <div id="activarAtributosContainer"
+                                            class="form-group d-flex align-items-center mb-0 ml-3" style="display: none;">
+                                            <label for="activar_atributos" class="mb-0 mr-2 font-weight-normal">¿Activar
+                                                atributos?</label>
+                                            <label class="switch mb-0">
+                                                <input type="checkbox" id="activar_atributos" onchange="toggleAtributos()">
+                                                <span class="slider round"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
                                     <button class="btn btn-outline-secondary btn-sm" onclick="togglePlantilla()">
                                         <i class="fa fa-chevron-down"></i> Plantilla
                                     </button>
                                 </div>
+
+
                                 <div class="card-body">
                                     <div class="container-fluid mb-3">
                                         <div id="plantillaSection" style="display: none; transition: all 0.4s ease;">
@@ -147,15 +164,6 @@ if (!isset($_SESSION['nombre'])) {
                                                         <img src="" alt="" id="imagenmuestra"
                                                             style="max-width: 150px; max-height: 120px;">
                                                     </div>
-                                                </div>
-
-                                                <div class="form-group col-lg-6">
-                                                    <label for="activar_atributos">¿Activar atributos?</label><br>
-                                                    <label class="switch">
-                                                        <input type="checkbox" id="activar_atributos"
-                                                            onchange="toggleAtributos()">
-                                                        <span class="slider round"></span>
-                                                    </label>
                                                 </div>
 
                                                 <div id="atributos_section" class="col-12" style="display:none;">

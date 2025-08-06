@@ -361,22 +361,22 @@ class Product
 				LEFT JOIN medida m ON a.idmedida = m.idmedida
 				LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
 				WHERE a.condicion = 1";
-	
+
 		$productos = $this->conexion->getDataAll($sql);
-	
+
 		foreach ($productos as &$p) {
 			if (!empty($p['tiene_variaciones'])) {
 				$id = $p['idarticulo'];
 				$sqlSum = "SELECT SUM(stock) FROM articulo_variacion WHERE estado = 1 AND idarticulo = ?";
 				$total = $this->conexion->getValue($sqlSum, [$id]);
-				$p['stock'] = ($total !== null) ? (int)$total : 0;
+				$p['stock'] = ($total !== null) ? (int) $total : 0;
 			}
 		}
-	
+
 		return $productos;
 	}
-	
-	
+
+
 	public function listarVariacionesPorArticulo($idarticulo)
 	{
 		$sql = "SELECT 
@@ -391,5 +391,16 @@ class Product
 			WHERE av.estado = 1 AND av.idarticulo = ?";
 		return $this->conexion->getDataAll($sql, [$idarticulo]);
 	}
+
+	public function ejecutarSQL($sql, $params = [])
+	{
+		return $this->conexion->setData($sql, $params);
+	}
+
+	public function ejecutarSQLReturnId($sql, $params = [])
+	{
+		return $this->conexion->setDataReturnId($sql, $params);
+	}
+
 
 }

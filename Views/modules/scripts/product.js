@@ -447,7 +447,7 @@ function cargarAtributosDinamicos() {
 
 function toggleAtributos() {
   const activo = document.getElementById("activar_atributos").checked;
-  document.getElementById("atributos_section").style.display = activo ? "block" : "none";
+  document.getElementById('activarAtributosContainer').style.display = 'none';
 
   // Oculta campos principales si se usan atributos
   $("#grupo_sku_principal").toggle(!activo);

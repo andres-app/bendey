@@ -20,15 +20,15 @@ switch ($_GET["op"]) {
 	case 'guardaryeditar':
 
 		$rspta = $product->verificarCodigo($codigo);
-
+	
 		if (empty($idarticulo)) {
 			if (empty($rspta['codigo'])) {
-
+	
 				// ⚠️ Generar código automático si está vacío
 				if (empty($codigo)) {
 					$codigo = 'VAR-' . uniqid();
 				}
-
+	
 				// ✅ Subir imagen si existe
 				if (!file_exists($_FILES['imagen']['tmp_name']) || !is_uploaded_file($_FILES['imagen']['tmp_name'])) {
 					$imagen = empty($_POST["imagenactual"]) ? 'default.png' : $_POST["imagenactual"];
@@ -42,7 +42,7 @@ switch ($_GET["op"]) {
 						move_uploaded_file($_FILES["imagen"]["tmp_name"], "../Assets/img/products/" . $imagen);
 					}
 				}
-
+	
 				// ✅ Insertar producto principal
 				$idproducto = $product->insertar(
 					$idcategoria,
@@ -57,29 +57,68 @@ switch ($_GET["op"]) {
 					$descripcion,
 					$imagen
 				);
-
-				// ✅ Insertar variaciones
+	
+				// ✅ Insertar variaciones y registrar ingreso si aplica
 				if (isset($_POST['variaciones_json'])) {
 					$variaciones = json_decode($_POST['variaciones_json'], true);
-
+	
+					// Filtrar variaciones con stock y precios válidos
+					$variacionesValidas = array_filter($variaciones, function ($v) {
+						return $v['stock'] > 0 && $v['precio_compra'] > 0 && $v['precio_venta'] > 0;
+					});
+	
+					// Si hay variaciones válidas, registrar ingreso
+					if (count($variacionesValidas) > 0) {
+						$idusuario = $_SESSION['idusuario'] ?? 1;
+						$idproveedor = 1;
+						$num = str_pad(rand(1, 9999999), 7, '0', STR_PAD_LEFT);
+						$totalCompra = array_sum(array_map(function ($v) {
+							return $v['stock'] * $v['precio_compra'];
+						}, $variacionesValidas));
+	
+						// Insertar ingreso
+						$sqlIngreso = "INSERT INTO ingreso 
+							(idproveedor, idusuario, tipo_comprobante, serie_comprobante, num_comprobante, fecha_hora, impuesto, total_compra, estado) 
+							VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(), 0, ?, 'Aceptado')";
+						$idIngreso = $idIngreso = $product->ejecutarSQLReturnId($sqlIngreso, [$idproveedor, $idusuario, $num, $totalCompra]);
+					}
+	
+					// Insertar cada variación + detalle_ingreso + kardex
 					foreach ($variaciones as $var) {
 						$combinacion = $var['combinacion'] ?? '';
 						$sku = $var['sku'] ?? '';
 						$stock_var = $var['stock'] ?? 0;
 						$precio_compra_var = $var['precio_compra'] ?? 0;
 						$precio_venta_var = $var['precio_venta'] ?? 0;
-
+	
 						$product->insertarVariacion($idproducto, $combinacion, $sku, $stock_var, $precio_compra_var, $precio_venta_var);
+	
+						if (isset($idIngreso) && $stock_var > 0 && $precio_compra_var > 0 && $precio_venta_var > 0) {
+							// Detalle ingreso
+							$sqlDetalle = "INSERT INTO detalle_ingreso 
+								(idarticulo, idingreso, cantidad, stock_venta, precio_compra, precio_venta, estado, stock_estado) 
+								VALUES (?, ?, ?, ?, ?, ?, 1, 1)";
+							$product->ejecutarSQL($sqlDetalle, [$idproducto, $idIngreso, $stock_var, $stock_var, $precio_compra_var, $precio_venta_var]);
+	
+							// Kardex
+							$sqlKardex = "INSERT INTO kardex 
+								(iddetalle, idarticulo, fecha, detalle, cantidadi, costoui, totali, cantidadex, costouex, totalex, tipo, estado) 
+								VALUES (?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, 'Ingreso', 'Activo')";
+							$detalle = 'Stock Inicial INI-' . $num . ' (' . $combinacion . ')';
+							$total = $stock_var * $precio_compra_var;
+							$product->ejecutarSQL($sqlKardex, [$idIngreso, $idproducto, $detalle, $stock_var, $precio_compra_var, $total, $stock_var, $precio_compra_var, $total]);
+						}
 					}
 				}
-
+	
 				echo $idproducto ? "Datos registrados correctamente" : "No se pudo registrar los datos";
 			} else {
 				echo "No se puede registrar...! \n código de producto duplicado";
 			}
 		}
-
+	
 		break;
+	
 
 	case 'desactivar':
 		$rspta = $product->desactivar($idarticulo);
