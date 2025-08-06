@@ -24,23 +24,15 @@ if (!isset($_SESSION['nombre'])) {
                                                 <i class="fa fa-plus-circle"></i> Agregar
                                             </button>
                                         </h4>
-
-                                        <!-- Switch oculto por defecto -->
-                                        <div id="activarAtributosContainer"
-                                            class="form-group d-flex align-items-center mb-0 ml-3" style="display: none;">
-                                            <label for="activar_atributos" class="mb-0 mr-2 font-weight-normal">¿Activar
-                                                atributos?</label>
-                                            <label class="switch mb-0">
-                                                <input type="checkbox" id="activar_atributos" onchange="toggleAtributos()">
-                                                <span class="slider round"></span>
-                                            </label>
-                                        </div>
                                     </div>
 
-                                    <button class="btn btn-outline-secondary btn-sm" onclick="togglePlantilla()">
-                                        <i class="fa fa-chevron-down"></i> Plantilla
-                                    </button>
+                                    <div class="d-flex align-items-center">
+                                        <button class="btn btn-outline-secondary btn-sm ml-2" onclick="togglePlantilla()">
+                                            <i class="fa fa-chevron-down"></i> Plantilla
+                                        </button>
+                                    </div>
                                 </div>
+
 
 
                                 <div class="card-body">
@@ -116,7 +108,8 @@ if (!isset($_SESSION['nombre'])) {
                                                     <label for="precio_compra">Precio de compra</label>
                                                     <input type="number" step="0.01" class="form-control" name="precio_compra"
                                                         id="precio_compra" min="0">
-                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás vender
+                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás
+                                                        vender
                                                         el producto.</small>
                                                 </div>
 
@@ -124,7 +117,8 @@ if (!isset($_SESSION['nombre'])) {
                                                     <label for="precio_venta">Precio de venta</label>
                                                     <input type="number" step="0.01" class="form-control" name="precio_venta"
                                                         id="precio_venta" min="0">
-                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás vender
+                                                    <small class="form-text text-muted">Opcional. Sin precio, no podrás
+                                                        vender
                                                         el producto.</small>
                                                 </div>
 
@@ -166,12 +160,25 @@ if (!isset($_SESSION['nombre'])) {
                                                     </div>
                                                 </div>
 
+                                                <div class="form-group col-md-12 mb-3">
+                                                    <div id="activarAtributosContainer" class="d-flex align-items-center">
+                                                        <label for="activar_atributos"
+                                                            class="mb-0 mr-2 font-weight-normal">¿Activar atributos?</label>
+                                                        <label class="switch mb-0">
+                                                            <input type="checkbox" id="activar_atributos"
+                                                                onchange="toggleAtributos()">
+                                                            <span class="slider round"></span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+
                                                 <div id="atributos_section" class="col-12" style="display:none;">
                                                     <fieldset class="border p-3 mb-4 rounded">
                                                         <legend class="w-auto px-2">Atributos del Producto</legend>
 
                                                         <div class="form-group col-lg-12">
-                                                            <label for="atributos_seleccionados">Selecciona los atributos que
+                                                            <label for="atributos_seleccionados">Selecciona los atributos
+                                                                que
                                                                 deseas usar:</label>
                                                             <select id="atributos_seleccionados" class="form-control select2"
                                                                 multiple style="width: 100%;">
