@@ -430,7 +430,7 @@ function modificarSubtotales() {
 	var cant = document.getElementsByName("cantidad[]");
 	var prev = document.getElementsByName("precio_venta[]");
 	var desc = document.getElementsByName("descuento[]");
-	var sub = document.getElementsByName("subtotal");
+	var sub = document.querySelectorAll("[name='subtotal']");
 
 	for (var i = 0; i < cant.length; i++) {
 		var inpV = cant[i];
@@ -438,7 +438,7 @@ function modificarSubtotales() {
 		var inpS = sub[i];
 		var des = desc[i];
 
-		inpS.value = inpV.value * inpP.value - des.value;
+		sub[i].innerHTML = inpV.value * inpP.value - des.value;
 		document.getElementsByName("subtotal")[i].innerHTML = inpS.value.toFixed(2);
 	}
 

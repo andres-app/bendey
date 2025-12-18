@@ -287,42 +287,230 @@ function listarArticulosPorCategoria(idcategoria, tabElement) {
         dataType: 'json',
         success: function (data) {
             let prodHtml = '';
+
             if (data.length === 0) {
-                prodHtml = '<div class="col-12 text-center py-5"><b>No hay productos en esta categoría.</b></div>';
+                prodHtml = `
+                    <div class="col-12 text-center py-5">
+                        <b>No hay productos en esta categoría.</b>
+                    </div>`;
             } else {
                 data.forEach(function (prod) {
                     prodHtml += `
-                        <div class="col-12 col-md-6 col-lg-4 mb-4">
-                            <div class="card border-0 shadow-sm h-100">
-                                <div class="card-body">
-                                    <div class="mb-2 fw-bold fs-5" style="color:#353535;">
-                                        ${prod.nombre} | ${prod.descripcion ?? ''} | Stock: ${prod.stock}
+                    <div class="col-12 col-md-6 col-lg-4 mb-4">
+                        <div class="card border-0 shadow-sm h-100 producto-card"
+                            style="cursor:pointer;"
+                            onclick="agregarDetalle(
+                                ${prod.idingreso},
+                                ${prod.idarticulo},
+                                '${prod.nombre.replace(/'/g, "\\'")}',
+                                ${prod.precio_compra},
+                                ${prod.precio_venta},
+                                ${prod.stock},
+                                1
+                            )">
+                    
+                            <div class="card-body">
+                    
+                                <div class="mb-2 fw-bold fs-5" style="color:#353535;">
+                                    ${prod.nombre}
+                                </div>
+                    
+                                <div class="d-flex align-items-center mb-3">
+                                    <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:24px;">
+                                        ${prod.imagen
+                            ? `<img src="Assets/img/products/${prod.imagen}" style="max-width:80px; max-height:80px; border-radius:10px;">`
+                            : '<i class="bi bi-image fs-1 text-secondary"></i>'}
                                     </div>
-                                    <div class="d-flex align-items-center mb-3">
-                                        <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:32px;">
-                                            ${prod.imagen ? `<img src="Assets/img/products/${prod.imagen}" style="max-width:80px; max-height:80px; border-radius:10px;">` : '<i class="bi bi-image fs-1 text-secondary"></i>'}
-                                        </div>
-                                        <div class="small">
-                                            <div><strong>Almacén:</strong> ${prod.almacen ?? ''}</div>
-                                            <div><strong>Categoría:</strong> ${prod.categoria ?? ''}</div>
-                                            <div><strong>SKU:</strong> ${prod.codigo ?? ''}</div>
-                                            <div><strong>Stock:</strong> ${prod.stock ?? ''} unidades</div>
-                                            <div><strong>Precio unitario:</strong> S/${Number(prod.precio_venta).toFixed(2)}</div>
-                                        </div>
+                    
+                                    <div class="small">
+                                        <div><strong>SKU:</strong> ${prod.codigo}</div>
+                                        <div><strong>Stock:</strong> ${prod.stock}</div>
+                                        <div><strong>Precio:</strong> S/${Number(prod.precio_venta).toFixed(2)}</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
                     `;
+
                 });
             }
+
             $('#productosList').html(prodHtml);
         }
     });
 }
 
-$('#btnAbrirModal').on('click', function() {
+
+$('#btnAbrirModal').on('click', function () {
     $('#modalProductos').modal('show');
     listarCategorias(); // <-- Aquí llamas a cargar las categorías al abrir
 });
+
+var cont = 0;
+var detalles = 0;
+
+function agregarDetalle(
+    idingreso,
+    idarticulo,
+    articulo,
+    precio_compra,
+    precio_venta,
+    stock,
+    op
+) {
+    if (!idarticulo || idarticulo === 0) {
+        Swal.fire("Error", "Artículo inválido", "error");
+        return;
+    }
+
+    // Si ya existe, solo suma cantidad
+    let existe = false;
+    $("input[name='idarticulo[]']").each(function (index) {
+        if (parseInt($(this).val()) === parseInt(idarticulo)) {
+            let inputCantidad = $("input[name='cantidad[]']").eq(index);
+            let nuevaCantidad = parseInt(inputCantidad.val()) + 1;
+
+            if (nuevaCantidad > stock) {
+                Swal.fire("Stock insuficiente", "No hay más unidades disponibles.", "warning");
+                return false;
+            }
+
+            inputCantidad.val(nuevaCantidad);
+            modificarSubtotales();
+            existe = true;
+            return false;
+        }
+    });
+
+    if (existe) {
+        $('#modalProductos').modal('hide');
+        return;
+    }
+
+    let cantidad = 1;
+    let descuento = 0;
+    let subtotal = cantidad * precio_venta;
+
+    let card = `
+    <div class="card border-0 shadow-sm mb-3 bg-white filas" id="fila${cont}">
+        <div class="card-body d-flex justify-content-between align-items-start p-3">
+
+            <!-- INPUTS OCULTOS -->
+            <input type="hidden" name="idingreso[]" value="${idingreso}">
+            <input type="hidden" name="idarticulo[]" value="${idarticulo}">
+            <input type="hidden" name="precio_compra[]" value="${precio_compra}">
+            <input type="hidden" name="descuento[]" value="${descuento}">
+
+            <!-- INFO PRODUCTO -->
+            <div>
+                <div class="fw-bold fs-6 mb-1 text-dark">${articulo}</div>
+                <div class="text-muted small">Almacén: Principal</div>
+                <div class="text-muted small">SKU: ${idarticulo}</div>
+
+                <div class="text-muted small">
+                    Precio Unitario:
+                    <span class="fw-semibold">S/
+                        <input type="number"
+                            name="precio_venta[]"
+                            value="${precio_venta}"
+                            min="0"
+                            step="0.01"
+                            style="width:70px"
+                            class="form-control form-control-sm d-inline-block ms-1"
+                            onchange="modificarSubtotales()">
+                    </span>
+                </div>
+
+                <div class="text-muted small">
+                    Cantidad:
+                    <span class="fw-semibold">
+                        <input type="number"
+                            name="cantidad[]"
+                            value="${cantidad}"
+                            min="1"
+                            max="${stock}"
+                            style="width:60px"
+                            class="form-control form-control-sm d-inline-block ms-1"
+                            onchange="ver_stock(this.value, ${stock}); modificarSubtotales();">
+                    </span>
+                </div>
+
+                <div class="fw-bold mt-2 text-dark">
+                    Total: S/
+                    <span name="subtotal" id="subtotal${cont}">
+                        ${subtotal.toFixed(2)}
+                    </span>
+                </div>
+            </div>
+
+            <!-- BOTONES -->
+            <div class="d-flex flex-column justify-content-between align-items-end ms-auto"
+                style="min-width:48px;">
+
+                <div class="d-flex flex-column align-items-center gap-1">
+                    <button class="btn btn-outline-success btn-sm px-2 py-1"
+                        onclick="incrementarCantidad(${cont}, ${stock})">
+                        <i class="bi bi-plus"></i>
+                    </button>
+
+                    <button class="btn btn-outline-secondary btn-sm px-2 py-1"
+                        onclick="decrementarCantidad(${cont})">
+                        <i class="bi bi-dash"></i>
+                    </button>
+                </div>
+
+                <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3"
+                    onclick="eliminarDetalle(${cont})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+
+        </div>
+    </div>
+    `;
+
+    $("#detallesCards").append(card);
+    cont++;
+    detalles++;
+
+    modificarSubtotales();
+    evaluar();
+
+    $('#modalProductos').modal('hide');
+}
+
+function incrementarCantidad(indice, stock) {
+    let input = $("input[name='cantidad[]']").eq(indice);
+    let valor = parseInt(input.val()) + 1;
+
+    if (valor > stock) {
+        Swal.fire("Stock insuficiente", "No hay más unidades.", "warning");
+        return;
+    }
+
+    input.val(valor);
+    modificarSubtotales();
+}
+
+function decrementarCantidad(indice) {
+    let input = $("input[name='cantidad[]']").eq(indice);
+    let valor = parseInt(input.val()) - 1;
+
+    if (valor < 1) return;
+
+    input.val(valor);
+    modificarSubtotales();
+}
+
+
+
+function eliminarDetalle(indice) {
+    $("#fila" + indice).remove();
+    detalles--;
+    calcularTotales();
+    evaluar();
+}
+
+
 

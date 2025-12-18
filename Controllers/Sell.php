@@ -293,8 +293,7 @@ switch ($_GET["op"]) {
 		} else {
 			$smoneda = $regn['simbolo'];
 			$nom_imp = $regn['nombre_impuesto'];
-		}
-		;
+		};
 		//recibimos el idventa
 		$id = $_GET['id'];
 
@@ -487,5 +486,12 @@ switch ($_GET["op"]) {
 		$idcategoria = $_GET['idcategoria'];
 		$articulos = $product->listarActivosVentaPorCategoria($idcategoria);
 		echo json_encode($articulos);
+		break;
+
+	case 'listarArticulosModal':
+		require_once "../Models/Product.php";
+		$product = new Product();
+		$rspta = $product->listarActivosVenta();
+		echo json_encode($rspta);
 		break;
 }
