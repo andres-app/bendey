@@ -146,35 +146,53 @@ if (!isset($_SESSION['nombre'])) {
                                 <div class="card-header">
                                     <h4>Pedido actual</h4>
                                 </div>
+
                                 <div class="card-body bg-white">
-                                    <div class="mb-4" style="max-height:430px;overflow-y:auto;" id="detallesCards">
 
-                                    </div>
+                                    <!-- CONTENEDOR DEL PEDIDO -->
+                                    <div class="card-body position-relative" id="detallesCards">
+    
+    <!-- EMPTY STATE -->
+    <div id="pedidoVacio"
+        class="position-absolute top-0 start-0 w-100 h-100
+               d-flex flex-column justify-content-center align-items-center
+               text-center text-muted bg-white">
+        <i class="bi bi-cart-plus mb-3" style="font-size:3rem;"></i>
+        <p class="mb-1 fw-semibold">No hay productos en el pedido</p>
+        <small>
+            Selecciona el botón <b>+</b> para agregar productos<br>
+            o escanéalos con la cámara
+        </small>
+    </div>
 
-                                    <!-- Botones flotantes, siempre abajo a la derecha -->
+</div>
 
-                                    <div class="d-flex justify-content-end align-items-end"
-                                        style="height: 100px; pointer-events: none;">
-                                        <div style="pointer-events: auto; display: flex; gap: 24px;">
+                                    <!-- BOTONES FLOTANTES -->
+                                    <div class="d-flex justify-content-end align-items-end mt-3"
+                                        style="pointer-events:none;">
+
+                                        <div style="pointer-events:auto; display:flex; gap:24px;">
                                             <button
                                                 class="btn btn-success shadow d-flex align-items-center justify-content-center"
-                                                style="width:72px; height:52px; border-radius:18px;" title="Escanear">
+                                                style="width:72px; height:52px; border-radius:18px;"
+                                                title="Escanear">
                                                 <i class="bi bi-qr-code-scan" style="font-size:2rem;"></i>
                                             </button>
+
                                             <button
                                                 class="btn btn-success shadow d-flex align-items-center justify-content-center"
-                                                style="width:72px; height:52px; border-radius:18px;" title="Agregar"
+                                                style="width:72px; height:52px; border-radius:18px;"
+                                                title="Agregar"
                                                 id="btnAbrirModal">
                                                 <i class="bi bi-plus" style="font-size:2rem;"></i>
                                             </button>
                                         </div>
                                     </div>
 
-
                                 </div>
-
                             </div>
                         </div>
+
                     </div>
                 </div>
             </section>
@@ -225,30 +243,30 @@ if (!isset($_SESSION['nombre'])) {
                     <!-- Productos -->
                     <div class="modal-body pt-0">
                         <div class="row px-3" id="productosList">
-                    </div>
-                    <!-- Footer SIEMPRE al pie del modal, derecha -->
-                    <div class="modal-footer border-0 bg-white px-4 pb-4 pt-2 justify-content-end" style="border-top:none;">
-                        <button class="btn btn-success btn-lg d-flex align-items-center gap-2 px-4"
-                            style="min-width:300px;">
-                            Escanear con la cámara <i class="bi bi-upc-scan fs-4"></i>
-                        </button>
+                        </div>
+                        <!-- Footer SIEMPRE al pie del modal, derecha -->
+                        <div class="modal-footer border-0 bg-white px-4 pb-4 pt-2 justify-content-end" style="border-top:none;">
+                            <button class="btn btn-success btn-lg d-flex align-items-center gap-2 px-4"
+                                style="min-width:300px;">
+                                Escanear con la cámara <i class="bi bi-upc-scan fs-4"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Bootstrap Icons CDN -->
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+            <!-- Bootstrap Icons CDN -->
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
-    <?php
+        <?php
     } else {
         require "access.php";
     }
     require "footer.php";
-    ?>
-    <script src="Views/modules/scripts/generaldata.js"></script>
-    <script src="Views/modules/scripts/newsale3.js"></script>
-<?php
+        ?>
+        <script src="Views/modules/scripts/generaldata.js"></script>
+        <script src="Views/modules/scripts/newsale3.js"></script>
+    <?php
 }
 ob_end_flush();
-?>
+    ?>
