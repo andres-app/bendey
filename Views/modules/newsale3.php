@@ -123,7 +123,10 @@ if (!isset($_SESSION['nombre'])) {
                                             <div class="col-12 col-md-8 mb-3 mb-md-0">
                                                 <div class="d-flex justify-content-md-start justify-content-center align-items-center h-100">
                                                     <span style="font-size:1.3rem; color:#353535; font-weight:400;">Total:&nbsp;</span>
-                                                    <span style="font-size:2.4rem; color:#353535; font-weight:700;">S/133.50</span>
+                                                    <span id="totalGeneral" style="font-size:2.4rem; color:#353535; font-weight:700;">
+                                                        S/0.00
+                                                    </span>
+
                                                 </div>
                                             </div>
                                             <!-- Botón -->

@@ -133,16 +133,15 @@
 
     // 6. CALCULA TOTALES (puedes adaptar según tus campos)
     function calcularTotales() {
-        let subtotal = 0;
-        let descuento = parseFloat($('#descuentoPorcentaje').val()) || 0;
-        // Recorre productos en tu carrito (ajusta el selector si usas otro HTML)
-        $('#carrito-productos .producto-total').each(function () {
-            subtotal += parseFloat($(this).text()) || 0;
+        let total = 0;
+    
+        $("span[name='subtotal']").each(function () {
+            total += parseFloat($(this).text()) || 0;
         });
-        let total = subtotal * (1 - descuento / 100);
-        $('#totalRecibido').val('S/' + total.toFixed(2));
-        // Puedes calcular vuelto y mostrarlo donde necesites
+    
+        $("#totalGeneral").text("S/" + total.toFixed(2));
     }
+    
 
     function consultarCliente() {
         var tipo_documento = $('#tipo_documento').val();
@@ -492,29 +491,53 @@
     }
 
     function incrementarCantidad(indice, stock) {
-        let input = $("input[name='cantidad[]']").eq(indice);
-        let valor = parseInt(input.val()) + 1;
-
-        if (valor > stock) {
-            Swal.fire("Stock insuficiente", "No hay más unidades.", "warning");
+        let cantidadInput = $("input[name='cantidad[]']").eq(indice);
+        let precioInput = $("input[name='precio_venta[]']").eq(indice);
+        let subtotalSpan = $("#subtotal" + indice);
+    
+        let cantidad = parseInt(cantidadInput.val()) + 1;
+    
+        if (cantidad > stock) {
+            Swal.fire("Stock insuficiente", "No hay más unidades disponibles.", "warning");
             return;
         }
-
-        input.val(valor);
-        modificarSubtotales();
+    
+        cantidadInput.val(cantidad);
+    
+        let subtotal = cantidad * parseFloat(precioInput.val());
+        subtotalSpan.text(subtotal.toFixed(2));
+    
+        calcularTotales();
     }
-
+    
     function decrementarCantidad(indice) {
-        let input = $("input[name='cantidad[]']").eq(indice);
-        let valor = parseInt(input.val()) - 1;
-
-        if (valor < 1) return;
-
-        input.val(valor);
-        modificarSubtotales();
+        let cantidadInput = $("input[name='cantidad[]']").eq(indice);
+        let precioInput = $("input[name='precio_venta[]']").eq(indice);
+        let subtotalSpan = $("#subtotal" + indice);
+    
+        let cantidad = parseInt(cantidadInput.val()) - 1;
+    
+        if (cantidad < 1) return;
+    
+        cantidadInput.val(cantidad);
+    
+        let subtotal = cantidad * parseFloat(precioInput.val());
+        subtotalSpan.text(subtotal.toFixed(2));
+    
+        calcularTotales();
     }
+    
 
-
+    function modificarSubtotales() {
+        let total = 0;
+    
+        $("span[name='subtotal']").each(function () {
+            let valor = parseFloat($(this).text()) || 0;
+            total += valor;
+        });
+    
+        $("#totalGeneral").text("S/" + total.toFixed(2));
+    }
 
     function eliminarDetalle(indice) {
         $("#fila" + indice).remove();
