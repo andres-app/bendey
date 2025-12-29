@@ -151,21 +151,21 @@ if (!isset($_SESSION['nombre'])) {
 
                                     <!-- CONTENEDOR DEL PEDIDO -->
                                     <div class="card-body position-relative" id="detallesCards">
-    
-    <!-- EMPTY STATE -->
-    <div id="pedidoVacio"
-        class="position-absolute top-0 start-0 w-100 h-100
+
+                                        <!-- EMPTY STATE -->
+                                        <div id="pedidoVacio"
+                                            class="position-absolute top-0 start-0 w-100 h-100
                d-flex flex-column justify-content-center align-items-center
                text-center text-muted bg-white">
-        <i class="bi bi-cart-plus mb-3" style="font-size:3rem;"></i>
-        <p class="mb-1 fw-semibold">No hay productos en el pedido</p>
-        <small>
-            Selecciona el botón <b>+</b> para agregar productos<br>
-            o escanéalos con la cámara
-        </small>
-    </div>
+                                            <i class="bi bi-cart-plus mb-3" style="font-size:3rem;"></i>
+                                            <p class="mb-1 fw-semibold">No hay productos en el pedido</p>
+                                            <small>
+                                                Selecciona el botón <b>+</b> para agregar productos<br>
+                                                o escanéalos con la cámara
+                                            </small>
+                                        </div>
 
-</div>
+                                    </div>
 
                                     <!-- BOTONES FLOTANTES -->
                                     <div class="d-flex justify-content-end align-items-end mt-3"
