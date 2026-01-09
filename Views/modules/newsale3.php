@@ -12,18 +12,20 @@ if (!isset($_SESSION['nombre'])) {
         <div class="main-content">
             <section class="section">
                 <div class="section-body">
-                    <div class="row">
-                        <!-- Panel Izquierdo: Formulario Venta -->
-                        <div class="col-lg-6 col-md-6 col-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h4>Nueva venta</h4>
-                                </div>
 
-                                <div class="card border-0 shadow-sm p-4">
+                    <!-- ✅ FORM ABRE AQUÍ (ANTES DE LA ROW, NO ROMPE LA GRILLA) -->
+                    <form id="formularioVenta">
 
-                                    <!-- ✅ FORM ABRE AQUÍ Y NO SE CIERRA HASTA DESPUÉS DEL FOOTER -->
-                                    <form id="formularioVenta">
+                        <div class="row">
+                            <!-- Panel Izquierdo: Formulario Venta -->
+                            <div class="col-lg-6 col-md-6 col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4>Nueva venta</h4>
+                                    </div>
+
+                                    <div class="card border-0 shadow-sm p-4">
+
                                         <div class="card-body px-0 pt-0">
 
                                             <div class="row g-3 mb-4">
@@ -31,6 +33,10 @@ if (!isset($_SESSION['nombre'])) {
                                                     <label>Tipo de Comprobante</label>
                                                     <select id="tipo_comprobante" class="form-control form-select"
                                                         name="tipo_comprobante"></select>
+
+                                                    <!-- ✅ OCULTOS (NO VISIBLES) -->
+                                                    <input type="hidden" id="serie_comprobante" name="serie_comprobante">
+                                                    <input type="hidden" id="num_comprobante" name="num_comprobante">
                                                 </div>
 
                                                 <div class="col-md-6">
@@ -57,16 +63,16 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-md-4">
                                                     <label>Celular</label>
                                                     <div class="form-group mb-0">
-                                                        <input class="form-control" placeholder="986634352">
+                                                        <input class="form-control" placeholder="986634352" name="celular">
                                                     </div>
                                                 </div>
 
                                                 <div class="col-md-4">
                                                     <label>Condición de pago</label>
                                                     <div class="form-group mb-0">
-                                                        <select class="form-control form-select">
-                                                            <option>Contado</option>
-                                                            <option>Crédito</option>
+                                                        <select class="form-control form-select" name="condicion_pago">
+                                                            <option value="Contado">Contado</option>
+                                                            <option value="Crédito">Crédito</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -74,9 +80,9 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-md-4">
                                                     <label>Forma de pago</label>
                                                     <div class="form-group mb-0">
-                                                        <select class="form-control form-select">
-                                                            <option>Efectivo</option>
-                                                            <option>Yape/Plin</option>
+                                                        <select class="form-control form-select" name="tipo_pago">
+                                                            <option value="Efectivo">Efectivo</option>
+                                                            <option value="Yape/Plin">Yape/Plin</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -93,7 +99,7 @@ if (!isset($_SESSION['nombre'])) {
                                                         </label>
                                                         <input type="number" class="form-control text-center"
                                                             style="width:90px; margin-left:24px;" value="0.0" min="0" max="100"
-                                                            step="0.1">
+                                                            step="0.1" name="descuento_porcentaje">
                                                     </div>
                                                 </div>
                                             </div>
@@ -101,30 +107,30 @@ if (!isset($_SESSION['nombre'])) {
                                             <div class="row g-3 mb-4">
                                                 <div class="col-md-6">
                                                     <label class="form-label">Total recibido soles</label>
-                                                    <input class="form-control text-success fw-bold fs-5" value="S/150.00">
+                                                    <input class="form-control text-success fw-bold fs-5" value="S/150.00" name="total_recibido">
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label">Vuelto soles</label>
-                                                    <input class="form-control text-secondary fw-bold fs-5" value="S/16.50">
+                                                    <input class="form-control text-secondary fw-bold fs-5" value="S/16.50" name="vuelto">
                                                 </div>
                                             </div>
 
                                             <div class="mb-4">
                                                 <label class="form-label">Observación</label>
                                                 <textarea class="form-control" spellcheck="false"
-                                                    data-ms-editor="true"></textarea>
+                                                    data-ms-editor="true" name="observacion"></textarea>
                                             </div>
 
                                             <div class="mb-4">
                                                 <label class="form-label">Modo de envío</label>
-                                                <select class="form-control form-select">
+                                                <select class="form-control form-select" name="modo_envio">
                                                     <option>Enviar a SUNAT ahora mismo!</option>
                                                 </select>
                                             </div>
 
                                         </div>
 
-                                        <!-- ✅ ESTE FOOTER AHORA ESTÁ DENTRO DEL FORM -->
+                                        <!-- ✅ ESTE FOOTER ESTÁ DENTRO DEL FORM -->
                                         <div class="card-footer bg-white border-0 px-4 pb-4 pt-2">
                                             <div class="row align-items-center">
 
@@ -153,68 +159,69 @@ if (!isset($_SESSION['nombre'])) {
                                             </div>
                                         </div>
 
-                                    </form>
-                                    <!-- ✅ FORM CIERRA AQUÍ -->
-
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Panel Derecho: Carrito/Pedido Actual -->
-                        <div class="col-lg-6 col-md-6 col-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h4>Pedido actual</h4>
-                                </div>
+                            <!-- Panel Derecho: Carrito/Pedido Actual -->
+                            <div class="col-lg-6 col-md-6 col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4>Pedido actual</h4>
+                                    </div>
 
-                                <div class="card-body bg-white">
+                                    <div class="card-body bg-white">
 
-                                    <!-- CONTENEDOR DEL PEDIDO -->
-                                    <div class="card-body position-relative" id="detallesCards">
+                                        <!-- CONTENEDOR DEL PEDIDO -->
+                                        <div class="card-body position-relative" id="detallesCards">
 
-                                        <!-- EMPTY STATE -->
-                                        <div id="pedidoVacio"
-                                            class="position-absolute top-0 start-0 w-100 h-100
-                                            d-flex flex-column justify-content-center align-items-center
-                                            text-center text-muted bg-white">
-                                            <i class="bi bi-cart-plus mb-3" style="font-size:3rem;"></i>
-                                            <p class="mb-1 fw-semibold">No hay productos en el pedido</p>
-                                            <small>
-                                                Selecciona el botón <b>+</b> para agregar productos<br>
-                                                o escanéalos con la cámara
-                                            </small>
+                                            <!-- EMPTY STATE -->
+                                            <div id="pedidoVacio"
+                                                class="position-absolute top-0 start-0 w-100 h-100
+                                                d-flex flex-column justify-content-center align-items-center
+                                                text-center text-muted bg-white">
+                                                <i class="bi bi-cart-plus mb-3" style="font-size:3rem;"></i>
+                                                <p class="mb-1 fw-semibold">No hay productos en el pedido</p>
+                                                <small>
+                                                    Selecciona el botón <b>+</b> para agregar productos<br>
+                                                    o escanéalos con la cámara
+                                                </small>
+                                            </div>
+
+                                        </div>
+
+                                        <!-- BOTONES FLOTANTES -->
+                                        <div class="d-flex justify-content-end align-items-end mt-3"
+                                            style="pointer-events:none;">
+                                            <div style="pointer-events:auto; display:flex; gap:24px;">
+                                                <button
+                                                    class="btn btn-success shadow d-flex align-items-center justify-content-center"
+                                                    style="width:72px; height:52px; border-radius:18px;"
+                                                    title="Escanear"
+                                                    type="button">
+                                                    <i class="bi bi-qr-code-scan" style="font-size:2rem;"></i>
+                                                </button>
+
+                                                <button
+                                                    class="btn btn-success shadow d-flex align-items-center justify-content-center"
+                                                    style="width:72px; height:52px; border-radius:18px;"
+                                                    title="Agregar"
+                                                    id="btnAbrirModal"
+                                                    type="button">
+                                                    <i class="bi bi-plus" style="font-size:2rem;"></i>
+                                                </button>
+                                            </div>
                                         </div>
 
                                     </div>
-
-                                    <!-- BOTONES FLOTANTES -->
-                                    <div class="d-flex justify-content-end align-items-end mt-3"
-                                        style="pointer-events:none;">
-                                        <div style="pointer-events:auto; display:flex; gap:24px;">
-                                            <button
-                                                class="btn btn-success shadow d-flex align-items-center justify-content-center"
-                                                style="width:72px; height:52px; border-radius:18px;"
-                                                title="Escanear"
-                                                type="button">
-                                                <i class="bi bi-qr-code-scan" style="font-size:2rem;"></i>
-                                            </button>
-
-                                            <button
-                                                class="btn btn-success shadow d-flex align-items-center justify-content-center"
-                                                style="width:72px; height:52px; border-radius:18px;"
-                                                title="Agregar"
-                                                id="btnAbrirModal"
-                                                type="button">
-                                                <i class="bi bi-plus" style="font-size:2rem;"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-
                                 </div>
                             </div>
-                        </div>
 
-                    </div><!-- /.row -->
+                        </div><!-- /.row -->
+
+                    </form>
+                    <!-- ✅ FORM CIERRA AQUÍ (DESPUÉS DE AMBOS PANELES) -->
+
                 </div><!-- /.section-body -->
             </section>
         </div><!-- /.main-content -->

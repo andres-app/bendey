@@ -23,60 +23,121 @@ switch ($_GET["op"]) {
 		require_once "../Models/Person.php";
 		$person = new Person();
 
-		// Datos del cliente
-		$tipo_documento = $_POST["tipo_documento"];
-		$num_documento = $_POST["num_documento"];
-		$nombre = $_POST["nombre"]; // Nombre del cliente
-		$direccion = $_POST["direccion"] ?? ''; // Dirección si está disponible
+		// ===============================
+		// 1) DATOS DEL CLIENTE
+		// ===============================
+		$tipo_documento = $_POST["tipo_documento"] ?? '';
+		$num_documento  = $_POST["num_documento"] ?? '';
+		$nombre_cli     = $_POST["nombre"] ?? '';     // Nombre del cliente
+		$direccion      = $_POST["direccion"] ?? '';  // Dirección si está disponible
 
 		// Verificar si el cliente ya está registrado
 		$clienteExistente = $person->mostrarPorDocumento($num_documento);
 
 		if (!$clienteExistente) {
-			// Si el cliente no existe, lo insertamos en la tabla 'persona'
-			$idcliente = $person->insertar("Cliente", $nombre, $tipo_documento, $num_documento, $direccion, "", "");
-			// echo "Cliente insertado, ID: " . $idcliente; // Depuración
+			$idcliente = $person->insertar("Cliente", $nombre_cli, $tipo_documento, $num_documento, $direccion, "", "");
 		} else {
-			// Si el cliente ya existe, obtenemos su id
 			$idcliente = $clienteExistente['idpersona'];
-			// echo "Cliente ya registrado, ID: " . $idcliente; // Depuración
 		}
 
-		// Verificar que el idcliente sea válido antes de registrar la venta
 		if (!is_numeric($idcliente)) {
-			echo "Error: ID del cliente no es válido. Valor recibido: " . $idcliente;
+			echo json_encode(["success" => false, "mensaje" => "Error: ID del cliente no es válido. Valor recibido: " . $idcliente]);
 			exit;
 		}
 
-		// Calcular Subtotal, Impuesto e Importe Total antes de registrar la venta
+		// ===============================
+		// 2) CALCULAR TOTAL (y opcional IGV)
+		// ===============================
 		$total_venta = 0;
-		$tasa_impuesto = 0.18; // 18% de IGV en Perú
+		$tasa_impuesto = 0.18;
 
-		// Calculamos el total sumando los precios de venta multiplicados por la cantidad de cada artículo
+		if (
+			!isset($_POST["idarticulo"]) ||
+			!is_array($_POST["idarticulo"]) ||
+			count(array_filter($_POST["idarticulo"])) === 0
+		) {
+			echo json_encode([
+				"success" => false,
+				"mensaje" => "Debe agregar al menos un producto antes de procesar la venta."
+			]);
+			exit;
+		}
+		
+
 		for ($i = 0; $i < count($_POST["idarticulo"]); $i++) {
-			$cantidad = $_POST["cantidad"][$i];
-			$precio_venta = $_POST["precio_venta"][$i];
+			$cantidad     = (float) ($_POST["cantidad"][$i] ?? 0);
+			$precio_venta = (float) ($_POST["precio_venta"][$i] ?? 0);
 			$total_venta += $cantidad * $precio_venta;
 		}
 
-		// Calcular el IGV sobre el total
 		$igv = $total_venta * $tasa_impuesto;
-
-		// El subtotal es la diferencia entre el total y el IGV
 		$subtotal = $total_venta - $igv;
 
-		// Mostramos los valores para verificar
-		// echo "Subtotal: S/ " . number_format($subtotal, 2, '.', '') . "<br>";
-		// echo "IGV (18%): S/ " . number_format($igv, 2, '.', '') . "<br>";
-		// echo "Total: S/ " . number_format($total_venta, 2, '.', '') . "<br>";
-
-
-
-		// Registrar la venta con los cálculos actualizados
-		// Asegurar que impuesto tenga un valor numérico o NULL
+		// impuesto (si lo usas en BD). Si no, déjalo null.
 		$impuesto = isset($impuesto) && $impuesto !== '' ? (float) $impuesto : null;
 
-		// Registrar la venta con los cálculos actualizados
+		// ===============================
+		// 3) 🔐 OBTENER SERIE Y NÚMERO EN BACKEND (NO frontend)
+		//    USAMOS TUS MISMAS OPS: mostrar_serie + mostrar_numero
+		// ===============================
+		$_REQUEST["tipo_comprobante"] = $tipo_comprobante; // para que tus cases lean el tipo
+
+		// --- obtener serie (letra + 3 dígitos) usando tu lógica actual ---
+		require_once "../Models/Voucher.php";
+		$comprobantes = new Voucher();
+
+		// Tu lógica de mostrar_serie:
+		$rsptaSerie = $comprobantes->mostrar_serie($tipo_comprobante);
+		$letra_s = '';
+		$serie_comp = '001';
+		$num_comp = 0;
+
+		foreach ($rsptaSerie as $reg) {
+			$serie_comp = $reg['serie_comprobante'];
+			$num_comp   = $reg['num_comprobante'];
+			$letra_s    = $reg['letra_serie'];
+		}
+
+		// Buscar última serie/numero en ventas según tu lógica
+		$rsptav = $sell->numero_serie($tipo_comprobante);
+		$numeros  = $serie_comp;
+		$numeroco = $num_comp;
+
+		foreach ($rsptav as $regv) {
+			$numeros  = $regv['serie_comprobante'];
+			$numeroco = $regv['num_comprobante'];
+		}
+
+		$ns = substr($numeros, -3);
+		$nums = (int) $ns;
+		$numc = (int) $numeroco;
+
+		if ($numc == 9999999 || empty($numeroco)) {
+			$nums = $nums + 1; // pasa a siguiente serie
+		}
+
+		$serie_comprobante = $letra_s . str_pad($nums, 3, "0", STR_PAD_LEFT); // ejemplo: F001 / B001
+
+		// --- obtener número siguiente usando tu lógica mostrar_numero ---
+		$numero_venta = (int) $num_comp;
+
+		$rsptaNum = $sell->numero_venta($tipo_comprobante);
+		foreach ($rsptaNum as $regv) {
+			$numero_venta = (int) $regv['num_comprobante'];
+		}
+
+		if ($numero_venta == 9999999 || empty($numero_venta)) {
+			$num_comprobante = str_pad(1, 7, "0", STR_PAD_LEFT); // 0000001 (según tu tope)
+		} else {
+			$num_comprobante = str_pad($numero_venta + 1, 7, "0", STR_PAD_LEFT);
+		}
+
+		// ✅ Evidencia técnica (NO visible al usuario)
+		error_log("[VENTA] Usando comprobante: {$tipo_comprobante} | {$serie_comprobante}-{$num_comprobante} | usuario={$idusuario} | cliente={$idcliente} | total={$total_venta}");
+
+		// ===============================
+		// 4) INSERTAR VENTA (YA con serie/numero calculados en backend)
+		// ===============================
 		$rspta = $sell->insertar(
 			$idcliente,
 			$idusuario,
@@ -95,19 +156,19 @@ switch ($_GET["op"]) {
 			$_POST["descuento"]
 		);
 
-		// Si $rspta retorna el ID de la venta (ajusta si no)
-		// En Sell.php después de registrar:
 		if ($rspta && is_numeric($rspta)) {
-			// Busca datos del cliente (nombre y celular)
 			$cliente = $person->mostrar($idcliente);
-			$celular = $cliente['telefono'] ?? ''; // O como se llame tu campo
-			$nombre = $cliente['nombre'] ?? '';
+			$celular = $cliente['telefono'] ?? '';
+			$nombre  = $cliente['nombre'] ?? '';
+
 			echo json_encode([
 				"success" => true,
 				"idventa" => $rspta,
 				"mensaje" => "Datos registrados correctamente",
 				"celular" => $celular,
-				"nombre" => $nombre,
+				"nombre"  => $nombre,
+				// Opcional para debug (si NO quieres exponerlo, elimínalo):
+				// "debug_comprobante" => $serie_comprobante . "-" . $num_comprobante
 			]);
 		} else {
 			echo json_encode([
@@ -117,9 +178,6 @@ switch ($_GET["op"]) {
 		}
 
 		break;
-
-
-
 
 
 	case 'anular':
