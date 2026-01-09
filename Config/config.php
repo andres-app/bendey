@@ -16,7 +16,7 @@ if (ENVIRONMENT == 'development') {
     define("HOST", 'localhost');
     define("DB_USER", 'root');
     define("DB_PASS", '');
-    define("DB_NAME", 'japipos');
+    define("DB_NAME", 'bendey');
     define("API_KEY", 'your_production_api_key');
 }
 

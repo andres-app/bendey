@@ -510,22 +510,21 @@
         calcularTotales();
     }
     
+    
     function decrementarCantidad(indice) {
         let cantidadInput = $("input[name='cantidad[]']").eq(indice);
         let precioInput = $("input[name='precio_venta[]']").eq(indice);
         let subtotalSpan = $("#subtotal" + indice);
     
         let cantidad = parseInt(cantidadInput.val()) - 1;
-    
         if (cantidad < 1) return;
     
         cantidadInput.val(cantidad);
-    
-        let subtotal = cantidad * parseFloat(precioInput.val());
-        subtotalSpan.text(subtotal.toFixed(2));
+        subtotalSpan.text((cantidad * precioInput.val()).toFixed(2));
     
         calcularTotales();
     }
+    
     
 
     function modificarSubtotales() {

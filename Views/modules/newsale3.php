@@ -132,12 +132,15 @@ if (!isset($_SESSION['nombre'])) {
                                             <!-- Botón -->
                                             <div class="col-12 col-md-4">
                                                 <div class="d-flex justify-content-md-end justify-content-center">
-                                                    <button class="btn fw-normal"
-                                                        style="background:#52b848; color:white; min-width:190px; height:60px; font-size:1.2rem; border-radius:10px;">
+                                                    <button
+                                                        type="submit"
+                                                        class="btn fw-normal"
+                                                        style="background:#52b848; color:white; min-width:190px; height:60px; font-size:1.2rem;">
                                                         Procesar
                                                     </button>
                                                 </div>
                                             </div>
+
                                         </div>
                                     </div>
                                 </div>
