@@ -454,6 +454,9 @@ class Sell
         return $this->conexion->getData($sql);
     }
 
+    public function getConexion() {
+        return $this->conexion;
+    }
     
 
 }

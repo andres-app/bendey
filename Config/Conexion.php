@@ -81,4 +81,23 @@ class Conexion
 		return $query->fetchColumn();
 	}
 
+	    // =====================================
+    // 🔐 MÉTODOS DE TRANSACCIÓN (PDO)
+    // =====================================
+    public function beginTransaction()
+    {
+        return $this->conect->beginTransaction();
+    }
+
+    public function commit()
+    {
+        return $this->conect->commit();
+    }
+
+    public function rollBack()
+    {
+        return $this->conect->rollBack();
+    }
+
+
 }
