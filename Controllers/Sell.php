@@ -23,45 +23,52 @@ switch ($_GET["op"]) {
 
 		require_once "../Models/Person.php";
 		require_once "../Models/Voucher.php";
-	
+
 		$person  = new Person();
 		$voucher = new Voucher();
-	
+
 		try {
-	
+
 			// ======================================
 			// 🔐 INICIAR TRANSACCIÓN (CORREGIDO)
 			// ======================================
 			$sell->getConexion()->beginTransaction();
-	
+
 			// ======================================
-			// 1) CLIENTE
+			// 1) CLIENTE (CORREGIDO)
 			// ======================================
-			$tipo_documento = $_POST["tipo_documento"] ?? '';
-			$num_documento  = $_POST["num_documento"] ?? '';
-			$nombre_cli     = $_POST["nombre"] ?? '';
-			$direccion      = $_POST["direccion"] ?? '';
-	
-			$cliente = $person->mostrarPorDocumento($num_documento);
-	
-			if (!$cliente) {
-				$idcliente = $person->insertar(
-					"Cliente",
-					$nombre_cli,
-					$tipo_documento,
-					$num_documento,
-					$direccion,
-					"",
-					""
-				);
-			} else {
-				$idcliente = $cliente['idpersona'];
+			$idcliente = $_POST["idcliente"] ?? '';
+
+			if (empty($idcliente)) {
+
+				// Solo si NO se seleccionó cliente
+				$tipo_documento = $_POST["tipo_documento"] ?? '';
+				$num_documento  = $_POST["num_documento"] ?? '';
+				$nombre_cli     = $_POST["nombre_cli"] ?? '';
+				$direccion      = $_POST["direccion"] ?? '';
+
+				$cliente = $person->mostrarPorDocumento($num_documento);
+
+				if (!$cliente) {
+					$idcliente = $person->insertar(
+						"Cliente",
+						$nombre_cli,
+						$tipo_documento,
+						$num_documento,
+						$direccion,
+						"",
+						""
+					);
+				} else {
+					$idcliente = $cliente['idpersona'];
+				}
 			}
-	
-			if (!is_numeric($idcliente)) {
-				throw new Exception("ID de cliente inválido");
+
+			if (!is_numeric($idcliente) || $idcliente <= 0) {
+				throw new Exception("No se pudo determinar el cliente de la venta");
 			}
-	
+
+
 			// ======================================
 			// 2) VALIDAR PRODUCTOS
 			// ======================================
@@ -72,27 +79,27 @@ switch ($_GET["op"]) {
 			) {
 				throw new Exception("Debe agregar al menos un producto antes de procesar la venta.");
 			}
-	
+
 			// ======================================
 			// 3) CALCULAR TOTAL
 			// ======================================
 			$total_venta = 0;
-	
+
 			for ($i = 0; $i < count($_POST["idarticulo"]); $i++) {
 				$cantidad     = (float) ($_POST["cantidad"][$i] ?? 0);
 				$precio_venta = (float) ($_POST["precio_venta"][$i] ?? 0);
 				$total_venta += $cantidad * $precio_venta;
 			}
-	
+
 			// ======================================
 			// 🔐 4) OBTENER CORRELATIVO BLOQUEADO
 			// ======================================
 			$corr = $voucher->obtenerCorrelativoBloqueado($tipo_comprobante);
-	
+
 			if (!$corr) {
 				throw new Exception("No existe correlativo activo para el comprobante.");
 			}
-	
+
 			$serie_comprobante = $corr['serie']; // B001 / F001
 			$num_comprobante   = str_pad(
 				$corr['num_comprobante'] + 1,
@@ -100,10 +107,10 @@ switch ($_GET["op"]) {
 				"0",
 				STR_PAD_LEFT
 			);
-	
+
 			// Evidencia técnica
 			error_log("[VENTA] {$tipo_comprobante} {$serie_comprobante}-{$num_comprobante}");
-	
+
 			// ======================================
 			// 5) INSERTAR VENTA
 			// ======================================
@@ -124,11 +131,11 @@ switch ($_GET["op"]) {
 				$_POST["precio_venta"],
 				$_POST["descuento"]
 			);
-	
+
 			if (!$idventa) {
 				throw new Exception("Error al registrar la venta.");
 			}
-	
+
 			// ======================================
 			// 🔄 6) ACTUALIZAR CORRELATIVO
 			// ======================================
@@ -136,31 +143,30 @@ switch ($_GET["op"]) {
 				$corr['id_comp_pago'],
 				$num_comprobante
 			);
-	
+
 			// ======================================
 			// ✅ COMMIT (CORREGIDO)
 			// ======================================
 			$sell->getConexion()->commit();
-	
+
 			echo json_encode([
 				"success" => true,
 				"idventa" => $idventa,
 				"mensaje" => "Venta registrada correctamente"
 			]);
-	
 		} catch (Exception $e) {
-	
+
 			// ❌ ROLLBACK (CORREGIDO)
 			$sell->getConexion()->rollBack();
-	
+
 			echo json_encode([
 				"success" => false,
 				"mensaje" => $e->getMessage()
 			]);
 		}
-	
-	break;
-	
+
+		break;
+
 
 
 	case 'anular':

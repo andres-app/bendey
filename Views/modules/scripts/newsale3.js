@@ -222,53 +222,63 @@ function calcularTotales() {
 
 
 function consultarCliente() {
-    var tipo_documento = $('#tipo_documento').val();
-    var num_documento = $('#num_documento').val();
+    const tipo_documento = $('#tipo_documento').val();
+    const num_documento  = $('#num_documento').val().trim();
+
+    if (!num_documento) {
+        Swal.fire('Atención', 'Ingrese el número de documento', 'warning');
+        return;
+    }
+
+    // Guardamos el documento REAL
+    $('#num_doc_real').val(num_documento);
 
     $.ajax({
         url: 'Controllers/Person.php?op=getCustomerByDocument',
         type: 'POST',
         data: { tipo_documento: tipo_documento, num_documento: num_documento },
         success: function (response) {
-            // -----> AGREGA ESTO:
-            console.log('Respuesta de getCustomerByDocument:', response);
-            var data;
+
+            let data;
             try {
                 data = JSON.parse(response);
-            } catch (e) {
-                alert('Error al procesar la respuesta del servidor.');
+            } catch {
+                Swal.fire('Error', 'Respuesta inválida del servidor', 'error');
                 return;
             }
 
-            if (data.estado && data.resultado && data.resultado.nombre) {
-                // REEMPLAZA el valor del input con el nombre
-                $("#num_documento").val(data.resultado.nombre || '');
-                // Si quieres guardar el idpersona de forma oculta:
-                $("#idpersona").val(data.resultado.idpersona || '');
-                // Opcional: autollenar otros campos, pero solo si existen
-                // $("#direccion").val(data.resultado.direccion || '');
+            if (data.estado && data.resultado) {
+
+                // 🔹 VISUALMENTE mostramos el nombre en el MISMO input
+                $('#num_documento').val(data.resultado.nombre);
+
+                // 🔹 LÓGICA REAL (no visible)
+                $('#num_doc_real').val(data.resultado.num_documento);
+                $('#nombre_cli').val(data.resultado.nombre);
+                $('#idcliente').val(data.resultado.idpersona);
+
             } else {
-                // Cliente NO encontrado: el mismo flujo que ya tienes
                 Swal.fire({
                     icon: 'warning',
                     title: 'Cliente no registrado',
-                    text: 'El cliente no está en la base de datos. ¿Deseas buscar en RENIEC/SUNAT?',
+                    text: '¿Deseas buscar en RENIEC / SUNAT?',
                     showCancelButton: true,
                     confirmButtonText: 'Sí, buscar',
-                    cancelButtonText: 'No, cancelar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
+                    cancelButtonText: 'No'
+                }).then((r) => {
+                    if (r.isConfirmed) {
                         consultarClienteReniec(tipo_documento, num_documento);
                     }
                 });
             }
-
         },
         error: function () {
-            alert('Error al consultar el cliente en la base de datos.');
+            Swal.fire('Error', 'No se pudo consultar el cliente', 'error');
         }
     });
 }
+
+
 
 function consultarClienteReniec(tipo_documento, num_documento) {
     if (!num_documento || num_documento.trim() === "") {
