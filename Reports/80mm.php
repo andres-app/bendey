@@ -105,7 +105,7 @@ $pdf->Cell(
 $pdf->Ln(2);
 $pdf->SetFont('Helvetica', '', 8);
 $pdf->SetFont('Helvetica', '', 8);
-$pdf->Cell(0, 5, utf8_decode("Cliente: " . ($cab['cliente'] ?? '')), 0, 1);
+$pdf->Cell(0, 5, utf8_decode("Cliente: " . ($reg['cliente'] ?? '')), 0, 1);
 $pdf->Cell(0, 5, utf8_decode("Atendió: " . ($_SESSION['nombre'] ?? '')), 0, 1);
 
 
