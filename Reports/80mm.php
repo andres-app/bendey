@@ -44,6 +44,7 @@ $ciudad    = $empresaData['ciudad'];
 $impuesto  = $empresaData['nombre_impuesto'];
 $porcIgv   = $empresaData['monto_impuesto'];
 $simbolo   = $empresaData['simbolo'];
+$moneda   = $empresaData['moneda'];
 
 // ===============================
 // QR
@@ -170,7 +171,7 @@ $pdf->Cell(36, 6, $simbolo . ' ' . number_format($total, 2), 0, 1, 'R');
 // ===============================
 $pdf->Ln(2);
 $pdf->SetFont('Helvetica', '', 7);
-$pdf->MultiCell(0, 4, 'SON: ' . strtoupper(convertirNumeroALetras($total)) . ' ' . $simbolo);
+$pdf->MultiCell(0, 4, 'SON: ' . strtoupper(convertirNumeroALetras($total)) . ' ' . $moneda);
 
 $pdf->Cell(0, 5, 'CANT. ARTICULOS: ' . $cantidad, 0, 1);
 
