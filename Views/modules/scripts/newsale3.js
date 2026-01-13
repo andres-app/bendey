@@ -218,7 +218,10 @@ function calcularTotales() {
     });
 
     $("#totalGeneral").text("S/" + total.toFixed(2));
+
+    calcularVuelto(); // 👈 AQUI
 }
+
 
 
 function consultarCliente() {
@@ -645,5 +648,94 @@ function actualizarMensajePedido() {
     }
 }
 
+function calcularVuelto() {
+    let condicion = $('#condicion_pago').val();
+
+    if (condicion === 'Mixto') {
+        calcularPagoMixto();
+        return;
+    }
+
+    let totalVenta = 0;
+
+    $("span[name='subtotal']").each(function () {
+        totalVenta += parseFloat($(this).text()) || 0;
+    });
+
+    let recibido = parseFloat($('#total_recibido').val()) || 0;
+    let vuelto = recibido - totalVenta;
+
+    if (vuelto < 0) vuelto = 0;
+
+    $('#vuelto').val(vuelto.toFixed(2));
+}
 
 
+$('#total_recibido').on('input', function () {
+    calcularVuelto();
+});
+
+
+$('#formularioVenta').on('submit', function (e) {
+    let condicion = $('#condicion_pago').val();
+
+    let totalVenta = parseFloat($('#totalGeneral').text().replace('S/', '')) || 0;
+
+    if (condicion === 'Mixto') {
+        let efectivo = parseFloat($('#monto_efectivo').val()) || 0;
+        let digital  = parseFloat($('#monto_digital').val()) || 0;
+
+        if ((efectivo + digital) < totalVenta) {
+            e.preventDefault();
+            Swal.fire(
+                'Pago incompleto',
+                'La suma del efectivo y Yape/Plin no cubre el total de la venta',
+                'warning'
+            );
+            return false;
+        }
+    }
+
+    guardarVenta();
+});
+
+
+$('#condicion_pago').on('change', function () {
+    let tipo = $(this).val();
+
+    $('#pago_mixto').hide();
+
+    if (tipo === 'Mixto') {
+        $('#pago_mixto').slideDown();
+        $('#total_recibido').val(0);
+        $('#vuelto').val('0.00');
+    }
+});
+
+function calcularPagoMixto() {
+    let totalVenta = 0;
+
+    $("span[name='subtotal']").each(function () {
+        totalVenta += parseFloat($(this).text()) || 0;
+    });
+
+    let efectivo = parseFloat($('#monto_efectivo').val()) || 0;
+    let digital  = parseFloat($('#monto_digital').val()) || 0;
+
+    let totalPagado = efectivo + digital;
+
+    let vuelto = efectivo - totalVenta;
+
+    if (totalPagado < totalVenta) {
+        $('#vuelto').val('0.00');
+        return;
+    }
+
+    if (vuelto < 0) vuelto = 0;
+
+    $('#vuelto').val(vuelto.toFixed(2));
+}
+
+$('#monto_efectivo, #monto_digital').on('input', function () {
+    calcularPagoMixto();
+});

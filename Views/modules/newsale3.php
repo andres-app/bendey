@@ -109,11 +109,11 @@ if (!isset($_SESSION['nombre'])) {
                                             <div class="row g-3 mb-4">
                                                 <div class="col-md-6">
                                                     <label class="form-label">Total recibido soles</label>
-                                                    <input class="form-control text-success fw-bold fs-5" value="S/150.00" name="total_recibido">
+                                                    <input type="number" step="0.01" min="0" class="form-control  fw-bold fs-5" name="total_recibido" id="total_recibido" placeholder="0.00">
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label">Vuelto soles</label>
-                                                    <input class="form-control text-secondary fw-bold fs-5" value="S/16.50" name="vuelto">
+                                                    <input type="text" readonly class="form-control fw-bold fs-5" name="vuelto" id="vuelto" value="0.00">
                                                 </div>
                                             </div>
 
