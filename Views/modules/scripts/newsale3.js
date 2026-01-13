@@ -515,10 +515,14 @@ function agregarDetalle(
                     </div>
                     <div class="text-muted small">
                         Cantidad:
-                        <span class="fw-semibold">${cantidad}</span>
+                        <span class="fw-semibold cantidad-label" id="cantidadLabel${cont}">
+                            ${cantidad}
+                        </span>
 
-                        <!-- valor real oculto -->
-                        <input type="hidden" name="cantidad[]" value="${cantidad}">
+                        <input type="hidden"
+                            name="cantidad[]"
+                            id="cantidadInput${cont}"
+                            value="${cantidad}">
                     </div>
                     <div class="fw-bold mt-2 text-dark">
                         Total: S/
@@ -568,36 +572,42 @@ function agregarDetalle(
 }
 
 function incrementarCantidad(indice, stock) {
-    let cantidadInput = $("input[name='cantidad[]']").eq(indice);
-    let precioInput = $("input[name='precio_venta[]']").eq(indice);
-    let subtotalSpan = $("#subtotal" + indice);
+    let cantidadInput = document.getElementById('cantidadInput' + indice);
+    let cantidadLabel = document.getElementById('cantidadLabel' + indice);
+    let precioInput   = document.querySelectorAll("input[name='precio_venta[]']")[indice];
+    let subtotalSpan  = document.getElementById('subtotal' + indice);
 
-    let cantidad = parseInt(cantidadInput.val()) + 1;
+    let cantidad = parseInt(cantidadInput.value) + 1;
 
     if (cantidad > stock) {
         Swal.fire("Stock insuficiente", "No hay más unidades disponibles.", "warning");
         return;
     }
 
-    cantidadInput.val(cantidad);
+    cantidadInput.value = cantidad;
+    cantidadLabel.textContent = cantidad;
 
-    let subtotal = cantidad * parseFloat(precioInput.val());
-    subtotalSpan.text(subtotal.toFixed(2));
+    let subtotal = cantidad * parseFloat(precioInput.value);
+    subtotalSpan.textContent = subtotal.toFixed(2);
 
     calcularTotales();
 }
 
 
 function decrementarCantidad(indice) {
-    let cantidadInput = $("input[name='cantidad[]']").eq(indice);
-    let precioInput = $("input[name='precio_venta[]']").eq(indice);
-    let subtotalSpan = $("#subtotal" + indice);
+    let cantidadInput = document.getElementById('cantidadInput' + indice);
+    let cantidadLabel = document.getElementById('cantidadLabel' + indice);
+    let precioInput   = document.querySelectorAll("input[name='precio_venta[]']")[indice];
+    let subtotalSpan  = document.getElementById('subtotal' + indice);
 
-    let cantidad = parseInt(cantidadInput.val()) - 1;
+    let cantidad = parseInt(cantidadInput.value) - 1;
     if (cantidad < 1) return;
 
-    cantidadInput.val(cantidad);
-    subtotalSpan.text((cantidad * precioInput.val()).toFixed(2));
+    cantidadInput.value = cantidad;
+    cantidadLabel.textContent = cantidad;
+
+    let subtotal = cantidad * parseFloat(precioInput.value);
+    subtotalSpan.textContent = subtotal.toFixed(2);
 
     calcularTotales();
 }
