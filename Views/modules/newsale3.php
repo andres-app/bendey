@@ -82,9 +82,13 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-md-4">
                                                     <label>Forma de pago</label>
                                                     <div class="form-group mb-0">
-                                                        <select class="form-control form-select" name="tipo_pago">
+                                                        <select class="form-control form-select" name="tipo_pago" id="forma_pago">
+                                                            <option value="Yape">Yape</option>
+                                                            <option value="Plin">Plin</option>
+                                                            <option value="Tarjeta debito">Tarjeta debito</option>
+                                                            <option value="Tarjeta credito">Tarjeta credito</option>
                                                             <option value="Efectivo">Efectivo</option>
-                                                            <option value="Yape/Plin">Yape/Plin</option>
+                                                            <option value="Mixto">Mixto</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -116,6 +120,22 @@ if (!isset($_SESSION['nombre'])) {
                                                     <input type="text" readonly class="form-control fw-bold fs-5" name="vuelto" id="vuelto" value="0.00">
                                                 </div>
                                             </div>
+
+                                            <!-- PAGO MIXTO POR FORMA DE PAGO -->
+                                            <div id="bloque_pago_mixto" class="mb-4" style="display:none;">
+                                                <label class="form-label fw-bold">Detalle de pago mixto</label>
+
+                                                <div id="pagosMixtosContainer"></div>
+
+                                                <button type="button" class="btn btn-outline-success btn-sm mt-2" id="btnAgregarPagoMixto">
+                                                    <i class="bi bi-plus-circle"></i> Agregar método
+                                                </button>
+
+                                                <small class="text-muted d-block mt-2">
+                                                    El vuelto se calcula solo con el monto en <b>Efectivo</b>.
+                                                </small>
+                                            </div>
+
 
                                             <div class="mb-4">
                                                 <label class="form-label">Observación</label>
