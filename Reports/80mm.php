@@ -177,7 +177,6 @@ $pdf->Cell(0, 5, 'CANT. ARTICULOS: ' . $cantidad, 0, 1);
 
 $pdf->Ln(3);
 $pdf->SetFont('Helvetica', 'B', 8);
-$pdf->Cell(0, 6, utf8_decode('¡GRACIAS POR SU COMPRA!'), 0, 1, 'C');
 
 // ===============================
 // QR CENTRADO REAL
@@ -186,6 +185,30 @@ $qrSize = 30;
 $x = (80 - $qrSize) / 2;
 $pdf->Ln(2);
 $pdf->Image($filename, $x, $pdf->GetY(), $qrSize);
+
+// ===============================
+// TEXTO LEGAL DEBAJO DEL QR
+// ===============================
+$pdf->Ln($qrSize + 2); // baja debajo del QR
+$pdf->SetFont('Helvetica', '', 8);
+
+$pdf->MultiCell(
+  0,
+  3,
+  utf8_decode(
+    "Este comprobante es una representación impresa\n" .
+    "del Comprobante Electrónico"
+  ),
+  0,
+  'C'
+);
+
+$pdf->Ln(1);
+$pdf->SetFont('Helvetica', 'B', 8);
+$pdf->Cell(0, 4, 'TIQUEPOS S.A.C', 0, 1, 'C');
+
+$pdf->SetFont('Helvetica', '', 8);
+$pdf->Cell(0, 4, 'www.tiquepos.com', 0, 1, 'C');
 
 // ===============================
 // SALIDA
