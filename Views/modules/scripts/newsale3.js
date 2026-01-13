@@ -226,7 +226,7 @@ function calcularTotales() {
 
 function consultarCliente() {
     const tipo_documento = $('#tipo_documento').val();
-    const num_documento  = $('#num_documento').val().trim();
+    const num_documento = $('#num_documento').val().trim();
 
     if (!num_documento) {
         Swal.fire('Atención', 'Ingrese el número de documento', 'warning');
@@ -508,32 +508,18 @@ function agregarDetalle(
 
                     <div class="text-muted small">
                         Precio Unitario:
-                        <span class="fw-semibold">S/
-                            <input type="number"
-                                name="precio_venta[]"
-                                value="${precio_venta}"
-                                min="0"
-                                step="0.01"
-                                style="width:70px"
-                                class="form-control form-control-sm d-inline-block ms-1"
-                                onchange="modificarSubtotales()">
-                        </span>
-                    </div>
+                        <span class="fw-semibold">S/ ${Number(precio_venta).toFixed(2)}</span>
 
+                        <!-- valor real oculto para backend -->
+                        <input type="hidden" name="precio_venta[]" value="${precio_venta}">
+                    </div>
                     <div class="text-muted small">
                         Cantidad:
-                        <span class="fw-semibold">
-                            <input type="number"
-                                name="cantidad[]"
-                                value="${cantidad}"
-                                min="1"
-                                max="${stock}"
-                                style="width:60px"
-                                class="form-control form-control-sm d-inline-block ms-1"
-                                onchange="ver_stock(this.value, ${stock}); modificarSubtotales();">
-                        </span>
-                    </div>
+                        <span class="fw-semibold">${cantidad}</span>
 
+                        <!-- valor real oculto -->
+                        <input type="hidden" name="cantidad[]" value="${cantidad}">
+                    </div>
                     <div class="fw-bold mt-2 text-dark">
                         Total: S/
                         <span name="subtotal" id="subtotal${cont}">
@@ -547,18 +533,18 @@ function agregarDetalle(
                     style="min-width:48px;">
 
                     <div class="d-flex flex-column align-items-center gap-1">
-                        <button class="btn btn-outline-success btn-sm px-2 py-1"
+                        <button type="button" class="btn btn-outline-success btn-sm px-2 py-1"
                             onclick="incrementarCantidad(${cont}, ${stock})">
                             <i class="bi bi-plus"></i>
                         </button>
 
-                        <button class="btn btn-outline-secondary btn-sm px-2 py-1"
+                        <button type="button" class="btn btn-outline-secondary btn-sm px-2 py-1"
                             onclick="decrementarCantidad(${cont})">
                             <i class="bi bi-dash"></i>
                         </button>
                     </div>
 
-                    <button class="btn btn-outline-danger btn-sm px-2 py-1 mt-3"
+                    <button type="button" class="btn btn-outline-danger btn-sm px-2 py-1 mt-3"
                         onclick="eliminarDetalle(${cont})">
                         <i class="bi bi-trash"></i>
                     </button>
@@ -683,7 +669,7 @@ $('#formularioVenta').on('submit', function (e) {
 
     if (condicion === 'Mixto') {
         let efectivo = parseFloat($('#monto_efectivo').val()) || 0;
-        let digital  = parseFloat($('#monto_digital').val()) || 0;
+        let digital = parseFloat($('#monto_digital').val()) || 0;
 
         if ((efectivo + digital) < totalVenta) {
             e.preventDefault();
@@ -720,7 +706,7 @@ function calcularPagoMixto() {
     });
 
     let efectivo = parseFloat($('#monto_efectivo').val()) || 0;
-    let digital  = parseFloat($('#monto_digital').val()) || 0;
+    let digital = parseFloat($('#monto_digital').val()) || 0;
 
     let totalPagado = efectivo + digital;
 

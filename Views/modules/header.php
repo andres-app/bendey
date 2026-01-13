@@ -34,7 +34,7 @@
 </head>
 
 <?php
-$class = ($_GET["url"] == "newsale" || $_GET["url"] == "editsale") ? 'sidebar-mini' : '';
+$class = ($_GET["url"] == "newsale3" || $_GET["url"] == "editsale") ? 'sidebar-mini' : '';
 ?>
 
 <body class="<?php echo $class; ?>">
@@ -51,7 +51,7 @@ $class = ($_GET["url"] == "newsale" || $_GET["url"] == "editsale") ? 'sidebar-mi
                             </a>
                         </li>
                         <li>
-                            <a href="newsale" class="nav-link nav-link-lg">
+                            <a href="newsale3" class="nav-link nav-link-lg">
                                 <i data-feather="shopping-cart"></i>
                             </a>
                         </li>

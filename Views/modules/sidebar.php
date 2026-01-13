@@ -39,7 +39,7 @@
                 <li class="dropdown <?php echo $cv; ?>">
                     <a href="#" class="nav-link has-dropdown"><i data-feather="shopping-cart"></i><span>Ventas</span></a>
                     <ul class="dropdown-menu">
-                        <li><a class="nav-link" href="newsale">Nueva venta</a></li>
+                        <li><a class="nav-link" href="newsale3">Nueva venta</a></li>
                         <li><a class="nav-link" href="listsales">Ventas</a></li>
                         <li><a class="nav-link" href="customer">Clientes</a></li>
                         <li><a class="nav-link" href="sunat">SUNAT</a></li>
