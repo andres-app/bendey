@@ -65,7 +65,7 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-md-4">
                                                     <label>Celular</label>
                                                     <div class="form-group mb-0">
-                                                        <input class="form-control" placeholder="986634352" name="celular">
+                                                        <input class="form-control" placeholder="Ejm: 986634352" name="celular">
                                                     </div>
                                                 </div>
 

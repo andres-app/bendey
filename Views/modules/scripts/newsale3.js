@@ -121,20 +121,13 @@ function guardarVenta() {
                 Swal.fire({
                     title: 'Venta registrada',
                     html: `
-                            <p>¿Qué deseas hacer ahora?</p>
-                            <div style="display:flex; justify-content:center; align-items:center;">
-                                <input class="swal2-input"
-                                       style="width:55px; text-align:center; margin-right:5px; font-weight:bold;"
-                                       value="51" readonly>
-    
-                                <input id="swal-input-cel"
-                                       class="swal2-input"
-                                       style="width:180px;"
-                                       maxlength="9"
-                                       placeholder="Celular"
-                                       value="${celularBase}">
-                            </div>
-                        `,
+                    <p>¿Qué deseas hacer ahora?</p>
+                    <input id="swal-input-cel"
+                           class="swal2-input"
+                           maxlength="9"
+                           placeholder="Celular"
+                           value="${celularBase}">
+                `,
                     icon: 'success',
                     showDenyButton: true,
                     showCancelButton: true,
@@ -678,7 +671,7 @@ $('#formularioVenta').on('submit', function (e) {
         );
         return false;
     }
-    
+
     e.preventDefault();
 
     let nombreForma = $('#forma_pago option:selected').data('nombre');
@@ -867,14 +860,8 @@ function calcularPagoMixtoForma() {
 function cargarFormaPago() {
     $.post("Controllers/Sell.php?op=selectFormaPago", function (r) {
 
-        // 👇 agregamos "Seleccione" manualmente
-        let html = `
-            <option value="" selected disabled>
-                Seleccione
-            </option>
-        `;
-
-        $("#forma_pago").html(html + r);
+        // ✅ SOLO backend
+        $("#forma_pago").html(r);
 
         // 🔒 estado inicial
         $('#bloque_pago_mixto').hide();
@@ -886,6 +873,7 @@ function cargarFormaPago() {
         $('#vuelto').val('0.00');
     });
 }
+
 
 
 
