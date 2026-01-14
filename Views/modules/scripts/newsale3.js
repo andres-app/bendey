@@ -4,6 +4,8 @@ $(document).ready(function () {
     inicializarEventos();
     cargarCarrito();
     actualizarMensajePedido();
+
+    $('#forma_pago').trigger('change');
 });
 
 
@@ -648,6 +650,7 @@ function calcularVuelto() {
 
 
 
+
 $('#total_recibido').on('input', function () {
     calcularVuelto();
 });
@@ -712,7 +715,12 @@ $('#forma_pago').on('change', function () {
         agregarPagoMixtoFila();
         agregarPagoMixtoFila();
 
-        $('#total_recibido').val('');
+        // 🔒 Total recibido automático (mixto)
+        $('#total_recibido')
+            .val('0.00')
+            .prop('readonly', true)
+            .addClass('bg-light');
+
         $('#vuelto').val('0.00');
 
     } else {
@@ -720,11 +728,20 @@ $('#forma_pago').on('change', function () {
         $('#bloque_pago_mixto').hide();
         $('#pagosMixtosContainer').html('');
 
-        // vuelve al flujo normal
-        $('#total_recibido').val('');
-        $('#vuelto').val('0.00');
+        // 🔓 Total recibido = total venta (por defecto)
+        let totalVenta = totalVentaActual();
+
+        $('#total_recibido')
+            .prop('readonly', false)
+            .removeClass('bg-light')
+            .val(totalVenta.toFixed(2));
+
+        // 🔁 recalcula vuelto normal
+        calcularVuelto();
     }
 });
+
+
 
 
 let pagoMixtoIndex = 0;
@@ -789,24 +806,40 @@ function totalVentaActual() {
 }
 
 function calcularPagoMixtoForma() {
+
     let totalVenta = totalVentaActual();
 
     let totalPagado = 0;
     let efectivo = 0;
 
     $('#pagosMixtosContainer .pago-mixto-fila').each(function () {
+
         let metodo = $(this).find('.pago-metodo').val();
         let monto  = parseFloat($(this).find('.pago-monto').val()) || 0;
 
         totalPagado += monto;
-        if (metodo === 'Efectivo') efectivo += monto;
+
+        if (metodo === 'Efectivo') {
+            efectivo += monto;
+        }
     });
 
-    // Vuelto solo desde efectivo
-    let vuelto = efectivo - totalVenta;
-    if (totalPagado < totalVenta) vuelto = 0;
-    if (vuelto < 0) vuelto = 0;
+    // ✅ Total recibido = suma de todo
+    $('#total_recibido').val(totalPagado.toFixed(2));
+
+    // ✅ Vuelto = exceso pagado, pero solo si hubo efectivo
+    let vuelto = 0;
+
+    if (efectivo > 0) {
+        vuelto = totalPagado - totalVenta;
+        if (vuelto < 0) vuelto = 0;
+
+        // (opcional) seguridad: no puedes dar más vuelto del efectivo recibido
+        if (vuelto > efectivo) vuelto = efectivo;
+    }
 
     $('#vuelto').val(vuelto.toFixed(2));
 }
+
+
 
