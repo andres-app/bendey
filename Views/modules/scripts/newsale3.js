@@ -72,11 +72,6 @@ function inicializarEventos() {
 
     $('#descuentoPorcentaje').on('input', calcularTotales);
 
-    // Envío del formulario
-    $('#formularioVenta').on('submit', function (e) {
-        e.preventDefault();
-        guardarVenta();
-    });
 }
 
 // 3. OBTIENE SERIE Y NÚMERO DEL COMPROBANTE ACTUAL
@@ -659,11 +654,31 @@ $('#total_recibido').on('input', function () {
 
 
 $('#formularioVenta').on('submit', function (e) {
+    e.preventDefault(); // ⛔ detenemos siempre
 
     let forma = $('#forma_pago').val();
-    if (forma !== 'Mixto') return; // normal
-
     let totalVenta = totalVentaActual();
+
+    // 🔹 CASO NORMAL (NO MIXTO)
+    if (forma !== 'Mixto') {
+
+        let recibido = parseFloat($('#total_recibido').val()) || 0;
+
+        if (recibido < totalVenta) {
+            Swal.fire(
+                'Pago incompleto',
+                'El monto recibido no cubre el total de la venta',
+                'warning'
+            );
+            return false;
+        }
+
+        // ✅ todo OK
+        guardarVenta();
+        return;
+    }
+
+    // 🔹 CASO MIXTO
     let totalPagado = 0;
 
     $('#pagosMixtosContainer .pago-monto').each(function () {
@@ -671,14 +686,16 @@ $('#formularioVenta').on('submit', function (e) {
     });
 
     if (totalPagado < totalVenta) {
-        e.preventDefault();
         Swal.fire(
             'Pago incompleto',
-            'La suma de los métodos no cubre el total de la venta',
+            'La suma de los métodos de pago no cubre el total de la venta',
             'warning'
         );
         return false;
     }
+
+    // ✅ MIXTO OK
+    guardarVenta();
 });
 
 
