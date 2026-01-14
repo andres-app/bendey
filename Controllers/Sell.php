@@ -541,4 +541,21 @@ switch ($_GET["op"]) {
 		$rspta = $product->listarActivosVenta();
 		echo json_encode($rspta);
 		break;
+
+	case 'selectFormaPago':
+		require_once __DIR__ . '/../Models/FormaPago.php';
+
+		$formaPago = new FormaPago();
+		$rspta = $formaPago->select();
+
+		echo '<option value="">Seleccione</option>';
+
+		foreach ($rspta as $r) {
+			echo '<option value="' . $r['idforma_pago'] . '"
+							 data-nombre="' . $r['nombre'] . '"
+							 data-efectivo="' . $r['es_efectivo'] . '">
+						' . $r['nombre'] . '
+					  </option>';
+		}
+		break;
 }

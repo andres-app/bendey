@@ -82,14 +82,7 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-md-4">
                                                     <label>Forma de pago</label>
                                                     <div class="form-group mb-0">
-                                                        <select class="form-control form-select" name="tipo_pago" id="forma_pago">
-                                                            <option value="Yape">Yape</option>
-                                                            <option value="Plin">Plin</option>
-                                                            <option value="Tarjeta debito">Tarjeta debito</option>
-                                                            <option value="Tarjeta credito">Tarjeta credito</option>
-                                                            <option value="Efectivo">Efectivo</option>
-                                                            <option value="Mixto">Mixto</option>
-                                                        </select>
+                                                    <select class="form-control form-select" name="idforma_pago" id="forma_pago"></select>
                                                     </div>
                                                 </div>
                                             </div>

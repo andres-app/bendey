@@ -1,12 +1,14 @@
 // newsale3.js
 $(document).ready(function () {
     cargarComprobantes();
+    cargarFormaPago();
     inicializarEventos();
     cargarCarrito();
     actualizarMensajePedido();
 
-    $('#forma_pago').trigger('change');
+    
 });
+
 
 
 
@@ -639,6 +641,15 @@ function actualizarMensajePedido() {
 }
 
 function calcularVuelto() {
+
+    // 🔹 detectar forma de pago desde el select (BD)
+    let nombreForma = $('#forma_pago option:selected').data('nombre');
+
+    // 🔴 si es Mixto, este cálculo NO aplica
+    if (nombreForma === 'Mixto') {
+        return;
+    }
+
     let totalVenta = totalVentaActual();
     let recibido = parseFloat($('#total_recibido').val()) || 0;
 
@@ -650,20 +661,31 @@ function calcularVuelto() {
 
 
 
-
 $('#total_recibido').on('input', function () {
     calcularVuelto();
 });
 
 
 $('#formularioVenta').on('submit', function (e) {
-    e.preventDefault(); // ⛔ detenemos siempre
 
     let forma = $('#forma_pago').val();
+
+    if (!forma) {
+        Swal.fire(
+            'Forma de pago',
+            'Debe seleccionar una forma de pago',
+            'warning'
+        );
+        return false;
+    }
+    
+    e.preventDefault();
+
+    let nombreForma = $('#forma_pago option:selected').data('nombre');
     let totalVenta = totalVentaActual();
 
     // 🔹 CASO NORMAL (NO MIXTO)
-    if (forma !== 'Mixto') {
+    if (nombreForma !== 'Mixto') {
 
         let recibido = parseFloat($('#total_recibido').val()) || 0;
 
@@ -676,17 +698,12 @@ $('#formularioVenta').on('submit', function (e) {
             return false;
         }
 
-        // ✅ todo OK
         guardarVenta();
         return;
     }
 
     // 🔹 CASO MIXTO
-    let totalPagado = 0;
-
-    $('#pagosMixtosContainer .pago-monto').each(function () {
-        totalPagado += parseFloat($(this).val()) || 0;
-    });
+    let totalPagado = parseFloat($('#total_recibido').val()) || 0;
 
     if (totalPagado < totalVenta) {
         Swal.fire(
@@ -697,25 +714,34 @@ $('#formularioVenta').on('submit', function (e) {
         return false;
     }
 
-    // ✅ MIXTO OK
     guardarVenta();
 });
 
 
 // FORMA DE PAGO: mostrar campos mixtos
 $('#forma_pago').on('change', function () {
-    let forma = $(this).val();
 
-    if (forma === 'Mixto') {
+    let nombreForma = $('#forma_pago option:selected').data('nombre');
+
+    // RESET GENERAL
+    $('#bloque_pago_mixto').hide();
+    $('#pagosMixtosContainer').html('');
+    $('#vuelto').val('0.00');
+
+    let totalVenta = totalVentaActual();
+
+    // =========================
+    // 🔹 PAGO MIXTO
+    // =========================
+    if (nombreForma === 'Mixto') {
 
         $('#bloque_pago_mixto').slideDown();
-        $('#pagosMixtosContainer').html('');
         pagoMixtoIndex = 0;
 
         agregarPagoMixtoFila();
         agregarPagoMixtoFila();
 
-        // 🔒 Total recibido automático (mixto)
+        // 🔒 BLOQUEAR TOTAL RECIBIDO
         $('#total_recibido')
             .val('0.00')
             .prop('readonly', true)
@@ -723,25 +749,21 @@ $('#forma_pago').on('change', function () {
 
         $('#vuelto').val('0.00');
 
-    } else {
-
-        $('#bloque_pago_mixto').hide();
-        $('#pagosMixtosContainer').html('');
-
-        // 🔓 Total recibido = total venta (por defecto)
-        let totalVenta = totalVentaActual();
-
-        $('#total_recibido')
-            .prop('readonly', false)
-            .removeClass('bg-light')
-            .val(totalVenta.toFixed(2));
-
-        // 🔁 recalcula vuelto normal
-        calcularVuelto();
+        return;
     }
+
+    // =========================
+    // 🔹 PAGO NORMAL
+    // =========================
+
+    // 🔓 HABILITAR TOTAL RECIBIDO
+    $('#total_recibido')
+        .prop('readonly', false)
+        .removeClass('bg-light')
+        .val(totalVenta.toFixed(2));
+
+    calcularVuelto();
 });
-
-
 
 
 let pagoMixtoIndex = 0;
@@ -811,6 +833,7 @@ function calcularPagoMixtoForma() {
 
     let totalPagado = 0;
     let efectivo = 0;
+    let noEfectivo = 0;
 
     $('#pagosMixtosContainer .pago-mixto-fila').each(function () {
 
@@ -821,24 +844,47 @@ function calcularPagoMixtoForma() {
 
         if (metodo === 'Efectivo') {
             efectivo += monto;
+        } else {
+            noEfectivo += monto;
         }
     });
 
-    // ✅ Total recibido = suma de todo
+    // Total recibido (solo informativo)
     $('#total_recibido').val(totalPagado.toFixed(2));
 
-    // ✅ Vuelto = exceso pagado, pero solo si hubo efectivo
-    let vuelto = 0;
+    // 🔥 LÓGICA CORRECTA DE VUELTO
+    let faltante = totalVenta - noEfectivo;
+    if (faltante < 0) faltante = 0;
 
-    if (efectivo > 0) {
-        vuelto = totalPagado - totalVenta;
-        if (vuelto < 0) vuelto = 0;
-
-        // (opcional) seguridad: no puedes dar más vuelto del efectivo recibido
-        if (vuelto > efectivo) vuelto = efectivo;
-    }
+    let vuelto = efectivo - faltante;
+    if (vuelto < 0) vuelto = 0;
 
     $('#vuelto').val(vuelto.toFixed(2));
+}
+
+
+
+function cargarFormaPago() {
+    $.post("Controllers/Sell.php?op=selectFormaPago", function (r) {
+
+        // 👇 agregamos "Seleccione" manualmente
+        let html = `
+            <option value="" selected disabled>
+                Seleccione
+            </option>
+        `;
+
+        $("#forma_pago").html(html + r);
+
+        // 🔒 estado inicial
+        $('#bloque_pago_mixto').hide();
+        $('#total_recibido')
+            .val('')
+            .prop('readonly', true)
+            .addClass('bg-light');
+
+        $('#vuelto').val('0.00');
+    });
 }
 
 
