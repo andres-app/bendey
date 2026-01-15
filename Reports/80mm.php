@@ -180,6 +180,20 @@ $pdf->Cell(
 );
 
 // ===============================
+// CONDICIÓN DE PAGO
+// ===============================
+$condicion = $reg['condicion_pago'] ?? 'CONTADO';
+
+$pdf->Cell(
+    0,
+    5,
+    utf8_decode('Condición: ' . ucfirst(strtolower($condicion))),
+    0,
+    1
+);
+
+
+// ===============================
 // DETALLE FORMA DE PAGO (SOLO MIXTO)
 // ===============================
 $pagos = $venta->obtenerPagosVenta($_GET["id"]);
