@@ -167,6 +167,50 @@ $pdf->Cell(40, 6, 'TOTAL');
 $pdf->Cell(36, 6, $simbolo . ' ' . number_format($total, 2), 0, 1, 'R');
 
 // ===============================
+// FORMA DE PAGO (TEXTO)
+// ===============================
+$pdf->Ln(1);
+$pdf->SetFont('Helvetica', '', 8);
+$pdf->Cell(
+    0,
+    5,
+    utf8_decode('Forma de pago: ' . $reg['tipo_pago']),
+    0,
+    1
+);
+
+// ===============================
+// DETALLE FORMA DE PAGO (SOLO MIXTO)
+// ===============================
+$pagos = $venta->obtenerPagosVenta($_GET["id"]);
+
+if (count($pagos) > 1) {
+
+    $pdf->Ln(1);
+    $pdf->Cell(0, 0, '', 'T');
+    $pdf->Ln(2);
+
+    $pdf->SetFont('Helvetica', 'B', 8);
+    $pdf->Cell(0, 5, 'Detalle del pago', 0, 1, 'C');
+
+    $pdf->Ln(1);
+    $pdf->SetFont('Helvetica', '', 8);
+
+    foreach ($pagos as $p) {
+        $pdf->Cell(40, 5, utf8_decode($p['nombre']));
+        $pdf->Cell(
+            36,
+            5,
+            $simbolo . ' ' . number_format($p['monto'], 2),
+            0,
+            1,
+            'R'
+        );
+    }
+}
+
+
+// ===============================
 // PIE
 // ===============================
 $pdf->Ln(2);

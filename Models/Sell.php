@@ -462,28 +462,51 @@ class Sell
     public function ventacabecera($idventa)
     {
         $sql = "SELECT 
-            v.estado, v.idventa, v.idcliente, 
+            v.estado,
+            v.idventa,
+            v.idcliente, 
             p.nombre AS cliente, 
             p.direccion, 
             p.tipo_documento, 
             p.num_documento, 
-            p.email, p.telefono, 
-            v.idusuario, u.nombre AS usuario, 
-            v.tipo_comprobante, v.serie_comprobante, v.num_comprobante, 
+            p.email,
+            p.telefono, 
+            v.idusuario,
+            u.nombre AS usuario, 
+            v.tipo_comprobante,
+            v.serie_comprobante,
+            v.num_comprobante, 
             DATE(v.fecha_hora) AS fecha, 
-            v.impuesto, v.total_venta 
-            FROM venta v 
-            INNER JOIN persona p ON v.idcliente=p.idpersona 
-            INNER JOIN usuario u ON v.idusuario=u.idusuario 
-            WHERE v.idventa='$idventa'";
-        return $this->conexion->getDataAll($sql);
+            v.impuesto,
+            v.total_venta,
+            v.tipo_pago,          -- 👈 AQUI
+            v.idforma_pago        -- 👈 OPCIONAL (pero útil)
+        FROM venta v 
+        INNER JOIN persona p ON v.idcliente = p.idpersona 
+        INNER JOIN usuario u ON v.idusuario = u.idusuario 
+        WHERE v.idventa = ?";
+
+        return $this->conexion->getDataAll($sql, [$idventa]);
     }
+
 
 
     public function ventadetalles($idventa)
     {
         $sql = "SELECT a.nombre AS articulo, a.codigo, d.cantidad, d.precio_venta, d.descuento, (d.cantidad*d.precio_venta-d.descuento) AS subtotal FROM $this->tableNameDetalle d INNER JOIN articulo a ON d.idarticulo=a.idarticulo WHERE d.idventa='$idventa'";
         return $this->conexion->getDataAll($sql);
+    }
+
+    public function obtenerPagosVenta($idventa)
+    {
+        $sql = "SELECT 
+                fp.nombre,
+                vp.monto
+            FROM venta_pago vp
+            INNER JOIN forma_pago fp ON fp.idforma_pago = vp.idforma_pago
+            WHERE vp.idventa = ?";
+
+        return $this->conexion->getDataAll($sql, [$idventa]);
     }
 
 
