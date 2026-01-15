@@ -13,7 +13,22 @@ $serie_comprobante = isset($_POST["serie_comprobante"]) ? $_POST["serie_comproba
 $num_comprobante = isset($_POST["num_comprobante"]) ? $_POST["num_comprobante"] : "";
 $impuesto = isset($_POST["impuesto"]) ? $_POST["impuesto"] : "";
 $total_venta = isset($_POST["total_venta"]) ? $_POST["total_venta"] : "";
-$tipo_pago = isset($_POST["tipo_pago"]) ? $_POST["tipo_pago"] : "";
+$idforma_pago = $_POST['idforma_pago'] ?? null;
+
+// Obtener nombre de forma de pago
+$tipo_pago = null;
+
+if ($idforma_pago) {
+    $fp = $sell->getConexion()->getData(
+        "SELECT nombre FROM forma_pago WHERE idforma_pago = ?",
+        [$idforma_pago]
+    );
+
+    if ($fp) {
+        $tipo_pago = $fp['nombre'];
+    }
+}
+
 $num_transac = isset($_POST["num_transac"]) ? $_POST["num_transac"] : "";
 
 
@@ -122,19 +137,70 @@ switch ($_GET["op"]) {
 				$num_comprobante,
 				null,
 				$total_venta,
-				$tipo_pago,
+				$tipo_pago,      // texto (Efectivo / Mixto)
 				$num_transac,
+				$idforma_pago,   // 👈 NUEVO
 				$_POST["idingreso"],
 				$_POST["idarticulo"],
 				$_POST["cantidad"],
 				$_POST["precio_compra"],
 				$_POST["precio_venta"],
-				$_POST["descuento"]
+				$_POST["descuento"],
 			);
 
 			if (!$idventa) {
 				throw new Exception("Error al registrar la venta.");
 			}
+
+			// ======================================
+			// 6) REGISTRAR PAGOS (NORMAL / MIXTO)
+			// ======================================
+			if (!empty($_POST['pagos']) && is_array($_POST['pagos'])) {
+
+				foreach ($_POST['pagos'] as $pago) {
+
+					if (empty($pago['metodo']) || empty($pago['monto'])) {
+						continue;
+					}
+
+					// Obtener ID de forma de pago por nombre
+					$sqlFp = "SELECT idforma_pago FROM forma_pago WHERE nombre = ?";
+					$fp = $sell->getConexion()->getData($sqlFp, [$pago['metodo']]);
+
+					if (!$fp) {
+						throw new Exception("Forma de pago inválida: " . $pago['metodo']);
+					}
+
+					$sqlPago = "
+            INSERT INTO venta_pago (idventa, idforma_pago, monto)
+            VALUES (?, ?, ?)
+        ";
+
+					$sell->getConexion()->setData($sqlPago, [
+						$idventa,
+						$fp['idforma_pago'],
+						$pago['monto']
+					]);
+				}
+			} else {
+
+				// ======================================
+				// PAGO NORMAL (1 SOLO MÉTODO)
+				// ======================================
+				$sqlFp = "SELECT idforma_pago FROM forma_pago WHERE nombre = ?";
+				$fp = $sell->getConexion()->getData($sqlFp, [$tipo_pago]);
+
+				if (!$fp) {
+					throw new Exception("Forma de pago inválida");
+				}
+
+				$sell->getConexion()->setData(
+					"INSERT INTO venta_pago (idventa, idforma_pago, monto)
+         VALUES (?, ?, ?)",
+					[$idventa, $fp['idforma_pago'], $total_venta]
+				);
+			}
+
 
 			// ======================================
 			// 🔄 6) ACTUALIZAR CORRELATIVO

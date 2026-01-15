@@ -17,138 +17,195 @@ class Sell
     }
 
     //metodo insertar registro
-    public function insertar($idcliente, $idusuario, $tipo_comprobante, $serie_comprobante, $num_comprobante, $impuesto, $total_venta, $tipo_pago, $num_transac, $idingreso, $idarticulo, $cantidad, $precio_compra, $precio_venta, $descuento)
-    {
+    public function insertar(
+        $idcliente,
+        $idusuario,
+        $tipo_comprobante,
+        $serie_comprobante,
+        $num_comprobante,
+        $impuesto,
+        $total_venta,
+        $tipo_pago,
+        $num_transac,
+        $idforma_pago,          // 👈 NUEVO
+        $idingreso,
+        $idarticulo,
+        $cantidad,
+        $precio_compra,
+        $precio_venta,
+        $descuento
+    ) {
         date_default_timezone_set('America/Lima');
         $fecha_hora = date("Y-m-d");
-        $sql = "INSERT INTO $this->tableName (idcliente,idusuario,tipo_comprobante,serie_comprobante,num_comprobante,fecha_hora,impuesto,total_venta,tipo_pago,num_transac,estado) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
-        $arrData = array($idcliente, $idusuario, $tipo_comprobante, $serie_comprobante, $num_comprobante, $fecha_hora, $impuesto, $total_venta, $tipo_pago, $num_transac, 'Aceptado');
+
+        // ===============================
+        // INSERT VENTA (CABECERA)
+        // ===============================
+        $sql = "INSERT INTO $this->tableName (
+            idcliente,
+            idusuario,
+            tipo_comprobante,
+            serie_comprobante,
+            num_comprobante,
+            fecha_hora,
+            impuesto,
+            total_venta,
+            tipo_pago,
+            num_transac,
+            estado,
+            idforma_pago
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
+
+        $arrData = [
+            $idcliente,
+            $idusuario,
+            $tipo_comprobante,
+            $serie_comprobante,
+            $num_comprobante,
+            $fecha_hora,
+            $impuesto,
+            $total_venta,
+            $tipo_pago,
+            $num_transac,
+            'Aceptado',
+            $idforma_pago
+        ];
+
+
         $idventanew = $this->conexion->setDataReturnId($sql, $arrData);
+
+        if (!$idventanew) {
+            return false;
+        }
+
         $detalle = $tipo_comprobante . ' ' . $serie_comprobante . '-' . $num_comprobante;
         $num_elementos = 0;
         $sw = true;
 
+        // ===============================
+        // INSERT DETALLE VENTA
+        // ===============================
         while ($num_elementos < count($idarticulo)) {
-            $sql_detalle = "INSERT INTO $this->tableNameDetalle (idventa,idarticulo,cantidad,precio_compra,precio_venta,descuento,estado) VALUES(?,?,?,?,?,?,?)";
-            $arrDatadet = array($idventanew, $idarticulo[$num_elementos], $cantidad[$num_elementos], $precio_compra[$num_elementos], $precio_venta[$num_elementos], $descuento[$num_elementos], '1');
+            $sql_detalle = "INSERT INTO $this->tableNameDetalle
+                (idventa,idarticulo,cantidad,precio_compra,precio_venta,descuento,estado)
+                VALUES(?,?,?,?,?,?,?)";
+
+            $arrDatadet = [
+                $idventanew,
+                $idarticulo[$num_elementos],
+                $cantidad[$num_elementos],
+                $precio_compra[$num_elementos],
+                $precio_venta[$num_elementos],
+                $descuento[$num_elementos],
+                '1'
+            ];
+
             $this->conexion->setData($sql_detalle, $arrDatadet) or $sw = false;
-            $num_elementos = $num_elementos + 1;
+            $num_elementos++;
         }
 
-        //ACTUALIZAR STOCK DESPUÉS DE REALIZAR UNA VENTA
-        $sql_stock = "SELECT idarticulo, cantidad FROM $this->tableNameDetalle WHERE idventa='$idventanew'";
+        // ===============================
+        // ACTUALIZAR STOCK ARTICULO
+        // ===============================
+        $sql_stock = "SELECT idarticulo, cantidad
+                      FROM $this->tableNameDetalle
+                      WHERE idventa='$idventanew'";
+
         $res = $this->conexion->getDataAll($sql_stock);
         $idart = 0;
+
         foreach ($res as $reg) {
-            $cantidad[$idart] = isset($reg['cantidad']) ? $cantidad[$idart] = $reg['cantidad'] : null;
-            $idarticulo[$idart] = isset($reg['idarticulo']) ? $idarticulo[$idart] = $reg['idarticulo'] : null;
-            $sql_detalle = "UPDATE articulo SET stock= stock-'$cantidad[$idart]' WHERE idarticulo=?";
-            $arrData = array($idarticulo[$idart]);
-            $this->conexion->setData($sql_detalle, $arrData) or $sw = false;
-            $idart = $idart + 1;
+            $cantidad[$idart]   = $reg['cantidad'];
+            $idarticulo[$idart] = $reg['idarticulo'];
+
+            $sql_update = "UPDATE articulo
+                           SET stock = stock - ?
+                           WHERE idarticulo = ?";
+
+            $this->conexion->setData($sql_update, [
+                $cantidad[$idart],
+                $idarticulo[$idart]
+            ]) or $sw = false;
+
+            $idart++;
         }
 
+        // ===============================
+        // KARDEX (TU LÓGICA ORIGINAL)
+        // ===============================
         $num_elementos = 0;
-        $sw = true;
 
         while ($num_elementos < count($idarticulo)) {
-            $sqlIdViejo = "SELECT iddetalle_ingreso FROM detalle_ingreso WHERE idarticulo=? AND stock_estado='1' ORDER BY iddetalle_ingreso ASC LIMIT 0,1";
-            $arrDataViejo = array($idarticulo[$num_elementos]);
-            $idIn = $this->conexion->getData($sqlIdViejo, $arrDataViejo);
-            $idViejo = isset($idIn['iddetalle_ingreso']) ? $idIn['iddetalle_ingreso'] : null;
 
-            $sqlStockViejo = "SELECT stock_venta, precio_compra FROM detalle_ingreso WHERE iddetalle_ingreso=?";
-            $arrDataViejoStock = array($idViejo);
-            $stockVenta = $this->conexion->getData($sqlStockViejo, $arrDataViejoStock);
-            (int) $sotckDisponible = isset($stockVenta['stock_venta']) ? (int) $stockVenta['stock_venta'] : null;
-            $stPrecioCompra = isset($stockVenta['precio_compra']) ? $stockVenta['precio_compra'] : null;
+            $sqlIdViejo = "SELECT iddetalle_ingreso
+                           FROM detalle_ingreso
+                           WHERE idarticulo=? AND stock_estado='1'
+                           ORDER BY iddetalle_ingreso ASC
+                           LIMIT 1";
 
-            $cantVenta = (int) $cantidad[$num_elementos];
+            $idIn = $this->conexion->getData($sqlIdViejo, [$idarticulo[$num_elementos]]);
+            $idViejo = $idIn['iddetalle_ingreso'] ?? null;
 
-            if ($cantVenta < $sotckDisponible) {
-                $sql_update = "UPDATE detalle_ingreso SET stock_venta=stock_venta-'$cantVenta' WHERE iddetalle_ingreso=?";
-                $arrUpdate = array($idViejo);
-                $this->conexion->setData($sql_update, $arrUpdate) or $sw = false;
-                //DATOS PARA EL KARDEX
-                $cantidadExistente = $sotckDisponible - $cantVenta;
-                $totalKardex = $cantVenta * $stPrecioCompra;
-                $totalex = $cantidadExistente * $stPrecioCompra;
-                $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-                $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $stPrecioCompra, $totalex, 'Salida', 'Activo');
-                $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
+            $sqlStockViejo = "SELECT stock_venta, precio_compra
+                              FROM detalle_ingreso
+                              WHERE iddetalle_ingreso=?";
 
-            } else {
-                do {
-                    $sqlIdViejo = "SELECT iddetalle_ingreso FROM detalle_ingreso WHERE idarticulo=? AND stock_estado='1' ORDER BY iddetalle_ingreso ASC LIMIT 0,1";
-                    $arrDataViejo = array($idarticulo[$num_elementos]);
-                    $idIn = $this->conexion->getData($sqlIdViejo, $arrDataViejo);
-                    $idViejo = isset($idIn['iddetalle_ingreso']) ? $idIn['iddetalle_ingreso'] : null;
+            $stockVenta = $this->conexion->getData($sqlStockViejo, [$idViejo]);
 
-                    $sqlStockViejo = "SELECT stock_venta, precio_compra FROM detalle_ingreso WHERE iddetalle_ingreso=?";
-                    $arrDataViejoStock = array($idViejo);
-                    $stockVenta = $this->conexion->getData($sqlStockViejo, $arrDataViejoStock);
-                    (int) $sotckDisponible = isset($stockVenta['stock_venta']) ? (int) $stockVenta['stock_venta'] : null;
-                    $stPrecioCompra = isset($stockVenta['precio_compra']) ? $stockVenta['precio_compra'] : null;
+            $sotckDisponible = (int)($stockVenta['stock_venta'] ?? 0);
+            $stPrecioCompra  = $stockVenta['precio_compra'] ?? 0;
 
-                    if ($cantVenta < $sotckDisponible) {
-                        $sql_update = "UPDATE detalle_ingreso SET stock_venta=stock_venta-'$cantVenta' WHERE iddetalle_ingreso=?";
-                        $arrUpdate = array($idViejo);
-                        $this->conexion->setData($sql_update, $arrUpdate) or $sw = false;
-                        //DATOS PARA EL KARDEX
-                        $cantidadExistente = $sotckDisponible - $cantVenta;
-                        $totalKardex = $cantVenta * $stPrecioCompra;
-                        $totalex = $cantidadExistente * $stPrecioCompra;
-                        $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-                        $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $stPrecioCompra, $totalex, 'Salida', 'Activo');
-                        $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
+            $cantVenta = (int)$cantidad[$num_elementos];
 
-                        $cantVenta = $cantVenta - $sotckDisponible;
+            while ($cantVenta > 0 && $sotckDisponible > 0) {
 
-                    } elseif ($cantVenta == $sotckDisponible) {
-                        $sql_update = "UPDATE detalle_ingreso SET stock_venta='0',stock_estado='0' WHERE iddetalle_ingreso=?";
-                        $arrUpdate = array($idViejo);
-                        $this->conexion->setData($sql_update, $arrUpdate) or $sw = false;
+                $ventaActual = min($cantVenta, $sotckDisponible);
 
-                        $cantidadExistente = (int) $sotckDisponible - (int) $cantVenta;
-                        $totalKardex = $cantVenta * $stPrecioCompra;
-                        $totalex = $cantidadExistente * $stPrecioCompra;
-                        $costus = $stPrecioCompra * $cantidadExistente;
+                $this->conexion->setData(
+                    "UPDATE detalle_ingreso
+                     SET stock_venta = stock_venta - ?
+                     WHERE iddetalle_ingreso = ?",
+                    [$ventaActual, $idViejo]
+                );
 
-                        $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-                        $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
-                        $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
+                $cantidadExistente = $sotckDisponible - $ventaActual;
+                $totalKardex = $ventaActual * $stPrecioCompra;
+                $totalex     = $cantidadExistente * $stPrecioCompra;
 
-                        $cantVenta = $cantVenta - $sotckDisponible;
-                    } elseif ($cantVenta > $sotckDisponible) {
-                        $sql_update = "UPDATE detalle_ingreso SET stock_venta='0',stock_estado='0' WHERE iddetalle_ingreso=?";
-                        $arrUpdate = array($idViejo);
-                        $this->conexion->setData($sql_update, $arrUpdate) or $sw = false;
+                $this->conexion->setData(
+                    "INSERT INTO $this->tableNameKardex
+                    (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,
+                     cantidadex,costouex,totalex,tipo,estado)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    [
+                        $idventanew,
+                        $idarticulo[$num_elementos],
+                        $fecha_hora,
+                        $detalle,
+                        $ventaActual,
+                        $stPrecioCompra,
+                        $totalKardex,
+                        $cantidadExistente,
+                        $stPrecioCompra,
+                        $totalex,
+                        'Salida',
+                        'Activo'
+                    ]
+                );
 
-                        $cantVenta = $cantVenta - $sotckDisponible;
-                        $cantidadExistente = $sotckDisponible - $sotckDisponible;
-                        $totalKardex = $sotckDisponible * $stPrecioCompra;
-                        $totalex = $cantidadExistente * $stPrecioCompra;
-                        $costus = $stPrecioCompra * $cantidadExistente;
-                        $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
-                        $arrKardex = array($idventanew, $idarticulo[$num_elementos], $fecha_hora, $detalle, $sotckDisponible, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
-                        $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
-
-                    }
-
-                } while ($cantVenta >= 1);
+                $cantVenta -= $ventaActual;
+                $sotckDisponible -= $ventaActual;
             }
 
-            $num_elementos = $num_elementos + 1;
+            $num_elementos++;
         }
 
-        // CAMBIO PRINCIPAL:
-        // Si todo fue OK, retorna el id de la venta, si no, retorna false
-        if ($sw && $idventanew) {
-            return $idventanew;
-        } else {
-            return false;
-        }
+        // ===============================
+        // RETORNO FINAL
+        // ===============================
+        return ($sw && $idventanew) ? $idventanew : false;
     }
+
 
 
     //FUNCION PARA EDITAR
@@ -187,7 +244,6 @@ class Sell
             $arrData = array($idarticulo[$idart]);
             $this->conexion->setData($sql_detalle, $arrData) or $sw = false;
             $idart = $idart + 1;
-
         }
 
         //ACTUALIZAR EL KARDEX
@@ -246,7 +302,6 @@ class Sell
                 $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
                 $arrKardex = array($idventa, $idarticulo[$num_elementos], $fecha_hora, $detalle, $cantVenta, $stPrecioCompra, $totalKardex, $cantidadExistente, $stPrecioCompra, $totalex, 'Salida', 'Activo');
                 $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
-
             } else {
                 do {
 
@@ -276,7 +331,6 @@ class Sell
                         $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
 
                         $cantVenta = $cantVenta - $sotckDisponible;
-
                     } elseif ($cantVenta == $sotckDisponible) {
 
                         $sql_update = "UPDATE detalle_ingreso SET stock_venta='0',stock_estado='0' WHERE iddetalle_ingreso=?";
@@ -311,11 +365,8 @@ class Sell
                         $sql_kardex = "INSERT INTO $this->tableNameKardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
                         $arrKardex = array($idventa, $idarticulo[$num_elementos], $fecha_hora, $detalle, $sotckDisponible, $stPrecioCompra, $totalKardex, $cantidadExistente, $costus, $totalex, 'Salida', 'Activo');
                         $this->conexion->setData($sql_kardex, $arrKardex) or $sw = false;
-
                     }
-
                 } while ($cantVenta >= 1);
-
             }
 
             $num_elementos = $num_elementos + 1;
@@ -347,7 +398,6 @@ class Sell
             $arrData = array($idarticulo[$idart]);
             $this->conexion->setData($sql_detalle, $arrData) or $sw = false;
             $idart = $idart + 1;
-
         }
 
         //ACTUALIZAR KARDEX
@@ -362,7 +412,6 @@ class Sell
             $this->conexion->setData($sql_kardex, $arrDataKardex) or $sw = false;
             //echo $idarticulo[$idart];
             $idart = $idart + 1;
-
         }
         return $sw;
     }
@@ -407,7 +456,7 @@ class Sell
         ORDER BY v.idventa DESC";
         return $this->conexion->getDataAll($sql);
     }
-    
+
 
 
     public function ventacabecera($idventa)
@@ -445,7 +494,6 @@ class Sell
 
         $sql = "SELECT num_comprobante FROM $this->tableName WHERE tipo_comprobante='$tipo_comprobante' ORDER BY idventa DESC limit 1 ";
         return $this->conexion->getDataAll($sql);
-
     }
     //funcion para seleccionar la serie de la factura
     public function numero_serie($tipo_comprobante)
@@ -470,12 +518,8 @@ class Sell
         return $this->conexion->getData($sql);
     }
 
-    public function getConexion() {
+    public function getConexion()
+    {
         return $this->conexion;
     }
-    
-
 }
-
-
-?>
