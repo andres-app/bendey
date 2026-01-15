@@ -1,3 +1,5 @@
+let productosCache = [];
+
 // newsale3.js
 $(document).ready(function () {
     cargarComprobantes();
@@ -390,7 +392,97 @@ function listarCategorias() {
     });
 }
 
+function renderProductos(data) {
+
+    let prodHtml = '';
+
+    if (!data || data.length === 0) {
+        prodHtml = `
+            <div class="col-12 text-center py-5 text-muted">
+                <i class="bi bi-search fs-1 mb-3"></i>
+                <div>No se encontraron productos</div>
+            </div>`;
+    } else {
+
+        data.forEach(function (prod) {
+
+            prodHtml += `
+                <div class="col-12 col-md-6 col-lg-4 mb-4 producto-item"
+                     data-nombre="${prod.nombre.toLowerCase()}"
+                     data-codigo="${prod.codigo.toLowerCase()}">
+
+                    <div class="card border-0 shadow-sm h-100 producto-card"
+                        style="cursor:pointer;"
+                        onclick="agregarDetalle(
+                            ${prod.idingreso},
+                            ${prod.idarticulo},
+                            '${prod.nombre.replace(/'/g, "\\'")}',
+                            ${prod.precio_compra},
+                            ${prod.precio_venta},
+                            ${prod.stock},
+                            1
+                        )">
+
+                        <div class="card-body">
+
+                            <div class="mb-2 fw-bold fs-5" style="color:#353535;">
+                                ${prod.nombre}
+                            </div>
+
+                            <div class="d-flex align-items-center mb-3">
+                                <div style="width:90px;height:90px;background:#f2f2f2;border-radius:12px;
+                                            display:flex;align-items:center;justify-content:center;margin-right:24px;">
+                                    ${prod.imagen
+                                        ? `<img src="Assets/img/products/${prod.imagen}" style="max-width:80px; max-height:80px; border-radius:10px;">`
+                                        : `<i class="bi bi-image fs-1 text-secondary"></i>`}
+                                </div>
+
+                                <div class="small">
+                                    <div><strong>SKU:</strong> ${prod.codigo}</div>
+                                    <div><strong>Stock:</strong> ${prod.stock}</div>
+                                    <div><strong>Precio:</strong> S/${Number(prod.precio_venta).toFixed(2)}</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    $('#productosList').html(prodHtml);
+}
+
+
+
+$('#buscarProducto').on('input', function () {
+
+    let texto = $(this).val().toLowerCase().trim();
+
+    if (texto === '') {
+        renderProductos(productosCache);
+        return;
+    }
+
+    let filtrados = productosCache.filter(p =>
+        p.nombre.toLowerCase().includes(texto) ||
+        p.codigo.toLowerCase().includes(texto)
+    );
+
+    renderProductos(filtrados);
+});
+
+$('#btnAbrirModal').on('click', function () {
+    $('#modalProductos').modal('show');
+    $('#buscarProducto').val('');
+    listarCategorias();
+});
+
+
 function listarArticulosPorCategoria(idcategoria, tabElement) {
+
+    // UI: activar tab
     $('#catList a.nav-link').removeClass('active');
     if (tabElement) $(tabElement).addClass('active');
 
@@ -399,66 +491,19 @@ function listarArticulosPorCategoria(idcategoria, tabElement) {
         type: 'get',
         dataType: 'json',
         success: function (data) {
-            let prodHtml = '';
 
-            if (data.length === 0) {
-                prodHtml = `
-                        <div class="col-12 text-center py-5">
-                            <b>No hay productos en esta categoría.</b>
-                        </div>`;
-            } else {
-                data.forEach(function (prod) {
-                    prodHtml += `
-                        <div class="col-12 col-md-6 col-lg-4 mb-4">
-                            <div class="card border-0 shadow-sm h-100 producto-card"
-                                style="cursor:pointer;"
-                                onclick="agregarDetalle(
-                                    ${prod.idingreso},
-                                    ${prod.idarticulo},
-                                    '${prod.nombre.replace(/'/g, "\\'")}',
-                                    ${prod.precio_compra},
-                                    ${prod.precio_venta},
-                                    ${prod.stock},
-                                    1
-                                )">
-                        
-                                <div class="card-body">
-                        
-                                    <div class="mb-2 fw-bold fs-5" style="color:#353535;">
-                                        ${prod.nombre}
-                                    </div>
-                        
-                                    <div class="d-flex align-items-center mb-3">
-                                        <div style="width:90px; height:90px; background:#f2f2f2; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-right:24px;">
-                                            ${prod.imagen
-                            ? `<img src="Assets/img/products/${prod.imagen}" style="max-width:80px; max-height:80px; border-radius:10px;">`
-                            : '<i class="bi bi-image fs-1 text-secondary"></i>'}
-                                        </div>
-                        
-                                        <div class="small">
-                                            <div><strong>SKU:</strong> ${prod.codigo}</div>
-                                            <div><strong>Stock:</strong> ${prod.stock}</div>
-                                            <div><strong>Precio:</strong> S/${Number(prod.precio_venta).toFixed(2)}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        `;
-
-                });
-            }
-
-            $('#productosList').html(prodHtml);
+            productosCache = data;   // 🔥 guardas productos de ESA categoría
+            renderProductos(data);   // 🔥 pintas usando el render central
+        },
+        error: function () {
+            productosCache = [];
+            renderProductos([]);
         }
     });
 }
 
 
-$('#btnAbrirModal').on('click', function () {
-    $('#modalProductos').modal('show');
-    listarCategorias(); // <-- Aquí llamas a cargar las categorías al abrir
-});
+
 
 var cont = 0;
 

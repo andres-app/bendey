@@ -320,7 +320,7 @@ if (!isset($_SESSION['nombre'])) {
                                     <i class="bi bi-search fs-4 text-secondary"></i>
                                 </span>
                             </div>
-                            <input type="text" class="form-control border-start-0" placeholder="PC208" style="font-size:1.2rem;">
+                            <input type="text" class="form-control border-start-0" id="buscarProducto" placeholder="Buscar por nombre o código..." style="font-size:1.2rem;">
                             <div class="input-group-append">
                                 <button class="btn btn-outline-secondary bg-green" type="button" title="Escanear código">
                                     <i class="bi bi-upc-scan fs-4"></i>
