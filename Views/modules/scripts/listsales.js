@@ -54,29 +54,94 @@ function listar() {
 }
 
 function mostrar(idventa) {
+
   $("#getCodeModal").modal("show");
+
+  // ===============================
+  // CABECERA
+  // ===============================
   $.post(
     "Controllers/Sell.php?op=mostrar",
-    { idventa: idventa },
-    function (data, status) {
+    { idventa },
+    function (data) {
+
       data = JSON.parse(data);
-      //mostrarform(true);
-      console.log(data);
+      console.log("VENTA:", data);
+
       $("#cliente").val(data.cliente);
       $("#tipo_comprobantem").val(data.tipo_comprobante);
       $("#serie_comprobantem").val(data.serie_comprobante);
       $("#num_comprobantem").val(data.num_comprobante);
       $("#fecha_horam").val(data.fecha);
-      $("#impuestom").val("18");
+      $("#impuestom").val(data.impuesto ?? 0);
       $("#idventam").val(data.idventa);
 
-      //ocultar y mostrar los botones
+      // ✅ FORMA DE PAGO
+      $("#tipo_pagom").val(data.tipo_pago ?? "No especificado");
+
+      // LIMPIAR
+      $("#condicion_pagom").val("");
+      $("#detallePagom").empty();
+      $("#bloquePagoMixto").hide();
+
+      // ✅ CARGAR PAGOS
+      cargarPagosVenta(idventa);
     }
   );
-  $.post("Controllers/Sell.php?op=listarDetalle&id=" + idventa, function (r) {
-    $("#detallesm").html(r);
-  });
+
+  function cargarPagosVenta(idventa) {
+
+    $.getJSON(
+      "Controllers/Sell.php?op=pagos&idventa=" + idventa,
+      function (pagos) {
+  
+        let tbody = $("#detallePagom");
+        tbody.empty();
+  
+        // 🔴 SI NO HAY PAGOS → CRÉDITO
+        if (!pagos || pagos.length === 0) {
+          $("#condicion_pagom").val("CRÉDITO");
+          $("#bloquePagoMixto").hide();
+          return;
+        }
+  
+        // ✅ SI HAY AL MENOS 1 PAGO → CONTADO
+        $("#condicion_pagom").val("CONTADO");
+  
+        // 🟡 SI HAY MÁS DE 1 → MIXTO
+        if (pagos.length > 1) {
+  
+          $("#bloquePagoMixto").show();
+  
+          pagos.forEach(p => {
+            tbody.append(`
+              <tr>
+                <td>${p.nombre}</td>
+                <td class="text-right">S/ ${parseFloat(p.monto).toFixed(2)}</td>
+              </tr>
+            `);
+          });
+  
+        } else {
+          // 1 SOLO PAGO → CONTADO SIMPLE
+          $("#bloquePagoMixto").hide();
+        }
+      }
+    );
+  }
+  
+
+  // ===============================
+  // DETALLE PRODUCTOS
+  // ===============================
+  $.post(
+    "Controllers/Sell.php?op=listarDetalle&id=" + idventa,
+    function (r) {
+      $("#detallesm").html(r);
+    }
+  );
 }
+
 
 function anular(idventa) {
   swal({

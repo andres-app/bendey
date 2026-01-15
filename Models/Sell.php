@@ -419,15 +419,27 @@ class Sell
     //implementar un metodopara mostrar los datos de unregistro a modificar
     public function mostrar($idventa)
     {
-        $sql = "SELECT v.idventa,DATE(v.fecha_hora) as fecha,v.idcliente,p.nombre as cliente,u.idusuario,u.nombre as usuario, v.tipo_comprobante,v.serie_comprobante,v.num_comprobante,v.total_venta,v.impuesto,v.estado FROM $this->tableName v INNER JOIN persona p ON v.idcliente=p.idpersona INNER JOIN usuario u ON v.idusuario=u.idusuario WHERE idventa=?";
-        $arrData = array($idventa);
-        return $this->conexion->getData($sql, $arrData);
-        /* $articulo=15;
-             $sqlIdViejo="SELECT idingreso FROM detalle_ingreso WHERE idarticulo=? AND stock_estado='1' ORDER BY iddetalle_ingreso ASC LIMIT 0,1";
-                     $arrDataViejo = array($articulo);
-         $idIn= $this->conexion->getData($sqlIdViejo,$arrDataViejo);
-         return $idIn['idingreso'];*/
-    }
+        $sql = "SELECT 
+            v.idventa,
+            DATE(v.fecha_hora) as fecha,
+            v.idcliente,
+            p.nombre as cliente,
+            u.nombre as usuario,
+            v.tipo_comprobante,
+            v.serie_comprobante,
+            v.num_comprobante,
+            v.total_venta,
+            v.impuesto,
+            v.estado,
+            v.tipo_pago
+        FROM venta v
+        INNER JOIN persona p ON v.idcliente=p.idpersona
+        INNER JOIN usuario u ON v.idusuario=u.idusuario
+        WHERE v.idventa = ?";
+    
+        return $this->conexion->getData($sql, [$idventa]);
+    }    
+        
 
     public function listarDetalle($idventa)
     {
@@ -500,14 +512,16 @@ class Sell
     public function obtenerPagosVenta($idventa)
     {
         $sql = "SELECT 
-                fp.nombre,
-                vp.monto
-            FROM venta_pago vp
-            INNER JOIN forma_pago fp ON fp.idforma_pago = vp.idforma_pago
-            WHERE vp.idventa = ?";
-
+                    fp.nombre,
+                    vp.monto
+                FROM venta_pago vp
+                INNER JOIN forma_pago fp 
+                    ON fp.idforma_pago = vp.idforma_pago
+                WHERE vp.idventa = ?";
+    
         return $this->conexion->getDataAll($sql, [$idventa]);
     }
+    
 
 
 

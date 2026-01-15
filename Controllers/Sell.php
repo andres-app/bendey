@@ -19,14 +19,14 @@ $idforma_pago = $_POST['idforma_pago'] ?? null;
 $tipo_pago = null;
 
 if ($idforma_pago) {
-    $fp = $sell->getConexion()->getData(
-        "SELECT nombre FROM forma_pago WHERE idforma_pago = ?",
-        [$idforma_pago]
-    );
+	$fp = $sell->getConexion()->getData(
+		"SELECT nombre FROM forma_pago WHERE idforma_pago = ?",
+		[$idforma_pago]
+	);
 
-    if ($fp) {
-        $tipo_pago = $fp['nombre'];
-    }
+	if ($fp) {
+		$tipo_pago = $fp['nombre'];
+	}
 }
 
 $num_transac = isset($_POST["num_transac"]) ? $_POST["num_transac"] : "";
@@ -245,6 +245,12 @@ switch ($_GET["op"]) {
 		echo json_encode($rspta);
 		//echo $rspta;
 		break;
+
+	case 'pagos':
+		$rspta = $sell->obtenerPagosVenta($_GET['idventa']);
+		echo json_encode($rspta);
+		break;
+
 
 
 	//_______________________________________________________________________________________________________
