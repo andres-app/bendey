@@ -370,27 +370,92 @@ function listarCategorias() {
         type: 'get',
         dataType: 'json',
         success: function (data) {
-            let catHtml = '';
+
+            let html = '';
+
             if (data.length === 0) {
-                catHtml = '<li class="nav-item"><a class="nav-link disabled" href="#">Sin categorías</a></li>';
+                html = `
+                  <li class="nav-item">
+                    <span class="nav-link text-muted">Sin categorías</span>
+                  </li>`;
             } else {
-                data.forEach(function (cat, idx) {
-                    catHtml += `<li class="nav-item">
-                            <a class="nav-link ${idx === 0 ? 'active' : ''}" href="#" data-id="${cat.idcategoria}" onclick="listarArticulosPorCategoria(${cat.idcategoria}, this); return false;">
-                                ${cat.nombre}
-                            </a>
-                        </li>`;
+
+                data.forEach((cat, idx) => {
+                    html += `
+                      <li class="nav-item">
+                        <a href="#"
+                           class="nav-link px-3 py-2 ${idx === 0 ? 'active fw-semibold text-success border-bottom border-2' : 'text-secondary'}"
+                           data-id="${cat.idcategoria}">
+                           ${cat.nombre}
+                        </a>
+                      </li>`;
                 });
             }
-            $('#catList').html(catHtml);
 
-            // Carga la primera categoría por defecto
+            $('#catList').html(html);
+
             if (data.length > 0) {
-                listarArticulosPorCategoria(data[0].idcategoria, $('#catList a.nav-link').get(0));
+                listarArticulosPorCategoria(data[0].idcategoria);
             }
         }
     });
 }
+
+
+$(document).on('click', '#catList .nav-link', function (e) {
+    e.preventDefault();
+
+    // Reset visual
+    $('#catList .nav-link')
+        .removeClass('active fw-semibold text-success border-bottom border-2')
+        .addClass('text-secondary');
+
+    // Activar seleccionado
+    $(this)
+        .addClass('active fw-semibold text-success border-bottom border-2')
+        .removeClass('text-secondary');
+
+    listarArticulosPorCategoria($(this).data('id'));
+});
+
+
+
+function listarArticulosPorCategoria(idcategoria) {
+
+    $.ajax({
+        url: 'Controllers/Sell.php?op=listarArticulosPorCategoria&idcategoria=' + idcategoria,
+        type: 'get',
+        dataType: 'json',
+        success: function (data) {
+
+            productosCache = data;   // 🔥 cache
+            renderProductos(data);   // 🔥 render central
+        },
+        error: function () {
+            productosCache = [];
+            renderProductos([]);
+        }
+    });
+}
+
+
+$(document).on('click', '#catList a.nav-link:not(.disabled)', function (e) {
+    e.preventDefault();
+
+    // 🔹 quitar active a todos
+    $('#catList a.nav-link').removeClass('active');
+
+    // 🔹 activar el seleccionado
+    $(this).addClass('active');
+
+    // 🔹 obtener id
+    let idcategoria = $(this).data('id');
+
+    // 🔹 cargar productos
+    listarArticulosPorCategoria(idcategoria);
+});
+
+
 
 function renderProductos(data) {
 
