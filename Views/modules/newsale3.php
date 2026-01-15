@@ -72,7 +72,9 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-md-4">
                                                     <label>Condición de pago</label>
                                                     <div class="form-group mb-0">
-                                                        <select class="form-control form-select" name="condicion_pago">
+                                                        <select class="form-control form-select"
+                                                            name="condicion_pago"
+                                                            id="condicion_pago">
                                                             <option value="Contado">Contado</option>
                                                             <option value="Crédito">Crédito</option>
                                                         </select>
@@ -82,10 +84,48 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-md-4">
                                                     <label>Forma de pago</label>
                                                     <div class="form-group mb-0">
-                                                    <select class="form-control form-select" name="idforma_pago" id="forma_pago"></select>
+                                                        <select class="form-control form-select" name="idforma_pago" id="forma_pago"></select>
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            <div id="bloque_credito" class="row g-3 mb-4" style="display:none;">
+
+                                                <div class="col-md-4">
+                                                    <label class="fw-bold">N° de cuotas</label>
+                                                    <input type="number"
+                                                        min="1"
+                                                        class="form-control"
+                                                        id="numero_cuotas"
+                                                        placeholder="Ej: 3">
+                                                </div>
+
+                                                <div class="col-md-4">
+                                                    <label class="fw-bold">Monto por cuota</label>
+                                                    <input type="text"
+                                                        class="form-control bg-light"
+                                                        id="monto_cuota"
+                                                        readonly
+                                                        placeholder="S/ 0.00">
+                                                </div>
+
+                                                <div class="col-md-4">
+                                                    <label class="fw-bold">Fecha de primer pago</label>
+                                                    <input type="date"
+                                                        class="form-control"
+                                                        id="fecha_pago"
+                                                        name="fecha_pago">
+                                                </div>
+
+                                                <div class="col-12">
+                                                    <small class="text-muted">
+                                                        El monto se calcula automáticamente según el total de la venta.
+                                                    </small>
+                                                </div>
+
+                                            </div>
+
+
 
                                             <div class="row mb-4">
                                                 <div class="col-12 d-flex justify-content-center">

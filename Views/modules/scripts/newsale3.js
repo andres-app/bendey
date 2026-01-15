@@ -6,7 +6,7 @@ $(document).ready(function () {
     cargarCarrito();
     actualizarMensajePedido();
 
-    
+
 });
 
 
@@ -24,11 +24,6 @@ function cargarComprobantes() {
     $.post("Controllers/Sell.php?op=selectCliente", function (r) {
         $("#selectCliente").html(r);
         $("#selectCliente").trigger('change');
-    });
-
-    // Condición de pago
-    $.post("Controllers/Sell.php?op=selectCondicionPago", function (r) {
-        $("#condicion_pago").html(r);
     });
 
 
@@ -58,11 +53,32 @@ function inicializarEventos() {
 
     // Manejo de condición de pago para mostrar campos extra
     $('#condicion_pago').on('change', function () {
-        let tipo = $(this).val();
-        $('#pago_mixto, #pago_credito').hide();
-        if (tipo === 'Mixto') $('#pago_mixto').show();
-        if (tipo === 'Crédito') $('#pago_credito').show();
+
+        let condicion = $(this).val();
+
+        // RESET
+        $('#bloque_credito').hide();
+        $('#numero_cuotas').val('');
+        $('#monto_cuota').val('');
+
+        if (condicion === 'Crédito') {
+            $('#bloque_credito').slideDown();
+        }
     });
+
+    $('#numero_cuotas').on('input', function () {
+
+        let cuotas = parseInt($(this).val());
+        if (!cuotas || cuotas < 1) return;
+    
+        let totalVenta = totalVentaActual();
+    
+        let monto = totalVenta / cuotas;
+    
+        $('#monto_cuota').val('S/ ' + monto.toFixed(2));
+    });
+    
+
 
     // Control del descuento (switch o input)
     $('#descuentoSwitch').on('change', function () {
@@ -208,8 +224,23 @@ function calcularTotales() {
 
     $("#totalGeneral").text("S/" + total.toFixed(2));
 
-    calcularVuelto(); // 👈 AQUI
+    sincronizarTotalRecibido();   // contado / efectivo
+    recalcularCuotasCredito();    // 🔥 crédito
 }
+
+function recalcularCuotasCredito() {
+
+    if ($('#condicion_pago').val() !== 'Crédito') return;
+
+    let cuotas = parseInt($('#numero_cuotas').val());
+    if (!cuotas || cuotas < 1) return;
+
+    let totalVenta = totalVentaActual();
+    let monto = totalVenta / cuotas;
+
+    $('#monto_cuota').val('S/ ' + monto.toFixed(2));
+}
+
 
 
 
@@ -563,8 +594,8 @@ function agregarDetalle(
 function incrementarCantidad(indice, stock) {
     let cantidadInput = document.getElementById('cantidadInput' + indice);
     let cantidadLabel = document.getElementById('cantidadLabel' + indice);
-    let precioInput   = document.querySelectorAll("input[name='precio_venta[]']")[indice];
-    let subtotalSpan  = document.getElementById('subtotal' + indice);
+    let precioInput = document.querySelectorAll("input[name='precio_venta[]']")[indice];
+    let subtotalSpan = document.getElementById('subtotal' + indice);
 
     let cantidad = parseInt(cantidadInput.value) + 1;
 
@@ -586,8 +617,8 @@ function incrementarCantidad(indice, stock) {
 function decrementarCantidad(indice) {
     let cantidadInput = document.getElementById('cantidadInput' + indice);
     let cantidadLabel = document.getElementById('cantidadLabel' + indice);
-    let precioInput   = document.querySelectorAll("input[name='precio_venta[]']")[indice];
-    let subtotalSpan  = document.getElementById('subtotal' + indice);
+    let precioInput = document.querySelectorAll("input[name='precio_venta[]']")[indice];
+    let subtotalSpan = document.getElementById('subtotal' + indice);
 
     let cantidad = parseInt(cantidadInput.value) - 1;
     if (cantidad < 1) return;
@@ -636,7 +667,7 @@ function actualizarMensajePedido() {
 function calcularVuelto() {
 
     // 🔹 detectar forma de pago desde el select (BD)
-    let nombreForma = $('#forma_pago option:selected').data('nombre');
+    let nombreForma = getNombreFormaPago();
 
     // 🔴 si es Mixto, este cálculo NO aplica
     if (nombreForma === 'Mixto') {
@@ -661,23 +692,36 @@ $('#total_recibido').on('input', function () {
 
 $('#formularioVenta').on('submit', function (e) {
 
-    let forma = $('#forma_pago').val();
+    e.preventDefault(); // ⛔ siempre primero
 
-    if (!forma) {
-        Swal.fire(
-            'Forma de pago',
-            'Debe seleccionar una forma de pago',
-            'warning'
-        );
-        return false;
-    }
-
-    e.preventDefault();
-
-    let nombreForma = $('#forma_pago option:selected').data('nombre');
+    let condicion = $('#condicion_pago').val();
+    let nombreForma = getNombreFormaPago();
     let totalVenta = totalVentaActual();
 
-    // 🔹 CASO NORMAL (NO MIXTO)
+    // =========================
+    // 🔹 VALIDACIÓN CRÉDITO
+    // =========================
+    if (condicion === 'Crédito') {
+
+        let cuotas = parseInt($('#numero_cuotas').val());
+
+        if (!cuotas || cuotas < 1) {
+            Swal.fire(
+                'Crédito',
+                'Debe ingresar el número de cuotas',
+                'warning'
+            );
+            return false; // ⛔ NO guarda
+        }
+
+        // 👉 en crédito NO validamos monto recibido
+        guardarVenta();
+        return;
+    }
+
+    // =========================
+    // 🔹 VALIDACIÓN CONTADO / NORMAL
+    // =========================
     if (nombreForma !== 'Mixto') {
 
         let recibido = parseFloat($('#total_recibido').val()) || 0;
@@ -695,7 +739,9 @@ $('#formularioVenta').on('submit', function (e) {
         return;
     }
 
-    // 🔹 CASO MIXTO
+    // =========================
+    // 🔹 VALIDACIÓN PAGO MIXTO
+    // =========================
     let totalPagado = parseFloat($('#total_recibido').val()) || 0;
 
     if (totalPagado < totalVenta) {
@@ -710,11 +756,15 @@ $('#formularioVenta').on('submit', function (e) {
     guardarVenta();
 });
 
+function getNombreFormaPago() {
+    return $('#forma_pago option:selected').text().trim();
+}
+
 
 // FORMA DE PAGO: mostrar campos mixtos
 $('#forma_pago').on('change', function () {
 
-    let nombreForma = $('#forma_pago option:selected').data('nombre');
+    let nombreForma = getNombreFormaPago();
 
     // RESET GENERAL
     $('#bloque_pago_mixto').hide();
@@ -831,7 +881,7 @@ function calcularPagoMixtoForma() {
     $('#pagosMixtosContainer .pago-mixto-fila').each(function () {
 
         let metodo = $(this).find('.pago-metodo').val();
-        let monto  = parseFloat($(this).find('.pago-monto').val()) || 0;
+        let monto = parseFloat($(this).find('.pago-monto').val()) || 0;
 
         totalPagado += monto;
 
