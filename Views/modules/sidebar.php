@@ -1,3 +1,8 @@
+<?php
+// URL actual según tu Plantilla.php
+$url = isset($_GET['url']) ? trim($_GET['url']) : '';
+?>
+
 <div class="main-sidebar sidebar-style-2">
     <aside id="sidebar-wrapper">
 
@@ -11,14 +16,11 @@
 
         <ul class="sidebar-menu">
 
-            <!-- MENÚ -->
             <li class="menu-header">Menú</li>
 
             <!-- ESCRITORIO -->
-            <?php if ($_SESSION['dashboard'] == 1) {
-                $cd = ($_GET['url'] == 'dashboard') ? 'active' : '';
-            ?>
-                <li class="<?= $cd ?>">
+            <?php if (!empty($_SESSION['dashboard']) && $_SESSION['dashboard'] == 1) { ?>
+                <li class="<?= $url == 'dashboard' ? 'active' : '' ?>">
                     <a class="nav-link" href="dashboard">
                         <i data-feather="monitor"></i>
                         <span>Escritorio</span>
@@ -27,148 +29,184 @@
             <?php } ?>
 
             <!-- PRODUCTOS -->
-            <?php if ($_SESSION['almacen'] == 1) {
-                $cp = (
-                    $_GET['url'] == 'product' ||
-                    $_GET['url'] == 'category' ||
-                    $_GET['url'] == 'atributos' ||
-                    $_GET['url'] == 'almacenes'
-                ) ? 'active' : '';
+            <?php if (!empty($_SESSION['almacen']) && $_SESSION['almacen'] == 1) {
+                $productosActive = in_array($url, ['product','category','atributos','almacenes']);
             ?>
-                <li class="dropdown <?= $cp ?>">
+                <li class="dropdown <?= $productosActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
                         <i data-feather="box"></i>
                         <span>Productos</span>
                     </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="nav-link" href="product">Productos</a></li>
-                        <li><a class="nav-link" href="category">Categorías</a></li>
-                        <li><a class="nav-link" href="atributos">Atributos</a></li>
-                        <li><a class="nav-link" href="almacenes">Almacenes</a></li>
+
+                    <ul class="dropdown-menu <?= $productosActive ? 'show' : '' ?>">
+                        <li class="<?= $url == 'product' ? 'active' : '' ?>">
+                            <a class="nav-link" href="product">Productos</a>
+                        </li>
+                        <li class="<?= $url == 'category' ? 'active' : '' ?>">
+                            <a class="nav-link" href="category">Categorías</a>
+                        </li>
+                        <li class="<?= $url == 'atributos' ? 'active' : '' ?>">
+                            <a class="nav-link" href="atributos">Atributos</a>
+                        </li>
+                        <li class="<?= $url == 'almacenes' ? 'active' : '' ?>">
+                            <a class="nav-link" href="almacenes">Almacenes</a>
+                        </li>
                     </ul>
                 </li>
             <?php } ?>
 
             <!-- COMPRAS -->
-            <?php if ($_SESSION['compras'] == 1) {
-                $cc = ($_GET['url'] == 'buy' || $_GET['url'] == 'supplier') ? 'active' : '';
+            <?php if (!empty($_SESSION['compras']) && $_SESSION['compras'] == 1) {
+                $comprasActive = in_array($url, ['buy','supplier']);
             ?>
-                <li class="dropdown <?= $cc ?>">
+                <li class="dropdown <?= $comprasActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
                         <i data-feather="shopping-bag"></i>
                         <span>Compras</span>
                     </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="nav-link" href="buy">Ingresos</a></li>
-                        <li><a class="nav-link" href="supplier">Proveedores</a></li>
+
+                    <ul class="dropdown-menu <?= $comprasActive ? 'show' : '' ?>">
+                        <li class="<?= $url == 'buy' ? 'active' : '' ?>">
+                            <a class="nav-link" href="buy">Ingresos</a>
+                        </li>
+                        <li class="<?= $url == 'supplier' ? 'active' : '' ?>">
+                            <a class="nav-link" href="supplier">Proveedores</a>
+                        </li>
                     </ul>
                 </li>
             <?php } ?>
 
             <!-- VENTAS -->
-            <?php if ($_SESSION['ventas'] == 1) {
-                $cv = (
-                    $_GET['url'] == 'newsale3' ||
-                    $_GET['url'] == 'listsales' ||
-                    $_GET['url'] == 'customer' ||
-                    $_GET['url'] == 'sunat'
-                ) ? 'active' : '';
+            <?php if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
+                $ventasActive = in_array($url, ['newsale3','listsales','customer','sunat']);
             ?>
-                <li class="dropdown <?= $cv ?>">
+                <li class="dropdown <?= $ventasActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
                         <i data-feather="shopping-cart"></i>
                         <span>Ventas</span>
                     </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="nav-link" href="newsale3">Nueva venta</a></li>
-                        <li><a class="nav-link" href="listsales">Ventas</a></li>
-                        <li><a class="nav-link" href="customer">Clientes</a></li>
-                        <li><a class="nav-link" href="sunat">SUNAT</a></li>
+
+                    <ul class="dropdown-menu <?= $ventasActive ? 'show' : '' ?>">
+                        <li class="<?= $url == 'newsale3' ? 'active' : '' ?>">
+                            <a class="nav-link" href="newsale3">Nueva venta</a>
+                        </li>
+                        <li class="<?= $url == 'listsales' ? 'active' : '' ?>">
+                            <a class="nav-link" href="listsales">Ventas</a>
+                        </li>
+                        <li class="<?= $url == 'customer' ? 'active' : '' ?>">
+                            <a class="nav-link" href="customer">Clientes</a>
+                        </li>
+                        <li class="<?= $url == 'sunat' ? 'active' : '' ?>">
+                            <a class="nav-link" href="sunat">SUNAT</a>
+                        </li>
                     </ul>
                 </li>
             <?php } ?>
 
             <!-- USUARIOS -->
-            <?php if ($_SESSION['users'] == 1) {
-                $cu = ($_GET['url'] == 'users' || $_GET['url'] == 'permissions') ? 'active' : '';
+            <?php if (!empty($_SESSION['users']) && $_SESSION['users'] == 1) {
+                $usuariosActive = in_array($url, ['users','permissions']);
             ?>
-                <li class="dropdown <?= $cu ?>">
+                <li class="dropdown <?= $usuariosActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
                         <i data-feather="users"></i>
                         <span>Usuarios</span>
                     </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="nav-link" href="users">Usuarios</a></li>
-                        <li><a class="nav-link" href="permissions">Permisos</a></li>
+
+                    <ul class="dropdown-menu <?= $usuariosActive ? 'show' : '' ?>">
+                        <li class="<?= $url == 'users' ? 'active' : '' ?>">
+                            <a class="nav-link" href="users">Usuarios</a>
+                        </li>
+                        <li class="<?= $url == 'permissions' ? 'active' : '' ?>">
+                            <a class="nav-link" href="permissions">Permisos</a>
+                        </li>
                     </ul>
                 </li>
             <?php } ?>
 
-            <!-- ✅ MANTENIMIENTO (JUSTO ANTES DE CONFIGURACIÓN) -->
-            <?php if ($_SESSION['almacen'] == 1) {
-                $cm = ($_GET['url'] == 'medida') ? 'active' : '';
+            <!-- MANTENIMIENTO -->
+            <?php if (!empty($_SESSION['almacen']) && $_SESSION['almacen'] == 1) {
+                $mantActive = ($url == 'medida');
             ?>
-                <li class="dropdown <?= $cm ?>">
+                <li class="dropdown <?= $mantActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
                         <i data-feather="layers"></i>
                         <span>Mantenimiento</span>
                     </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="nav-link" href="medida">Medidas</a></li>
+
+                    <ul class="dropdown-menu <?= $mantActive ? 'show' : '' ?>">
+                        <li class="<?= $url == 'medida' ? 'active' : '' ?>">
+                            <a class="nav-link" href="medida">Medidas</a>
+                        </li>
                     </ul>
                 </li>
             <?php } ?>
 
             <!-- CONFIGURACIÓN -->
-            <?php if ($_SESSION['settings'] == 1) {
-                $cs = (
-                    $_GET['url'] == 'generalsetting' ||
-                    $_GET['url'] == 'vouchersetting' ||
-                    $_GET['url'] == 'paymentstype'
-                ) ? 'active' : '';
+            <?php if (!empty($_SESSION['settings']) && $_SESSION['settings'] == 1) {
+                $configActive = in_array($url, ['generalsetting','vouchersetting','paymentstype']);
             ?>
-                <li class="dropdown <?= $cs ?>">
+                <li class="dropdown <?= $configActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
                         <i data-feather="settings"></i>
                         <span>Configuración</span>
                     </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="nav-link" href="generalsetting">Datos generales</a></li>
-                        <li><a class="nav-link" href="vouchersetting">Comprobantes</a></li>
-                        <li><a class="nav-link" href="paymentstype">Tipos de pago</a></li>
+
+                    <ul class="dropdown-menu <?= $configActive ? 'show' : '' ?>">
+                        <li class="<?= $url == 'generalsetting' ? 'active' : '' ?>">
+                            <a class="nav-link" href="generalsetting">Datos generales</a>
+                        </li>
+                        <li class="<?= $url == 'vouchersetting' ? 'active' : '' ?>">
+                            <a class="nav-link" href="vouchersetting">Comprobantes</a>
+                        </li>
+                        <li class="<?= $url == 'paymentstype' ? 'active' : '' ?>">
+                            <a class="nav-link" href="paymentstype">Tipos de pago</a>
+                        </li>
                     </ul>
                 </li>
             <?php } ?>
 
-            <!-- REPORTES -->
             <li class="menu-header">Reportes</li>
+
             <?php
-            $cr = (
-                $_GET['url'] == 'graphics' ||
-                $_GET['url'] == 'datebuy' ||
-                $_GET['url'] == 'purchaseproduct' ||
-                $_GET['url'] == 'clientdatesales' ||
-                $_GET['url'] == 'salesproduct' ||
-                $_GET['url'] == 'kardex'
-            ) ? 'active' : '';
+            $reportesActive = in_array($url, [
+                'graphics','datebuy','purchaseproduct',
+                'clientdatesales','salesproduct','kardex'
+            ]);
             ?>
-            <li class="dropdown <?= $cr ?>">
+            <li class="dropdown <?= $reportesActive ? 'active' : '' ?>">
                 <a href="#" class="nav-link has-dropdown">
                     <i data-feather="grid"></i>
                     <span>Reportes</span>
                 </a>
-                <ul class="dropdown-menu">
-                    <li><a class="nav-link" href="graphics">Gráficos</a></li>
-                    <?php if ($_SESSION['datebuy'] == 1) { ?>
-                        <li><a class="nav-link" href="datebuy">Compras por fechas</a></li>
-                        <li><a class="nav-link" href="purchaseproduct">Compras artículos</a></li>
+
+                <ul class="dropdown-menu <?= $reportesActive ? 'show' : '' ?>">
+                    <li class="<?= $url == 'graphics' ? 'active' : '' ?>">
+                        <a class="nav-link" href="graphics">Gráficos</a>
+                    </li>
+
+                    <?php if (!empty($_SESSION['datebuy']) && $_SESSION['datebuy'] == 1) { ?>
+                        <li class="<?= $url == 'datebuy' ? 'active' : '' ?>">
+                            <a class="nav-link" href="datebuy">Compras por fechas</a>
+                        </li>
+                        <li class="<?= $url == 'purchaseproduct' ? 'active' : '' ?>">
+                            <a class="nav-link" href="purchaseproduct">Compras artículos</a>
+                        </li>
                     <?php } ?>
-                    <?php if ($_SESSION['clientdatesales'] == 1) { ?>
-                        <li><a class="nav-link" href="clientdatesales">Consulta ventas</a></li>
-                        <li><a class="nav-link" href="salesproduct">Ventas artículos</a></li>
+
+                    <?php if (!empty($_SESSION['clientdatesales']) && $_SESSION['clientdatesales'] == 1) { ?>
+                        <li class="<?= $url == 'clientdatesales' ? 'active' : '' ?>">
+                            <a class="nav-link" href="clientdatesales">Consulta ventas</a>
+                        </li>
+                        <li class="<?= $url == 'salesproduct' ? 'active' : '' ?>">
+                            <a class="nav-link" href="salesproduct">Ventas artículos</a>
+                        </li>
                     <?php } ?>
-                    <?php if ($_SESSION['almacen'] == 1) { ?>
-                        <li><a class="nav-link" href="kardex">Kardex</a></li>
+
+                    <?php if (!empty($_SESSION['almacen']) && $_SESSION['almacen'] == 1) { ?>
+                        <li class="<?= $url == 'kardex' ? 'active' : '' ?>">
+                            <a class="nav-link" href="kardex">Kardex</a>
+                        </li>
                     <?php } ?>
                 </ul>
             </li>
