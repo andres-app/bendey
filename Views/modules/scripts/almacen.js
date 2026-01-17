@@ -58,6 +58,15 @@ function listar() {
         console.error("Error cargando almacenes:", e.responseText);
       },
     },
+
+    columnDefs: [
+      {
+        targets: [0],      // 👈 columna ID
+        visible: false,    // 👈 NO se muestra
+        searchable: false  // 👈 NO participa en búsqueda
+      }
+    ],
+
     dom: "Bfrtip",
     buttons: [
       {
@@ -65,8 +74,8 @@ function listar() {
         text: '<i class="fa fa-file-excel-o"></i> Excel',
         title: "Reporte de Almacenes",
         exportOptions: {
-          columns: [0, 1, 2, 3, 4],
-        },
+          columns: [1, 2, 3, 4] // 👈 SIN ID
+        }
       },
       {
         extend: "pdfHtml5",
@@ -74,13 +83,14 @@ function listar() {
         title: "Reporte de Almacenes",
         pageSize: "A4",
         exportOptions: {
-          columns: [0, 1, 2, 3, 4],
-        },
-      },
+          columns: [1, 2, 3, 4] // 👈 SIN ID
+        }
+      }
     ],
+
     destroy: true,
     responsive: true,
-    order: [[0, "desc"]],
+    order: [[1, "asc"]], // ordenar por Nombre, no por ID
     language: {
       lengthMenu: "Mostrar _MENU_ registros",
       zeroRecords: "No se encontraron resultados",
@@ -92,11 +102,12 @@ function listar() {
         first: "Primero",
         last: "Último",
         next: "Siguiente",
-        previous: "Anterior",
-      },
-    },
+        previous: "Anterior"
+      }
+    }
   });
 }
+
 
 // ==============================
 // GUARDAR / EDITAR
