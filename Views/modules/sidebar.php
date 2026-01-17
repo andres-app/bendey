@@ -1,7 +1,11 @@
 <?php
 // URL actual según tu Plantilla.php
 $url = isset($_GET['url']) ? trim($_GET['url']) : '';
+
+// 👉 detectar si es pantalla POS (Nueva Venta)
+$esPOS = ($url === 'newsale3');
 ?>
+
 
 <div class="main-sidebar sidebar-style-2">
     <aside id="sidebar-wrapper">
@@ -78,7 +82,7 @@ $url = isset($_GET['url']) ? trim($_GET['url']) : '';
 
             <!-- VENTAS -->
             <?php if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
-                $ventasActive = in_array($url, ['newsale3','listsales','customer','sunat']);
+                $ventasActive = !$esPOS && in_array($url, ['listsales','customer','sunat']);
             ?>
                 <li class="dropdown <?= $ventasActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
