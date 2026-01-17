@@ -38,15 +38,17 @@ switch ($_GET["op"]) {
     case 'listar':
         $rspta = $category->listar();
         $data = array();
-
+    
         foreach ($rspta as $reg) {
-
-            $botonSub = 
+    
+            // 🔹 BOTÓN SUBCATEGORÍAS (VA EN VALORES)
+            $botonSub =
                 '<button class="btn btn-info btn-sm"
                     onclick="verSubcategorias('.$reg['idcategoria'].', `'.$reg['nombre'].'`)">
                     <i class="fa fa-list"></i>
-                 </button> ';
-
+                </button>';
+    
+            // 🔹 BOTONES OPCIONES
             if ($reg['condicion']) {
                 $botonesEstado =
                     '<button class="btn btn-warning btn-sm"
@@ -68,26 +70,25 @@ switch ($_GET["op"]) {
                         <i class="fas fa-check"></i>
                      </button>';
             }
-
+    
             $data[] = array(
-                "0" => $botonSub . $botonesEstado,
-                "1" => $reg['nombre'],
-                "2" => $reg['descripcion'],
-                "3" => ($reg['condicion'])
+                "0" => $botonesEstado,        // 👈 OPCIONES
+                "1" => $reg['nombre'],        // 👈 NOMBRE
+                "2" => $botonSub,             // 👈 VALORES (SUBCATEGORÍAS)
+                "3" => ($reg['condicion'])    // 👈 ESTADO
                     ? '<div class="badge badge-success">Activado</div>'
                     : '<div class="badge badge-danger">Desactivado</div>'
             );
         }
-
-        $results = array(
+    
+        echo json_encode(array(
             "sEcho" => 1,
             "iTotalRecords" => count($data),
             "iTotalDisplayRecords" => count($data),
             "aaData" => $data
-        );
-
-        echo json_encode($results);
+        ));
         break;
+    
 
     case 'selectCategoria':
         $rspta = $category->select();

@@ -30,7 +30,7 @@ header("location: login");
                                     <thead>
                                         <th>Opciones</th>
                                         <th>Nombre</th>
-                                        <th>Descripcion</th>
+                                        <th>Valores</th>
                                         <th>Estado</th>
                                     </thead>
                                     <tbody>
@@ -51,7 +51,7 @@ header("location: login");
                                                 maxlength="50" placeholder="Nombre" required>
                                         </div>
                                         <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                            <label for="">Descripcion</label>
+                                            <label for="">Valores</label>
                                             <input class="form-control" type="text" name="descripcion" id="descripcion"
                                                 maxlength="256" placeholder="Descripcion">
                                         </div>
