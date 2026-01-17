@@ -75,6 +75,60 @@ header("location: login");
 </div>
 </section>
 </div>
+
+<!-- MODAL SUBCATEGORÍAS -->
+<div class="modal fade" id="modalSubcategorias" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Subcategorías de <b><span id="categoriaNombre"></span></b>
+        </h5>
+        <button type="button" class="close" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- ID CATEGORÍA -->
+        <input type="hidden" id="sub_idcategoria">
+
+        <!-- FORM NUEVA SUBCATEGORÍA -->
+        <div class="input-group mb-3">
+          <input type="text" id="sub_nombre" class="form-control"
+                 placeholder="Nueva subcategoría">
+          <div class="input-group-append">
+            <button class="btn btn-primary" onclick="guardarSubcategoria()">
+              Agregar
+            </button>
+          </div>
+        </div>
+
+        <!-- TABLA SUBCATEGORÍAS -->
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th>Opciones</th>
+              </tr>
+            </thead>
+            <tbody id="tablaSubcategorias">
+              <!-- AJAX -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+<!-- FIN MODAL SUBCATEGORÍAS -->
+
 <?php
     }else{
         require "access.php";

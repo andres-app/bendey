@@ -17,6 +17,104 @@ function limpiar() {
   $("#descripcion").val("");
 }
 
+/* ===============================
+   SUBCATEGORÍAS
+================================ */
+
+function verSubcategorias(idcategoria, nombre) {
+  $("#categoriaNombre").text(nombre);
+  $("#sub_idcategoria").val(idcategoria);
+  $("#modalSubcategorias").modal("show");
+  listarSubcategorias(idcategoria);
+}
+
+function listarSubcategorias(idcategoria) {
+  $.get(
+    "Controllers/Subcategoria.php?op=listar&idcategoria=" + idcategoria,
+    function (data) {
+      let res = JSON.parse(data);
+      let html = "";
+
+      // ✅ AQUÍ VA EL MENSAJE CUANDO NO HAY SUBCATEGORÍAS
+      if (res.length === 0) {
+        $("#tablaSubcategorias").html(`
+          <tr>
+            <td colspan="3" class="text-center text-muted">
+              Esta categoría aún no tiene subcategorías
+            </td>
+          </tr>
+        `);
+        return;
+      }
+
+      res.forEach(function (r) {
+        html += `
+          <tr>
+            <td>${r.nombre}</td>
+            <td>
+              ${r.estado == 1
+                ? '<span class="badge badge-success">Activo</span>'
+                : '<span class="badge badge-danger">Inactivo</span>'}
+            </td>
+            <td>
+              ${
+                r.estado == 1
+                  ? `<button class="btn btn-danger btn-sm"
+                       onclick="desactivarSub(${r.idsubcategoria})">X</button>`
+                  : `<button class="btn btn-success btn-sm"
+                       onclick="activarSub(${r.idsubcategoria})">✓</button>`
+              }
+            </td>
+          </tr>
+        `;
+      });
+
+      $("#tablaSubcategorias").html(html);
+    }
+  );
+}
+
+
+function guardarSubcategoria() {
+  let idcategoria = $("#sub_idcategoria").val();
+  let nombre = $("#sub_nombre").val();
+
+  if (nombre.trim() === "") {
+    alert("Ingrese nombre");
+    return;
+  }
+
+  $.post(
+    "Controllers/Subcategoria.php?op=guardar",
+    { idcategoria: idcategoria, nombre: nombre },
+    function () {
+      $("#sub_nombre").val("");
+      listarSubcategorias(idcategoria);
+    }
+  );
+}
+
+function activarSub(id) {
+  $.post(
+    "Controllers/Subcategoria.php?op=activar",
+    { idsubcategoria: id },
+    function () {
+      listarSubcategorias($("#sub_idcategoria").val());
+    }
+  );
+}
+
+function desactivarSub(id) {
+  $.post(
+    "Controllers/Subcategoria.php?op=desactivar",
+    { idsubcategoria: id },
+    function () {
+      listarSubcategorias($("#sub_idcategoria").val());
+    }
+  );
+}
+
+
 //funcion mostrar formulario
 function mostrarform(flag) {
   limpiar();
