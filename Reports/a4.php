@@ -1,159 +1,301 @@
 <?php
-// activamos almacenamiento en el buffer
 ob_start();
-if (strlen(session_id()) < 1) {
-    session_start();
+if (strlen(session_id()) < 1) session_start();
+
+if (!isset($_SESSION['nombre'])) { echo "Debe ingresar al sistema correctamente"; exit; }
+if ($_SESSION['ventas'] != 1) { echo "No tiene permiso"; exit; }
+
+// ===============================
+// HELPERS
+// ===============================
+function tx($s) {
+  $s = (string)$s;
+  // Convierte UTF-8 a Windows-1252 para FPDF sin romper tildes/ñ
+  return iconv('UTF-8', 'windows-1252//TRANSLIT', $s);
 }
 
-if (!isset($_SESSION['nombre'])) {
-    echo "Debe ingresar al sistema correctamente para visualizar el reporte";
-    exit;
-} else {
-    if ($_SESSION['ventas'] == 1) {
+// ===============================
+// MODELOS
+// ===============================
+require_once "../Models/Sell.php";
+require_once "../Models/Company.php";
+require_once "../Libraries/NumeroALetras.php";
+require_once "../Libraries/phpqrcode/qrlib.php";
+require_once "../Libraries/fpdf182/fpdf.php";
 
-        // incluimos el archivo factura
-        require('Factura.php');
+$venta = new Sell();
+$reg = $venta->ventacabecera($_GET["id"])[0];
+$detalles = $venta->ventadetalles($_GET["id"]);
+$pagos = $venta->obtenerPagosVenta($_GET["id"]);
 
-        // datos de la empresa
-        require_once "../Models/Company.php";
-        $cnegocio = new Company();
-        $rsptan = $cnegocio->listar();
+$empresaData = (new Company())->listar()[0];
 
-        if (!$rsptan || empty($rsptan)) {
-            echo "Error al obtener los datos de la empresa";
-            exit;
-        }
+// ===============================
+// DATOS EMPRESA
+// ===============================
+$empresa   = $empresaData['nombre'];
+$ruc       = $empresaData['documento'];
+$direccion = $empresaData['direccion'];
+$telefono  = $empresaData['telefono'];
+$email     = $empresaData['email'] ?? '';
+$ciudad    = $empresaData['ciudad'] ?? '';
+$simbolo   = $empresaData['simbolo'];
+$moneda    = $empresaData['moneda'];
+$impuesto  = $empresaData['nombre_impuesto'];
+$porcIgv   = (float)$empresaData['monto_impuesto'];
 
-        // Aseguramos que cada campo esté definido y tenga un valor por defecto si no existe
-        $empresa = isset($rsptan[0]['nombre']) ? $rsptan[0]['nombre'] : 'Nombre no definido';
-        $ndocumento = isset($rsptan[0]['ndocumento']) ? $rsptan[0]['ndocumento'] : 'N/D';
-        $documento = isset($rsptan[0]['documento']) ? $rsptan[0]['documento'] : 'Documento no disponible';
-        $direccion = isset($rsptan[0]['direccion']) ? $rsptan[0]['direccion'] : 'Dirección no disponible';
-        $telefono = isset($rsptan[0]['telefono']) ? $rsptan[0]['telefono'] : 'Teléfono no disponible';
-        $email = isset($rsptan[0]['email']) ? $rsptan[0]['email'] : 'Email no disponible';
+$logo = "../Assets/img/company/" . ($empresaData['logo'] ?? '');
+$logoDefault = "../Assets/img/company/default_logo.png";
+if (!file_exists($logo)) $logo = $logoDefault;
 
-        // Verificar si el logo existe, de lo contrario usar un logo por defecto
-        $logoe = "../Assets/img/company/" . $rsptan[0]['logo'];
-        $logo_default = "../Assets/img/company/default_logo.png";
+// ===============================
+// DATOS VENTA
+// ===============================
+$tipoComp  = strtoupper($reg['tipo_comprobante']);
+$serieNum  = $reg['serie_comprobante'] . " - " . $reg['num_comprobante'];
+$fechaDoc  = date("Y-m-d", strtotime($reg['fecha']));
 
-        if (!file_exists($logoe)) {
-            $logoe = $logo_default;
-        }
+$cliente   = $reg['cliente'] ?? '--';
+$dirCli    = $reg['direccion'] ?? '--';
+$docCli    = ($reg['tipo_documento'] ?? '') . ": " . ($reg['num_documento'] ?? '--');
 
-        // obtenemos los datos de la cabecera de la venta actual
-        require_once "../Models/Sell.php";
-        $venta = new Sell();
-        $rsptav = $venta->ventacabecera($_GET["id"]);
+$tipoPago  = $reg['tipo_pago'] ?? '--';
+$condicion = $reg['condicion_pago'] ?? 'CONTADO';
 
-        if (!$rsptav || empty($rsptav)) {
-            echo "Error al obtener los datos de la venta";
-            exit;
-        }
+// ===============================
+// TOTALES (MISMA LÓGICA QUE 80MM)
+// ===============================
+$total = (float)$reg['total_venta'];
+$igv = round($total * $porcIgv / 100, 2);
+$subtotal = round($total - $igv, 2);
 
-        // recorremos todos los valores que obtengamos
-        $regv = $rsptav[0];
+// ===============================
+// LETRAS
+// ===============================
+$formatter = new NumeroALetras();
+$enLetras = strtoupper($formatter->toWords($total)) . " " . $moneda;
 
-        // Proporcionamos valores por defecto si están vacíos
-        $cliente = !empty($regv['cliente']) ? $regv['cliente'] : '--';
-        $direccion_cliente = !empty($regv['direccion']) ? $regv['direccion'] : '--';
-        $num_documento = !empty($regv['num_documento']) ? $regv['num_documento'] : '--';
-        $email_cliente = !empty($regv['email']) ? $regv['email'] : '--';
-        $telefono_cliente = !empty($regv['telefono']) ? $regv['telefono'] : '--';
+// ===============================
+// QR
+// ===============================
+$qrFile = "../Assets/qr_" . $reg['num_comprobante'] . ".png";
+QRcode::png($reg['num_comprobante'], $qrFile, QR_ECLEVEL_L, 4);
 
-        // configuración de la factura
-        $pdf = new PDF_Invoice('P', 'mm', 'A4');
-        $pdf->AddPage();
+// ===============================
+// PDF A4
+// ===============================
+$pdf = new FPDF('P', 'mm', 'A4');
+$pdf->SetAutoPageBreak(false);
+$pdf->AddPage();
 
-        // enviamos datos de la empresa al método addSociete de la clase factura
-        $pdf->addSociete(
-            utf8_decode($empresa),
-            $ndocumento . ": " . $documento . "\n" .
-            utf8_decode("Dirección: ") . utf8_decode($direccion) . "\n" .
-            utf8_decode("Telfono: ") . $telefono . "\n" .
-            "Email: " . $email,
-            $logoe,
-            25,
-            25
-        );
+$M = 10;                 // margen
+$W = 210; $H = 297;      // A4
+$lineH = 5;
 
-        // Factura
-        $pdf->fact_dev($regv['tipo_comprobante'], $regv['serie_comprobante'] . '-' . $regv['num_comprobante']);
-        $pdf->addDate($regv['fecha']);
-
-        // Enviamos los datos del cliente al método addClientAdresse de la clase factura
-        $pdf->addClientAdresse(
-            utf8_decode($cliente),
-            "Domicilio: " . utf8_decode($direccion_cliente),
-            $regv['tipo_documento'] . ": " . $num_documento,
-            "Email: " . $email_cliente,
-            "Celular: " . $telefono_cliente
-        );
-
-        // Detalles de la venta
-        $rsptad = $venta->ventadetalles($_GET["id"]);
-
-        if (!$rsptad || empty($rsptad)) {
-            echo "Error al obtener los detalles de la venta";
-            exit;
-        }
-
-        // Mostramos los detalles de la venta
-        $cols = array(
-            "CODIGO" => 23,
-            "DESCRIPCION" => 78,
-            "CANTIDAD" => 22,
-            "P.U." => 25,
-            "DSCTO" => 20,
-            "IMPORTE" => 22
-        );
-        $pdf->addCols($cols);
-        $pdf->addLineFormat($cols);
-        $y = 85;
-
-        foreach ($rsptad as $regd) {
-            $line = array(
-                "CODIGO" => $regd['codigo'],
-                "DESCRIPCION" => utf8_decode($regd['articulo']),
-                "CANTIDAD" => $regd['cantidad'],
-                "P.U." => $regd['precio_venta'],
-                "DSCTO" => $regd['descuento'],
-                "IMPORTE" => $regd['subtotal']
-            );
-            $size = $pdf->addLine($y, $line);
-            $y += $size + 2;
-        }
-
-        // Cálculos de SUBTOTAL, IGV (18%) y TOTAL
-        $total_venta = $regv['total_venta']; // Total de la venta
-        $subtotal = $total_venta / 1.18; // Calculamos el subtotal sin IGV
-        $igv = $total_venta - $subtotal; // El IGV es la diferencia entre el total y el subtotal
-
-        // Ajustamos la posición del rectángulo más abajo y hacia la derecha
-        $pdf->Rect(140, 250, 60, 30); // Coordenadas x, y, ancho, alto
-
-        // Posicionamos los totales dentro del rectángulo en el PDF
-        $pdf->SetFont('Arial', 'B', 10);
-
-        // SUBTOTAL
-        $pdf->SetXY(140, 255); // Coordenadas de la celda
-        $pdf->Cell(30, 6, 'SUBTOTAL:', 0, 0, 'R');
-        $pdf->Cell(30, 6, number_format($subtotal, 2, '.', ','), 0, 1, 'R');
-
-        // IGV 18%
-        $pdf->SetXY(140, 261); // Coordenadas de la celda
-        $pdf->Cell(30, 6, 'IGV 18%:', 0, 0, 'R');
-        $pdf->Cell(30, 6, number_format($igv, 2, '.', ','), 0, 1, 'R');
-
-        // TOTAL
-        $pdf->SetXY(140, 267); // Coordenadas de la celda
-        $pdf->Cell(30, 6, 'TOTAL:', 0, 0, 'R');
-        $pdf->Cell(30, 6, number_format($total_venta, 2, '.', ','), 0, 1, 'R');
-
-        // Generar PDF
-        $pdf->Output('Reporte de Venta', 'I');
-    } else {
-        echo "No tiene permiso para visualizar el reporte";
-    }
+// ===============================
+// CABECERA: LOGO + EMPRESA
+// ===============================
+$pdf->SetXY($M, 10);
+if (file_exists($logo)) {
+  $pdf->Image($logo, $M, 10, 28); // ancho 28mm
 }
 
+$pdf->SetXY($M + 32, 12);
+$pdf->SetFont('Helvetica', 'B', 11);
+$pdf->Cell(110, 5, tx($empresa), 0, 1);
+
+$pdf->SetX($M + 32);
+$pdf->SetFont('Helvetica', '', 9);
+$pdf->Cell(110, 4, tx("RUC: $ruc"), 0, 1);
+$pdf->SetX($M + 32);
+$pdf->Cell(110, 4, tx("Dirección: $direccion"), 0, 1);
+$pdf->SetX($M + 32);
+$pdf->Cell(110, 4, tx("Teléfono: $telefono"), 0, 1);
+$pdf->SetX($M + 32);
+$pdf->Cell(110, 4, tx("Email: $email"), 0, 1);
+
+// ===============================
+// CAJA DERECHA: COMPROBANTE + FECHA
+// ===============================
+$boxX = 140; $boxY = 10; $boxW = 60; $boxH = 22;
+$pdf->Rect($boxX, $boxY, $boxW, $boxH);
+$pdf->SetXY($boxX, $boxY);
+$pdf->SetFont('Helvetica', 'B', 8);
+$pdf->Cell($boxW, 7, tx("$tipoComp ELECTRÓNICA N°: " . $reg['serie_comprobante'] . $reg['num_comprobante']), 0, 1, 'C');
+
+$pdf->Line($boxX, $boxY + 7, $boxX + $boxW, $boxY + 7);
+
+$pdf->SetFont('Helvetica', 'B', 8);
+$pdf->SetXY($boxX, $boxY + 8);
+$pdf->Cell($boxW, 6, tx("FECHA"), 0, 1, 'C');
+
+$pdf->Line($boxX, $boxY + 14, $boxX + $boxW, $boxY + 14);
+
+$pdf->SetFont('Helvetica', '', 9);
+$pdf->SetXY($boxX, $boxY + 15);
+$pdf->Cell($boxW, 7, tx($fechaDoc), 0, 1, 'C');
+
+// ===============================
+// BLOQUE CLIENTE
+// ===============================
+$cliY = 38;
+$pdf->SetFont('Helvetica', 'B', 9);
+$pdf->SetXY($M, $cliY);
+$pdf->Cell(0, 5, tx("CLIENTE"), 0, 1);
+
+$pdf->SetFont('Helvetica', '', 9);
+$pdf->SetX($M);
+$pdf->Cell(0, 4, tx($cliente), 0, 1);
+
+$pdf->SetX($M);
+$pdf->Cell(0, 4, tx("Dirección: $dirCli"), 0, 1);
+
+$pdf->SetX($M);
+$pdf->Cell(0, 4, tx($docCli), 0, 1);
+
+// ===============================
+// FORMA / CONDICIÓN (FUERA DE LA TABLA)
+// ===============================
+$pdf->Ln(2);
+$pdf->SetX($M);
+$pdf->Cell(0, 4, tx("Forma de pago: $tipoPago"), 0, 1);
+$pdf->SetX($M);
+$pdf->Cell(0, 4, tx("Condición: " . ucfirst(strtolower($condicion))), 0, 1);
+
+// ===============================
+// TABLA DETALLE (CON LÍNEAS)
+// ===============================
+$tableX = $M;
+$tableY = 72;
+$tableW = 190;
+$tableH = 165;          // alto máximo de tabla en una hoja
+$pdf->Rect($tableX, $tableY, $tableW, $tableH);
+
+// Columnas: ajustadas a tu captura
+$colCodigo = 28;
+$colDesc   = 92;
+$colCant   = 14;
+$colPU     = 24;
+$colImp    = 32;
+
+// Líneas verticales
+$pdf->Line($tableX + $colCodigo, $tableY, $tableX + $colCodigo, $tableY + $tableH);
+$pdf->Line($tableX + $colCodigo + $colDesc, $tableY, $tableX + $colCodigo + $colDesc, $tableY + $tableH);
+$pdf->Line($tableX + $colCodigo + $colDesc + $colCant, $tableY, $tableX + $colCodigo + $colDesc + $colCant, $tableY + $tableH);
+$pdf->Line($tableX + $colCodigo + $colDesc + $colCant + $colPU, $tableY, $tableX + $colCodigo + $colDesc + $colCant + $colPU, $tableY + $tableH);
+
+// Header tabla
+$pdf->SetFont('Helvetica', 'B', 8);
+$pdf->SetXY($tableX, $tableY);
+$pdf->Cell($colCodigo, 7, tx("CODIGO"), 0, 0, 'C');
+$pdf->Cell($colDesc,   7, tx("DESCRIPCION"), 0, 0, 'C');
+$pdf->Cell($colCant,   7, tx("CANT"), 0, 0, 'C');
+$pdf->Cell($colPU,     7, tx("P.U."), 0, 0, 'C');
+$pdf->Cell($colImp,    7, tx("IMPORTE"), 0, 1, 'C');
+
+$pdf->Line($tableX, $tableY + 7, $tableX + $tableW, $tableY + 7);
+
+// Filas
+$pdf->SetFont('Helvetica', '', 8);
+$y = $tableY + 10;
+$yMax = $tableY + $tableH - 12;
+
+$cantArticulos = 0;
+
+foreach ($detalles as $d) {
+  // altura estimada por descripción
+  $desc = (string)$d['articulo'];
+  $lines = max(1, ceil(mb_strlen($desc, 'UTF-8') / 38)); // ajuste simple
+  $rowH = 5 * $lines;
+
+  if ($y + $rowH > $yMax) break; // una sola hoja
+
+  $cantArticulos += (float)$d['cantidad'];
+
+  // CODIGO
+  $pdf->SetXY($tableX + 1, $y);
+  $pdf->MultiCell($colCodigo - 2, 5, tx($d['codigo'] ?? ''), 0, 'L');
+
+  // DESCRIPCION
+  $pdf->SetXY($tableX + $colCodigo + 1, $y);
+  $pdf->MultiCell($colDesc - 2, 5, tx($desc), 0, 'L');
+
+  // CANT
+  $pdf->SetXY($tableX + $colCodigo + $colDesc, $y);
+  $pdf->Cell($colCant - 2, 5, tx($d['cantidad']), 0, 0, 'R');
+
+  // P.U.
+  $pdf->SetXY($tableX + $colCodigo + $colDesc + $colCant, $y);
+  $pdf->Cell($colPU - 2, 5, number_format((float)$d['precio_venta'], 2), 0, 0, 'R');
+
+  // IMPORTE
+  $pdf->SetXY($tableX + $colCodigo + $colDesc + $colCant + $colPU, $y);
+  $pdf->Cell($colImp - 2, 5, number_format((float)$d['subtotal'], 2), 0, 0, 'R');
+
+  $y += $rowH;
+}
+
+// ===============================
+// TEXTO SON + CANTIDAD (BAJO TABLA, IZQ)
+// ===============================
+$belowY = $tableY + $tableH + 4;
+
+$pdf->SetFont('Helvetica', '', 8);
+$pdf->SetXY($M, $belowY);
+$pdf->MultiCell(120, 4, tx("SON: $enLetras"));
+
+$pdf->SetXY($M, $belowY + 10);
+$pdf->Cell(120, 4, tx("Cantidad de artículos: " . (int)$cantArticulos), 0, 1);
+
+// ===============================
+// CAJA TOTALES (BAJO TABLA, DERECHA)
+// ===============================
+$totX = 135; $totY = 245; $totW = 65; $totH = 24;
+$pdf->Rect($totX, $totY, $totW, $totH);
+
+$pdf->SetFont('Helvetica', 'B', 8);
+$pdf->SetXY($totX + 2, $totY + 4);
+$pdf->Cell(35, 4, tx("SUBTOTAL:"), 0, 0, 'R');
+$pdf->Cell(26, 4, $simbolo . " " . number_format($subtotal, 2), 0, 1, 'R');
+
+$pdf->SetXY($totX + 2, $totY + 10);
+$pdf->Cell(35, 4, tx("$impuesto $porcIgv%:"), 0, 0, 'R');
+$pdf->Cell(26, 4, $simbolo . " " . number_format($igv, 2), 0, 1, 'R');
+
+$pdf->SetFont('Helvetica', 'B', 9);
+$pdf->SetXY($totX + 2, $totY + 16);
+$pdf->Cell(35, 5, tx("TOTAL:"), 0, 0, 'R');
+$pdf->Cell(26, 5, $simbolo . " " . number_format($total, 2), 0, 1, 'R');
+
+// ===============================
+// DETALLE PAGO MIXTO (SI APLICA) - ABAJO IZQ
+// ===============================
+if (count($pagos) > 1) {
+  $pdf->SetFont('Helvetica', 'B', 8);
+  $pdf->SetXY($M, 240);
+  $pdf->Cell(0, 4, tx("Detalle del pago"), 0, 1);
+
+  $pdf->SetFont('Helvetica', '', 8);
+  $yy = 244;
+  foreach ($pagos as $p) {
+    if ($yy > 268) break;
+    $pdf->SetXY($M, $yy);
+    $pdf->Cell(70, 4, tx($p['nombre']), 0, 0);
+    $pdf->Cell(30, 4, $simbolo . " " . number_format((float)$p['monto'], 2), 0, 1, 'R');
+    $yy += 4;
+  }
+}
+
+// ===============================
+// QR + TEXTO LEGAL (PIE)
+// ===============================
+$pdf->Image($qrFile, $M, 262, 26);
+
+$pdf->SetFont('Helvetica', '', 7);
+$pdf->SetXY($M, 290);
+$pdf->Cell(0, 4, tx("Este comprobante es una representación impresa del Comprobante Electrónico"), 0, 1);
+
+$pdf->Output($tipoComp . '_' . $reg['serie_comprobante'] . '_' . $reg['num_comprobante'] . '.pdf', 'I');
+
+if (file_exists($qrFile)) unlink($qrFile);
 ob_end_flush();
