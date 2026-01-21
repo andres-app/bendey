@@ -24,6 +24,8 @@ function init() {
 function mostrarform(flag) {
   limpiar();
   if (flag) {
+    resetSubcategoriaUI("Seleccione subcategoría");
+    $("#idcategoria").trigger("change");
     $("#listadoregistros").hide();
     $("#formularioregistros").show();
     $("#btnGuardar").prop("disabled", false);
@@ -44,7 +46,15 @@ function limpiar() {
   $("#idarticulo").val("");
   $("#variaciones-lista").empty();
   $("#variaciones-container").hide();
+
+  // ✅ IMPORTANTE: dejar subcategoría bloqueada siempre al limpiar
+  resetSubcategoriaUI("Seleccione subcategoría");
+
+  // ✅ IMPORTANTE: forzar que se ejecute la regla según la categoría actual
+  // (porque reset() NO dispara change)
+  $("#idcategoria").trigger("change");
 }
+
 
 function cancelarform() {
   limpiar();
@@ -435,6 +445,12 @@ $("#idcategoria").on("change", function () {
     }
   );
 });
+
+function resetSubcategoriaUI(msg = "Seleccione subcategoría") {
+  $("#idsubcategoria")
+    .prop("disabled", true)
+    .html(`<option value="">${msg}</option>`);
+}
 
 
 
