@@ -259,11 +259,21 @@ function mostrar(idarticulo) {
     data = JSON.parse(data);
     mostrarform(true);
 
-    $("#idcategoria").val(data.idcategoria);
-    $.post("Controllers/Subcategoria.php?op=selectSubcategoria", { categoria_id: data.idcategoria }, function (r) {
-      $("#idsubcategoria").html(r);
-      $("#idsubcategoria").val(data.idsubcategoria);
-    });
+    $("#idcategoria").val(data.idcategoria).trigger("change");
+
+    $.post(
+      "Controllers/Subcategoria.php?op=selectSubcategoria",
+      { categoria_id: data.idcategoria },
+      function (r) {
+        if (r.trim() !== "" && data.idsubcategoria) {
+          $("#idsubcategoria")
+            .prop("disabled", false)
+            .html(r)
+            .val(data.idsubcategoria);
+        }
+      }
+    );
+    
 
     $("#idmedida").val(data.idmedida);
     $("#codigo").val(data.codigo);
@@ -394,11 +404,39 @@ function generarVariaciones() {
 
 
 $("#idcategoria").on("change", function () {
-  let categoriaId = $(this).val();
-  $.post("Controllers/Subcategoria.php?op=selectSubcategoria", { categoria_id: categoriaId }, function (data) {
-    $("#idsubcategoria").html(data);
-  });
+  const categoriaId = $(this).val();
+
+  // Reset inicial
+  $("#idsubcategoria")
+    .prop("disabled", true)
+    .html('<option value="">Seleccione subcategoría</option>');
+
+  if (!categoriaId) return;
+
+  $.post(
+    "Controllers/Subcategoria.php?op=selectSubcategoria",
+    { categoria_id: categoriaId },
+    function (data) {
+
+      // Insertamos el HTML
+      $("#idsubcategoria").html(data);
+
+      // 🔍 CONTAMOS OPCIONES REALES
+      const totalOpciones = $("#idsubcategoria option").length;
+
+      // 👉 SOLO habilitar si hay MÁS DE 1 opción
+      if (totalOpciones > 1) {
+        $("#idsubcategoria").prop("disabled", false);
+      } else {
+        $("#idsubcategoria")
+          .prop("disabled", true)
+          .html('<option value="">Esta categoría no tiene subcategorías</option>');
+      }
+    }
+  );
 });
+
+
 
 $("#formSubidaMasiva").on("submit", function (e) {
   e.preventDefault();

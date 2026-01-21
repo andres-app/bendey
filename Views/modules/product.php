@@ -8,7 +8,7 @@ if (!isset($_SESSION['nombre'])) {
     require "sidebar.php";
 
     if ($_SESSION['almacen'] == 1) {
-        ?>
+?>
         <div class="main-content">
             <section class="section">
                 <div class="section-body">
@@ -130,8 +130,9 @@ if (!isset($_SESSION['nombre'])) {
 
                                                 <div class="form-group col-md-4">
                                                     <label>Subcategoría</label>
-                                                    <select class="form-control" name="idsubcategoria"
-                                                        id="idsubcategoria"></select>
+                                                    <select class="form-control" name="idsubcategoria" id="idsubcategoria" disabled>
+                                                        <option value="">Seleccione subcategoría</option>
+                                                    </select>
                                                 </div>
 
                                                 <div class="form-group col-md-4">
@@ -237,7 +238,7 @@ if (!isset($_SESSION['nombre'])) {
                 </div>
             </section>
         </div>
-        <?php
+    <?php
     } else {
         require "access.php";
     }
@@ -246,7 +247,7 @@ if (!isset($_SESSION['nombre'])) {
     <script src="Assets/js/JsBarcode.all.min.js"></script>
     <script src="Assets/js/jquery.PrintArea.js"></script>
     <script src="Views/modules/scripts/product.js"></script>
-    <?php
+<?php
 }
 ob_end_flush();
 ?>
