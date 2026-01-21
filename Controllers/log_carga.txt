@@ -1,2 +1,0 @@
-Fila 2: Producto 'Polo Piolino' registrado exitosamente.
-Fila 3: Producto 'JABONo' registrado exitosamente.

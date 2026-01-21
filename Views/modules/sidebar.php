@@ -148,7 +148,7 @@ $esPOS = ($url === 'newsale3');
 
             <!-- CONFIGURACIÓN -->
             <?php if (!empty($_SESSION['settings']) && $_SESSION['settings'] == 1) {
-                $configActive = in_array($url, ['generalsetting','vouchersetting','paymentstype']);
+                $configActive = in_array($url, ['generalsetting','vouchersetting','paymentstype','paymentformat']);
             ?>
                 <li class="dropdown <?= $configActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
@@ -165,6 +165,9 @@ $esPOS = ($url === 'newsale3');
                         </li>
                         <li class="<?= $url == 'paymentstype' ? 'active' : '' ?>">
                             <a class="nav-link" href="paymentstype">Tipos de pago</a>
+                        </li>
+                        <li class="<?= $url == 'paymentformat' ? 'active' : '' ?>">
+                            <a class="nav-link" href="paymentformat">Forma de pago</a>
                         </li>
                     </ul>
                 </li>

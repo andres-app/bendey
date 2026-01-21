@@ -19,6 +19,7 @@ if (isset($_GET["url"])) {
     || $_GET["url"] == "generalsetting"
     || $_GET["url"] == "vouchersetting"
     || $_GET["url"] == "paymentstype"
+    || $_GET["url"] == "paymentformat"
     || $_GET["url"] == "datebuy"
     || $_GET["url"] == "clientdatesales"
     || $_GET["url"] == "permissions"
