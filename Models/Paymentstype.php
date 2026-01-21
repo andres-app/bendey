@@ -49,11 +49,12 @@ class Paymentstype{
 		return  $this->conexion->getDataAll($sql); 
 	}
     //listar y mostrar en Select
-    public function select(){
-        $sql="SELECT * FROM $this->tableName WHERE estado=1";
-        return  $this->conexion->getDataAll($sql); 
-    }
-
-
+	public function select(){
+		$sql = "SELECT idtipopago, nombre 
+				FROM tipo_pago 
+				WHERE estado = 1";
+		return $this->conexion->getDataAll($sql);
+	}
+	
 }
 

@@ -11,6 +11,15 @@ $(document).ready(function () {
 
 });
 
+function cargarTipoPago() {
+    $.post("Controllers/Paymentstype.php?op=selectTipopago", function (r) {
+        $("#tipo_pago").html(r);
+    });
+}
+
+$(document).ready(function () {
+    cargarTipoPago();
+});
 
 
 

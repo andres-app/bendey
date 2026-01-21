@@ -70,13 +70,9 @@ if (!isset($_SESSION['nombre'])) {
                                                 </div>
 
                                                 <div class="col-md-4">
-                                                    <label>Condición de pago</label>
+                                                    <label>Tipo de pago</label>
                                                     <div class="form-group mb-0">
-                                                        <select class="form-control form-select"
-                                                            name="condicion_pago"
-                                                            id="condicion_pago">
-                                                            <option value="Contado">Contado</option>
-                                                            <option value="Crédito">Crédito</option>
+                                                        <select class="form-control form-select" name="idtipopago" id="tipo_pago">
                                                         </select>
                                                     </div>
                                                 </div>
