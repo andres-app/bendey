@@ -9,8 +9,6 @@ function init() {
     guardaryeditar(e);
   });
 
-  //ocultar la imagen del logo al inicio
-  $("#logomuestra").hide();
 }
 
 //funcion limpiar
@@ -22,8 +20,6 @@ function limpiar() {
   $("#direccion").val("");
   $("#telefono").val("");
   $("#email").val("");
-  $("#logomuestra").attr("src", "");
-  $("#logoactual").val("");
   $("#pais").val("");
   $("#ciudad").val("");
   $("#nombre_impuesto").val("");
@@ -140,9 +136,6 @@ function mostrar(id_negocio) {
       $("#direccion").val(data.direccion);
       $("#telefono").val(data.telefono);
       $("#email").val(data.email);
-      $("#logomuestra").show();
-      $("#logomuestra").attr("src", "Assets/img/company/" + data.logo);
-      $("#logoactual").val(data.logo);
       $("#pais").val(data.pais);
       $("#ciudad").val(data.ciudad);
       $("#nombre_impuesto").val(data.nombre_impuesto);

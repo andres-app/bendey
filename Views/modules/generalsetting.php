@@ -29,7 +29,6 @@ if (!isset($_SESSION['nombre'])) {
                                             <thead>
                                                 <tr>
                                                     <th>Opción</th>
-                                                    <th>Logo</th>
                                                     <th>Nombre</th>
                                                     <th>Documento</th>
                                                     <th>Dirección</th>
@@ -50,23 +49,6 @@ if (!isset($_SESSION['nombre'])) {
                                     <div id="formularioregistros">
                                         <form action="" name="formulario" id="formulario" method="POST">
                                             <div class="row">
-                                                <div class="form-group col-lg-6 col-md-6 col-xs-12">
-                                                    <label for="logo">Logo(*):</label>
-                                                    <div class="d-flex align-items-center">
-                                                        <!-- Contenedor de Input y Previsualización de Imagen -->
-                                                        <div class="mr-3">
-                                                            <input class="form-control-file" type="file" name="logo" id="logo"
-                                                                style="max-width: 200px;">
-                                                            <input type="hidden" name="logoactual" id="logoactual">
-                                                        </div>
-                                                        <!-- Contenedor de Imagen con Estilos CSS para mejor visualización -->
-                                                        <div>
-                                                            <img src="" alt="Logo Actual" class="img-thumbnail" width="150"
-                                                                height="120" id="logomuestra">
-                                                        </div>
-                                                    </div>
-                                                </div>
-
                                                 <div class="form-group col-lg-6 col-md-6 col-xs-12">
                                                     <label for="nombre">Nombre de la empresa(*):</label>
                                                     <input class="form-control" type="hidden" name="id_negocio" id="id_negocio">
