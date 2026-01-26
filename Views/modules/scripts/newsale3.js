@@ -710,6 +710,61 @@ function agregarDetalle(
 
 }
 
+let bufferScan = '';
+
+$('#scannerInput').on('keydown', function (e) {
+
+    if (e.key === 'Enter') {
+        e.preventDefault();
+
+        let codigo = bufferScan.trim();
+        bufferScan = '';
+
+        if (codigo !== '') buscarProductoPorCodigo(codigo);
+
+        $(this).val('');
+        return;
+    }
+
+    if (e.key.length === 1) {
+        bufferScan += e.key;
+    }
+});
+
+function buscarProductoPorCodigo(codigo) {
+
+    $.post(
+        "Controllers/Sell.php?op=buscarProductoPorCodigo",
+        { codigo: codigo },
+        function (resp) {
+
+            let p;
+            try {
+                p = JSON.parse(resp);
+            } catch {
+                Swal.fire('Error', 'Respuesta inválida', 'error');
+                return;
+            }
+
+            if (!p || !p.idarticulo) {
+                Swal.fire('Producto no encontrado', codigo, 'warning');
+                return;
+            }
+
+            agregarDetalle(
+                p.idingreso,
+                p.idarticulo,
+                p.nombre,
+                p.precio_compra,
+                p.precio_venta,
+                p.stock,
+                1
+            );
+        }
+    );
+}
+
+
 function incrementarCantidad(indice, stock) {
     let cantidadInput = document.getElementById('cantidadInput' + indice);
     let cantidadLabel = document.getElementById('cantidadLabel' + indice);

@@ -265,6 +265,9 @@ if (!isset($_SESSION['nombre'])) {
                                         </div>
 
                                     </div>
+                                    <input type="text" id="scannerInput" autocomplete="off"
+                                        style="position:fixed;opacity:0;left:-9999px;">
+
                                 </div>
                             </div>
 

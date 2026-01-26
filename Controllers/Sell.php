@@ -630,4 +630,11 @@ switch ($_GET["op"]) {
 					  </option>';
 		}
 		break;
+
+		case 'buscarProductoPorCodigo':
+			echo json_encode(
+				$sell->buscarProductoPorCodigo($_POST['codigo'] ?? '')
+			);
+			break;
+		
 }

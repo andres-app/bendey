@@ -436,10 +436,10 @@ class Sell
         INNER JOIN persona p ON v.idcliente=p.idpersona
         INNER JOIN usuario u ON v.idusuario=u.idusuario
         WHERE v.idventa = ?";
-    
+
         return $this->conexion->getData($sql, [$idventa]);
-    }    
-        
+    }
+
 
     public function listarDetalle($idventa)
     {
@@ -518,8 +518,21 @@ class Sell
                 INNER JOIN forma_pago fp 
                     ON fp.idforma_pago = vp.idforma_pago
                 WHERE vp.idventa = ?";
-    
+
         return $this->conexion->getDataAll($sql, [$idventa]);
+    }
+
+    public function buscarProductoPorCodigo($codigo)
+    {
+        $sql = "SELECT i.idingreso, a.idarticulo, a.nombre,
+                       i.precio_compra, i.precio_venta, i.stock
+                FROM articulo a
+                INNER JOIN ingreso_detalle i 
+                    ON a.idarticulo = i.idarticulo
+                WHERE a.codigo = ?
+                LIMIT 1";
+    
+        return $this->conexion->getDataAll($sql, [$codigo]);
     }
     
 
