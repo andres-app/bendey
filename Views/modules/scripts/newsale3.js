@@ -738,19 +738,16 @@ function buscarProductoPorCodigo(codigo) {
         { codigo: codigo },
         function (resp) {
 
-            let p;
-            try {
-                p = JSON.parse(resp);
-            } catch {
-                Swal.fire('Error', 'Respuesta inválida', 'error');
-                return;
-            }
+            let data = JSON.parse(resp);
 
-            if (!p || !p.idarticulo) {
+            if (!data || data.length === 0) {
                 Swal.fire('Producto no encontrado', codigo, 'warning');
                 return;
             }
-
+            
+            // 🔥 TOMAMOS EL PRIMER REGISTRO
+            let p = data[0];
+            
             agregarDetalle(
                 p.idingreso,
                 p.idarticulo,
@@ -760,6 +757,7 @@ function buscarProductoPorCodigo(codigo) {
                 p.stock,
                 1
             );
+            
         }
     );
 }
