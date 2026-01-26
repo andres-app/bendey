@@ -183,7 +183,6 @@ if($rspta==false){
 		  $rsptan = $company->listar();
 	$regn=$rsptan[0];
 	$_SESSION['nombreEmrpesa']=$regn['nombre'];
-		$_SESSION['logoEmrpesa']=$regn['logo'];
 
 
 
