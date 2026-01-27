@@ -182,7 +182,9 @@ if (!isset($_SESSION['nombre'])) {
                                         </div>
 
                                         <!-- ✅ ESTE FOOTER ESTÁ DENTRO DEL FORM -->
-                                        <div class="card-footer bg-white border-0 px-4 pb-4 pt-2">
+                                        <div class="card-footer bg-white border-top px-4 py-3 position-sticky"
+                                            style="bottom:0; z-index:30;">
+
                                             <div class="row align-items-center">
 
                                                 <!-- Total -->
