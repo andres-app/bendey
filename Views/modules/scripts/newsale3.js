@@ -604,15 +604,15 @@ function agregarDetalle(
     let existe = false;
 
     $("input[name='idarticulo[]']").each(function (index) {
-    
+
         if (parseInt($(this).val()) === parseInt(idarticulo)) {
-    
+
             let cantidadInput = $("input[name='cantidad[]']").eq(index);
             let cantidadLabel = $("#cantidadLabel" + index);
-            let precioVenta   = parseFloat($("input[name='precio_venta[]']").eq(index).val());
-    
+            let precioVenta = parseFloat($("input[name='precio_venta[]']").eq(index).val());
+
             let nuevaCantidad = parseInt(cantidadInput.val()) + 1;
-    
+
             // 🚫 Validar stock
             if (nuevaCantidad > stock) {
                 Swal.fire(
@@ -623,23 +623,23 @@ function agregarDetalle(
                 existe = true;
                 return false;
             }
-    
+
             // ✅ Actualizar cantidad
             cantidadInput.val(nuevaCantidad);
             cantidadLabel.text(nuevaCantidad);
-    
+
             // ✅ Recalcular subtotal
             let nuevoSubtotal = nuevaCantidad * precioVenta;
             $("#subtotal" + index).text(nuevoSubtotal.toFixed(2));
-    
+
             // 🔄 Totales generales
             calcularTotales();
             actualizarMensajePedido();
-    
+
             existe = true;
             return false; // salir del each
         }
-    });    
+    });
 
 
     if (existe) {
@@ -698,12 +698,14 @@ function agregarDetalle(
                     style="min-width:48px;">
 
                     <div class="d-flex flex-column align-items-center gap-1">
-                        <button type="button" class="btn btn-outline-success btn-sm px-2 py-1"
+                        <button type="button"
+                            class="btn btn-outline-success btn-sm px-2 py-1 mb-1"
                             onclick="incrementarCantidad(${cont}, ${stock})">
                             <i class="bi bi-plus"></i>
                         </button>
 
-                        <button type="button" class="btn btn-outline-secondary btn-sm px-2 py-1"
+                        <button type="button"
+                            class="btn btn-outline-secondary btn-sm px-2 py-1"
                             onclick="decrementarCantidad(${cont})">
                             <i class="bi bi-dash"></i>
                         </button>
