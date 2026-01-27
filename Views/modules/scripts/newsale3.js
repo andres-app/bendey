@@ -745,13 +745,13 @@ function agregarDetalle(
 let bufferScan = '';
 let scanTimeout = null;
 
-$(document).on('keydown', function (e) {
+$(document).on('keypress', function (e) {
 
-    // 🔒 Ignorar inputs normales (cliente, buscador, etc.)
+    // Ignorar inputs normales
     if ($(e.target).is('input, textarea')) return;
 
-    if (e.key === 'Enter') {
-        e.preventDefault();
+    // ENTER → fin de escaneo
+    if (e.which === 13) {
 
         if (bufferScan.length >= 3) {
             console.log('ESCANEADO:', bufferScan);
@@ -762,15 +762,17 @@ $(document).on('keydown', function (e) {
         return;
     }
 
-    if (e.key.length === 1) {
-        bufferScan += e.key;
+    // Solo caracteres visibles
+    if (e.which >= 32 && e.which <= 126) {
+        bufferScan += String.fromCharCode(e.which);
 
         clearTimeout(scanTimeout);
         scanTimeout = setTimeout(() => {
             bufferScan = '';
-        }, 300);
+        }, 1000); // ⏱️ más tolerante para scanner
     }
 });
+
 
 
 
