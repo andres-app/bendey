@@ -137,11 +137,18 @@ $cantidad = 0;
 
 foreach ($venta->ventadetalles($_GET["id"]) as $d) {
   $y = $pdf->GetY();
-  $pdf->MultiCell(38, 4, utf8_decode($d['articulo']));
+
+  $nombreArticulo = $d['articulo'];
+  if (!empty($d['sku'])) {
+      $nombreArticulo .= ' (' . $d['sku'] . ')';
+  }
+
+  $pdf->MultiCell(38, 4, utf8_decode($nombreArticulo));
   $pdf->SetXY(40, $y);
   $pdf->Cell(8, 4, $d['cantidad'], 0, 0, 'R');
   $pdf->Cell(14, 4, number_format($d['precio_venta'], 2), 0, 0, 'R');
   $pdf->Cell(16, 4, number_format($d['subtotal'], 2), 0, 1, 'R');
+
   $cantidad += $d['cantidad'];
 }
 

@@ -505,9 +505,22 @@ class Sell
 
     public function ventadetalles($idventa)
     {
-        $sql = "SELECT a.nombre AS articulo, a.codigo, d.cantidad, d.precio_venta, d.descuento, (d.cantidad*d.precio_venta-d.descuento) AS subtotal FROM $this->tableNameDetalle d INNER JOIN articulo a ON d.idarticulo=a.idarticulo WHERE d.idventa='$idventa'";
+        $sql = "
+            SELECT 
+                a.nombre AS articulo,
+                a.codigo AS sku,
+                d.cantidad,
+                d.precio_venta,
+                d.descuento,
+                (d.cantidad * d.precio_venta - d.descuento) AS subtotal
+            FROM {$this->tableNameDetalle} d
+            INNER JOIN articulo a ON d.idarticulo = a.idarticulo
+            WHERE d.idventa = '$idventa'
+        ";
+    
         return $this->conexion->getDataAll($sql);
     }
+    
 
     public function obtenerPagosVenta($idventa)
     {
