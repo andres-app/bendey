@@ -716,31 +716,54 @@ function agregarDetalle(
 }
 
 let bufferScan = '';
+let scanTimeout = null;
 
-$('#scannerInput').on('keydown', function (e) {
+$(document).on('keydown', function (e) {
 
+    // Ignorar si el usuario está escribiendo manualmente
+    if (
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.isContentEditable
+    ) {
+        return;
+    }
+
+    if (scanTimeout) clearTimeout(scanTimeout);
+
+    // ENTER = fin del escaneo
     if (e.key === 'Enter') {
         e.preventDefault();
 
         let codigo = bufferScan.trim();
         bufferScan = '';
 
-        if (codigo !== '') buscarProductoPorCodigo(codigo);
+        if (codigo.length >= 3) {
+            buscarProductoPorCodigo(codigo);
+        }
 
-        $(this).val('');
         return;
     }
 
+    // Solo caracteres imprimibles
     if (e.key.length === 1) {
         bufferScan += e.key;
+
+        // seguridad: limpiar si se queda colgado
+        scanTimeout = setTimeout(() => {
+            bufferScan = '';
+        }, 300);
     }
 });
 
+
 function buscarProductoPorCodigo(codigo) {
+
+    $('#pedidoVacio').addClass('opacity-25');
 
     $.post(
         "Controllers/Sell.php?op=buscarProductoPorCodigo",
-        { codigo: codigo },
+        { codigo },
         function (resp) {
 
             let data = JSON.parse(resp);
@@ -750,7 +773,6 @@ function buscarProductoPorCodigo(codigo) {
                 return;
             }
 
-            // 🔥 TOMAMOS EL PRIMER REGISTRO
             let p = data[0];
 
             agregarDetalle(
@@ -762,10 +784,10 @@ function buscarProductoPorCodigo(codigo) {
                 p.stock,
                 1
             );
-
         }
     );
 }
+
 
 
 function incrementarCantidad(indice, stock) {
