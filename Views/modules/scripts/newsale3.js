@@ -602,26 +602,44 @@ function agregarDetalle(
 
     // Si ya existe, solo suma cantidad
     let existe = false;
-    $("input[name='idarticulo[]']").each(function (index) {
-        if (parseInt($(this).val()) === parseInt(idarticulo)) {
-            let inputCantidad = $("input[name='cantidad[]']").eq(index);
-            let nuevaCantidad = parseInt(inputCantidad.val()) + 1;
 
+    $("input[name='idarticulo[]']").each(function (index) {
+    
+        if (parseInt($(this).val()) === parseInt(idarticulo)) {
+    
+            let cantidadInput = $("input[name='cantidad[]']").eq(index);
+            let cantidadLabel = $("#cantidadLabel" + index);
+            let precioVenta   = parseFloat($("input[name='precio_venta[]']").eq(index).val());
+    
+            let nuevaCantidad = parseInt(cantidadInput.val()) + 1;
+    
+            // 🚫 Validar stock
             if (nuevaCantidad > stock) {
-                Swal.fire("Stock insuficiente", "No hay más unidades disponibles.", "warning");
+                Swal.fire(
+                    "Stock insuficiente",
+                    "No hay más unidades disponibles.",
+                    "warning"
+                );
+                existe = true;
                 return false;
             }
-
-            inputCantidad.val(nuevaCantidad);
-            modificarSubtotales();
-
-            // ✅ CLAVE: ya hay productos, ocultar mensaje
+    
+            // ✅ Actualizar cantidad
+            cantidadInput.val(nuevaCantidad);
+            cantidadLabel.text(nuevaCantidad);
+    
+            // ✅ Recalcular subtotal
+            let nuevoSubtotal = nuevaCantidad * precioVenta;
+            $("#subtotal" + index).text(nuevoSubtotal.toFixed(2));
+    
+            // 🔄 Totales generales
+            calcularTotales();
             actualizarMensajePedido();
-
+    
             existe = true;
-            return false;
+            return false; // salir del each
         }
-    });
+    });    
 
 
     if (existe) {
