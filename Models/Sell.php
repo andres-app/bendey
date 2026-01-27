@@ -537,16 +537,29 @@ class Sell
 
     public function buscarProductoPorCodigo($codigo)
     {
-        $sql = "SELECT i.idingreso, a.idarticulo, a.nombre,
-                       i.precio_compra, i.precio_venta, i.stock
+        $codigo = strtoupper(trim($codigo));
+    
+        $sql = "SELECT 
+                    di.iddetalle_ingreso AS idingreso,
+                    a.idarticulo,
+                    a.nombre,
+                    di.precio_compra,
+                    di.precio_venta,
+                    di.stock_venta AS stock
                 FROM articulo a
-                INNER JOIN ingreso_detalle i 
-                    ON a.idarticulo = i.idarticulo
+                INNER JOIN detalle_ingreso di 
+                    ON a.idarticulo = di.idarticulo
                 WHERE a.codigo = ?
+                  AND di.stock_venta > 0
+                  AND di.stock_estado = '1'
+                ORDER BY di.iddetalle_ingreso ASC
                 LIMIT 1";
     
-        return $this->conexion->getDataAll($sql, [$codigo]);
+        // 👇 SOLO UNA FILA
+        return $this->conexion->getData($sql, [$codigo]);
     }
+    
+    
     
 
 

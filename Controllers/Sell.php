@@ -631,10 +631,19 @@ switch ($_GET["op"]) {
 		}
 		break;
 
-		case 'buscarProductoPorCodigo':
-			echo json_encode(
-				$sell->buscarProductoPorCodigo($_POST['codigo'] ?? '')
-			);
-			break;
-		
+	case 'buscarProductoPorCodigo':
+
+		header('Content-Type: application/json');
+
+		$codigo = isset($_POST['codigo']) ? trim($_POST['codigo']) : '';
+
+		if ($codigo === '') {
+			echo json_encode(null);
+			exit;
+		}
+
+		$rspta = $sell->buscarProductoPorCodigo($codigo);
+
+		echo json_encode($rspta);
+		exit;
 }

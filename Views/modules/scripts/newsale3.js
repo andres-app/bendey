@@ -715,41 +715,34 @@ function agregarDetalle(
 
 }
 
+// ===============================
+// 📦 SCANNER DE CÓDIGO DE BARRAS
+// ===============================
+
 let bufferScan = '';
 let scanTimeout = null;
 
 $(document).on('keydown', function (e) {
 
-    // Ignorar si el usuario está escribiendo manualmente
-    if (
-        e.target.tagName === 'INPUT' ||
-        e.target.tagName === 'TEXTAREA' ||
-        e.target.isContentEditable
-    ) {
-        return;
-    }
+    // 🔒 Ignorar inputs normales (cliente, buscador, etc.)
+    if ($(e.target).is('input, textarea')) return;
 
-    if (scanTimeout) clearTimeout(scanTimeout);
-
-    // ENTER = fin del escaneo
     if (e.key === 'Enter') {
         e.preventDefault();
 
-        let codigo = bufferScan.trim();
-        bufferScan = '';
-
-        if (codigo.length >= 3) {
-            buscarProductoPorCodigo(codigo);
+        if (bufferScan.length >= 3) {
+            console.log('ESCANEADO:', bufferScan);
+            buscarProductoPorCodigo(bufferScan);
         }
 
+        bufferScan = '';
         return;
     }
 
-    // Solo caracteres imprimibles
     if (e.key.length === 1) {
         bufferScan += e.key;
 
-        // seguridad: limpiar si se queda colgado
+        clearTimeout(scanTimeout);
         scanTimeout = setTimeout(() => {
             bufferScan = '';
         }, 300);
@@ -757,35 +750,53 @@ $(document).on('keydown', function (e) {
 });
 
 
+
+setInterval(() => {
+    const input = document.getElementById('scannerInput');
+    if (input && document.activeElement !== input) {
+        input.focus();
+    }
+}, 500);
+
+
 function buscarProductoPorCodigo(codigo) {
 
     $('#pedidoVacio').addClass('opacity-25');
 
-    $.post(
-        "Controllers/Sell.php?op=buscarProductoPorCodigo",
-        { codigo },
-        function (resp) {
+    $.ajax({
+        url: "Controllers/Sell.php?op=buscarProductoPorCodigo",
+        type: "POST",
+        data: { codigo },
+        dataType: "json", // ✅ CLAVE
+        success: function (p) {
 
-            let data = JSON.parse(resp);
+            console.log("PRODUCTO ESCANEADO:", p);
 
-            if (!data || data.length === 0) {
-                Swal.fire('Producto no encontrado', codigo, 'warning');
+            if (!p || !p.idarticulo) {
+                Swal.fire(
+                    'No encontrado',
+                    'Producto no existe o sin stock',
+                    'warning'
+                );
                 return;
             }
-
-            let p = data[0];
 
             agregarDetalle(
                 p.idingreso,
                 p.idarticulo,
                 p.nombre,
-                p.precio_compra,
-                p.precio_venta,
-                p.stock,
+                parseFloat(p.precio_compra),
+                parseFloat(p.precio_venta),
+                parseInt(p.stock),
                 1
             );
+
+        },
+        error: function (xhr) {
+            console.error("ERROR AJAX:", xhr.responseText);
+            Swal.fire('Error', 'Respuesta inválida del servidor', 'error');
         }
-    );
+    });
 }
 
 

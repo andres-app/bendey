@@ -84,20 +84,29 @@ $pdf->Cell(0, 5, "Fecha: " . date("d/m/Y", strtotime($reg['fecha'])), 0, 1, 'C')
 // COMPROBANTE
 // ===============================
 $pdf->Ln(2);
+
+// Línea 1: tipo de comprobante
+$pdf->SetFont('Helvetica', 'B', 9);
+$pdf->Cell(
+    0,
+    5,
+    utf8_decode(mb_strtoupper($reg['tipo_comprobante'], 'UTF-8')),
+    0,
+    1,
+    'C'
+);
+
+// Línea 2: serie y número
 $pdf->SetFont('Helvetica', 'B', 8);
 $pdf->Cell(
-  0,
-  5,
-  utf8_decode(
-    mb_strtoupper(
-      $reg['tipo_comprobante'],
-      'UTF-8'
-    ) . " N° " . $reg['serie_comprobante'] . " - " . $reg['num_comprobante']
-  ),
-  0,
-  1,
-  'C'
+    0,
+    5,
+    utf8_decode($reg['serie_comprobante'] . ' - ' . $reg['num_comprobante']),
+    0,
+    1,
+    'C'
 );
+
 
 
 // ===============================
