@@ -81,14 +81,14 @@ function inicializarEventos() {
 
         let cuotas = parseInt($(this).val());
         if (!cuotas || cuotas < 1) return;
-    
+
         let totalVenta = totalVentaActual();
-    
+
         let monto = totalVenta / cuotas;
-    
+
         $('#monto_cuota').val('S/ ' + monto.toFixed(2));
     });
-    
+
 
 
     // Control del descuento (switch o input)
@@ -217,12 +217,16 @@ function guardarVenta() {
 
 // 5. CARGA DINÁMICAMENTE EL CARRITO/PEDIDO ACTUAL
 function cargarCarrito() {
+    $("#detallesCards").html('');
+
     $.get("Controllers/Sell.php?op=listarProductosCarrito", function (html) {
-        $("#detallesCards").html(html);
-        actualizarMensajePedido();   // ✅ aquí
+        $("#detallesCards").append(html);
+        actualizarMensajePedido(); // 🔥
         calcularTotales();
     });
 }
+
+
 
 
 // 6. CALCULA TOTALES (puedes adaptar según tus campos)
@@ -507,8 +511,8 @@ function renderProductos(data) {
                                 <div style="width:90px;height:90px;background:#f2f2f2;border-radius:12px;
                                             display:flex;align-items:center;justify-content:center;margin-right:24px;">
                                     ${prod.imagen
-                                        ? `<img src="Assets/img/products/${prod.imagen}" style="max-width:80px; max-height:80px; border-radius:10px;">`
-                                        : `<i class="bi bi-image fs-1 text-secondary"></i>`}
+                    ? `<img src="Assets/img/products/${prod.imagen}" style="max-width:80px; max-height:80px; border-radius:10px;">`
+                    : `<i class="bi bi-image fs-1 text-secondary"></i>`}
                                 </div>
 
                                 <div class="small">
@@ -698,6 +702,7 @@ function agregarDetalle(
         `;
 
     $("#detallesCards").append(card);
+    actualizarMensajePedido(); // 🔥
 
     // 🔥 FUERZA ocultar overlay al agregar
 
@@ -744,10 +749,10 @@ function buscarProductoPorCodigo(codigo) {
                 Swal.fire('Producto no encontrado', codigo, 'warning');
                 return;
             }
-            
+
             // 🔥 TOMAMOS EL PRIMER REGISTRO
             let p = data[0];
-            
+
             agregarDetalle(
                 p.idingreso,
                 p.idarticulo,
@@ -757,7 +762,7 @@ function buscarProductoPorCodigo(codigo) {
                 p.stock,
                 1
             );
-            
+
         }
     );
 }
@@ -819,22 +824,24 @@ function modificarSubtotales() {
 
 function eliminarDetalle(indice) {
     $("#fila" + indice).remove();
-
-    actualizarMensajePedido();
+    actualizarMensajePedido(); // 🔥
     calcularTotales();
-    evaluar();
 }
+
 
 
 function actualizarMensajePedido() {
+
     const hayProductos = $("#detallesCards .filas").length > 0;
 
     if (hayProductos) {
-        $("#pedidoVacio").addClass("d-none");
+        $("#contenedorPedido").addClass("con-items");
     } else {
-        $("#pedidoVacio").removeClass("d-none");
+        $("#contenedorPedido").removeClass("con-items");
     }
 }
+
+
 
 function calcularVuelto() {
 

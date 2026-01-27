@@ -223,61 +223,76 @@ if (!isset($_SESSION['nombre'])) {
 
                                     <div class="card-body bg-white">
 
-                                        <!-- CONTENEDOR DEL PEDIDO -->
-                                        <div class="card-body position-relative" id="detallesCards">
 
-                                            <!-- EMPTY STATE -->
+                                        <div class="position-relative" style="min-height:100px;" id="contenedorPedido">
+
+                                            <!-- CONTENEDOR DEL PEDIDO (SOLO PRODUCTOS) -->
+                                            <div id="detallesCards"></div>
+
+                                            <!-- EMPTY STATE (NUNCA SE BORRA) -->
                                             <div id="pedidoVacio"
                                                 class="position-absolute top-0 start-0 w-100 h-100
-                                                d-flex flex-column justify-content-center align-items-center
-                                                text-center text-muted bg-white">
-                                                <i class="bi bi-cart-plus mb-3" style="font-size:3rem;"></i>
-                                                <p class="mb-1 fw-semibold">No hay productos en el pedido</p>
-                                                <small>
-                                                    Selecciona el botón <b>+</b> para agregar productos<br>
-                                                    o escanéalos con la cámara
-                                                </small>
+            d-flex flex-column justify-content-center align-items-center
+            text-center"
+                                                style="pointer-events:none; z-index:20;">
+
+                                                <i class="bi bi-upc-scan mb-3"
+                                                    style="font-size:4rem; color:#e0e0e0;"></i>
+
+                                                <div class="fw-semibold"
+                                                    style="font-size:1.1rem; color:#c0c0c0;">
+                                                    Escanea los productos directamente
+                                                </div>
+
+                                                <div class="mt-1"
+                                                    style="font-size:0.95rem; color:#d0d0d0;">
+                                                    o selecciónalos manualmente
+                                                </div>
                                             </div>
 
                                         </div>
 
-                                        <!-- BOTONES FLOTANTES -->
-                                        <div class="d-flex justify-content-end align-items-end mt-3"
-                                            style="pointer-events:none;">
-                                            <div style="pointer-events:auto; display:flex; gap:24px;">
-                                                <button
-                                                    class="btn btn-success shadow d-flex align-items-center justify-content-center"
-                                                    style="width:72px; height:52px; border-radius:18px;"
-                                                    title="Escanear"
-                                                    type="button">
-                                                    <i class="bi bi-qr-code-scan" style="font-size:2rem;"></i>
-                                                </button>
-
-                                                <button
-                                                    class="btn btn-success shadow d-flex align-items-center justify-content-center"
-                                                    style="width:72px; height:52px; border-radius:18px;"
-                                                    title="Agregar"
-                                                    id="btnAbrirModal"
-                                                    type="button">
-                                                    <i class="bi bi-plus" style="font-size:2rem;"></i>
-                                                </button>
-                                            </div>
-                                        </div>
 
                                     </div>
-                                    <input type="text" id="scannerInput" autocomplete="off"
-                                        style="position:fixed;opacity:0;left:-9999px;">
+
+                                    <!-- BOTONES FLOTANTES -->
+                                    <div class="d-flex justify-content-end align-items-end p-4"
+                                        style="pointer-events:none;">
+
+                                        <div style="pointer-events:auto; display:flex; gap:24px;">
+                                            <button
+                                                class="btn btn-success shadow d-flex align-items-center justify-content-center"
+                                                style="width:72px; height:52px; border-radius:18px;"
+                                                title="Escanear"
+                                                type="button">
+                                                <i class="bi bi-qr-code-scan" style="font-size:2rem;"></i>
+                                            </button>
+
+                                            <button
+                                                class="btn btn-success shadow d-flex align-items-center justify-content-center"
+                                                style="width:72px; height:52px; border-radius:18px;"
+                                                title="Agregar"
+                                                id="btnAbrirModal"
+                                                type="button">
+                                                <i class="bi bi-plus" style="font-size:2rem;"></i>
+                                            </button>
+                                        </div>
+                                    </div>
 
                                 </div>
+                                <input type="text" id="scannerInput" autocomplete="off"
+                                    style="position:fixed;opacity:0;left:-9999px;">
+
                             </div>
+                        </div>
 
-                        </div><!-- /.row -->
+                </div><!-- /.row -->
 
-                    </form>
-                    <!-- ✅ FORM CIERRA AQUÍ (DESPUÉS DE AMBOS PANELES) -->
+                </form>
+                <!-- ✅ FORM CIERRA AQUÍ (DESPUÉS DE AMBOS PANELES) -->
 
-                </div><!-- /.section-body -->
-            </section>
+        </div><!-- /.section-body -->
+        </section>
         </div><!-- /.main-content -->
 
         <!-- Modal Productos -->

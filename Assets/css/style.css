@@ -25,3 +25,7 @@
 .select2-container--default .select2-selection--multiple .select2-selection__choice {
     margin-top: 0 !important;
 }
+
+#contenedorPedido.con-items #pedidoVacio {
+    display: none !important;
+}
