@@ -542,6 +542,7 @@ class Sell
         $sql = "SELECT 
                     di.iddetalle_ingreso AS idingreso,
                     a.idarticulo,
+                    a.codigo,               -- ✅ AQUÍ
                     a.nombre,
                     di.precio_compra,
                     di.precio_venta,
@@ -555,14 +556,9 @@ class Sell
                 ORDER BY di.iddetalle_ingreso ASC
                 LIMIT 1";
     
-        // 👇 SOLO UNA FILA
         return $this->conexion->getData($sql, [$codigo]);
     }
     
-    
-    
-
-
 
     //funcion para selecciolnar el numero de factura
     public function numero_venta($tipo_comprobante)

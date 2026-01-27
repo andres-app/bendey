@@ -491,15 +491,17 @@ function renderProductos(data) {
 
                     <div class="card border-0 shadow-sm h-100 producto-card"
                         style="cursor:pointer;"
-                        onclick="agregarDetalle(
-                            ${prod.idingreso},
-                            ${prod.idarticulo},
-                            '${prod.nombre.replace(/'/g, "\\'")}',
-                            ${prod.precio_compra},
-                            ${prod.precio_venta},
-                            ${prod.stock},
-                            1
-                        )">
+                     onclick="agregarDetalle(
+                        ${prod.idingreso},
+                        ${prod.idarticulo},
+                        '${prod.codigo}',                     // ✅ SKU CORRECTO
+                        '${prod.nombre.replace(/'/g, "\\'")}',
+                        ${prod.precio_compra},
+                        ${prod.precio_venta},
+                        ${prod.stock},
+                        1
+                    )"
+                    >
 
                         <div class="card-body">
 
@@ -588,6 +590,7 @@ var cont = 0;
 function agregarDetalle(
     idingreso,
     idarticulo,
+    codigo,
     articulo,
     precio_compra,
     precio_venta,
@@ -665,7 +668,7 @@ function agregarDetalle(
                 <div>
                     <div class="fw-bold fs-6 mb-1 text-dark">${articulo}</div>
                     <div class="text-muted small">Almacén: Principal</div>
-                    <div class="text-muted small">SKU: ${idarticulo}</div>
+                    <div class="text-muted small">SKU: ${codigo}</div>
 
                     <div class="text-muted small">
                         Precio Unitario:
@@ -804,6 +807,7 @@ function buscarProductoPorCodigo(codigo) {
             agregarDetalle(
                 p.idingreso,
                 p.idarticulo,
+                p.codigo,
                 p.nombre,
                 parseFloat(p.precio_compra),
                 parseFloat(p.precio_venta),
