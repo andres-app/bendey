@@ -23,7 +23,7 @@ if ($_SESSION['ventas'] != 1) {
 }
 
 // ===============================
-// MODELOS
+// MODELOSS
 // ===============================
 require_once "../Models/Sell.php";
 require_once "../Models/Company.php";
