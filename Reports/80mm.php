@@ -143,12 +143,11 @@ foreach ($venta->ventadetalles($_GET["id"]) as $d) {
 
   $y = $pdf->GetY();
 
-<<<<<<< HEAD
   $nombreArticulo = $d['articulo'];
   if (!empty($d['sku'])) {
     $nombreArticulo .= ' (' . $d['sku'] . ')';
   }
-=======
+
 $nombreArticulo = '';
 
 if (!empty($d['sku'])) {
@@ -157,7 +156,6 @@ if (!empty($d['sku'])) {
 
 $nombreArticulo .= $d['articulo'];
 
->>>>>>> d5dc00555b20eb9d93c0917ebe17fab3c332d37f
 
   $pdf->MultiCell(38, 4, utf8_decode($nombreArticulo));
   $pdf->SetXY(40, $y);
