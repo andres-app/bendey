@@ -25,15 +25,16 @@ class Sell
         $num_comprobante,
         $impuesto,
         $total_venta,
+        $descuento_total,
+        $descuento_porcentaje,
         $tipo_pago,
         $num_transac,
-        $idforma_pago,          // 👈 NUEVO
+        $idforma_pago,
         $idingreso,
         $idarticulo,
         $cantidad,
         $precio_compra,
         $precio_venta,
-        $descuento
     ) {
         date_default_timezone_set('America/Lima');
         $fecha_hora = date("Y-m-d");
@@ -50,11 +51,13 @@ class Sell
             fecha_hora,
             impuesto,
             total_venta,
+            descuento_total,
+            descuento_porcentaje,
             tipo_pago,
             num_transac,
             estado,
             idforma_pago
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $arrData = [
             $idcliente,
@@ -65,6 +68,8 @@ class Sell
             $fecha_hora,
             $impuesto,
             $total_venta,
+            $descuento_total,
+            $descuento_porcentaje,
             $tipo_pago,
             $num_transac,
             'Aceptado',
@@ -86,17 +91,18 @@ class Sell
         // INSERT DETALLE VENTA
         // ===============================
         while ($num_elementos < count($idarticulo)) {
+
             $sql_detalle = "INSERT INTO $this->tableNameDetalle
-                (idventa,idarticulo,cantidad,precio_compra,precio_venta,descuento,estado)
-                VALUES(?,?,?,?,?,?,?)";
+        (idventa,idarticulo,cantidad,precio_compra,precio_venta,descuento,estado)
+        VALUES (?,?,?,?,?,?,?)";
 
             $arrDatadet = [
-                $idventanew,
+                $idventanew,                        // ✅ ID correcto
                 $idarticulo[$num_elementos],
                 $cantidad[$num_elementos],
-                $precio_compra[$num_elementos],
+                $precio_compra[$num_elementos],     // ✅ faltaba
                 $precio_venta[$num_elementos],
-                $descuento[$num_elementos],
+                0,                                  // ✅ descuento por ítem
                 '1'
             ];
 
@@ -476,30 +482,32 @@ class Sell
         $sql = "SELECT 
             v.estado,
             v.idventa,
-            v.idcliente, 
-            p.nombre AS cliente, 
-            p.direccion, 
-            p.tipo_documento, 
-            p.num_documento, 
+            v.idcliente,
+            p.nombre AS cliente,
+            p.direccion,
+            p.tipo_documento,
+            p.num_documento,
             p.email,
-            p.telefono, 
+            p.telefono,
             v.idusuario,
-            u.nombre AS usuario, 
+            u.nombre AS usuario,
             v.tipo_comprobante,
             v.serie_comprobante,
-            v.num_comprobante, 
-            DATE(v.fecha_hora) AS fecha, 
+            v.num_comprobante,
+            DATE(v.fecha_hora) AS fecha,
             v.impuesto,
             v.total_venta,
-            v.tipo_pago,          -- 👈 AQUI
-            v.idforma_pago        -- 👈 OPCIONAL (pero útil)
-        FROM venta v 
-        INNER JOIN persona p ON v.idcliente = p.idpersona 
-        INNER JOIN usuario u ON v.idusuario = u.idusuario 
+            v.descuento_total,        -- 👈 AQUI
+            v.descuento_porcentaje,   -- 👈 AQUI
+            v.tipo_pago,
+            v.idforma_pago
+        FROM venta v
+        INNER JOIN persona p ON v.idcliente = p.idpersona
+        INNER JOIN usuario u ON v.idusuario = u.idusuario
         WHERE v.idventa = ?";
-
+    
         return $this->conexion->getDataAll($sql, [$idventa]);
-    }
+    }    
 
 
 
@@ -517,10 +525,10 @@ class Sell
             INNER JOIN articulo a ON d.idarticulo = a.idarticulo
             WHERE d.idventa = '$idventa'
         ";
-    
+
         return $this->conexion->getDataAll($sql);
     }
-    
+
 
     public function obtenerPagosVenta($idventa)
     {
@@ -538,7 +546,7 @@ class Sell
     public function buscarProductoPorCodigo($codigo)
     {
         $codigo = strtoupper(trim($codigo));
-    
+
         $sql = "SELECT 
                     di.iddetalle_ingreso AS idingreso,
                     a.idarticulo,
@@ -555,10 +563,10 @@ class Sell
                   AND di.stock_estado = '1'
                 ORDER BY di.iddetalle_ingreso ASC
                 LIMIT 1";
-    
+
         return $this->conexion->getData($sql, [$codigo]);
     }
-    
+
 
     //funcion para selecciolnar el numero de factura
     public function numero_venta($tipo_comprobante)

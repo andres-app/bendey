@@ -231,17 +231,32 @@ function cargarCarrito() {
 
 // 6. CALCULA TOTALES (puedes adaptar según tus campos)
 function calcularTotales() {
-    let total = 0;
-
+    let subtotal = 0;
+  
     $("span[name='subtotal']").each(function () {
-        total += parseFloat($(this).text()) || 0;
+      subtotal += parseFloat($(this).text()) || 0;
     });
+  
+    let descuento = 0;
+    let porcentaje = parseFloat($('#descuentoPorcentaje').val()) || 0;
+  
+    if ($('#descuentoSwitch').is(':checked') && porcentaje > 0) {
+      descuento = subtotal * (porcentaje / 100);
+    }
+  
+    let totalFinal = subtotal - descuento;
+    if (totalFinal < 0) totalFinal = 0;
+  
+    $("#totalGeneral").text("S/" + totalFinal.toFixed(2));
 
-    $("#totalGeneral").text("S/" + total.toFixed(2));
-
-    sincronizarTotalRecibido();   // contado / efectivo
-    recalcularCuotasCredito();    // 🔥 crédito
+    // 👇 CLAVE (NO rompe nada)
+    $('#descuento_total').val(descuento.toFixed(2));
+    $('#descuento_porcentaje').val(porcentaje);
+  
+    sincronizarTotalRecibido?.();
+    recalcularCuotasCredito?.();
 }
+
 
 function recalcularCuotasCredito() {
 
@@ -1101,12 +1116,25 @@ $(document).on('input change', '.pago-monto, .pago-metodo', function () {
 });
 
 function totalVentaActual() {
-    let total = 0;
+    let subtotal = 0;
+  
     $("span[name='subtotal']").each(function () {
-        total += parseFloat($(this).text()) || 0;
+      subtotal += parseFloat($(this).text()) || 0;
     });
+  
+    let descuento = 0;
+    let porcentaje = parseFloat($('#descuentoPorcentaje').val()) || 0;
+  
+    if ($('#descuentoSwitch').is(':checked') && porcentaje > 0) {
+      descuento = subtotal * (porcentaje / 100);
+    }
+  
+    let total = subtotal - descuento;
+    if (total < 0) total = 0;
+  
     return total;
-}
+  }
+  
 
 function calcularPagoMixtoForma() {
 
@@ -1161,7 +1189,5 @@ function cargarFormaPago() {
         $('#vuelto').val('0.00');
     });
 }
-
-
 
 

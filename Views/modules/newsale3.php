@@ -58,6 +58,11 @@ if (!isset($_SESSION['nombre'])) {
                                                     <small id="nombre_cliente" class="text-muted d-block mt-2"></small>
                                                     <input type="hidden" id="nombre_cli" name="nombre_cli">
 
+                                                    <!-- 🔒 DESCUENTO REAL (OCULTOS PARA BACKEND) -->
+                                                    <input type="hidden" name="descuento_total" id="descuento_total" value="0">
+                                                    <input type="hidden" name="descuento_porcentaje" id="descuento_porcentaje" value="0">
+
+
                                                 </div>
                                             </div>
 
@@ -127,14 +132,20 @@ if (!isset($_SESSION['nombre'])) {
                                                 <div class="col-12 d-flex justify-content-center">
                                                     <div class="d-flex align-items-center">
                                                         <label class="custom-switch">
-                                                            <input type="radio" name="option" value="1"
-                                                                class="custom-switch-input" checked="">
+                                                            <input type="checkbox"
+                                                                id="descuentoSwitch"
+                                                                class="custom-switch-input"
+                                                                checked>
                                                             <span class="custom-switch-indicator bg-success"></span>
                                                             <span class="custom-switch-description">Descuento en %</span>
                                                         </label>
-                                                        <input type="number" class="form-control text-center"
-                                                            style="width:90px; margin-left:24px;" value="0.0" min="0" max="100"
-                                                            step="0.1" name="descuento_porcentaje">
+                                                        <input type="number"
+                                                            id="descuentoPorcentaje"
+                                                            class="form-control text-center"
+                                                            style="width:90px; margin-left:24px;"
+                                                            value="0"
+                                                            min="0" max="100" step="0.1"
+                                                            name="descuento_porcentaje">
                                                     </div>
                                                 </div>
                                             </div>

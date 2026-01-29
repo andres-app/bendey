@@ -96,15 +96,25 @@ switch ($_GET["op"]) {
 			}
 
 			// ======================================
-			// 3) CALCULAR TOTAL
+			// 3) CALCULAR TOTAL (CON DESCUENTO %)
 			// ======================================
-			$total_venta = 0;
+			$subtotal = 0;
 
 			for ($i = 0; $i < count($_POST["idarticulo"]); $i++) {
 				$cantidad     = (float) ($_POST["cantidad"][$i] ?? 0);
 				$precio_venta = (float) ($_POST["precio_venta"][$i] ?? 0);
-				$total_venta += $cantidad * $precio_venta;
+				$subtotal += $cantidad * $precio_venta;
 			}
+
+			$descuento_porcentaje = (float) ($_POST['descuento_porcentaje'] ?? 0);
+			if ($descuento_porcentaje < 0) $descuento_porcentaje = 0;
+			if ($descuento_porcentaje > 100) $descuento_porcentaje = 100;
+
+			$descuento_total = round($subtotal * ($descuento_porcentaje / 100), 2);
+
+			$total_venta = round($subtotal - $descuento_total, 2);
+			if ($total_venta < 0) $total_venta = 0;
+
 
 			// ======================================
 			// 🔐 4) OBTENER CORRELATIVO BLOQUEADO
@@ -137,16 +147,17 @@ switch ($_GET["op"]) {
 				$num_comprobante,
 				null,
 				$total_venta,
-				$tipo_pago,      // texto (Efectivo / Mixto)
+				$descuento_total,
+				$descuento_porcentaje,
+				$tipo_pago,
 				$num_transac,
-				$idforma_pago,   // 👈 NUEVO
+				$idforma_pago,
 				$_POST["idingreso"],
 				$_POST["idarticulo"],
 				$_POST["cantidad"],
 				$_POST["precio_compra"],
-				$_POST["precio_venta"],
-				$_POST["descuento"],
-			);
+				$_POST["precio_venta"]
+			);			
 
 			if (!$idventa) {
 				throw new Exception("Error al registrar la venta.");
