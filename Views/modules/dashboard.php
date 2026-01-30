@@ -151,7 +151,7 @@ if (!isset($_SESSION['nombre'])) {
                         <div class="col-12 col-md-6 col-lg-6">
                             <div class="card">
                                 <div class="card-header">
-                                    <h4>Compra de los ultimos meses</h4>
+                                    <h4>Compra de los ultimos 6 meses</h4>
                                 </div>
                                 <div class="card-body">
                                     <canvas id="compra10dias"></canvas>
