@@ -226,33 +226,52 @@ function cargarCarrito() {
     });
 }
 
+function sincronizarTotalRecibido() {
+
+    let nombreForma = getNombreFormaPago();
+
+    // ❌ NO tocar en mixto ni crédito
+    if (nombreForma === 'Mixto') return;
+    if ($('#condicion_pago').val() === 'Crédito') return;
+
+    let totalVenta = totalVentaActual();
+
+    let $input = $('#total_recibido');
+
+    // si el usuario ya escribió, no sobrescribimos
+    if ($input.data('manual') === true) return;
+
+    $input
+        .val(totalVenta.toFixed(2))
+        .trigger('input'); // recalcula vuelto
+}
 
 
 
 // 6. CALCULA TOTALES (puedes adaptar según tus campos)
 function calcularTotales() {
     let subtotal = 0;
-  
+
     $("span[name='subtotal']").each(function () {
-      subtotal += parseFloat($(this).text()) || 0;
+        subtotal += parseFloat($(this).text()) || 0;
     });
-  
+
     let descuento = 0;
     let porcentaje = parseFloat($('#descuentoPorcentaje').val()) || 0;
-  
+
     if ($('#descuentoSwitch').is(':checked') && porcentaje > 0) {
-      descuento = subtotal * (porcentaje / 100);
+        descuento = subtotal * (porcentaje / 100);
     }
-  
+
     let totalFinal = subtotal - descuento;
     if (totalFinal < 0) totalFinal = 0;
-  
+
     $("#totalGeneral").text("S/" + totalFinal.toFixed(2));
 
     // 👇 CLAVE (NO rompe nada)
     $('#descuento_total').val(descuento.toFixed(2));
     $('#descuento_porcentaje').val(porcentaje);
-  
+
     sincronizarTotalRecibido?.();
     recalcularCuotasCredito?.();
 }
@@ -740,14 +759,20 @@ function agregarDetalle(
         `;
 
     $("#detallesCards").append(card);
-    actualizarMensajePedido(); // 🔥
+    actualizarMensajePedido();
+
+    $('#total_recibido').data('manual', false);
+    sincronizarTotalRecibido();
+
+    cont++;
+
 
     // 🔥 FUERZA ocultar overlay al agregar
 
     cont++;
 
-    modificarSubtotales();
-    evaluar();
+    calcularTotales();
+
 
     $('#modalProductos').modal('hide');
 
@@ -898,9 +923,16 @@ function modificarSubtotales() {
 
 function eliminarDetalle(indice) {
     $("#fila" + indice).remove();
-    actualizarMensajePedido(); // 🔥
+    actualizarMensajePedido();
+
+    if ($("#detallesCards .filas").length === 0) {
+        $('#total_recibido').data('manual', false).val('');
+        $('#vuelto').val('0.00');
+    }
+
     calcularTotales();
 }
+
 
 
 
@@ -939,8 +971,12 @@ function calcularVuelto() {
 
 
 $('#total_recibido').on('input', function () {
+    if ($(this).val() !== '') {
+        $(this).data('manual', true);
+    }
     calcularVuelto();
 });
+
 
 
 $('#formularioVenta').on('submit', function (e) {
@@ -1017,49 +1053,34 @@ function getNombreFormaPago() {
 // FORMA DE PAGO: mostrar campos mixtos
 $('#forma_pago').on('change', function () {
 
-    let nombreForma = getNombreFormaPago();
+    $('#total_recibido').data('manual', false);
 
-    // RESET GENERAL
+    let nombreForma = getNombreFormaPago();
+    let totalVenta = totalVentaActual();
+
     $('#bloque_pago_mixto').hide();
     $('#pagosMixtosContainer').html('');
     $('#vuelto').val('0.00');
 
-    let totalVenta = totalVentaActual();
-
-    // =========================
-    // 🔹 PAGO MIXTO
-    // =========================
     if (nombreForma === 'Mixto') {
-
         $('#bloque_pago_mixto').slideDown();
-        pagoMixtoIndex = 0;
-
-        agregarPagoMixtoFila();
-        agregarPagoMixtoFila();
-
-        // 🔒 BLOQUEAR TOTAL RECIBIDO
         $('#total_recibido')
             .val('0.00')
             .prop('readonly', true)
             .addClass('bg-light');
-
-        $('#vuelto').val('0.00');
-
+        agregarPagoMixtoFila();
+        agregarPagoMixtoFila();
         return;
     }
 
-    // =========================
-    // 🔹 PAGO NORMAL
-    // =========================
-
-    // 🔓 HABILITAR TOTAL RECIBIDO
     $('#total_recibido')
         .prop('readonly', false)
-        .removeClass('bg-light')
-        .val(totalVenta.toFixed(2));
+        .removeClass('bg-light');
 
-    calcularVuelto();
+    sincronizarTotalRecibido();
 });
+
+
 
 
 let pagoMixtoIndex = 0;
@@ -1117,24 +1138,24 @@ $(document).on('input change', '.pago-monto, .pago-metodo', function () {
 
 function totalVentaActual() {
     let subtotal = 0;
-  
+
     $("span[name='subtotal']").each(function () {
-      subtotal += parseFloat($(this).text()) || 0;
+        subtotal += parseFloat($(this).text()) || 0;
     });
-  
+
     let descuento = 0;
     let porcentaje = parseFloat($('#descuentoPorcentaje').val()) || 0;
-  
+
     if ($('#descuentoSwitch').is(':checked') && porcentaje > 0) {
-      descuento = subtotal * (porcentaje / 100);
+        descuento = subtotal * (porcentaje / 100);
     }
-  
+
     let total = subtotal - descuento;
     if (total < 0) total = 0;
-  
+
     return total;
-  }
-  
+}
+
 
 function calcularPagoMixtoForma() {
 
@@ -1176,15 +1197,15 @@ function calcularPagoMixtoForma() {
 function cargarFormaPago() {
     $.post("Controllers/Sell.php?op=selectFormaPago", function (r) {
 
-        // ✅ SOLO backend
         $("#forma_pago").html(r);
 
-        // 🔒 estado inicial
+        // ✅ estado inicial NORMAL
         $('#bloque_pago_mixto').hide();
+
         $('#total_recibido')
             .val('')
-            .prop('readonly', true)
-            .addClass('bg-light');
+            .prop('readonly', false)   // 🔥 CLAVE
+            .removeClass('bg-light');
 
         $('#vuelto').val('0.00');
     });
