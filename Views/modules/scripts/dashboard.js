@@ -2,9 +2,10 @@
 function init() {
   cuadros1();
   cuadros2();
-  compra10dias();
+  compra6meses();
   venta12meses();
   cat_vendidas();
+  stockPorCategoria();
 }
 
 function cuadros1() {
@@ -42,7 +43,7 @@ function calcularEscala(maxValor) {
 
 
 //COMPRA DE LOS ULTIMOS 6 MESES
-function compra10dias() {
+function compra6meses() {
   $.post("Controllers/Dashboard.php?op=compras10dias", function (data, status) {
     data = JSON.parse(data);
 
@@ -54,7 +55,7 @@ function compra10dias() {
     const step = calcularEscala(maxValor);
     const maxEjeY = Math.ceil(maxValor / step) * step;
 
-    const ctx = document.getElementById("compra10dias").getContext("2d");
+    const ctx = document.getElementById("compra6meses").getContext("2d");
 
     if (window.compraChart) {
       window.compraChart.destroy();
@@ -117,8 +118,29 @@ function compra10dias() {
 function venta12meses() {
   $.post("Controllers/Dashboard.php?op=ventas12meses", function (data, status) {
     data = JSON.parse(data);
-    var ctx = document.getElementById("venta12meses").getContext("2d");
-    var myChart = new Chart(ctx, {
+
+    // ===============================
+    // CONFIGURACIÓN
+    // ===============================
+    const MAX_MESES = 12;
+
+    // Limitar a los últimos 12 meses
+    data.fechas = data.fechas.slice(-MAX_MESES);
+    data.totales = data.totales.slice(-MAX_MESES);
+
+    // Escala inteligente
+    const maxValor = Math.max(...data.totales);
+    const step = calcularEscala(maxValor);
+    const maxEjeY = Math.ceil(maxValor / step) * step;
+
+    const ctx = document.getElementById("venta12meses").getContext("2d");
+
+    // Evitar duplicar gráficos
+    if (window.ventaChart) {
+      window.ventaChart.destroy();
+    }
+
+    window.ventaChart = new Chart(ctx, {
       type: "bar",
       data: {
         labels: data.fechas,
@@ -126,174 +148,168 @@ function venta12meses() {
           {
             label: "Ventas",
             data: data.totales,
-            //borderWidth: 2,
-            backgroundColor: [
-              "#fc544b",
-              "#F4D03F",
-              "#63ed7a",
-              "#1262F7",
-              "#ffa426",
-              "#6777ef",
-              "#fc544b",
-              "#F4D03F",
-              "#63ed7a",
-              "#1262F7",
-              "#ffa426",
-              "#6777ef",
-            ],
-            //borderColor: "#6777ef",
-            //borderWidth: 2.5,
-            //pointBackgroundColor: "#ffffff",
-            //pointRadius: 4,
-          },
-        ],
+            backgroundColor: "#10B981",      // Emerald elegante
+            hoverBackgroundColor: "#34D399",
+            borderRadius: 10,
+            barThickness: 28
+          }
+        ]
       },
       options: {
-        legend: {
-          display: true,
+        responsive: true,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => " S/ " + ctx.parsed.y.toLocaleString()
+            }
+          }
         },
         scales: {
-          yAxes: [
-            {
-              gridLines: {
-                drawBorder: true,
-                color: "#f2f2f2",
-              },
-              ticks: {
-                beginAtZero: true,
-                stepSize: 1500,
-                fontColor: "#9aa0ac", // Font Color
-              },
+          y: {
+            beginAtZero: true,
+            max: maxEjeY,
+            ticks: {
+              stepSize: step,
+              maxTicksLimit: 6,
+              color: "#6B7280",
+              callback: v => "S/ " + v.toLocaleString()
             },
-          ],
-          xAxes: [
-            {
-              ticks: {
-                display: true,
-              },
-              gridLines: {
-                display: true,
-              },
+            grid: {
+              color: "rgba(0,0,0,0.06)"
+            }
+          },
+          x: {
+            ticks: {
+              color: "#6B7280"
             },
-          ],
-        },
-      },
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
     });
   });
 }
+
 
 function cat_vendidas() {
   $.post(
     "Controllers/Dashboard.php?op=cateogriasMasVendidas",
     function (data, status) {
       data = JSON.parse(data);
-      //console.log(data);
-      var cant,
-        cat,
-        datos = [];
-      for (var i = 0; i < data.length; i++) {
-        datos.push(
-          (cat = {
-            name: data[i].categoria,
-            y: parseFloat(data[i].cantidad),
-          })
-        );
-      }
-      // Build the chart
+
+      // ===============================
+      // CONFIGURACIÓN
+      // ===============================
+      const MAX_CATEGORIAS = 5;
+
+      // Ordenar por cantidad descendente
+      data.sort((a, b) => parseFloat(b.cantidad) - parseFloat(a.cantidad));
+
+      // Tomar Top 5
+      const topCategorias = data.slice(0, MAX_CATEGORIAS);
+
+      // Construir datos
+      const datos = topCategorias.map(item => ({
+        name: item.categoria,
+        y: parseFloat(item.cantidad)
+      }));
+
       Highcharts.chart("cat_mas_vendidas", {
         chart: {
-          plotBackgroundColor: null,
-          plotBorderWidth: null,
-          plotShadow: false,
-          type: "pie",
+          type: "pie"
         },
         title: {
-          text: "Categorías mas vendias",
+          text: "Top 5 Categorías más vendidas"
         },
         tooltip: {
-          pointFormat: "{series.name}: <b>{point.percentage:.1f}%</b>",
-        },
-        accessibility: {
-          point: {
-            valueSuffix: "%",
-          },
+          pointFormat: "<b>{point.percentage:.1f}%</b>"
         },
         plotOptions: {
           pie: {
             allowPointSelect: true,
             cursor: "pointer",
             dataLabels: {
-              enabled: false,
+              enabled: false
             },
-            showInLegend: true,
-          },
+            showInLegend: true
+          }
         },
         series: [
           {
-            name: "Venta",
-            colorByPoint: true,
+            name: "Ventas",
             data: datos,
-          },
-        ],
+            colors: [
+              '#A5B4FC', // Indigo pastel
+              '#6EE7B7', // Mint pastel
+              '#FDE68A', // Amber pastel
+              '#FBCFE8', // Rose pastel
+              '#BFDBFE'  // Blue pastel
+            ]
+          }
+        ]
       });
     }
   );
 }
 
-$.get("Controllers/Dashboard.php?op=stockCategoria", function (data) {
-  let categorias = data.map(item => item.categoria);
-  let stock = data.map(item => parseInt(item.stock_total));
 
-  Highcharts.chart('stock_por_categorias', {
-    chart: {
-      type: 'column'
-    },
-    title: {
-      text: 'Stock por Categoría'
-    },
-    xAxis: {
-      categories: categorias,
-      crosshair: true
-    },
-    yAxis: {
-      min: 0,
-      title: {
-        text: 'Unidades en stock'
-      }
-    },
-    series: [{
-      name: 'Stock',
-      data: stock
-    }]
-  });
-}, "json");
+function stockPorCategoria() {
+  $.get("Controllers/Dashboard.php?op=stockCategoria", function (data) {
 
+    const MAX_CATEGORIAS = 6;
 
-// Ejemplo de configuración de la gráfica de stock por categorías
-document.addEventListener('DOMContentLoaded', function () {
-  Highcharts.chart('stock_por_categorias', {
-    chart: {
-      type: 'column'
-    },
-    title: {
-      text: 'Stock por Categorías'
-    },
-    xAxis: {
-      categories: ['Categoría 1', 'Categoría 2', 'Categoría 3'] // Reemplaza con tus categorías
-    },
-    yAxis: {
-      min: 0,
-      title: {
-        text: 'Stock'
-      }
-    },
-    series: [{
-      name: 'Stock',
-      data: [29, 71, 106] // Reemplaza con los datos de stock por categoría
-    }]
-  });
-});
+    data.sort((a, b) => parseInt(b.stock_total) - parseInt(a.stock_total));
+    const topCategorias = data.slice(0, MAX_CATEGORIAS);
 
+    const categorias = topCategorias.map(item => item.categoria);
+    const stock = topCategorias.map(item => parseInt(item.stock_total));
 
+    Highcharts.chart('stock_por_categorias', {
+      chart: { type: 'column' },
+      title: { text: 'Stock por Categoría' },
+      xAxis: {
+        categories: categorias,
+        crosshair: true,
+        labels: { style: { color: '#6B7280' } }
+      },
+      yAxis: {
+        min: 0,
+        title: {
+          text: 'Unidades en stock',
+          style: { color: '#6B7280' }
+        }
+      },
+      tooltip: {
+        pointFormat: '<b>{point.y}</b> unidades'
+      },
+      plotOptions: {
+        column: {
+          borderRadius: 6,
+          pointPadding: 0.1,
+          groupPadding: 0.15
+        }
+      },
+      series: [{
+        name: 'Stock',
+        data: stock,
+        colorByPoint: true,
+        colors: [
+          '#BFDBFE',
+          '#A7F3D0',
+          '#FDE68A',
+          '#FBCFE8',
+          '#DDD6FE',
+          '#FED7AA'
+        ]
+      }]
+    });
+
+  }, "json");
+}
 
 init();

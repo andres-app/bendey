@@ -30,7 +30,7 @@ if (!isset($_SESSION['nombre'])) {
                                             <h3 class="font-light mb-0">
                                                 <i class="ti-arrow-up text-success"></i><span id="tcomprahoy"></span>
                                             </h3>
-                                            <span class="text-muted">Compras</span>
+                                            <span class="text-muted">Compras del día</span>
                                         </div>
                                     </div>
                                 </div>
@@ -55,7 +55,7 @@ if (!isset($_SESSION['nombre'])) {
                                             <h3 class="font-light mb-0">
                                                 <i class="ti-arrow-up text-success"></i><span id="tventahoy"></span>
                                             </h3>
-                                            <span class="text-muted">Ventas</span>
+                                            <span class="text-muted">Ventas del día</span>
                                         </div>
                                     </div>
                                 </div>
@@ -86,7 +86,7 @@ if (!isset($_SESSION['nombre'])) {
                                 </div>
                                 <a href="customer">
                                     <div class="l-bg-orange">
-                                        Cliente
+                                        Clientes
                                         <i class="fas fa-arrow-circle-right"></i>
                                     </div>
                                 </a>
@@ -140,7 +140,7 @@ if (!isset($_SESSION['nombre'])) {
                                         <h4 class="card-title"><span id="tarticulos"></span></h4>
 
                                         <p class="mb-0 text-sm">
-                                            <span class="text-nowrap">Artículos</span>
+                                            <span class="text-nowrap">Productos</span>
                                         </p>
                                     </div>
                                 </div>
@@ -154,7 +154,7 @@ if (!isset($_SESSION['nombre'])) {
                                     <h4>Compra de los ultimos 6 meses</h4>
                                 </div>
                                 <div class="card-body">
-                                    <canvas id="compra10dias"></canvas>
+                                    <canvas id="compra6meses"></canvas>
                                 </div>
                             </div>
                         </div>
