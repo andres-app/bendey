@@ -158,7 +158,7 @@ $esPOS = ($url === 'newsale3');
 
                     <ul class="dropdown-menu <?= $configActive ? 'show' : '' ?>">
                         <li class="<?= $url == 'generalsetting' ? 'active' : '' ?>">
-                            <a class="nav-link" href="generalsetting">Datos generales</a>
+                            <a class="nav-link" href="generalsetting">Configuración Empresa</a>
                         </li>
                         <li class="<?= $url == 'vouchersetting' ? 'active' : '' ?>">
                             <a class="nav-link" href="vouchersetting">Comprobantes</a>

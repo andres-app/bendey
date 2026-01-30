@@ -1,137 +1,32 @@
-var tabla;
-
-//funcion que se ejecuta al inicio
+// ================================
+// INIT
+// ================================
 function init() {
-  mostrarform(false);
-  listar();
+
+  cargarDatosEmpresa();
 
   $("#formulario").on("submit", function (e) {
     guardaryeditar(e);
   });
-
 }
 
-//funcion limpiar
-function limpiar() {
-  $("#codigo").val("");
-  $("#nombre").val("");
-  $("#ndocumento").val("");
-  $("#documento").val("");
-  $("#direccion").val("");
-  $("#telefono").val("");
-  $("#email").val("");
-  $("#pais").val("");
-  $("#ciudad").val("");
-  $("#nombre_impuesto").val("");
-  $("#monto_impuesto").val("");
-  $("#moneda").val("");
-  $("#simbolo").val("");
-  $("#id_negocio").val("");
-  $("#tokendniruc").val(""); // Limpiar el campo del token
-}
+// ================================
+// CARGAR DATOS (SIN DATATABLE)
+// ================================
+function cargarDatosEmpresa() {
+  $.get(
+    "Controllers/Company.php?op=mostrar_datos",
+    function (data) {
 
-//funcion mostrar formulario
-function mostrarform(flag) {
-  limpiar();
-  if (flag) {
-    $("#listadoregistros").hide();
-    $("#formularioregistros").show();
-    $("#btnGuardar").prop("disabled", false);
-    $("#btnagregar").hide();
-  } else {
-    $("#listadoregistros").show();
-    $("#formularioregistros").hide();
-    $("#btnagregar").show();
-  }
-}
+      if (!data || data === "null") {
+        console.warn("No hay datos de empresa");
+        return;
+      }
 
-//cancelar form
-function cancelarform() {
-  limpiar();
-  mostrarform(false);
-}
-
-//funcion listar
-function listar() {
-  tabla = $("#tbllistado")
-    .dataTable({
-      aProcessing: true, //activamos el procedimiento del datatable
-      aServerSide: true, //paginacion y filrado realizados por el server
-      dom: "Bfrtip", //definimos los elementos del control de la tabla
-      buttons: ["excelHtml5", "pdf"],
-      ajax: {
-        url: "Controllers/Company.php?op=listar",
-        type: "get",
-        dataType: "json",
-        error: function (e) {
-          console.log(e.responseText);
-        },
-      },
-      bDestroy: true,
-      iDisplayLength: 5, //paginacion
-      order: [[0, "desc"]], //ordenar (columna, orden)
-    })
-    .DataTable();
-}
-
-//funcion para guardaryeditar
-function guardaryeditar(e) {
-  e.preventDefault(); //no se activara la accion predeterminada
-  $("#btnGuardar").prop("disabled", true);
-  var formData = new FormData($("#formulario")[0]);
-
-  $.ajax({
-    url: "Controllers/Company.php?op=guardaryeditar",
-    type: "POST",
-    data: formData,
-    contentType: false,
-    processData: false,
-
-    success: function (datos) {
-      var tabla = $("#tbllistado").DataTable();
-      swal({
-        title: "Registro",
-        text: datos,
-        icon: "info",
-        buttons: {
-          confirm: "OK",
-        },
-      }),
-        mostrarform(false);
-      tabla.ajax.reload();
-    },
-  });
-
-  limpiar();
-}
-
-document.getElementById('toggleTokenVisibility').addEventListener('click', function () {
-  var tokenInput = document.getElementById('tokendniruc');
-  var eyeIcon = document.getElementById('eyeIcon');
-  
-  if (tokenInput.type === 'password') {
-      tokenInput.type = 'text';
-      eyeIcon.classList.remove('fa-eye');
-      eyeIcon.classList.add('fa-eye-slash');
-  } else {
-      tokenInput.type = 'password';
-      eyeIcon.classList.remove('fa-eye-slash');
-      eyeIcon.classList.add('fa-eye');
-  }
-});
-
-
-//funcion para mostrar datos en el formulario
-function mostrar(id_negocio) {
-  $.post(
-    "Controllers/Company.php?op=mostrar",
-    { id_negocio: id_negocio },
-    function (data, status) {
       data = JSON.parse(data);
-      mostrarform(true);
-      $("#codigo").val(data.codigo);
+
+      $("#id_negocio").val(data.id_negocio);
       $("#nombre").val(data.nombre);
-      $("#ndocumento").val(data.ndocumento);
       $("#documento").val(data.documento);
       $("#direccion").val(data.direccion);
       $("#telefono").val(data.telefono);
@@ -142,10 +37,49 @@ function mostrar(id_negocio) {
       $("#monto_impuesto").val(data.monto_impuesto);
       $("#moneda").val(data.moneda);
       $("#simbolo").val(data.simbolo);
-      $("#id_negocio").val(data.id_negocio);
-      $("#tokendniruc").val(data.token_reniec_sunat); // Mostrar el token en el formulario
+      $("#tokendniruc").val(data.token_reniec_sunat);
     }
   );
 }
+
+// ================================
+// GUARDAR / EDITAR
+// ================================
+function guardaryeditar(e) {
+  e.preventDefault();
+
+  $("#btnGuardar").prop("disabled", true);
+  let formData = new FormData($("#formulario")[0]);
+
+  $.ajax({
+    url: "Controllers/Company.php?op=guardaryeditar",
+    type: "POST",
+    data: formData,
+    contentType: false,
+    processData: false,
+    success: function (resp) {
+      swal("Configuración", resp, "success");
+      $("#btnGuardar").prop("disabled", false);
+    }
+  });
+}
+
+// ================================
+// TOGGLE TOKEN VISIBILITY
+// ================================
+document
+  .getElementById("toggleTokenVisibility")
+  .addEventListener("click", function () {
+    const input = document.getElementById("tokendniruc");
+    const icon = document.getElementById("eyeIcon");
+
+    if (input.type === "password") {
+      input.type = "text";
+      icon.classList.replace("fa-eye", "fa-eye-slash");
+    } else {
+      input.type = "password";
+      icon.classList.replace("fa-eye-slash", "fa-eye");
+    }
+  });
 
 init();
