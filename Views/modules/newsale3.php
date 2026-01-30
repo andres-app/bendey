@@ -150,16 +150,48 @@ if (!isset($_SESSION['nombre'])) {
                                                 </div>
                                             </div>
 
-                                            <div class="row g-3 mb-4">
-                                                <div class="col-md-6">
-                                                    <label class="form-label">Total recibido soles</label>
-                                                    <input type="number" step="0.01" min="0" class="form-control  fw-bold fs-5" name="total_recibido" id="total_recibido" placeholder="0.00">
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label">Vuelto soles</label>
-                                                    <input type="text" readonly class="form-control fw-bold fs-5" name="vuelto" id="vuelto" value="0.00">
-                                                </div>
-                                            </div>
+                                            <div class="row g-4 mb-5 text-center">
+
+<!-- TOTAL RECIBIDO -->
+<div class="col-md-6">
+    <label class="form-label text-muted fw-semibold mb-2">
+        Total recibido (S/)
+    </label>
+
+    <div class="d-flex justify-content-center">
+        <input
+            type="number"
+            step="0.01"
+            min="0"
+            name="total_recibido"
+            id="total_recibido"
+            placeholder="0.00"
+            class="form-control total-display text-success"
+        >
+    </div>
+</div>
+
+<!-- VUELTO -->
+<div class="col-md-6">
+    <label class="form-label text-muted fw-semibold mb-2">
+        Vuelto (S/)
+    </label>
+
+    <div class="d-flex justify-content-center">
+        <input
+            type="text"
+            readonly
+            name="vuelto"
+            id="vuelto"
+            value="0.00"
+            class="form-control total-display total-disabled"
+        >
+    </div>
+</div>
+
+</div>
+
+
 
                                             <!-- PAGO MIXTO POR FORMA DE PAGO -->
                                             <div id="bloque_pago_mixto" class="mb-4" style="display:none;">

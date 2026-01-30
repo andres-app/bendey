@@ -29,3 +29,25 @@
 #contenedorPedido.con-items #pedidoVacio {
     display: none !important;
 }
+
+.total-display {
+    max-width: 320px;
+    height: 92px;
+    font-size: 3.4rem;
+    font-weight: 800;
+    letter-spacing: 0.5px; /* más elegancia */
+    text-align: center;
+    border-radius: 5px;
+}
+
+
+.total-display:focus {
+    border-color: #52b848;
+    box-shadow: 0 0 0 0.15rem rgba(82,184,72,.25);
+}
+
+.total-disabled {
+    background: #eef1f4;
+    color: #c0c6cc;
+}
+
