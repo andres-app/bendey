@@ -181,14 +181,14 @@
                 <form method="POST" action="" class="needs-validation" novalidate="" id="formAcceso" autocomplete="off">
                   <div class="form-group">
                     <label for="nombre" class="sr-only">Usuario</label>
-                    <input id="nombre" type="text" class="form-control" name="nombre" tabindex="1" required autofocus placeholder="usuario" autocomplete="username">
+                    <input id="nombre" value="admin" type="text" class="form-control" name="nombre" tabindex="1" required autofocus placeholder="usuario" autocomplete="username">
                     <div class="invalid-feedback">
                       Por favor complete su usuario
                     </div>
                   </div>
                   <div class="form-group" style="position:relative;">
                     <label for="clave" class="sr-only">Contraseña</label>
-                    <input id="clave" type="password" class="form-control" name="clave" tabindex="2" required placeholder="contraseña" autocomplete="current-password">
+                    <input id="clave" value="admin" type="password" class="form-control" name="clave" tabindex="2" required placeholder="contraseña" autocomplete="current-password">
                     <span style="position:absolute;top:50%;right:16px;transform:translateY(-50%);cursor:pointer;color:#9CA3AF;" onclick="togglePassword()">
                       <i class="fa fa-eye" id="eye-icon"></i>
                     </span>
