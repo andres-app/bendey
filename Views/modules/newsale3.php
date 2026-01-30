@@ -137,7 +137,11 @@ if (!isset($_SESSION['nombre'])) {
                                                                 class="custom-switch-input"
                                                                 checked>
                                                             <span class="custom-switch-indicator bg-success"></span>
-                                                            <span class="custom-switch-description">Descuento en %</span>
+                                                            <span
+                                                                class="custom-switch-description"
+                                                                id="labelDescuento">
+                                                                Descuento en %
+                                                            </span>
                                                         </label>
                                                         <input type="number"
                                                             id="descuentoPorcentaje"
@@ -152,44 +156,42 @@ if (!isset($_SESSION['nombre'])) {
 
                                             <div class="row g-4 mb-5 text-center">
 
-<!-- TOTAL RECIBIDO -->
-<div class="col-md-6">
-    <label class="form-label text-muted fw-semibold mb-2">
-        Total recibido (S/)
-    </label>
+                                                <!-- TOTAL RECIBIDO -->
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-muted fw-semibold mb-2">
+                                                        Total recibido (S/)
+                                                    </label>
 
-    <div class="d-flex justify-content-center">
-        <input
-            type="number"
-            step="0.01"
-            min="0"
-            name="total_recibido"
-            id="total_recibido"
-            placeholder="0.00"
-            class="form-control total-display text-success"
-        >
-    </div>
-</div>
+                                                    <div class="d-flex justify-content-center">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            name="total_recibido"
+                                                            id="total_recibido"
+                                                            placeholder="0.00"
+                                                            class="form-control total-display text-success">
+                                                    </div>
+                                                </div>
 
-<!-- VUELTO -->
-<div class="col-md-6">
-    <label class="form-label text-muted fw-semibold mb-2">
-        Vuelto (S/)
-    </label>
+                                                <!-- VUELTO -->
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-muted fw-semibold mb-2">
+                                                        Vuelto (S/)
+                                                    </label>
 
-    <div class="d-flex justify-content-center">
-        <input
-            type="text"
-            readonly
-            name="vuelto"
-            id="vuelto"
-            value="0.00"
-            class="form-control total-display total-disabled"
-        >
-    </div>
-</div>
+                                                    <div class="d-flex justify-content-center">
+                                                        <input
+                                                            type="text"
+                                                            readonly
+                                                            name="vuelto"
+                                                            id="vuelto"
+                                                            value="0.00"
+                                                            class="form-control total-display total-disabled">
+                                                    </div>
+                                                </div>
 
-</div>
+                                            </div>
 
 
 
