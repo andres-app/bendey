@@ -31,17 +31,6 @@ if (!isset($_SESSION['nombre'])) {
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
-                                    <tfoot>
-                                        <tr>
-                                            <th>Opciones</th>
-                                            <th>Comprobante</th>
-                                            <th>Cliente</th>
-                                            <th>Total</th>
-                                            <th>XML</th>
-                                            <th>Estado SUNAT</th>
-                                            <th>Fecha</th>
-                                        </tr>
-                                    </tfoot>
                                 </table>
                             </div>
                         </div>

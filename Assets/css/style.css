@@ -63,3 +63,64 @@ input.form-control.total-display:focus {
     border-color: #52b848;
 }
 
+/* =========================
+   BADGES SUNAT - SUTILES
+========================= */
+
+.badge-sunat {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #f4f5f7;
+    color: #555;
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Estados */
+.sunat-pendiente {
+    color: #9a7b00;
+    background: #fff7d6;
+    border-color: #ffe58f;
+}
+
+.sunat-enviado {
+    color: #005c99;
+    background: #e6f2ff;
+    border-color: #b3dbff;
+}
+
+.sunat-aceptado {
+    color: #1f7a1f;
+    background: #eaf6ea;
+    border-color: #bfe6bf;
+}
+
+.sunat-rechazado {
+    color: #9a1c1c;
+    background: #fdeaea;
+    border-color: #f5b5b5;
+}
+
+.sunat-error {
+    color: #9a1c1c;
+    background: #fdeaea;
+    border-color: #f5b5b5;
+}
+
+/* XML */
+.badge-xml {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 10px;
+    background: #eef1f4;
+    color: #444;
+    border: 1px solid rgba(0,0,0,0.08);
+    text-decoration: none;
+}
+
+.badge-xml:hover {
+    background: #e0e6eb;
+    color: #111;
+    text-decoration: none;
+}
