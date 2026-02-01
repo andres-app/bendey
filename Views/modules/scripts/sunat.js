@@ -1,58 +1,90 @@
 $(document).ready(function () {
     $('#tbllistado').DataTable({
+        responsive: true,
+        autoWidth: false,
+        scrollX: false,
         ajax: {
             url: 'Controllers/Sunat.php?op=listar',
             type: 'GET',
-            dataType: 'json',
-            error: function (e) {
-                console.log(e.responseText);
-            }
+            dataType: 'json'
         },
         columns: [
-            { data: "0" }, // Botón opciones
-            { data: "1" }, // Comprobante
-            { data: "2" }, // Cliente
-            { data: "3" }, // Total
-            { data: "4" }, // XML
-            { data: "5" }, // Estado SUNAT
-            { data: "6" }  // Fecha
-        ],
-        language: {
-            "lengthMenu": "Mostrar _MENU_ registros",
-            "zeroRecords": "No se encontraron resultados",
-            "info": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "infoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "infoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sSearch": "Buscar:",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast":"Último",
-                "sNext":"Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "sProcessing":"Procesando...",
-        }
+            { data: "0", className: "text-center" },
+            { data: "1" },
+            { data: "2" },
+            { data: "3", className: "text-right" },
+            { data: "4", className: "text-center" },
+            { data: "5", className: "text-center" },
+            { data: "6", className: "text-center" },
+            { data: "7" },
+            { data: "8", className: "text-center" }
+        ]
     });
+    
 });
 
 function verDetalle(idventa) {
-    console.log('verDetalle recibe:', idventa); // 👈 DEBUG
 
-    Swal.fire({
-        title: 'Comprobante SUNAT',
-        text: '¿Qué deseas hacer?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Generar XML',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
+    // Traer datos del comprobante
+    $.post(
+        'Controllers/Sunat.php?op=detalle',
+        { idventa: idventa },
+        function (r) {
 
-        if (result.isConfirmed) {
-            generarXML(idventa);
-        }
+            let botones = {};
+            let footer = '';
 
-    });
+            // Definimos botones según estado
+            if (!r.xml) {
+                botones = {
+                    confirmButtonText: 'Generar XML'
+                };
+            } else if (r.xml && !r.cdr) {
+                botones = {
+                    confirmButtonText: 'Enviar a SUNAT'
+                };
+            } else {
+                botones = {
+                    confirmButtonText: 'Ver CDR'
+                };
+                footer = `<a href="${r.cdr}" target="_blank">Descargar CDR</a>`;
+            }
+
+            Swal.fire({
+                title: '📄 Comprobante Electrónico',
+                html: `
+                    <div style="text-align:left;font-size:13px">
+                        <strong>${r.comprobante}</strong><br>
+                        Cliente: ${r.cliente}<br>
+                        Total: S/ ${r.total}<br>
+                        Estado SUNAT: <strong>${r.estado}</strong>
+                    </div>
+                `,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonColor: '#4f6bed',
+                cancelButtonText: 'Cerrar',
+                footer: footer,
+                ...botones
+            }).then((result) => {
+
+                if (!result.isConfirmed) return;
+
+                if (!r.xml) {
+                    generarXML(idventa);
+                } else if (r.xml && !r.cdr) {
+                    enviarSunat(idventa);
+                } else {
+                    window.open(r.cdr, '_blank');
+                }
+
+            });
+
+        },
+        'json'
+    );
 }
+
 
 function generarXML(idventa) {
 

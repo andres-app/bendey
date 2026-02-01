@@ -8,7 +8,7 @@ if (!isset($_SESSION['nombre'])) {
     require "sidebar.php";
 
     if ($_SESSION['ventas'] == 1) {
-        ?>
+?>
         <div class="main-content">
             <section class="section">
                 <div class="section-body">
@@ -26,7 +26,9 @@ if (!isset($_SESSION['nombre'])) {
                                             <th>Cliente</th>
                                             <th>Total</th>
                                             <th>XML</th>
+                                            <th>CDR</th>
                                             <th>Estado SUNAT</th>
+                                            <th>Respuesta SUNAT</th>
                                             <th>Fecha</th>
                                         </tr>
                                     </thead>
@@ -38,13 +40,13 @@ if (!isset($_SESSION['nombre'])) {
                 </div>
             </section>
         </div>
-        <?php
+    <?php
     } else {
         require "access.php";
     }
     require "footer.php";
     ?>
     <script src="Views/modules/scripts/sunat.js"></script>
-    <?php
+<?php
 }
 ob_end_flush();

@@ -13,18 +13,27 @@ switch ($_GET["op"]) {
 
         foreach ($rspta as $reg) {
 
-            // ===============================
-            // XML (sutil)
-            // ===============================
+            /* ===============================
+               XML (MISMO ESTILO)
+            =============================== */
             if (!empty($reg['xml'])) {
                 $xml = '<a href="' . $reg['xml'] . '" target="_blank" class="badge-xml">XML</a>';
             } else {
                 $xml = '<span class="badge-xml">—</span>';
             }
 
-            // ===============================
-            // ESTADO SUNAT (sutil)
-            // ===============================
+            /* ===============================
+               CDR (MISMO ESTILO)
+            =============================== */
+            if (!empty($reg['cdr'])) {
+                $cdr = '<a href="' . $reg['cdr'] . '" target="_blank" class="badge-cdr">CDR</a>';
+            } else {
+                $cdr = '<span class="badge-cdr">—</span>';
+            }
+
+            /* ===============================
+               ESTADO SUNAT (CLASES ORIGINALES)
+            =============================== */
             switch ($reg['estado_sunat']) {
 
                 case 'ACEPTADO':
@@ -43,24 +52,34 @@ switch ($_GET["op"]) {
                     $estado = '<span class="badge-sunat sunat-error">Error</span>';
                     break;
 
+                case 'PENDIENTE':
                 default:
                     $estado = '<span class="badge-sunat sunat-pendiente">Pendiente</span>';
                     break;
             }
 
-            // ===============================
-            // DATA PARA DATATABLE
-            // ===============================
+            /* ===============================
+               MENSAJE SUNAT (NO CAMBIA ESTILO)
+            =============================== */
+            $mensaje = !empty($reg['mensaje_sunat'])
+                ? '<small>' . $reg['mensaje_sunat'] . '</small>'
+                : '<span class="text-muted">—</span>';
+
+            /* ===============================
+               DATA PARA DATATABLE
+            =============================== */
             $data[] = [
                 "0" => '<button class="btn btn-light btn-sm" onclick="verDetalle(' . $reg['idventa'] . ')">
-            <i class="fas fa-eye"></i>
-        </button>',
+                            <i class="fas fa-eye"></i>
+                        </button>',
                 "1" => $reg['comprobante'],
                 "2" => $reg['cliente'],
                 "3" => 'S/ ' . number_format($reg['total'], 2),
                 "4" => $xml,
-                "5" => $estado,
-                "6" => $reg['fecha']
+                "5" => $cdr,
+                "6" => $estado,
+                "7" => $mensaje,
+                "8" => $reg['fecha']
             ];
         }
 
@@ -70,13 +89,55 @@ switch ($_GET["op"]) {
             "recordsFiltered" => count($data),
             "data" => $data
         ]);
+
         break;
 
-        case 'generarxml':
 
-            require_once "../Models/GenerarXML.php";
-        
-            $idventa = isset($_REQUEST['idventa']) ? (int) $_REQUEST['idventa'] : 0;
+    case 'generarxml':
+
+        require_once "../Models/GenerarXML.php";
+
+        $idventa = isset($_REQUEST['idventa']) ? (int) $_REQUEST['idventa'] : 0;
+
+        if ($idventa <= 0) {
+            echo json_encode([
+                'status' => false,
+                'message' => 'ID de venta inválido'
+            ]);
+            exit;
+        }
+
+        $xmlModel = new GenerarXML();
+        $rutaXML = $xmlModel->generar($idventa);
+
+        if ($rutaXML) {
+
+            $conexion = new Conexion();
+
+            $sql = "INSERT INTO venta_sunat (idventa, xml, estado_sunat)
+                        VALUES (?, ?, 'GENERADO')
+                        ON DUPLICATE KEY UPDATE 
+                            xml = VALUES(xml),
+                            estado_sunat = 'GENERADO'";
+
+            $conexion->setData($sql, [$idventa, $rutaXML]);
+
+            echo json_encode([
+                'status' => true,
+                'message' => 'XML generado correctamente'
+            ]);
+        } else {
+            echo json_encode([
+                'status' => false,
+                'message' => 'No se pudo generar el XML'
+            ]);
+        }
+
+        exit;
+
+        case 'detalle':
+
+            $idventa = isset($_POST['idventa']) ? (int) $_POST['idventa'] : 0;
         
             if ($idventa <= 0) {
                 echo json_encode([
@@ -86,31 +147,42 @@ switch ($_GET["op"]) {
                 exit;
             }
         
-            $xmlModel = new GenerarXML();
-            $rutaXML = $xmlModel->generar($idventa);
+            $conexion = new Conexion();
         
-            if ($rutaXML) {
+            $sql = "SELECT 
+                        CONCAT(v.tipo_comprobante,' ',v.serie_comprobante,'-',v.num_comprobante) AS comprobante,
+                        p.nombre AS cliente,
+                        v.total_venta AS total,
+                        vs.xml,
+                        vs.cdr,
+                        vs.estado_sunat
+                    FROM venta v
+                    INNER JOIN persona p ON v.idcliente = p.idpersona
+                    LEFT JOIN venta_sunat vs ON v.idventa = vs.idventa
+                    WHERE v.idventa = ?
+                    LIMIT 1";
         
-                $conexion = new Conexion();
+            $r = $conexion->getData($sql, [$idventa]);
         
-                $sql = "INSERT INTO venta_sunat (idventa, xml, estado_sunat)
-                        VALUES (?, ?, 'GENERADO')
-                        ON DUPLICATE KEY UPDATE 
-                            xml = VALUES(xml),
-                            estado_sunat = 'GENERADO'";
-        
-                $conexion->setData($sql, [$idventa, $rutaXML]);
-        
-                echo json_encode([
-                    'status' => true,
-                    'message' => 'XML generado correctamente'
-                ]);
-            } else {
+            // 🔴 CLAVE: si no es array asociativo, no existe
+            if (!is_array($r) || !isset($r['comprobante'])) {
                 echo json_encode([
                     'status' => false,
-                    'message' => 'No se pudo generar el XML'
+                    'message' => 'No se encontró información del comprobante'
                 ]);
+                exit;
             }
         
-            exit;        
+            echo json_encode([
+                'status'      => true,
+                'comprobante' => $r['comprobante'] ?? '',
+                'cliente'     => $r['cliente'] ?? '',
+                'total'       => number_format($r['total'] ?? 0, 2),
+                'xml'         => $r['xml'] ?? '',
+                'cdr'         => $r['cdr'] ?? '',
+                'estado'      => $r['estado_sunat'] ?? 'PENDIENTE'
+            ]);
+        
+            exit;
+        
 }

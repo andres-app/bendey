@@ -113,14 +113,31 @@ input.form-control.total-display:focus {
     font-size: 11px;
     padding: 3px 9px;
     border-radius: 10px;
-    background: #eef1f4;
-    color: #444;
-    border: 1px solid rgba(0,0,0,0.08);
+    background: #eef3ff;
+    color: #3b5bfd;
+    border: 1px solid rgba(59,91,253,0.25);
     text-decoration: none;
 }
 
 .badge-xml:hover {
-    background: #e0e6eb;
-    color: #111;
+    background: #e0e8ff;
+    color: #1f3af5;
+    text-decoration: none;
+}
+
+/* CDR */
+.badge-cdr {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 10px;
+    background: #e9f7ef;
+    color: #1e7e34;
+    border: 1px solid rgba(30,126,52,0.25);
+    text-decoration: none;
+}
+
+.badge-cdr:hover {
+    background: #dcf3e6;
+    color: #145c2a;
     text-decoration: none;
 }
