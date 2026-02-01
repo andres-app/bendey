@@ -35,22 +35,51 @@ $(document).ready(function () {
     });
 });
 
-// Acción del botón "Ver"
 function verDetalle(idventa) {
+    console.log('verDetalle recibe:', idventa); // 👈 DEBUG
+
     Swal.fire({
-        title: 'Opciones SUNAT',
-        text: "¿Qué quieres hacer con el comprobante?",
+        title: 'Comprobante SUNAT',
+        text: '¿Qué deseas hacer?',
         icon: 'question',
         showCancelButton: true,
-        showDenyButton: true,
-        confirmButtonText: 'Descargar XML',
-        denyButtonText: 'Enviar a SUNAT',
+        confirmButtonText: 'Generar XML',
         cancelButtonText: 'Cancelar'
     }).then((result) => {
+
         if (result.isConfirmed) {
-            window.open('download_xml.php?idventa=' + idventa, '_blank');
-        } else if (result.isDenied) {
-            window.location.href = 'send_sunat.php?idventa=' + idventa;
+            generarXML(idventa);
         }
+
     });
+}
+
+function generarXML(idventa) {
+
+    console.log('ID enviado:', idventa); // 👈 DEBUG
+
+    Swal.fire({
+        title: 'Generando XML',
+        text: 'Por favor espera...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    $.post(
+        'Controllers/Sunat.php?op=generarxml',
+        { idventa: idventa }, // 👈 CLAVE
+        function (response) {
+
+            Swal.close();
+            console.log(response); // 👈 DEBUG
+
+            if (response.status) {
+                Swal.fire('Éxito', response.message, 'success');
+                $('#tbllistado').DataTable().ajax.reload(null, false);
+            } else {
+                Swal.fire('Error', response.message, 'error');
+            }
+        },
+        'json'
+    );
 }

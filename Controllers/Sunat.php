@@ -17,7 +17,7 @@ switch ($_GET["op"]) {
             // XML (sutil)
             // ===============================
             if (!empty($reg['xml'])) {
-                $xml = '<a href="'.$reg['xml'].'" target="_blank" class="badge-xml">XML</a>';
+                $xml = '<a href="' . $reg['xml'] . '" target="_blank" class="badge-xml">XML</a>';
             } else {
                 $xml = '<span class="badge-xml">—</span>';
             }
@@ -52,9 +52,9 @@ switch ($_GET["op"]) {
             // DATA PARA DATATABLE
             // ===============================
             $data[] = [
-                "0" => '<button class="btn btn-light btn-sm" onclick="verDetalle('.$reg['idventa'].')">
-                            <i class="fas fa-eye"></i>
-                        </button>',
+                "0" => '<button class="btn btn-light btn-sm" onclick="verDetalle(' . $reg['idventa'] . ')">
+            <i class="fas fa-eye"></i>
+        </button>',
                 "1" => $reg['comprobante'],
                 "2" => $reg['cliente'],
                 "3" => 'S/ ' . number_format($reg['total'], 2),
@@ -71,5 +71,46 @@ switch ($_GET["op"]) {
             "data" => $data
         ]);
         break;
+
+        case 'generarxml':
+
+            require_once "../Models/GenerarXML.php";
+        
+            $idventa = isset($_REQUEST['idventa']) ? (int) $_REQUEST['idventa'] : 0;
+        
+            if ($idventa <= 0) {
+                echo json_encode([
+                    'status' => false,
+                    'message' => 'ID de venta inválido'
+                ]);
+                exit;
+            }
+        
+            $xmlModel = new GenerarXML();
+            $rutaXML = $xmlModel->generar($idventa);
+        
+            if ($rutaXML) {
+        
+                $conexion = new Conexion();
+        
+                $sql = "INSERT INTO venta_sunat (idventa, xml, estado_sunat)
+                        VALUES (?, ?, 'GENERADO')
+                        ON DUPLICATE KEY UPDATE 
+                            xml = VALUES(xml),
+                            estado_sunat = 'GENERADO'";
+        
+                $conexion->setData($sql, [$idventa, $rutaXML]);
+        
+                echo json_encode([
+                    'status' => true,
+                    'message' => 'XML generado correctamente'
+                ]);
+            } else {
+                echo json_encode([
+                    'status' => false,
+                    'message' => 'No se pudo generar el XML'
+                ]);
+            }
+        
+            exit;        
 }
-?>
