@@ -16,7 +16,7 @@ class Sunat
         vs.cdr,
         vs.estado_sunat,
         vs.mensaje_sunat,
-        v.fecha_hora AS fecha
+        DATE(v.fecha_hora) AS fecha
     FROM venta v
     INNER JOIN persona p ON v.idcliente = p.idpersona
     LEFT JOIN venta_sunat vs ON v.idventa = vs.idventa

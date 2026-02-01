@@ -135,21 +135,21 @@ switch ($_GET["op"]) {
 
         exit;
 
-        case 'detalle':
+    case 'detalle':
 
-            $idventa = isset($_POST['idventa']) ? (int) $_POST['idventa'] : 0;
-        
-            if ($idventa <= 0) {
-                echo json_encode([
-                    'status' => false,
-                    'message' => 'ID de venta inválido'
-                ]);
-                exit;
-            }
-        
-            $conexion = new Conexion();
-        
-            $sql = "SELECT 
+        $idventa = isset($_POST['idventa']) ? (int) $_POST['idventa'] : 0;
+
+        if ($idventa <= 0) {
+            echo json_encode([
+                'status' => false,
+                'message' => 'ID de venta inválido'
+            ]);
+            exit;
+        }
+
+        $conexion = new Conexion();
+
+        $sql = "SELECT 
                         CONCAT(v.tipo_comprobante,' ',v.serie_comprobante,'-',v.num_comprobante) AS comprobante,
                         p.nombre AS cliente,
                         v.total_venta AS total,
@@ -161,28 +161,77 @@ switch ($_GET["op"]) {
                     LEFT JOIN venta_sunat vs ON v.idventa = vs.idventa
                     WHERE v.idventa = ?
                     LIMIT 1";
-        
-            $r = $conexion->getData($sql, [$idventa]);
-        
-            // 🔴 CLAVE: si no es array asociativo, no existe
-            if (!is_array($r) || !isset($r['comprobante'])) {
-                echo json_encode([
-                    'status' => false,
-                    'message' => 'No se encontró información del comprobante'
-                ]);
-                exit;
-            }
-        
+
+        $r = $conexion->getData($sql, [$idventa]);
+
+        // 🔴 CLAVE: si no es array asociativo, no existe
+        if (!is_array($r) || !isset($r['comprobante'])) {
             echo json_encode([
-                'status'      => true,
-                'comprobante' => $r['comprobante'] ?? '',
-                'cliente'     => $r['cliente'] ?? '',
-                'total'       => number_format($r['total'] ?? 0, 2),
-                'xml'         => $r['xml'] ?? '',
-                'cdr'         => $r['cdr'] ?? '',
-                'estado'      => $r['estado_sunat'] ?? 'PENDIENTE'
+                'status' => false,
+                'message' => 'No se encontró información del comprobante'
             ]);
-        
             exit;
-        
+        }
+
+        echo json_encode([
+            'status'      => true,
+            'comprobante' => $r['comprobante'] ?? '',
+            'cliente'     => $r['cliente'] ?? '',
+            'total'       => number_format($r['total'] ?? 0, 2),
+            'xml'         => $r['xml'] ?? '',
+            'cdr'         => $r['cdr'] ?? '',
+            'estado'      => $r['estado_sunat'] ?? 'PENDIENTE'
+        ]);
+
+        exit;
+
+    case 'enviarsunat':
+
+        require_once "../Models/EnviarSunat.php";
+
+        $idventa = isset($_POST['idventa']) ? (int)$_POST['idventa'] : 0;
+
+        if ($idventa <= 0) {
+            echo json_encode([
+                'status' => false,
+                'message' => 'ID de venta inválido'
+            ]);
+            exit;
+        }
+
+        $envio = new EnviarSunat();
+        $respuesta = $envio->enviar($idventa);
+
+        if ($respuesta['status']) {
+
+            $conexion = new Conexion();
+
+            $sql = "UPDATE venta_sunat 
+                        SET 
+                            cdr = ?,
+                            estado_sunat = ?,
+                            mensaje_sunat = ?,
+                            fecha_respuesta = NOW()
+                        WHERE idventa = ?";
+
+            $conexion->setData($sql, [
+                $respuesta['cdr'],
+                $respuesta['estado'],
+                $respuesta['mensaje'],
+                $idventa
+            ]);
+
+            echo json_encode([
+                'status' => true,
+                'message' => 'SUNAT respondió correctamente'
+            ]);
+        } else {
+
+            echo json_encode([
+                'status' => false,
+                'message' => $respuesta['mensaje']
+            ]);
+        }
+
+        exit;
 }

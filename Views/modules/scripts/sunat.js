@@ -20,7 +20,7 @@ $(document).ready(function () {
             { data: "8", className: "text-center" }
         ]
     });
-    
+
 });
 
 function verDetalle(idventa) {
@@ -111,6 +111,34 @@ function generarXML(idventa) {
             } else {
                 Swal.fire('Error', response.message, 'error');
             }
+        },
+        'json'
+    );
+}
+
+function enviarSunat(idventa) {
+
+    Swal.fire({
+        title: 'Enviando a SUNAT',
+        text: 'Espere un momento...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    $.post(
+        'Controllers/Sunat.php?op=enviarsunat',
+        { idventa: idventa },
+        function (r) {
+
+            Swal.close();
+
+            if (r.status) {
+                Swal.fire('SUNAT', r.message, 'success');
+                $('#tbllistado').DataTable().ajax.reload(null, false);
+            } else {
+                Swal.fire('Error SUNAT', r.message, 'error');
+            }
+
         },
         'json'
     );
