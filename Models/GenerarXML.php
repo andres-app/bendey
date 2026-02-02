@@ -345,64 +345,120 @@ class GenerarXML
 
     private function firmarXML(DOMDocument $doc): string
     {
+        // Composer autoload (una sola vez por request está bien, aquí lo dejo por seguridad)
         require_once __DIR__ . '/../vendor/autoload.php';
-
-        $pfxPath = realpath(__DIR__ . '/../certificado/cert.p12');
-
-        if ($pfxPath === false) {
-            throw new Exception('No se encontró el certificado P12');
+    
+        // 1) Ruta absoluta del P12
+        $pfxPath = __DIR__ . '/../certificado/cert.p12';
+        $pfxPath = realpath($pfxPath);
+    
+        if ($pfxPath === false || !file_exists($pfxPath)) {
+            throw new Exception('No se encontró el certificado P12: ' . (__DIR__ . '/../certificado/cert.p12'));
         }
-        
-        $pfxPassword = 'Felicity1'; // 👈 cambia esto
-
+    
+        // 2) Leer P12
         $pfxContent = file_get_contents($pfxPath);
-        if ($pfxContent === false) {
-            throw new Exception('No se pudo leer el certificado P12');
+        if ($pfxContent === false || strlen($pfxContent) === 0) {
+            throw new Exception('PHP no pudo leer el certificado P12: ' . $pfxPath);
         }
-
+    
+        // 3) Password EXACTO (ojo con espacios)
+        $pfxPassword = 'Felicity1';
+    
+        // 4) Extraer llaves del P12
         $certs = [];
-        if (!openssl_pkcs12_read($pfxContent, $certs, $pfxPassword)) {
-            throw new Exception('Error al abrir el certificado P12');
+        $ok = openssl_pkcs12_read($pfxContent, $certs, $pfxPassword);
+    
+        if (!$ok) {
+            // Mensaje OpenSSL real
+            $errors = [];
+            while ($msg = openssl_error_string()) {
+                $errors[] = $msg;
+            }
+            throw new Exception(
+                "Error al abrir el certificado P12 (clave o formato). " .
+                "Archivo: {$pfxPath}. " .
+                "OpenSSL: " . (count($errors) ? implode(' | ', $errors) : 'sin detalle')
+            );
         }
-
-        $privateKey = $certs['pkey'];
-        $publicCert = $certs['cert'];
-
-        $root = $doc->documentElement; // Invoice
-
-        // ext:UBLExtensions (debe ser el primer nodo)
-        $ublExtensions = $doc->createElement('ext:UBLExtensions');
-        $ext = $doc->createElement('ext:UBLExtension');
-        $content = $doc->createElement('ext:ExtensionContent');
-
-        $ext->appendChild($content);
-        $ublExtensions->appendChild($ext);
-        $root->insertBefore($ublExtensions, $root->firstChild);
-
+    
+        if (empty($certs['pkey']) || empty($certs['cert'])) {
+            throw new Exception('El P12 se abrió, pero no contiene llave privada o certificado público (pkey/cert).');
+        }
+    
+        $privateKey = $certs['pkey']; // PEM de la llave privada
+        $publicCert = $certs['cert']; // PEM del certificado público
+    
+        // 5) Asegurar formato XML correcto
+        $doc->preserveWhiteSpace = false;
+        $doc->formatOutput = false;
+    
+        $root = $doc->documentElement;
+        if (!$root) {
+            throw new Exception('XML inválido: no se encontró documentElement.');
+        }
+    
+        // 6) Insertar ext:UBLExtensions como PRIMER nodo (SUNAT)
+        // Si ya existe, NO lo duplicamos
+        $existing = $doc->getElementsByTagName('UBLExtensions');
+        if ($existing->length === 0) {
+            $ublExtensions = $doc->createElement('ext:UBLExtensions');
+            $ext = $doc->createElement('ext:UBLExtension');
+            $content = $doc->createElement('ext:ExtensionContent');
+    
+            $ext->appendChild($content);
+            $ublExtensions->appendChild($ext);
+    
+            $root->insertBefore($ublExtensions, $root->firstChild);
+        } else {
+            // Si existe, usa el primer ExtensionContent
+            $contentNodes = $doc->getElementsByTagName('ExtensionContent');
+            if ($contentNodes->length === 0) {
+                throw new Exception('Ya existe UBLExtensions pero no se encontró ExtensionContent.');
+            }
+            $content = $contentNodes->item(0);
+        }
+    
+        // 7) Crear firma XMLDSIG
         $objDSig = new \RobRichards\XMLSecLibs\XMLSecurityDSig();
-        $objDSig->setCanonicalMethod(
-            \RobRichards\XMLSecLibs\XMLSecurityDSig::EXC_C14N
-        );
-
+        $objDSig->setCanonicalMethod(\RobRichards\XMLSecLibs\XMLSecurityDSig::EXC_C14N);
+    
+        // IMPORTANTE: SUNAT suele esperar el ID de referencia.
+        // Si tu root NO tiene ID="SignSUNAT", lo ponemos.
+        if (!$root->hasAttribute('Id')) {
+            $root->setAttribute('Id', 'SignSUNAT');
+        }
+    
+        // Agregar referencia
         $objDSig->addReference(
             $root,
             \RobRichards\XMLSecLibs\XMLSecurityDSig::SHA256,
             ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
             ['uri' => '#SignSUNAT']
         );
-
+    
+        // 8) Firmar con RSA SHA256
         $objKey = new \RobRichards\XMLSecLibs\XMLSecurityKey(
             \RobRichards\XMLSecLibs\XMLSecurityKey::RSA_SHA256,
             ['type' => 'private']
         );
+    
+        // Cargar llave privada desde string PEM
         $objKey->loadKey($privateKey, false);
-
+    
+        // Firmar insertando dentro de ExtensionContent
         $objDSig->sign($objKey, $content);
+    
+        // Agregar certificado al XML
         $objDSig->add509Cert($publicCert, true, false, ['subjectName' => true]);
-
-        // devolver hash del XML firmado
-        return base64_encode(
-            hash('sha256', $doc->saveXML(), true)
-        );
-    }
+    
+        // 9) Retornar hash del XML firmado (Digest SHA256 base64)
+        $signedXml = $doc->saveXML();
+        if ($signedXml === false) {
+            throw new Exception('No se pudo serializar el XML firmado.');
+        }
+    
+        return base64_encode(hash('sha256', $signedXml, true));
+    }    
+    
 }
