@@ -37,7 +37,7 @@ if (!isset($_SESSION['nombre'])) {
                                                 <th>Documento</th>
                                                 <th>Número</th>
                                                 <th>Total Venta</th>
-                                                <th>Estado</th>
+                                                <th>Estado SUNAT</th>
                                             </thead>
                                             <tbody>
                                             </tbody>

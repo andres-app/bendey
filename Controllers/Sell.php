@@ -505,7 +505,7 @@ switch ($_GET["op"]) {
 				"5" => $reg['serie_comprobante'] . '-' . $reg['num_comprobante'],
 				"6" => $reg['total_venta'],
 				"7" => ($reg['estado'] == 'Aceptado') ?
-					'<div class="badge badge-success">Aceptado</div>' :
+					'<div class="badge badge-cdr">Aceptado</div>' :
 					'<div class="badge badge-danger">Anulado</div>'
 			);
 		}
