@@ -15,9 +15,9 @@ class GenerarXML
     // ===============================
     public function generar($idventa)
     {
-        // ===============================
-        // 1. OBTENER VENTA
-        // ===============================
+        /* ===============================
+           1. OBTENER VENTA
+        =============================== */
         $venta = $this->conexion->getData(
             "SELECT * FROM venta WHERE idventa = ?",
             [$idventa]
@@ -27,9 +27,9 @@ class GenerarXML
             return false;
         }
 
-        // ===============================
-        // 2. OBTENER CLIENTE
-        // ===============================
+        /* ===============================
+           2. OBTENER CLIENTE
+        =============================== */
         $cliente = $this->conexion->getData(
             "SELECT * FROM persona WHERE idpersona = ?",
             [$venta['idcliente']]
@@ -39,9 +39,9 @@ class GenerarXML
             return false;
         }
 
-        // ===============================
-        // 3. OBTENER DETALLE
-        // ===============================
+        /* ===============================
+           3. OBTENER DETALLE
+        =============================== */
         $detalle = $this->conexion->getDataAll(
             "SELECT dv.*, a.nombre AS nombre_articulo
              FROM detalle_venta dv
@@ -54,18 +54,36 @@ class GenerarXML
             return false;
         }
 
-        // ===============================
-        // 4. DATOS BÁSICOS
-        // ===============================
+        /* ===============================
+           4. DATOS BÁSICOS
+        =============================== */
         $serie  = $venta['serie_comprobante'];
         $numero = $venta['num_comprobante'];
         $fecha  = $venta['fecha_hora'];
 
         $tipo = ($venta['tipo_comprobante'] === 'Factura Electrónica') ? '01' : '03';
 
-        // ===============================
-        // 5. CREAR XML
-        // ===============================
+        /* ===============================
+           5. CÁLCULO IGV (18%)
+        =============================== */
+        $igvRate = 0.18;
+        $opGravada = 0;
+        $totalIgv  = 0;
+
+        foreach ($detalle as $item) {
+            $cantidad = (float)$item['cantidad'];
+            $precio   = (float)$item['precio_venta']; // precio con IGV
+
+            $base = round(($cantidad * $precio) / (1 + $igvRate), 2);
+            $igv  = round($base * $igvRate, 2);
+
+            $opGravada += $base;
+            $totalIgv  += $igv;
+        }
+
+        /* ===============================
+           6. CREAR XML
+        =============================== */
         $xml = new DOMDocument('1.0', 'UTF-8');
         $xml->formatOutput = true;
 
@@ -76,23 +94,27 @@ class GenerarXML
 
         $xml->appendChild($invoice);
 
-        // ===============================
-        // CABECERA
-        // ===============================
+        /* ===============================
+           CABECERA
+        =============================== */
         $invoice->appendChild($xml->createElement('cbc:UBLVersionID', '2.1'));
         $invoice->appendChild($xml->createElement('cbc:CustomizationID', '2.0'));
         $invoice->appendChild($xml->createElement('cbc:ID', "$serie-$numero"));
         $invoice->appendChild($xml->createElement('cbc:IssueDate', substr($fecha, 0, 10)));
-        $invoice->appendChild($xml->createElement('cbc:InvoiceTypeCode', $tipo));
+
+        $invoiceType = $xml->createElement('cbc:InvoiceTypeCode', $tipo);
+        $invoiceType->setAttribute('listID', '0101');
+        $invoice->appendChild($invoiceType);
+
         $invoice->appendChild($xml->createElement('cbc:DocumentCurrencyCode', 'PEN'));
 
-        // ===============================
-        // EMISOR (FIJO POR AHORA)
-        // ===============================
+        /* ===============================
+           EMISOR (FIJO POR AHORA)
+        =============================== */
         $supplier = $xml->createElement('cac:AccountingSupplierParty');
         $party = $xml->createElement('cac:Party');
 
-        $ruc = $xml->createElement('cbc:ID', '20123456789'); // TODO: traer de BD
+        $ruc = $xml->createElement('cbc:ID', '20123456789');
         $ruc->setAttribute('schemeID', '6');
 
         $party->appendChild(
@@ -108,14 +130,14 @@ class GenerarXML
         $supplier->appendChild($party);
         $invoice->appendChild($supplier);
 
-        // ===============================
-        // CLIENTE
-        // ===============================
+        /* ===============================
+           CLIENTE
+        =============================== */
         $customer = $xml->createElement('cac:AccountingCustomerParty');
         $partyC = $xml->createElement('cac:Party');
 
         $doc = $xml->createElement('cbc:ID', $cliente['num_documento']);
-        $doc->setAttribute('schemeID', $cliente['tipo_documento']); // 1 DNI / 6 RUC
+        $doc->setAttribute('schemeID', $cliente['tipo_documento']);
 
         $partyC->appendChild(
             $xml->createElement('cac:PartyIdentification')
@@ -130,17 +152,18 @@ class GenerarXML
         $customer->appendChild($partyC);
         $invoice->appendChild($customer);
 
-        // ===============================
-        // DETALLE
-        // ===============================
+        /* ===============================
+           DETALLE + IGV POR ÍTEM
+        =============================== */
         $i = 1;
         foreach ($detalle as $item) {
 
-            $cantidad = (float) $item['cantidad'];
-            $precio   = (float) $item['precio_venta'];
-            $subtotal = $cantidad * $precio;
-
+            $cantidad = (float)$item['cantidad'];
+            $precio   = (float)$item['precio_venta'];
             $descripcion = $item['nombre_articulo'];
+
+            $base = round(($cantidad * $precio) / (1 + $igvRate), 2);
+            $igv  = round($base * $igvRate, 2);
 
             $line = $xml->createElement('cac:InvoiceLine');
             $line->appendChild($xml->createElement('cbc:ID', $i));
@@ -151,10 +174,49 @@ class GenerarXML
 
             $amount = $xml->createElement(
                 'cbc:LineExtensionAmount',
-                number_format($subtotal, 2, '.', '')
+                number_format($base, 2, '.', '')
             );
             $amount->setAttribute('currencyID', 'PEN');
             $line->appendChild($amount);
+
+            /* IGV POR LÍNEA */
+            $taxTotal = $xml->createElement('cac:TaxTotal');
+
+            $taxAmount = $xml->createElement(
+                'cbc:TaxAmount',
+                number_format($igv, 2, '.', '')
+            );
+            $taxAmount->setAttribute('currencyID', 'PEN');
+            $taxTotal->appendChild($taxAmount);
+
+            $taxSubtotal = $xml->createElement('cac:TaxSubtotal');
+
+            $taxable = $xml->createElement(
+                'cbc:TaxableAmount',
+                number_format($base, 2, '.', '')
+            );
+            $taxable->setAttribute('currencyID', 'PEN');
+            $taxSubtotal->appendChild($taxable);
+
+            $taxIgv = $xml->createElement(
+                'cbc:TaxAmount',
+                number_format($igv, 2, '.', '')
+            );
+            $taxIgv->setAttribute('currencyID', 'PEN');
+            $taxSubtotal->appendChild($taxIgv);
+
+            $taxCategory = $xml->createElement('cac:TaxCategory');
+            $taxCategory->appendChild($xml->createElement('cbc:ID', 'S'));
+
+            $taxScheme = $xml->createElement('cac:TaxScheme');
+            $taxScheme->appendChild($xml->createElement('cbc:ID', '1000'));
+            $taxScheme->appendChild($xml->createElement('cbc:Name', 'IGV'));
+            $taxScheme->appendChild($xml->createElement('cbc:TaxTypeCode', 'VAT'));
+
+            $taxCategory->appendChild($taxScheme);
+            $taxSubtotal->appendChild($taxCategory);
+            $taxTotal->appendChild($taxSubtotal);
+            $line->appendChild($taxTotal);
 
             $line->appendChild(
                 $xml->createElement('cac:Item')
@@ -176,9 +238,50 @@ class GenerarXML
             $i++;
         }
 
-        // ===============================
-        // TOTAL
-        // ===============================
+        /* ===============================
+           IGV TOTAL DEL DOCUMENTO
+        =============================== */
+        $taxTotalDoc = $xml->createElement('cac:TaxTotal');
+
+        $taxAmountDoc = $xml->createElement(
+            'cbc:TaxAmount',
+            number_format($totalIgv, 2, '.', '')
+        );
+        $taxAmountDoc->setAttribute('currencyID', 'PEN');
+        $taxTotalDoc->appendChild($taxAmountDoc);
+
+        $taxSubtotalDoc = $xml->createElement('cac:TaxSubtotal');
+
+        $taxableDoc = $xml->createElement(
+            'cbc:TaxableAmount',
+            number_format($opGravada, 2, '.', '')
+        );
+        $taxableDoc->setAttribute('currencyID', 'PEN');
+        $taxSubtotalDoc->appendChild($taxableDoc);
+
+        $taxIgvDoc = $xml->createElement(
+            'cbc:TaxAmount',
+            number_format($totalIgv, 2, '.', '')
+        );
+        $taxIgvDoc->setAttribute('currencyID', 'PEN');
+        $taxSubtotalDoc->appendChild($taxIgvDoc);
+
+        $taxCategoryDoc = $xml->createElement('cac:TaxCategory');
+        $taxCategoryDoc->appendChild($xml->createElement('cbc:ID', 'S'));
+
+        $taxSchemeDoc = $xml->createElement('cac:TaxScheme');
+        $taxSchemeDoc->appendChild($xml->createElement('cbc:ID', '1000'));
+        $taxSchemeDoc->appendChild($xml->createElement('cbc:Name', 'IGV'));
+        $taxSchemeDoc->appendChild($xml->createElement('cbc:TaxTypeCode', 'VAT'));
+
+        $taxCategoryDoc->appendChild($taxSchemeDoc);
+        $taxSubtotalDoc->appendChild($taxCategoryDoc);
+        $taxTotalDoc->appendChild($taxSubtotalDoc);
+        $invoice->appendChild($taxTotalDoc);
+
+        /* ===============================
+           TOTAL A PAGAR
+        =============================== */
         $total = $xml->createElement('cac:LegalMonetaryTotal');
         $payable = $xml->createElement(
             'cbc:PayableAmount',
@@ -188,11 +291,11 @@ class GenerarXML
         $total->appendChild($payable);
         $invoice->appendChild($total);
 
-        // ===============================
-        // GUARDAR XML (ESCALABLE)
-        // ===============================
+        /* ===============================
+           GUARDAR XML
+        =============================== */
         $rutaAbsoluta = $this->getRutaXML(
-            '20123456789', // RUC (luego desde BD)
+            '20123456789',
             $tipo,
             $serie,
             $numero,
@@ -201,13 +304,12 @@ class GenerarXML
 
         $xml->save($rutaAbsoluta);
 
-        // devolver ruta relativa para BD
         return str_replace(__DIR__ . '/../', '', $rutaAbsoluta);
     }
 
-    // ===============================
-    // RUTA ESCALABLE DE XML
-    // ===============================
+    /* ===============================
+       RUTA ESCALABLE DE XML
+    =============================== */
     private function getRutaXML($ruc, $tipo, $serie, $numero, $fecha)
     {
         $year  = date('Y', strtotime($fecha));
