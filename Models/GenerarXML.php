@@ -91,16 +91,16 @@ class GenerarXML
         $invoice->setAttribute('xmlns', 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2');
         $invoice->setAttribute('xmlns:cac', 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
         $invoice->setAttribute('xmlns:cbc', 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
-        
+
         /* 🔐 Namespaces obligatorios para firma digital */
         $invoice->setAttribute('xmlns:ext', 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2');
         $invoice->setAttribute('xmlns:ds', 'http://www.w3.org/2000/09/xmldsig#');
-        
+
         /* 🔑 ID del nodo raíz (SUNAT lo exige para firmar) */
         $invoice->setAttribute('Id', 'SignSUNAT');
-        
+
         $xml->appendChild($invoice);
-        
+
 
         /* ===============================
            CABECERA
@@ -310,7 +310,16 @@ class GenerarXML
             $fecha
         );
 
+        // ===============================
+        // FIRMAR XML
+        // ===============================
+        $hash = $this->firmarXML($xml);
+
+        // ===============================
+        // GUARDAR XML FIRMADO
+        // ===============================
         $xml->save($rutaAbsoluta);
+
 
         return str_replace(__DIR__ . '/../', '', $rutaAbsoluta);
     }
@@ -332,5 +341,68 @@ class GenerarXML
         }
 
         return $base . "$serie-$numero.xml";
+    }
+
+    private function firmarXML(DOMDocument $doc): string
+    {
+        require_once __DIR__ . '/../vendor/autoload.php';
+
+        $pfxPath = realpath(__DIR__ . '/../certificado/cert.p12');
+
+        if ($pfxPath === false) {
+            throw new Exception('No se encontró el certificado P12');
+        }
+        
+        $pfxPassword = 'Felicity1'; // 👈 cambia esto
+
+        $pfxContent = file_get_contents($pfxPath);
+        if ($pfxContent === false) {
+            throw new Exception('No se pudo leer el certificado P12');
+        }
+
+        $certs = [];
+        if (!openssl_pkcs12_read($pfxContent, $certs, $pfxPassword)) {
+            throw new Exception('Error al abrir el certificado P12');
+        }
+
+        $privateKey = $certs['pkey'];
+        $publicCert = $certs['cert'];
+
+        $root = $doc->documentElement; // Invoice
+
+        // ext:UBLExtensions (debe ser el primer nodo)
+        $ublExtensions = $doc->createElement('ext:UBLExtensions');
+        $ext = $doc->createElement('ext:UBLExtension');
+        $content = $doc->createElement('ext:ExtensionContent');
+
+        $ext->appendChild($content);
+        $ublExtensions->appendChild($ext);
+        $root->insertBefore($ublExtensions, $root->firstChild);
+
+        $objDSig = new \RobRichards\XMLSecLibs\XMLSecurityDSig();
+        $objDSig->setCanonicalMethod(
+            \RobRichards\XMLSecLibs\XMLSecurityDSig::EXC_C14N
+        );
+
+        $objDSig->addReference(
+            $root,
+            \RobRichards\XMLSecLibs\XMLSecurityDSig::SHA256,
+            ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
+            ['uri' => '#SignSUNAT']
+        );
+
+        $objKey = new \RobRichards\XMLSecLibs\XMLSecurityKey(
+            \RobRichards\XMLSecLibs\XMLSecurityKey::RSA_SHA256,
+            ['type' => 'private']
+        );
+        $objKey->loadKey($privateKey, false);
+
+        $objDSig->sign($objKey, $content);
+        $objDSig->add509Cert($publicCert, true, false, ['subjectName' => true]);
+
+        // devolver hash del XML firmado
+        return base64_encode(
+            hash('sha256', $doc->saveXML(), true)
+        );
     }
 }
