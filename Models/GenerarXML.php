@@ -91,8 +91,16 @@ class GenerarXML
         $invoice->setAttribute('xmlns', 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2');
         $invoice->setAttribute('xmlns:cac', 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
         $invoice->setAttribute('xmlns:cbc', 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
-
+        
+        /* 🔐 Namespaces obligatorios para firma digital */
+        $invoice->setAttribute('xmlns:ext', 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2');
+        $invoice->setAttribute('xmlns:ds', 'http://www.w3.org/2000/09/xmldsig#');
+        
+        /* 🔑 ID del nodo raíz (SUNAT lo exige para firmar) */
+        $invoice->setAttribute('Id', 'SignSUNAT');
+        
         $xml->appendChild($invoice);
+        
 
         /* ===============================
            CABECERA
