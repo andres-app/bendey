@@ -8,11 +8,15 @@ class EnviarSunat
     // ============================
     private string $wsdlBeta = 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl';
 
+
+
     // Usuario SOL: normalmente "RUC + USUARIO" (ej: 2060...MODDATOS) o el que uses.
     // OJO: esto varía según tu forma de autenticación, pero WS-Security va sí o sí.
     private string $solUser = '20609068800FELICITY';
 
     private string $solPass = 'Felicity1';          // 👈 CAMBIA
+
+
 
     // ============================
     // PUBLIC: ENVIAR A SUNAT
@@ -163,6 +167,17 @@ class EnviarSunat
         $zip->addFile($tmpXmlPath, $xmlInsideName);
         $zip->close();
 
+        // ============================
+        // DEBUG REAL DEL ZIP (TEMPORAL)
+        // ============================
+        error_log('SUNAT DEBUG ZIP PATH: ' . $zipToSendAbs);
+
+        error_log('SUNAT DEBUG ZIP SIZE: ' . filesize($zipToSendAbs));
+
+        $zipB64 = base64_encode(file_get_contents($zipToSendAbs));
+        error_log('SUNAT DEBUG ZIP BASE64 SIZE: ' . strlen($zipB64));
+
+
         // Validación REAL del ZIP
         $zipCheck = new ZipArchive();
         $zipCheck->open($zipToSendAbs);
@@ -223,29 +238,49 @@ class EnviarSunat
                 ];
             }
 
-            $params = [
-                'fileName' => $baseName . '.ZIP',
-                'contentFile' => new SoapVar(
-                    base64_encode($zipBytes),
-                    XSD_BASE64BINARY
-                )
-            ];
+            error_log('ZIP SIZE: ' . filesize($zipToSendAbs));
 
-            $response = $client->__soapCall('sendBill', [$params]);
+            $response = $client->sendBill(
+                $baseName . '.ZIP',
+                base64_encode($zipBytes)
+            );
+
 
             // ==================================================
-            // 6) SUNAT DEVUELVE applicationResponse (base64 zip)
+            // 6) RESPUESTA SUNAT (CDR o TICKET)
             // ==================================================
-            $appResponseB64 = $response->applicationResponse ?? null;
 
-            if (!$appResponseB64) {
+            if (isset($response->applicationResponse)) {
+
+                // 👉 CASO 1: SUNAT DEVUELVE CDR DIRECTO
+                $cdrZipBytes = base64_decode($response->applicationResponse);
+
+                $cdrDirAbs = __DIR__ . '/../cdr/' . $ruc . '/' . $anio . '/' . $mes . '/';
+                if (!is_dir($cdrDirAbs)) {
+                    mkdir($cdrDirAbs, 0777, true);
+                }
+
+                $cdrFileAbs = $cdrDirAbs . 'R-' . $baseName . '.zip';
+                file_put_contents($cdrFileAbs, $cdrZipBytes);
+
+                $cdrInfo = $this->leerRespuestaCdr($cdrFileAbs);
+
                 return [
-                    'status'  => false,
-                    'estado'  => 'ERROR',
-                    'mensaje' => 'SUNAT no devolvió applicationResponse (CDR)',
-                    'cdr'     => ''
+                    'status'  => true,
+                    'estado'  => ($cdrInfo['code'] === '0') ? 'ACEPTADO' : 'RECHAZADO',
+                    'mensaje' => $cdrInfo['desc'],
+                    'cdr'     => 'cdr/' . $ruc . '/' . $anio . '/' . $mes . '/R-' . $baseName . '.zip'
                 ];
             }
+
+            // 👉 CASO 2: SUNAT NO DEVUELVE CDR (COLA / TICKET)
+            return [
+                'status'  => true,
+                'estado'  => 'EN_PROCESO',
+                'mensaje' => 'Comprobante enviado a SUNAT. CDR pendiente (usar getStatus).',
+                'cdr'     => ''
+            ];
+
 
             $cdrZipBytes = base64_decode($appResponseB64);
             if ($cdrZipBytes === false) {
