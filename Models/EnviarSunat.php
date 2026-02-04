@@ -487,46 +487,65 @@ class EnviarSunat
 
             $code = (string)($response->statusCode ?? '');
             $msg  = (string)($response->statusMessage ?? '');
-
-            // AÚN EN PROCESO
+            
+            // 98 → EN PROCESO
             if ($code === '98') {
                 return [
                     'status' => true,
                     'estado' => 'EN_PROCESO',
-                    'mensaje' => $msg ?: 'SUNAT aún no procesa el comprobante'
+                    'mensaje' => $msg ?: 'SUNAT aún procesa el comprobante'
                 ];
             }
-
-            // ERROR / RECHAZO
-            // 98 → AÚN EN PROCESO
-            if ($code === '98') {
-                return [
-                    'status' => true,
-                    'estado' => 'EN_PROCESO',
-                    'mensaje' => $msg ?: 'SUNAT aún no procesa el comprobante'
-                ];
-            }
-
-            // 0 → ACEPTADO
+            
+            // 0 → ACEPTADO (HAY CDR)
             if ($code === '0') {
-                // sigue leyendo el CDR (como ya lo haces)
+            
+                if (!isset($response->content)) {
+                    return [
+                        'status' => false,
+                        'estado' => 'ERROR',
+                        'mensaje' => 'SUNAT aceptó pero no devolvió CDR'
+                    ];
+                }
+            
+                $cdrZip = base64_decode($response->content);
+            
+                $anio = date('Y');
+                $mes  = date('m');
+            
+                $baseName = "$ruc-$tipo-$serie-$correl";
+            
+                $cdrDir = __DIR__ . "/../cdr/$ruc/$anio/$mes/";
+                if (!is_dir($cdrDir)) mkdir($cdrDir, 0777, true);
+            
+                $cdrPath = $cdrDir . "R-$baseName.zip";
+                file_put_contents($cdrPath, $cdrZip);
+            
+                $cdrInfo = $this->leerRespuestaCdr($cdrPath);
+            
+                return [
+                    'status'  => true,
+                    'estado'  => ($cdrInfo['code'] === '0') ? 'ACEPTADO' : 'RECHAZADO',
+                    'mensaje' => $cdrInfo['desc'],
+                    'cdr'     => "cdr/$ruc/$anio/$mes/R-$baseName.zip"
+                ];
             }
-
-            // 99 u otros → NO INFORMADO (NO ES RECHAZO)
-            if ($code === '99' || $code === '') {
+            
+            // 99 → NO INFORMADO
+            if ($code === '99') {
                 return [
                     'status' => true,
                     'estado' => 'NO_INFORMADO',
-                    'mensaje' => $msg ?: 'SUNAT aún no registra el comprobante'
+                    'mensaje' => $msg ?: 'SUNAT no registra aún el comprobante'
                 ];
             }
-
-            // otros códigos → RECHAZADO REAL
+            
+            // OTROS → RECHAZO
             return [
                 'status' => false,
                 'estado' => 'RECHAZADO',
                 'mensaje' => $msg ?: 'SUNAT rechazó el comprobante'
-            ];
+            ];            
 
 
             // =========================

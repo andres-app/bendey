@@ -25,28 +25,26 @@ $(document).ready(function () {
 
 function verDetalle(idventa) {
 
-    // Traer datos del comprobante
     $.post(
         'Controllers/Sunat.php?op=detalle',
-        { idventa: idventa },
+        { idventa },
         function (r) {
 
             let botones = {};
             let footer = '';
 
-            // Definimos botones según estado
+            // ========= FASE A: TEXTO DEL BOTÓN =========
             if (!r.xml) {
-                botones = {
-                    confirmButtonText: 'Generar XML'
-                };
-            } else if (r.xml && !r.cdr) {
-                botones = {
-                    confirmButtonText: 'Enviar a SUNAT'
-                };
+                botones = { confirmButtonText: 'Generar XML' };
+
+            } else if (r.xml && !r.cdr && r.estado !== 'EN_PROCESO') {
+                botones = { confirmButtonText: 'Enviar a SUNAT' };
+
+            } else if (r.estado === 'EN_PROCESO') {
+                botones = { confirmButtonText: 'Consultar SUNAT' };
+
             } else {
-                botones = {
-                    confirmButtonText: 'Ver CDR'
-                };
+                botones = { confirmButtonText: 'Ver CDR' };
                 footer = `<a href="${r.cdr}" target="_blank">Descargar CDR</a>`;
             }
 
@@ -64,26 +62,32 @@ function verDetalle(idventa) {
                 showCancelButton: true,
                 confirmButtonColor: '#4f6bed',
                 cancelButtonText: 'Cerrar',
-                footer: footer,
+                footer,
                 ...botones
             }).then((result) => {
 
                 if (!result.isConfirmed) return;
 
+                // ========= FASE B: ACCIÓN =========
                 if (!r.xml) {
                     generarXML(idventa);
-                } else if (r.xml && !r.cdr) {
+
+                } else if (r.xml && !r.cdr && r.estado !== 'EN_PROCESO') {
                     enviarSunat(idventa);
+
+                } else if (r.estado === 'EN_PROCESO') {
+                    consultarEstado(idventa);
+
                 } else {
                     window.open(r.cdr, '_blank');
                 }
-
             });
 
         },
         'json'
     );
 }
+
 
 
 function generarXML(idventa) {
@@ -139,6 +143,31 @@ function enviarSunat(idventa) {
                 Swal.fire('Error SUNAT', r.message, 'error');
             }
 
+        },
+        'json'
+    );
+}
+
+function consultarEstado(idventa) {
+
+    Swal.fire({
+        title: 'Consultando SUNAT',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    $.post(
+        'Controllers/Sunat.php?op=getStatus',
+        { idventa },
+        function (r) {
+            Swal.close();
+
+            if (r.status) {
+                Swal.fire('SUNAT', r.mensaje, 'success');
+                $('#tbllistado').DataTable().ajax.reload(null, false);
+            } else {
+                Swal.fire('Error SUNAT', r.mensaje, 'error');
+            }
         },
         'json'
     );

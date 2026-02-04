@@ -49,15 +49,23 @@ switch ($op) {
                 case 'ACEPTADO':
                     $estado = '<span class="badge-sunat sunat-aceptado">Aceptado</span>';
                     break;
+
+                case 'EN_PROCESO':
+                    $estado = '<span class="badge-sunat sunat-proceso">En proceso</span>';
+                    break;
+
                 case 'ENVIADO':
                     $estado = '<span class="badge-sunat sunat-enviado">Enviado</span>';
                     break;
+
                 case 'RECHAZADO':
                     $estado = '<span class="badge-sunat sunat-rechazado">Rechazado</span>';
                     break;
+
                 case 'ERROR':
                     $estado = '<span class="badge-sunat sunat-error">Error</span>';
                     break;
+
                 default:
                     $estado = '<span class="badge-sunat sunat-pendiente">Pendiente</span>';
                     break;
@@ -258,6 +266,11 @@ switch ($op) {
             exit;
         }
 
+        // 🔥 FIX REAL
+        $estado = (!empty($respuesta['estado']))
+            ? $respuesta['estado']
+            : 'EN_PROCESO';
+
         $conexion = new Conexion();
 
         $sql = "UPDATE venta_sunat
@@ -269,11 +282,12 @@ switch ($op) {
                 WHERE idventa = ?";
 
         $conexion->setData($sql, [
-            $respuesta['cdr'],
-            $respuesta['estado'],
-            $respuesta['mensaje'],
+            $respuesta['cdr'] ?? '',
+            $estado,
+            $respuesta['mensaje'] ?? '',
             $idventa
         ]);
+
 
         echo json_encode([
             'status' => true,
