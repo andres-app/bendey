@@ -19,6 +19,7 @@
     <!-- ✅ Template principal -->
     <link rel="stylesheet" href="Assets/css/style.css">
     <link rel="stylesheet" href="Assets/css/components.css">
+    <link rel="stylesheet" href="Assets/css/custom.css">
 
     <!-- ✅ Ícono de pestaña -->
     <link rel="shortcut icon" type="image/x-icon" href="Assets/img/favicon.ico" />
