@@ -92,9 +92,9 @@ switch ($op) {
         ]);
         exit;
 
-    // ===============================
-    // GENERAR XML
-    // ===============================
+        // ===============================
+        // GENERAR XML
+        // ===============================
     case 'generarxml':
 
         require_once __DIR__ . '/../Models/GenerarXML.php';
@@ -135,9 +135,9 @@ switch ($op) {
         ]);
         exit;
 
-    // ===============================
-    // DETALLE COMPROBANTE
-    // ===============================
+        // ===============================
+        // DETALLE COMPROBANTE
+        // ===============================
     case 'detalle':
 
         $idventa = (int)($_POST['idventa'] ?? 0);
@@ -185,6 +185,50 @@ switch ($op) {
             'estado' => $r['estado_sunat'] ?? 'PENDIENTE'
         ]);
         exit;
+
+    case 'getStatus':
+        require_once '../Models/EnviarSunat.php';
+
+        $idventa = (int)($_POST['idventa'] ?? 0);
+
+        if ($idventa <= 0) {
+            echo json_encode([
+                'status' => false,
+                'message' => 'ID de venta inválido'
+            ]);
+            break;
+        }
+
+        // 🔹 Traes datos reales de la venta
+        $conexion = new Conexion();
+
+        $row = $conexion->getData(
+            "SELECT ruc, tipo_comprobante, serie_comprobante, num_comprobante
+                 FROM venta
+                 WHERE idventa = ?",
+            [$idventa]
+        );
+
+        if (!$row) {
+            echo json_encode([
+                'status' => false,
+                'message' => 'Venta no encontrada'
+            ]);
+            break;
+        }
+
+        $sunat = new EnviarSunat();
+
+        $res = $sunat->consultarEstado(
+            $row['ruc'],                     // 20609068800
+            $row['tipo_comprobante'],        // 03
+            $row['serie_comprobante'],       // B001
+            (int)$row['num_comprobante']     // 10
+        );
+
+        echo json_encode($res);
+        break;
+
 
     // ===============================
     // ENVIAR A SUNAT
@@ -237,9 +281,9 @@ switch ($op) {
         ]);
         exit;
 
-    // ===============================
-    // DEFAULT
-    // ===============================
+        // ===============================
+        // DEFAULT
+        // ===============================
     default:
         echo json_encode([
             'status' => false,

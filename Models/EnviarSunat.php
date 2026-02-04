@@ -451,4 +451,139 @@ class EnviarSunat
 
         return ['code' => $code, 'desc' => $desc];
     }
+
+    public function consultarEstado($ruc, $tipo, $serie, $correl): array
+    {
+        try {
+            $client = new SoapClient($this->wsdlBeta, [
+                'trace' => 1,
+                'exceptions' => true,
+                'cache_wsdl' => WSDL_CACHE_NONE,
+                'soap_version' => SOAP_1_1,
+                'encoding' => 'UTF-8'
+            ]);
+
+            // WS-Security
+            $client->__setSoapHeaders(
+                $this->buildWSSecurityHeader($this->solUser, $this->solPass)
+            );
+
+            $params = [
+                'rucComprobante'  => $ruc,
+                'tipoComprobante' => $tipo,   // 01 / 03
+                'serieComprobante' => $serie,
+                'numeroComprobante' => (int)$correl
+            ];
+
+            $response = $client->__soapCall('getStatus', [$params]);
+
+            error_log('SUNAT getStatus RAW RESPONSE: ' . print_r($response, true));
+
+
+            // SUNAT responde con:
+            // statusCode
+            // statusMessage
+            // content (CDR base64 si existe)
+
+            $code = (string)($response->statusCode ?? '');
+            $msg  = (string)($response->statusMessage ?? '');
+
+            // AÚN EN PROCESO
+            if ($code === '98') {
+                return [
+                    'status' => true,
+                    'estado' => 'EN_PROCESO',
+                    'mensaje' => $msg ?: 'SUNAT aún no procesa el comprobante'
+                ];
+            }
+
+            // ERROR / RECHAZO
+            // 98 → AÚN EN PROCESO
+            if ($code === '98') {
+                return [
+                    'status' => true,
+                    'estado' => 'EN_PROCESO',
+                    'mensaje' => $msg ?: 'SUNAT aún no procesa el comprobante'
+                ];
+            }
+
+            // 0 → ACEPTADO
+            if ($code === '0') {
+                // sigue leyendo el CDR (como ya lo haces)
+            }
+
+            // 99 u otros → NO INFORMADO (NO ES RECHAZO)
+            if ($code === '99' || $code === '') {
+                return [
+                    'status' => true,
+                    'estado' => 'NO_INFORMADO',
+                    'mensaje' => $msg ?: 'SUNAT aún no registra el comprobante'
+                ];
+            }
+
+            // otros códigos → RECHAZADO REAL
+            return [
+                'status' => false,
+                'estado' => 'RECHAZADO',
+                'mensaje' => $msg ?: 'SUNAT rechazó el comprobante'
+            ];
+
+
+            // =========================
+            // CDR DISPONIBLE
+            // =========================
+            if (!isset($response->content)) {
+                return [
+                    'status' => false,
+                    'estado' => 'ERROR',
+                    'mensaje' => 'SUNAT aceptó pero no devolvió CDR'
+                ];
+            }
+
+            $cdrZip = base64_decode($response->content);
+            if ($cdrZip === false) {
+                return [
+                    'status' => false,
+                    'estado' => 'ERROR',
+                    'mensaje' => 'No se pudo decodificar CDR'
+                ];
+            }
+
+            // Guardar CDR
+            $anio = date('Y');
+            $mes  = date('m');
+
+            $cdrDir = __DIR__ . "/../cdr/$ruc/$anio/$mes/";
+            if (!is_dir($cdrDir)) {
+                mkdir($cdrDir, 0777, true);
+            }
+
+            $baseName = "$ruc-$tipo-$serie-$correl";
+            $cdrPath = $cdrDir . "R-$baseName.zip";
+
+            file_put_contents($cdrPath, $cdrZip);
+
+            // 🔎 LEER RESPUESTA REAL DEL CDR
+            $cdrInfo = $this->leerRespuestaCdr($cdrPath);
+
+            // SUNAT:
+            // ResponseCode = 0  → ACEPTADO
+            // ResponseCode != 0 → RECHAZADO
+            $aceptado = ($cdrInfo['code'] === '0');
+
+            return [
+                'status'  => $aceptado,
+                'estado'  => $aceptado ? 'ACEPTADO' : 'RECHAZADO',
+                'code'    => $cdrInfo['code'],
+                'mensaje' => $cdrInfo['desc'],
+                'cdr'     => "cdr/$ruc/$anio/$mes/R-$baseName.zip"
+            ];
+        } catch (SoapFault $e) {
+            return [
+                'status' => false,
+                'estado' => 'ERROR',
+                'mensaje' => 'SOAP Fault getStatus: ' . $e->getMessage()
+            ];
+        }
+    }
 }
