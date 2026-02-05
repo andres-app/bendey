@@ -98,3 +98,17 @@ function renderTotales(t) {
     $('#totalIngresos').text('S/ ' + ingresos.toFixed(2));
     $('#totalCaja').text('S/ ' + ingresos.toFixed(2));
 }
+
+function exportarExcel() {
+
+    let fecha_inicio = document.getElementById('fecha_inicio').value;
+    let fecha_fin = document.getElementById('fecha_fin').value;
+    let idusuario = document.getElementById('idusuario').value;
+
+    let url = 'Reports/ExcelCajaChica.php'
+        + '?fecha_inicio=' + fecha_inicio
+        + '&fecha_fin=' + fecha_fin
+        + '&idusuario=' + idusuario;
+
+    window.location.href = url;
+}

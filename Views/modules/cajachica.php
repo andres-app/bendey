@@ -74,16 +74,21 @@ if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
 
                                 </div>
 
-                                <!-- ================= BOTONES ================= -->
                                 <div class="d-flex justify-content-end mb-3">
-                                    <button class="btn btn-outline-success btn-sm mr-2" disabled>
-                                        <i class="fa fa-file-excel"></i> Excel
+
+                                    <button
+                                        class="btn btn-success btn-sm mr-2 d-flex align-items-center"
+                                        onclick="exportarExcel()">
+                                        <i class="fa fa-file-excel mr-1"></i>
+                                        Excel
                                     </button>
+
                                     <a
                                         href="Reports/caja_chica.php?fecha_inicio=<?= date('Y-m-d') ?>&fecha_fin=<?= date('Y-m-d') ?>"
                                         target="_blank"
-                                        class="btn btn-danger btn-sm">
-                                        <i class="fa fa-file-pdf"></i> PDF
+                                        class="btn btn-danger btn-sm d-flex align-items-center">
+                                        <i class="fa fa-file-pdf mr-1"></i>
+                                        PDF
                                     </a>
 
                                 </div>
