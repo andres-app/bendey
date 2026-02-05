@@ -34,7 +34,7 @@ $esPOS = ($url === 'newsale3');
 
             <!-- PRODUCTOS -->
             <?php if (!empty($_SESSION['almacen']) && $_SESSION['almacen'] == 1) {
-                $productosActive = in_array($url, ['product','category','atributos','almacenes']);
+                $productosActive = in_array($url, ['product', 'category', 'atributos', 'almacenes']);
             ?>
                 <li class="dropdown <?= $productosActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
@@ -61,7 +61,7 @@ $esPOS = ($url === 'newsale3');
 
             <!-- COMPRAS -->
             <?php if (!empty($_SESSION['compras']) && $_SESSION['compras'] == 1) {
-                $comprasActive = in_array($url, ['buy','supplier']);
+                $comprasActive = in_array($url, ['buy', 'supplier']);
             ?>
                 <li class="dropdown <?= $comprasActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
@@ -82,7 +82,7 @@ $esPOS = ($url === 'newsale3');
 
             <!-- VENTAS -->
             <?php if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
-                $ventasActive = !$esPOS && in_array($url, ['listsales','customer','sunat']);
+                $ventasActive = !$esPOS && in_array($url, ['listsales', 'customer', 'sunat']);
             ?>
                 <li class="dropdown <?= $ventasActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
@@ -109,7 +109,7 @@ $esPOS = ($url === 'newsale3');
 
             <!-- USUARIOS -->
             <?php if (!empty($_SESSION['users']) && $_SESSION['users'] == 1) {
-                $usuariosActive = in_array($url, ['users','permissions']);
+                $usuariosActive = in_array($url, ['users', 'permissions']);
             ?>
                 <li class="dropdown <?= $usuariosActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
@@ -127,6 +127,15 @@ $esPOS = ($url === 'newsale3');
                     </ul>
                 </li>
             <?php } ?>
+
+            <!-- CAJA CHICA -->
+            <li class="<?= $url == 'cajachica' ? 'active' : '' ?>">
+                <a class="nav-link" href="cajachica">
+                    <i data-feather="dollar-sign"></i>
+                    <span>Caja Chica</span>
+                </a>
+            </li>
+
 
             <!-- MANTENIMIENTO -->
             <?php if (!empty($_SESSION['almacen']) && $_SESSION['almacen'] == 1) {
@@ -148,7 +157,7 @@ $esPOS = ($url === 'newsale3');
 
             <!-- CONFIGURACIÓN -->
             <?php if (!empty($_SESSION['settings']) && $_SESSION['settings'] == 1) {
-                $configActive = in_array($url, ['generalsetting','vouchersetting','paymentstype','paymentformat']);
+                $configActive = in_array($url, ['generalsetting', 'vouchersetting', 'paymentstype', 'paymentformat']);
             ?>
                 <li class="dropdown <?= $configActive ? 'active' : '' ?>">
                     <a href="#" class="nav-link has-dropdown">
@@ -177,8 +186,12 @@ $esPOS = ($url === 'newsale3');
 
             <?php
             $reportesActive = in_array($url, [
-                'graphics','datebuy','purchaseproduct',
-                'clientdatesales','salesproduct','kardex'
+                'graphics',
+                'datebuy',
+                'purchaseproduct',
+                'clientdatesales',
+                'salesproduct',
+                'kardex'
             ]);
             ?>
             <li class="dropdown <?= $reportesActive ? 'active' : '' ?>">

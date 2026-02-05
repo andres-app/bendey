@@ -17,6 +17,7 @@ if (isset($_GET["url"])) {
     || $_GET["url"] == "newsale3"
     || $_GET["url"] == "listsales"
     || $_GET["url"] == "generalsetting"
+    || $_GET["url"] == "cajachica"
     || $_GET["url"] == "vouchersetting"
     || $_GET["url"] == "paymentstype"
     || $_GET["url"] == "paymentformat"
