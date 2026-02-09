@@ -1,5 +1,6 @@
 $(document).ready(function () {
 
+    // Solo se ejecuta en la vista Caja Chica
     cargarCaja();
 
     $('#fecha_inicio, #fecha_fin, #idusuario').on('change', function () {
@@ -49,17 +50,12 @@ function renderTabla(data) {
 
         if (forma.includes('efectivo')) {
             filas[r.tipo_comprobante].efectivo += monto;
-
         } else if (forma.includes('tarjeta')) {
-            // debito + credito
             filas[r.tipo_comprobante].tarjeta += monto;
-
         } else if (forma.includes('transfer')) {
             filas[r.tipo_comprobante].transferencia += monto;
-
         } else if (forma.includes('yape')) {
             filas[r.tipo_comprobante].yape += monto;
-
         } else if (forma.includes('plin')) {
             filas[r.tipo_comprobante].plin += monto;
         }
@@ -70,13 +66,7 @@ function renderTabla(data) {
     Object.keys(filas).forEach(tc => {
 
         let f = filas[tc];
-
-        let total =
-            f.efectivo +
-            f.tarjeta +
-            f.transferencia +
-            f.yape +
-            f.plin;
+        let total = f.efectivo + f.tarjeta + f.transferencia + f.yape + f.plin;
 
         html += `
             <tr>
@@ -97,18 +87,4 @@ function renderTotales(t) {
     let ingresos = parseFloat(t.ingresos || 0);
     $('#totalIngresos').text('S/ ' + ingresos.toFixed(2));
     $('#totalCaja').text('S/ ' + ingresos.toFixed(2));
-}
-
-function exportarExcel() {
-
-    let fecha_inicio = document.getElementById('fecha_inicio').value;
-    let fecha_fin = document.getElementById('fecha_fin').value;
-    let idusuario = document.getElementById('idusuario').value;
-
-    let url = 'Reports/ExcelCajaChica.php'
-        + '?fecha_inicio=' + fecha_inicio
-        + '&fecha_fin=' + fecha_fin
-        + '&idusuario=' + idusuario;
-
-    window.location.href = url;
 }

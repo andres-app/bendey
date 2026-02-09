@@ -25,4 +25,22 @@ switch ($op) {
             'totales' => $totales
         ]);
         break;
+    case 'verificar_apertura':
+        $apertura = $caja->existeAperturaHoy();
+        echo json_encode([
+            'existe' => $apertura ? true : false,
+            'data' => $apertura
+        ]);
+        break;
+
+    case 'guardar_apertura':
+        $monto = $_POST['monto'];
+        $idusuario = $_SESSION['idusuario'];
+
+        $ok = $caja->registrarApertura($monto, $idusuario);
+
+        echo json_encode([
+            'status' => $ok ? 'ok' : 'error'
+        ]);
+        break;
 }
