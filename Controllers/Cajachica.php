@@ -25,22 +25,40 @@ switch ($op) {
             'totales' => $totales
         ]);
         break;
+
     case 'verificar_apertura':
+
         $apertura = $caja->existeAperturaHoy();
-        echo json_encode([
-            'existe' => $apertura ? true : false,
-            'data' => $apertura
-        ]);
+
+        if ($apertura) {
+
+            $totales = $caja->totales(date('Y-m-d'), date('Y-m-d'));
+
+            echo json_encode([
+                'existe' => true,
+                'apertura' => $apertura,
+                'totales' => $totales
+            ]);
+        } else {
+
+            echo json_encode([
+                'existe' => false
+            ]);
+        }
+
         break;
 
-    case 'guardar_apertura':
-        $monto = $_POST['monto'];
-        $idusuario = $_SESSION['idusuario'];
+        case 'guardar_apertura':
 
-        $ok = $caja->registrarApertura($monto, $idusuario);
-
-        echo json_encode([
-            'status' => $ok ? 'ok' : 'error'
-        ]);
-        break;
+            $monto = $_POST['monto'] ?? 0;
+            $idusuario = $_SESSION['idusuario'] ?? 0;
+        
+            $ok = $caja->registrarApertura($monto, $idusuario);
+        
+            echo json_encode([
+                'status' => $ok ? 'ok' : 'error'
+            ]);
+        
+            break;
+        
 }

@@ -77,8 +77,9 @@ class Cajachica
     public function registrarApertura($monto, $idusuario)
     {
         $sql = "INSERT INTO caja_apertura (fecha, monto_apertura, idusuario)
-            VALUES (CURDATE(), ?, ?)";
-        return $this->conexion->getData($sql, [$monto, $idusuario]);
+                VALUES (CURDATE(), ?, ?)";
+    
+        return $this->conexion->setData($sql, [$monto, $idusuario]);
     }
 
     // Obtener apertura actual

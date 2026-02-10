@@ -141,38 +141,20 @@ input.form-control.total-display:focus {
 /* ================= MODAL CAJA CHICA ================= */
 
 .modal-caja {
-    border-radius: 16px;
+    border-radius: 14px;
     padding: 10px;
-}
-
-.card-box {
-    border-radius: 10px;
-    padding: 20px;
-    border: 1px solid #e9ecef;
-}
-
-.card-box h3 {
-    font-weight: bold;
-    margin: 0;
-}
-
-.card-apertura {
-    border: 2px solid #4e73df;
-}
-
-.card-ingresos {
-    color: #6c757d;
-}
-
-.card-egresos {
-    color: #e74a3b;
-}
-
-.card-total {
-    color: #1cc88a;
-    font-size: 1.4rem;
-}
-
-.modal-backdrop.show {
+  }
+  
+  .modal-caja .modal-body {
+    padding: 30px;
+  }
+  
+  #montoApertura {
+    font-size: 28px;
+    height: 65px;
+  }
+  
+  .modal-backdrop.show {
     opacity: 0.85;
-}
+  }
+  
