@@ -13,6 +13,8 @@ $fecha_fin    = $_GET['fecha_fin'] ?? date('Y-m-d');
 $caja = new Cajachica();
 $data = $caja->resumen($fecha_inicio, $fecha_fin);
 $totales = $caja->totales($fecha_inicio, $fecha_fin);
+$apertura = $caja->obtenerAperturaPorFecha($fecha_inicio);
+$monto_apertura = (float)($apertura['monto_apertura'] ?? 0);
 
 // Empresa
 $empresa = new Company();
@@ -42,6 +44,19 @@ $pdf->Cell(0, 4, t("Desde: $fecha_inicio"), 0, 1, 'C');
 $pdf->Cell(0, 4, t("Hasta: $fecha_fin"), 0, 1, 'C');
 
 $pdf->Ln(3);
+
+/* ======================
+   APERTURA
+====================== */
+
+$pdf->SetFont('Arial', 'B', 9);
+$pdf->Cell(0, 5, t('APERTURA DE CAJA'), 0, 1);
+
+$pdf->SetFont('Arial', '', 9);
+$pdf->Cell(0, 5, t('Monto inicial: S/ ' . number_format($monto_apertura, 2)), 0, 1);
+
+$pdf->Ln(3);
+
 
 /* ======================
    AGRUPAR DATOS
@@ -148,11 +163,15 @@ $pdf->Ln(2);
 $pdf->SetFont('Arial', 'B', 9);
 $pdf->Cell(0, 5, t('------------------------------'), 0, 1, 'C');
 
+$total_caja = $monto_apertura + $total_general;
+
+$pdf->Cell(0, 5, t('APERTURA: S/ ' . number_format($monto_apertura, 2)), 0, 1);
 $pdf->Cell(0, 5, t('INGRESOS: S/ ' . number_format($total_general, 2)), 0, 1);
 $pdf->Cell(0, 5, t('EGRESOS: S/ 0.00'), 0, 1);
 
 $pdf->SetFont('Arial', 'B', 10);
-$pdf->Cell(0, 6, t('TOTAL CAJA: S/ ' . number_format($total_general, 2)), 0, 1);
+$pdf->Cell(0, 6, t('TOTAL CAJA: S/ ' . number_format($total_caja, 2)), 0, 1);
+
 
 $pdf->Ln(3);
 $pdf->SetFont('Arial', '', 8);

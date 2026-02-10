@@ -67,18 +67,25 @@ class Cajachica
     }
 
     // Verificar si ya hay apertura hoy
-    public function existeAperturaHoy()
+    public function obtenerCajaAbiertaHoy()
     {
-        $sql = "SELECT * FROM caja_apertura WHERE fecha = CURDATE() LIMIT 1";
+        $sql = "SELECT *
+                FROM caja_apertura
+                WHERE fecha = CURDATE()
+                AND estado = 'ABIERTA'
+                LIMIT 1";
+    
         return $this->conexion->getData($sql);
     }
+    
+    
 
     // Registrar apertura
     public function registrarApertura($monto, $idusuario)
     {
         $sql = "INSERT INTO caja_apertura (fecha, monto_apertura, idusuario)
                 VALUES (CURDATE(), ?, ?)";
-    
+
         return $this->conexion->setData($sql, [$monto, $idusuario]);
     }
 
@@ -88,4 +95,32 @@ class Cajachica
         $sql = "SELECT * FROM caja_apertura WHERE fecha = CURDATE() LIMIT 1";
         return $this->conexion->getData($sql);
     }
+
+    public function obtenerAperturaPorFecha($fecha)
+    {
+        $sql = "SELECT monto_apertura, estado
+                FROM caja_apertura 
+                WHERE fecha = ? 
+                LIMIT 1";
+    
+        return $this->conexion->getData($sql, [$fecha]);
+    }
+    
+
+    public function cerrarCaja($montoContado, $idusuario)
+    {
+        $sql = "UPDATE caja_apertura
+                SET estado = 'CERRADA'
+                WHERE fecha = CURDATE()
+                AND idusuario = ?";
+    
+        $ok = $this->conexion->setData($sql, [$idusuario]);
+    
+        return [
+            'status' => $ok ? 'ok' : 'error'
+        ];
+    }
+    
+    
+
 }
