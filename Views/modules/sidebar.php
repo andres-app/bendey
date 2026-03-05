@@ -216,7 +216,7 @@ $esPOS = ($url === 'newsale3');
 
                     <?php if (!empty($_SESSION['clientdatesales']) && $_SESSION['clientdatesales'] == 1) { ?>
                         <li class="<?= $url == 'clientdatesales' ? 'active' : '' ?>">
-                            <a class="nav-link" href="clientdatesales">Consulta ventas</a>
+                            <a class="nav-link" href="clientdatesales">Reporte de ventas</a>
                         </li>
                         <li class="<?= $url == 'salesproduct' ? 'active' : '' ?>">
                             <a class="nav-link" href="salesproduct">Ventas artículos</a>
