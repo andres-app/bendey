@@ -10,11 +10,13 @@ $esPOS = ($url === 'newsale3');
 <div class="main-sidebar sidebar-style-2">
     <aside id="sidebar-wrapper">
 
-        <!-- LOGO -->
-        <div class="sidebar-brand">
-            <a href="dashboard">
-                <img alt="image" src="Assets/img/logo.png" class="header-logo" />
-                <span class="logo-name">TiquePOS</span>
+        <!-- LOGO EMPRESA -->
+        <div class="sidebar-brand" style="padding:80px 0; display:flex; justify-content:center; align-items:center;">
+            <a href="dashboard" style="display:flex; justify-content:center; width:100%;">
+                <img
+                    src="Assets/img/tiquepos_logo.png"
+                    alt="TiquePOS"
+                    style="height:100px; width:auto; display:block;">
             </a>
         </div>
 
