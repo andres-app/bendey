@@ -12,6 +12,7 @@ if (isset($_GET["url"])) {
     || $_GET["url"] == "supplier"
     || $_GET["url"] == "customer"
     || $_GET["url"] == "sunat"
+    || $_GET["url"] == "cotizacion"
     || $_GET["url"] == "newsale"
     || $_GET["url"] == "newsale2"
     || $_GET["url"] == "newsale3"

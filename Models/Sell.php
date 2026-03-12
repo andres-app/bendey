@@ -457,21 +457,23 @@ class Sell
     public function listar()
     {
         $sql = "SELECT 
-            v.idventa,
-            DATE(v.fecha_hora) as fecha,
-            v.idcliente,
-            COALESCE(p.nombre, 'SIN CLIENTE') AS cliente,
-            u.nombre AS usuario,
-            v.tipo_comprobante,
-            v.serie_comprobante,
-            v.num_comprobante,
-            v.total_venta,
-            v.impuesto,
-            v.estado
-        FROM venta v
-        LEFT JOIN persona p ON v.idcliente = p.idpersona
-        LEFT JOIN usuario u ON v.idusuario = u.idusuario
-        ORDER BY v.idventa DESC";
+                v.idventa,
+                DATE(v.fecha_hora) as fecha,
+                v.idcliente,
+                COALESCE(p.nombre, 'SIN CLIENTE') AS cliente,
+                u.nombre AS usuario,
+                v.tipo_comprobante,
+                v.serie_comprobante,
+                v.num_comprobante,
+                v.total_venta,
+                v.impuesto,
+                v.estado
+            FROM venta v
+            LEFT JOIN persona p ON v.idcliente = p.idpersona
+            LEFT JOIN usuario u ON v.idusuario = u.idusuario
+            WHERE v.tipo_comprobante <> 'Cotizacion'
+            ORDER BY v.idventa DESC";
+    
         return $this->conexion->getDataAll($sql);
     }
 
@@ -528,6 +530,29 @@ class Sell
 
         return $this->conexion->getDataAll($sql);
     }
+
+    public function listarCotizaciones()
+{
+    $sql = "SELECT 
+                v.idventa,
+                DATE(v.fecha_hora) as fecha,
+                v.idcliente,
+                COALESCE(p.nombre, 'SIN CLIENTE') AS cliente,
+                u.nombre AS usuario,
+                v.tipo_comprobante,
+                v.serie_comprobante,
+                v.num_comprobante,
+                v.total_venta,
+                v.impuesto,
+                v.estado
+            FROM venta v
+            LEFT JOIN persona p ON v.idcliente = p.idpersona
+            LEFT JOIN usuario u ON v.idusuario = u.idusuario
+            WHERE v.tipo_comprobante = 'Cotizacion'
+            ORDER BY v.idventa DESC";
+
+    return $this->conexion->getDataAll($sql);
+}
 
 
     public function obtenerPagosVenta($idventa)

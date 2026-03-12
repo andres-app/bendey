@@ -157,7 +157,7 @@ switch ($_GET["op"]) {
 				$_POST["cantidad"],
 				$_POST["precio_compra"],
 				$_POST["precio_venta"]
-			);			
+			);
 
 			if (!$idventa) {
 				throw new Exception("Error al registrar la venta.");
@@ -263,7 +263,62 @@ switch ($_GET["op"]) {
 		break;
 
 
+	case 'listarCotizaciones':
+		$rspta = $sell->listarCotizaciones();
+		$data = array();
 
+		foreach ($rspta as $reg) {
+
+			$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+			$host = $_SERVER['HTTP_HOST'];
+			$project_root = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\') . '/';
+			$base_url = $protocol . $host . $project_root;
+
+			$data[] = array(
+				"0" => '
+						<div class="btn-group">
+							<button class="btn btn-info btn-sm" title="Ver" onclick="mostrar(' . $reg['idventa'] . ')">
+								<i class="fas fa-eye"></i>
+							</button>
+							<button class="btn btn-success btn-sm" title="Imprimir" onclick="window.open(\'' . $base_url . 'Reports/a4.php?id=' . $reg['idventa'] . '\', \'_blank\')">
+								<i class="fas fa-print"></i>
+							</button>
+							<button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Más">
+								<span>...</span>
+							</button>
+							<div class="dropdown-menu">
+								<a class="dropdown-item" href="' . $base_url . 'Reports/a4.php?id=' . $reg['idventa'] . '" target="_blank">
+									<i class="far fa-file-pdf"></i> Imprimir A4
+								</a>
+								' . (($reg['estado'] == 'Aceptado') ? '
+								<a class="dropdown-item text-danger" href="#" onclick="anular(' . $reg['idventa'] . ')">
+									<i class="fas fa-times"></i> Anular
+								</a>
+								' : '') . '
+							</div>
+						</div>
+					',
+				"1" => $reg['fecha'],
+				"2" => $reg['cliente'],
+				"3" => $reg['usuario'],
+				"4" => $reg['tipo_comprobante'],
+				"5" => $reg['serie_comprobante'] . '-' . $reg['num_comprobante'],
+				"6" => number_format((float)$reg['total_venta'], 2, '.', ''),
+				"7" => ($reg['estado'] == 'Aceptado')
+					? '<div class="badge badge-success">Aceptado</div>'
+					: '<div class="badge badge-danger">Anulado</div>'
+			);
+		}
+
+		$results = array(
+			"sEcho" => 1,
+			"iTotalRecords" => count($data),
+			"iTotalDisplayRecords" => count($data),
+			"aaData" => $data
+		);
+
+		echo json_encode($results);
+		break;
 	//_______________________________________________________________________________________________________
 	//opcion para mostrar la numeracion y la serie_comprobante de la factura
 	case 'mostrar_numero':
