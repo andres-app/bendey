@@ -1,4 +1,6 @@
 <?php
+date_default_timezone_set('America/Lima');
+
 // Detectar el entorno automáticamente
 if ($_SERVER['SERVER_NAME'] == 'localhost' || $_SERVER['SERVER_NAME'] == '127.0.0.1') {
     define("ENVIRONMENT", "development");

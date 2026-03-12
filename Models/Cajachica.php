@@ -10,9 +10,6 @@ class Cajachica
         $this->conexion = new Conexion();
     }
 
-    /**
-     * Resumen por comprobante y forma de pago
-     */
     public function resumen($fecha_inicio, $fecha_fin, $idusuario = null)
     {
         $sql = "
@@ -42,9 +39,6 @@ class Cajachica
         return $this->conexion->getDataAll($sql, $params);
     }
 
-    /**
-     * Totales generales
-     */
     public function totales($fecha_inicio, $fecha_fin, $idusuario = null)
     {
         $sql = "
@@ -66,61 +60,67 @@ class Cajachica
         return $this->conexion->getData($sql, $params);
     }
 
-    // Verificar si ya hay apertura hoy
     public function obtenerCajaAbiertaHoy()
     {
+        $fecha = date('Y-m-d');
+
         $sql = "SELECT *
                 FROM caja_apertura
-                WHERE fecha = CURDATE()
-                AND estado = 'ABIERTA'
+                WHERE fecha = ?
+                  AND estado = 'ABIERTA'
                 LIMIT 1";
-    
-        return $this->conexion->getData($sql);
-    }
-    
-    
 
-    // Registrar apertura
+        return $this->conexion->getData($sql, [$fecha]);
+    }
+
     public function registrarApertura($monto, $idusuario)
     {
-        $sql = "INSERT INTO caja_apertura (fecha, monto_apertura, idusuario)
-                VALUES (CURDATE(), ?, ?)";
+        $fecha = date('Y-m-d');
+        $createdAt = date('Y-m-d H:i:s');
 
-        return $this->conexion->setData($sql, [$monto, $idusuario]);
+        $sql = "INSERT INTO caja_apertura (fecha, monto_apertura, idusuario, created_at)
+                VALUES (?, ?, ?, ?)";
+
+        return $this->conexion->setData($sql, [$fecha, $monto, $idusuario, $createdAt]);
     }
 
-    // Obtener apertura actual
     public function obtenerAperturaHoy()
     {
-        $sql = "SELECT * FROM caja_apertura WHERE fecha = CURDATE() LIMIT 1";
-        return $this->conexion->getData($sql);
+        $fecha = date('Y-m-d');
+
+        $sql = "SELECT * 
+                FROM caja_apertura 
+                WHERE fecha = ? 
+                LIMIT 1";
+
+        return $this->conexion->getData($sql, [$fecha]);
     }
 
     public function obtenerAperturaPorFecha($fecha)
     {
-        $sql = "SELECT monto_apertura, estado
+        $sql = "SELECT monto_apertura, estado, created_at, fecha_cierre
                 FROM caja_apertura 
                 WHERE fecha = ? 
                 LIMIT 1";
-    
+
         return $this->conexion->getData($sql, [$fecha]);
     }
-    
 
     public function cerrarCaja($montoContado, $idusuario)
     {
+        $fecha = date('Y-m-d');
+        $fechaCierre = date('Y-m-d H:i:s');
+
         $sql = "UPDATE caja_apertura
-                SET estado = 'CERRADA'
-                WHERE fecha = CURDATE()
-                AND idusuario = ?";
-    
-        $ok = $this->conexion->setData($sql, [$idusuario]);
-    
+                SET estado = 'CERRADA',
+                    fecha_cierre = ?
+                WHERE fecha = ?
+                  AND idusuario = ?";
+
+        $ok = $this->conexion->setData($sql, [$fechaCierre, $fecha, $idusuario]);
+
         return [
             'status' => $ok ? 'ok' : 'error'
         ];
     }
-    
-    
-
 }

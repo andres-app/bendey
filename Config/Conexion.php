@@ -15,6 +15,9 @@ class Conexion
 				DB_PASS
 			);
 			$this->conect->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+			// Zona horaria Perú
+			$this->conect->exec("SET time_zone = '-05:00'");
 		} catch (PDOException $e) {
 			die(json_encode([
 				"success" => false,
@@ -65,6 +68,10 @@ class Conexion
 				DB_PASS
 			);
 			$conect->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+	
+			// Zona horaria Perú
+			$conect->exec("SET time_zone = '-05:00'");
+	
 			return $conect;
 		} catch (PDOException $e) {
 			die(json_encode([
@@ -81,23 +88,21 @@ class Conexion
 		return $query->fetchColumn();
 	}
 
-	    // =====================================
-    // 🔐 MÉTODOS DE TRANSACCIÓN (PDO)
-    // =====================================
-    public function beginTransaction()
-    {
-        return $this->conect->beginTransaction();
-    }
+	// =====================================
+	// 🔐 MÉTODOS DE TRANSACCIÓN (PDO)
+	// =====================================
+	public function beginTransaction()
+	{
+		return $this->conect->beginTransaction();
+	}
 
-    public function commit()
-    {
-        return $this->conect->commit();
-    }
+	public function commit()
+	{
+		return $this->conect->commit();
+	}
 
-    public function rollBack()
-    {
-        return $this->conect->rollBack();
-    }
-
-
+	public function rollBack()
+	{
+		return $this->conect->rollBack();
+	}
 }

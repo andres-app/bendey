@@ -1,3 +1,5 @@
+<?php date_default_timezone_set('America/Lima'); ?>
+
 <!-- ================= MODAL CAJA CHICA REDISEÑADO ================= -->
 <div class="modal fade" id="modalCajaChica"
   tabindex="-1"
@@ -18,7 +20,10 @@
         <div class="mb-3">
           <small class="text-muted">Fecha de apertura</small>
           <div class="font-weight-bold">
-            <?php echo date('d/m/Y H:i:s'); ?>
+            <?php
+            $dt = new DateTime('now', new DateTimeZone('America/Lima'));
+            echo $dt->format('d/m/Y H:i:s');
+            ?>
           </div>
         </div>
 
@@ -86,11 +91,11 @@
 $url = $_GET['url'] ?? '';
 
 if ($url === 'producto') {
-    echo '<script src="Views/modules/scripts/product.js"></script>';
+  echo '<script src="Views/modules/scripts/product.js"></script>';
 }
 
 if ($url === 'cajachica') {
-    echo '<script src="Views/modules/scripts/cajachica.js"></script>';
+  echo '<script src="Views/modules/scripts/cajachica.js"></script>';
 }
 ?>
 
@@ -98,4 +103,5 @@ if ($url === 'cajachica') {
 <script src="Views/modules/scripts/apertura_caja.js"></script>
 
 </body>
+
 </html>
