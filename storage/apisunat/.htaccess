@@ -1,0 +1,5 @@
+Options -Indexes
+
+<FilesMatch "\.(zip|xml|json)$">
+    Require all denied
+</FilesMatch>

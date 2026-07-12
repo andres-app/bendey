@@ -37,7 +37,7 @@ class Sell
         $precio_venta,
     ) {
         date_default_timezone_set('America/Lima');
-        $fecha_hora = date("Y-m-d");
+        $fecha_hora = date('Y-m-d H:i:s');
 
         // ===============================
         // INSERT VENTA (CABECERA)
@@ -254,7 +254,7 @@ class Sell
 
         //ACTUALIZAR EL KARDEX
         date_default_timezone_set('America/Lima');
-        $fecha_hora = date("Y-m-d");
+        $fecha_hora = date('Y-m-d H:i:s');
         $detalle = $tipo_comprobante . ' ' . $serie_comprobante . '-' . $num_comprobante;
         //ELIMINAR DATOS DE DETALLE DE INGRESO
         $sql_del = "DELETE FROM $this->tableNameKardex WHERE iddetalle=? AND tipo=?";

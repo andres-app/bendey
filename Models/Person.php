@@ -10,19 +10,31 @@ class Person
     private $apiKey;
 
     // Implementamos el constructor
-    public function __construct()
+    public function __construct($conexion = null)
     {
-        $this->conexion = new Conexion();
-        $this->apiKey = $this->obtenerApiKey();  // Obtener el token desde la base de datos
+        if ($conexion instanceof Conexion) {
+            $this->conexion = $conexion;
+        } else {
+            $this->conexion = new Conexion();
+        }
+
+        $this->apiKey = $this->obtenerApiKey();
     }
 
     // Método para obtener el API Key desde la base de datos
     private function obtenerApiKey()
     {
-        $sql = "SELECT token_reniec_sunat FROM datos_negocio LIMIT 1";
-        $resultado = $this->conexion->getData($sql, []);
-        // Quita espacios antes de devolver
-        return isset($resultado['token_reniec_sunat']) ? trim($resultado['token_reniec_sunat']) : '';
+        $sql = "SELECT token_reniec_sunat
+                FROM datos_negocio
+                WHERE condicion = 1
+                ORDER BY id_negocio DESC
+                LIMIT 1";
+    
+        $resultado = $this->conexion->getData($sql);
+    
+        return isset($resultado['token_reniec_sunat'])
+            ? trim($resultado['token_reniec_sunat'])
+            : '';
     }
 
     // Método para insertar registros
@@ -216,8 +228,24 @@ class Person
 
     public function mostrarPorDocumento($num_documento)
     {
-        $sql = "SELECT * FROM persona WHERE num_documento = ?";
-        $arrData = array($num_documento);
-        return $this->conexion->getData($sql, $arrData); // Asume que este método devuelve los datos
+        $num_documento = preg_replace(
+            '/\D/',
+            '',
+            (string)$num_documento
+        );
+    
+        if ($num_documento === '') {
+            return false;
+        }
+    
+        $sql = "SELECT *
+                FROM persona
+                WHERE num_documento = ?
+                LIMIT 1";
+    
+        return $this->conexion->getData(
+            $sql,
+            [$num_documento]
+        );
     }
 }

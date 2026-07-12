@@ -1,715 +1,1665 @@
 <?php
-require_once "../Models/Sell.php";
-if (strlen(session_id()) < 1)
-	session_start();
 
-$sell = new Sell();
+require_once __DIR__ . '/../Models/Sell.php';
 
-$idventa = isset($_POST["idventa"]) ? $_POST["idventa"] : "";
-$idcliente = isset($_POST["idcliente"]) ? $_POST["idcliente"] : "";
-$idusuario = $_SESSION["idusuario"];
-$tipo_comprobante = isset($_POST["tipo_comprobante"]) ? $_POST["tipo_comprobante"] : "";
-$serie_comprobante = isset($_POST["serie_comprobante"]) ? $_POST["serie_comprobante"] : "";
-$num_comprobante = isset($_POST["num_comprobante"]) ? $_POST["num_comprobante"] : "";
-$impuesto = isset($_POST["impuesto"]) ? $_POST["impuesto"] : "";
-$total_venta = isset($_POST["total_venta"]) ? $_POST["total_venta"] : "";
-$idforma_pago = $_POST['idforma_pago'] ?? null;
-
-// Obtener nombre de forma de pago
-$tipo_pago = null;
-
-if ($idforma_pago) {
-	$fp = $sell->getConexion()->getData(
-		"SELECT nombre FROM forma_pago WHERE idforma_pago = ?",
-		[$idforma_pago]
-	);
-
-	if ($fp) {
-		$tipo_pago = $fp['nombre'];
-	}
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
 }
 
-$num_transac = isset($_POST["num_transac"]) ? $_POST["num_transac"] : "";
-
-
-
-switch ($_GET["op"]) {
-	case 'guardaryeditar':
-
-		require_once "../Models/Person.php";
-		require_once "../Models/Voucher.php";
-
-		$person  = new Person();
-		$voucher = new Voucher();
-
-		try {
-
-			// ======================================
-			// 🔐 INICIAR TRANSACCIÓN (CORREGIDO)
-			// ======================================
-			$sell->getConexion()->beginTransaction();
-
-			// ======================================
-			// 1) CLIENTE (CORREGIDO)
-			// ======================================
-			$idcliente = $_POST["idcliente"] ?? '';
-
-			if (empty($idcliente)) {
-
-				// Solo si NO se seleccionó cliente
-				$tipo_documento = $_POST["tipo_documento"] ?? '';
-				$num_documento  = $_POST["num_documento"] ?? '';
-				$nombre_cli     = $_POST["nombre_cli"] ?? '';
-				$direccion      = $_POST["direccion"] ?? '';
-
-				$cliente = $person->mostrarPorDocumento($num_documento);
-
-				if (!$cliente) {
-					$idcliente = $person->insertar(
-						"Cliente",
-						$nombre_cli,
-						$tipo_documento,
-						$num_documento,
-						$direccion,
-						"",
-						""
-					);
-				} else {
-					$idcliente = $cliente['idpersona'];
-				}
-			}
-
-			if (!is_numeric($idcliente) || $idcliente <= 0) {
-				throw new Exception("No se pudo determinar el cliente de la venta");
-			}
-
-
-			// ======================================
-			// 2) VALIDAR PRODUCTOS
-			// ======================================
-			if (
-				!isset($_POST["idarticulo"]) ||
-				!is_array($_POST["idarticulo"]) ||
-				count($_POST["idarticulo"]) === 0
-			) {
-				throw new Exception("Debe agregar al menos un producto antes de procesar la venta.");
-			}
-
-			// ======================================
-			// 3) CALCULAR TOTAL (CON DESCUENTO %)
-			// ======================================
-			$subtotal = 0;
-
-			for ($i = 0; $i < count($_POST["idarticulo"]); $i++) {
-				$cantidad     = (float) ($_POST["cantidad"][$i] ?? 0);
-				$precio_venta = (float) ($_POST["precio_venta"][$i] ?? 0);
-				$subtotal += $cantidad * $precio_venta;
-			}
-
-			$descuento_porcentaje = (float) ($_POST['descuento_porcentaje'] ?? 0);
-			if ($descuento_porcentaje < 0) $descuento_porcentaje = 0;
-			if ($descuento_porcentaje > 100) $descuento_porcentaje = 100;
-
-			$descuento_total = round($subtotal * ($descuento_porcentaje / 100), 2);
-
-			$total_venta = round($subtotal - $descuento_total, 2);
-			if ($total_venta < 0) $total_venta = 0;
-
-
-			// ======================================
-			// 🔐 4) OBTENER CORRELATIVO BLOQUEADO
-			// ======================================
-			$corr = $voucher->obtenerCorrelativoBloqueado($tipo_comprobante);
-
-			if (!$corr) {
-				throw new Exception("No existe correlativo activo para el comprobante.");
-			}
-
-			$serie_comprobante = $corr['serie']; // B001 / F001
-			$num_comprobante   = str_pad(
-				$corr['num_comprobante'] + 1,
-				7,
-				"0",
-				STR_PAD_LEFT
-			);
-
-			// Evidencia técnica
-			error_log("[VENTA] {$tipo_comprobante} {$serie_comprobante}-{$num_comprobante}");
-
-			// ======================================
-			// 5) INSERTAR VENTA
-			// ======================================
-			$idventa = $sell->insertar(
-				$idcliente,
-				$idusuario,
-				$tipo_comprobante,
-				$serie_comprobante,
-				$num_comprobante,
-				null,
-				$total_venta,
-				$descuento_total,
-				$descuento_porcentaje,
-				$tipo_pago,
-				$num_transac,
-				$idforma_pago,
-				$_POST["idingreso"],
-				$_POST["idarticulo"],
-				$_POST["cantidad"],
-				$_POST["precio_compra"],
-				$_POST["precio_venta"]
-			);
-
-			if (!$idventa) {
-				throw new Exception("Error al registrar la venta.");
-			}
-
-			// ======================================
-			// 6) REGISTRAR PAGOS (NORMAL / MIXTO)
-			// ======================================
-			if (!empty($_POST['pagos']) && is_array($_POST['pagos'])) {
-
-				foreach ($_POST['pagos'] as $pago) {
-
-					if (empty($pago['metodo']) || empty($pago['monto'])) {
-						continue;
-					}
-
-					// Obtener ID de forma de pago por nombre
-					$sqlFp = "SELECT idforma_pago FROM forma_pago WHERE nombre = ?";
-					$fp = $sell->getConexion()->getData($sqlFp, [$pago['metodo']]);
-
-					if (!$fp) {
-						throw new Exception("Forma de pago inválida: " . $pago['metodo']);
-					}
-
-					$sqlPago = "
-            INSERT INTO venta_pago (idventa, idforma_pago, monto)
-            VALUES (?, ?, ?)
-        ";
-
-					$sell->getConexion()->setData($sqlPago, [
-						$idventa,
-						$fp['idforma_pago'],
-						$pago['monto']
-					]);
-				}
-			} else {
-
-				// ======================================
-				// PAGO NORMAL (1 SOLO MÉTODO)
-				// ======================================
-				$sqlFp = "SELECT idforma_pago FROM forma_pago WHERE nombre = ?";
-				$fp = $sell->getConexion()->getData($sqlFp, [$tipo_pago]);
-
-				if (!$fp) {
-					throw new Exception("Forma de pago inválida");
-				}
-
-				$sell->getConexion()->setData(
-					"INSERT INTO venta_pago (idventa, idforma_pago, monto)
-         VALUES (?, ?, ?)",
-					[$idventa, $fp['idforma_pago'], $total_venta]
-				);
-			}
-
-
-			// ======================================
-			// 🔄 6) ACTUALIZAR CORRELATIVO
-			// ======================================
-			$voucher->actualizarCorrelativoPorId(
-				$corr['id_comp_pago'],
-				$num_comprobante
-			);
-
-			// ======================================
-			// ✅ COMMIT (CORREGIDO)
-			// ======================================
-			$sell->getConexion()->commit();
-
-			echo json_encode([
-				"success" => true,
-				"idventa" => $idventa,
-				"mensaje" => "Venta registrada correctamente"
-			]);
-		} catch (Exception $e) {
-
-			// ❌ ROLLBACK (CORREGIDO)
-			$sell->getConexion()->rollBack();
-
-			echo json_encode([
-				"success" => false,
-				"mensaje" => $e->getMessage()
-			]);
-		}
-
-		break;
-
-
-
-	case 'anular':
-		$rspta = $sell->anular($idventa);
-		echo $rspta ? "Ingreso anulado correctamente" : "No se pudo anular el ingreso";
-		break;
-
-	case 'mostrar':
-		$rspta = $sell->mostrar($idventa);
-		echo json_encode($rspta);
-		//echo $rspta;
-		break;
-
-	case 'pagos':
-		$rspta = $sell->obtenerPagosVenta($_GET['idventa']);
-		echo json_encode($rspta);
-		break;
-
-
-	case 'listarCotizaciones':
-		$rspta = $sell->listarCotizaciones();
-		$data = array();
-
-		foreach ($rspta as $reg) {
-
-			$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-			$host = $_SERVER['HTTP_HOST'];
-			$project_root = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\') . '/';
-			$base_url = $protocol . $host . $project_root;
-
-			$data[] = array(
-				"0" => '
-						<div class="btn-group">
-							<button class="btn btn-info btn-sm" title="Ver" onclick="mostrar(' . $reg['idventa'] . ')">
-								<i class="fas fa-eye"></i>
-							</button>
-							<button class="btn btn-success btn-sm" title="Imprimir" onclick="window.open(\'' . $base_url . 'Reports/a4.php?id=' . $reg['idventa'] . '\', \'_blank\')">
-								<i class="fas fa-print"></i>
-							</button>
-							<button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Más">
-								<span>...</span>
-							</button>
-							<div class="dropdown-menu">
-								<a class="dropdown-item" href="' . $base_url . 'Reports/a4.php?id=' . $reg['idventa'] . '" target="_blank">
-									<i class="far fa-file-pdf"></i> Imprimir A4
-								</a>
-								' . (($reg['estado'] == 'Aceptado') ? '
-								<a class="dropdown-item text-danger" href="#" onclick="anular(' . $reg['idventa'] . ')">
-									<i class="fas fa-times"></i> Anular
-								</a>
-								' : '') . '
-							</div>
-						</div>
-					',
-				"1" => $reg['fecha'],
-				"2" => $reg['cliente'],
-				"3" => $reg['usuario'],
-				"4" => $reg['tipo_comprobante'],
-				"5" => $reg['serie_comprobante'] . '-' . $reg['num_comprobante'],
-				"6" => number_format((float)$reg['total_venta'], 2, '.', ''),
-				"7" => ($reg['estado'] == 'Aceptado')
-					? '<div class="badge badge-success">Aceptado</div>'
-					: '<div class="badge badge-danger">Anulado</div>'
-			);
-		}
-
-		$results = array(
-			"sEcho" => 1,
-			"iTotalRecords" => count($data),
-			"iTotalDisplayRecords" => count($data),
-			"aaData" => $data
-		);
-
-		echo json_encode($results);
-		break;
-	//_______________________________________________________________________________________________________
-	//opcion para mostrar la numeracion y la serie_comprobante de la factura
-	case 'mostrar_numero':
-
-		//mostrando el numero de factura de la tabla comprobantes
-		require_once "../Models/Voucher.php";
-		$comprobantes = new Voucher();
-		//$tipo_comprobante='Factura';
-		$tipo_comprobante = $_REQUEST["tipo_comprobante"];
-		$rspta = $comprobantes->mostrar_numero($tipo_comprobante);
-		foreach ($rspta as $reg) {
-			$numero_comp = (int) $reg['num_comprobante'];
-		}
-
-		$numero_venta = $numero_comp;
-
-		//mostramos el numero de comprobante de la tabla ventas
-		$rspta = $sell->numero_venta($tipo_comprobante);
-		foreach ($rspta as $regv) {
-			$numero_venta = (int) $regv['num_comprobante'];
-		}
-
-		$new_numero = '';
-
-		//validamos si el numero de comprobante de la sell ya llego al limite para ir a la siguiente numeracion
-		if ($numero_venta == 9999999 or empty($numero_venta)) {
-			(int) $new_numero = '0000001';
-			echo json_encode($new_numero);
-		} elseif ($numero_venta == 9999999) {
-			(int) $new_numero = '0000001';
-			echo json_encode($new_numero);
-		} else {
-			$suma_numero = $numero_venta + 1;
-			echo json_encode($suma_numero);
-		}
-
-		break;
-
-	case 'mostrar_serie':
-
-		//mostrando el numero de factura de la tabla comprobantes
-		require_once "../Models/Voucher.php";
-		$comprobantes = new Voucher();
-		//$tipo_comprobante='Factura';
-		$tipo_comprobante = $_REQUEST["tipo_comprobante"];
-		$rspta = $comprobantes->mostrar_serie($tipo_comprobante);
-		foreach ($rspta as $reg) {
-			$serie_comp = $reg['serie_comprobante'];
-			$num_comp = $reg['num_comprobante'];
-			$letra_s = $reg['letra_serie'];
-		}
-		$serie_com_comp = (int) $serie_comp;
-		$num_com_comp = (int) $num_comp;
-
-		//mostramos la serie de comprobante de la tabla ventas
-		$rsptav = $sell->numero_serie($tipo_comprobante);
-		$numeros = $serie_com_comp;
-		$numeroco = $num_com_comp;
-
-		foreach ($rsptav as $regv) {
-			$numeros = $regv['serie_comprobante'];
-			$numeroco = $regv['num_comprobante'];
-		}
-		$ns = substr($numeros, -3);
-		$nums = (int) $ns;
-		$nuew_serie = 0;
-		$numc = (int) $numeroco;
-		if ($numc == 9999999 or empty($numeroco)) {
-			$nuew_serie = $nums + 1;
-			$serie = array(
-				"letra" => $letra_s,
-				"serie" => $nuew_serie
-			);
-			echo json_encode($serie);
-		} else {
-			$serie = array(
-				"letra" => $letra_s,
-				"serie" => $nums
-			);
-			echo json_encode($serie);
-		}
-		break;
-	//opcion para mostrar la numeracion y la serie_comprobante de la boleta
-
-	//______________________________________________________________________________________________
-
-	case 'listarDetalle':
-		require_once "../Models/Company.php";
-		$cnegocio = new Company();
-		$rsptan = $cnegocio->listar();
-
-		if (empty($rsptan)) {
-			$smoneda = 'Simbolo de moneda';
-		} else {
-			$smoneda = $rsptan[0]['simbolo'];
-			$nom_imp = $rsptan[0]['nombre_impuesto'];
-		}
-
-		// Recibimos el idventa
-		$id = $_GET['id'];
-
-		$rspta = $sell->listarDetalle($id);
-		$total_venta = 0;
-
-		echo ' <thead style="background-color:#A9D0F5">
-			<th>Opciones</th>
-			<th>Articulo</th>
-			<th>Cantidad</th>
-			<th>Precio Venta</th>
-			<th>Descuento</th>
-			<th>Total</th>
-		   </thead>';
-
-		foreach ($rspta as $reg) {
-			// Cálculo del total por artículo
-			$total_articulo = $reg['precio_venta'] * $reg['cantidad'] - $reg['descuento'];
-			$total_venta += $total_articulo; // Sumamos el total de cada artículo al total de la venta
-
-			echo '<tr class="filas">
-				<td></td>
-				<td>' . $reg['nombre'] . '</td>
-				<td>' . $reg['cantidad'] . '</td>
-				<td>' . number_format($reg['precio_venta'], 2) . '</td>
-				<td>' . number_format($reg['descuento'], 2) . '</td>
-				<td>' . number_format($total_articulo, 2) . '</td>
-			  </tr>';
-		}
-
-		// Cálculo del IGV y el subtotal
-		$igv = round($total_venta * 0.18, 2); // IGV es el 18% del total de la venta
-		$subtotal = round($total_venta - $igv, 2); // Subtotal es la diferencia entre el total y el IGV
-
-		// Mostramos el pie de la tabla
-		echo '<tfoot>
-			<th><span>SubTotal</span><br><span id="valor_impuestoc">' . $nom_imp . ' 18%</span><br><span>TOTAL</span></th>
-			<th></th>
-			<th></th>
-			<th></th>
-			<th></th>
-			<th>
-				<span class="pull-right" id="total">' . $smoneda . ' ' . number_format((float) $subtotal, 2, '.', '') . '</span><br>
-				<span class="pull-right" id="most_imp">' . $smoneda . ' ' . number_format((float) $igv, 2, '.', '') . '</span><br>
-				<span class="pull-right" id="most_total" maxlength="4">' . $smoneda . ' ' . number_format((float) $total_venta, 2, '.', '') . '</span>
-			</th>
-		</tfoot>';
-
-		break;
-
-
-	case 'listarDetalle_editar':
-		require_once "../Models/Company.php";
-		$cnegocio = new Company();
-		$rsptan = $cnegocio->listar();
-		$regn = $rsptan[0];
-		if (empty($regn)) {
-			$smoneda = 'Simbolo de moneda';
-		} else {
-			$smoneda = $regn['simbolo'];
-			$nom_imp = $regn['nombre_impuesto'];
-		};
-		//recibimos el idventa
-		$id = $_GET['id'];
-
-		$rspta = $sell->listarDetalle($id);
-		$total = 0;
-		$data = array();
-
-		foreach ($rspta as $reg) {
-			$data[] = array(
-				"Idingreso" => $reg['idarticulo'],
-				"Idarticulo" => $reg['idarticulo'],
-				"Articulo" => $reg['nombre'],
-				"Pcompra" => $reg['precio_compra'],
-				"Pventa" => $reg['precio_venta'],
-				"Cantidad" => $reg['cantidad'],
-				"Stock" => $reg['stock'],
-			);
-		}
-		$results = array(
-			"Datos" => $data
-		);
-		echo json_encode($data);
-		break;
-
-	case 'listar':
-		$rspta = $sell->listar();
-		$data = array();
-
-		foreach ($rspta as $reg) {
-
-			$urlt = 'Reports/80mm.php?id=';
-			$url = 'Reports/a4.php?id=';
-			$url = 'Reports/58mm.php?id=';
-
-			// Obtener la URL base dinámica
-			$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-			$host = $_SERVER['HTTP_HOST'];
-
-			// Obtener el directorio base del proyecto
-			$project_root = rtrim(dirname(dirname($_SERVER['PHP_SELF'])), '/\\') . '/';
-
-			// Construir la URL base completa sin Controllers
-			$base_url = $protocol . $host . $project_root;
-
-			// Ajusta la ruta al PDF para reflejar la estructura correcta de tu servidor
-			$pdf_path = 'Reports/a4.php?id='; // Ruta pública relativa desde el raíz del proyecto
-
-			$data[] = array(
-				"0" => '
-					<div class="btn-group">
-						<button class="btn btn-info btn-sm" title="Ver" onclick="mostrar(' . $reg['idventa'] . ')">
-							<i class="fas fa-eye"></i>
-						</button>
-						<button class="btn btn-success btn-sm" title="Imprimir Ticket" onclick="window.open(\'' . $base_url . 'Reports/80mm.php?id=' . $reg['idventa'] . '\', \'_blank\')">
-							<i class="fas fa-print"></i>
-						</button>
-						<button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Más">
-							<span>...</span>
-						</button>
-						<div class="dropdown-menu">
-							<a class="dropdown-item" href="' . $base_url . 'Reports/a4.php?id=' . $reg['idventa'] . '" target="_blank">
-								<i class="far fa-file-pdf"></i> Imprimir A4
-							</a>
-							<a class="dropdown-item" href="https://wa.me/?text=' . urlencode('Detalle de la venta: ' . $reg['idventa'] . ' - Ver PDF: ' . $base_url . 'Reports/a4.php?id=' . $reg['idventa']) . '" target="_blank">
-								<i class="fab fa-whatsapp"></i> WhatsApp
-							</a>
-							' . (($reg['estado'] == 'Aceptado') ? '
-							<a class="dropdown-item text-danger" href="#" onclick="anular(' . $reg['idventa'] . ')">
-								<i class="fas fa-times"></i> Anular
-							</a>
-							' : '') . '
-						</div>
-					</div>
-				',
-				"1" => $reg['fecha'],
-				"2" => $reg['cliente'],
-				"3" => $reg['usuario'],
-				"4" => $reg['tipo_comprobante'],
-				"5" => $reg['serie_comprobante'] . '-' . $reg['num_comprobante'],
-				"6" => $reg['total_venta'],
-				"7" => ($reg['estado'] == 'Aceptado') ?
-					'<div class="badge badge-cdr">Aceptado</div>' :
-					'<div class="badge badge-danger">Anulado</div>'
-			);
-		}
-		$results = array(
-			"sEcho" => 1, //info para datatables
-			"iTotalRecords" => count($data), //enviamos el total de registros al datatable
-			"iTotalDisplayRecords" => count($data), //enviamos el total de registros a visualizar
-			"aaData" => $data
-		);
-		echo json_encode($results);
-		break;
-
-
-	case 'selectCliente':
-		require_once "../Models/Person.php";
-		$persona = new Person();
-
-		$rspta = $persona->listarc();
-		echo '<option value="">seleccione...</option>';
-		foreach ($rspta as $reg) {
-
-			echo '<option value=' . $reg['idpersona'] . '>' . $reg['nombre'] . '</option>';
-		}
-		break;
-
-	case 'cantidad_articulos':
-		require_once "../Models/Product.php";
-		$articulo = new Product();
-		$rsptav = $articulo->cantidadarticulos();
-
-		echo json_encode($rsptav);
-		break;
-
-	case 'listarArticulos':
-		require_once "../Models/Product.php";
-		$articulo = new Product();
-
-		$rspta = $articulo->listarActivosVenta();
-		$data = array();
-		$op = 1;
-
-		foreach ($rspta as $reg) {
-			// Valores seguros por defecto
-			$idingreso = isset($reg['idingreso']) ? $reg['idingreso'] : 0;
-			$precio_compra = isset($reg['precio_compra']) ? $reg['precio_compra'] : 0;
-			$precio_venta = isset($reg['precio_venta']) ? $reg['precio_venta'] : 0;
-			$stock = isset($reg['stock']) ? $reg['stock'] : 0;
-			$nombre = isset($reg['nombre']) ? addslashes($reg['nombre']) : 'Sin nombre';
-
-			$btncolor = '';
-			if ($stock <= 10) {
-				$btncolor = '<button class="btn btn-danger btn-sm">' . $stock . '</button>';
-			} elseif ($stock > 10 && $stock < 30) {
-				$btncolor = '<button class="btn btn-warning btn-sm">' . $stock . '</button>';
-			} elseif ($stock >= 30) {
-				$btncolor = '<button class="btn btn-success btn-sm">' . $stock . '</button>';
-			}
-
-			$data[] = array(
-				"0" => '<button class="btn btn-success btn-sm" id="addetalle" name="' . $reg['idarticulo'] . '" onclick="agregarDetalle(' . $idingreso . ',' . $reg['idarticulo'] . ',\'' . $nombre . '\',' . $precio_compra . ',' . $precio_venta . ',' . $stock . ',' . $op . ')"><span class="fa fa-plus"></span> Añadir</button>',
-				"1" => $reg['nombre'] . '<br><span style="font-size:0.95em; color:#888;">(' . ($reg['almacen'] ?? 'Sin almacén') . ')</span>',
-				"2" => $reg['codigo'],
-				"3" => $btncolor,
-				"4" => "<img src='Assets/img/products/" . $reg['imagen'] . "' height='40px' width='40px'>"
-			);
-		}
-
-		$results = array(
-			"sEcho" => 1,
-			"iTotalRecords" => count($data),
-			"iTotalDisplayRecords" => count($data),
-			"aaData" => $data
-		);
-		echo json_encode($results);
-		break;
-
-	case 'selectComprobante':
-		require_once "../Models/Voucher.php";
-		$comprobantes = new Voucher();
-
-		$rspta = $comprobantes->select();
-		echo '<option value="">Seleccione...</option>';
-		foreach ($rspta as $reg) {
-			echo '<option value="' . $reg['nombre'] . '">' . $reg['nombre'] . '</option>';
-		}
-		break;
-
-	case 'selectTipopago':
-		require_once "../Models/Paymentstype.php";
-		$tipopago = new Paymentstype();
-
-		$rspta = $tipopago->select();
-		foreach ($rspta as $reg) {
-			echo '<option value="' . $reg['nombre'] . '">' . $reg['nombre'] . '</option>';
-		}
-		break;
-
-	case 'listarCategorias':
-		require_once "../Models/Product.php";
-		$product = new Product();
-		$categorias = $product->listarCategoriasActivas();
-		echo json_encode($categorias);
-		break;
-
-	case 'listarArticulosPorCategoria':
-		require_once "../Models/Product.php";
-		$product = new Product();
-		$idcategoria = $_GET['idcategoria'];
-		$articulos = $product->listarActivosVentaPorCategoria($idcategoria);
-		echo json_encode($articulos);
-		break;
-
-	case 'listarArticulosModal':
-		require_once "../Models/Product.php";
-		$product = new Product();
-		$rspta = $product->listarActivosVenta();
-		echo json_encode($rspta);
-		break;
-
-	case 'selectFormaPago':
-		require_once __DIR__ . '/../Models/FormaPago.php';
-
-		$formaPago = new FormaPago();
-		$rspta = $formaPago->select();
-
-		echo '<option value="">Seleccione</option>';
-
-		foreach ($rspta as $r) {
-			echo '<option value="' . $r['idforma_pago'] . '"
-							 data-nombre="' . $r['nombre'] . '"
-							 data-efectivo="' . $r['es_efectivo'] . '">
-						' . $r['nombre'] . '
-					  </option>';
-		}
-		break;
-
-	case 'buscarProductoPorCodigo':
-
-		header('Content-Type: application/json');
-
-		$codigo = isset($_POST['codigo']) ? trim($_POST['codigo']) : '';
-
-		if ($codigo === '') {
-			echo json_encode(null);
-			exit;
-		}
-
-		$rspta = $sell->buscarProductoPorCodigo($codigo);
-
-		echo json_encode($rspta);
-		exit;
+$sell = new Sell();
+$op = $_GET['op'] ?? '';
+
+$idventa = (int)($_POST['idventa'] ?? $_GET['idventa'] ?? 0);
+$idusuario = (int)($_SESSION['idusuario'] ?? 0);
+
+/**
+ * Respuesta JSON uniforme.
+ */
+function responderJson($data): void
+{
+    header('Content-Type: application/json; charset=utf-8');
+
+    echo json_encode(
+        $data,
+        JSON_UNESCAPED_UNICODE |
+            JSON_UNESCAPED_SLASHES
+    );
+
+    exit;
+}
+
+/**
+ * Genera la URL pública base del sistema.
+ */
+function obtenerBaseUrl(): string
+{
+    $https = !empty($_SERVER['HTTPS'])
+        && $_SERVER['HTTPS'] !== 'off';
+
+    $protocol = $https ? 'https://' : 'http://';
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+
+    $projectRoot = rtrim(
+        dirname(dirname($_SERVER['PHP_SELF'] ?? '')),
+        '/\\'
+    ) . '/';
+
+    return $protocol . $host . $projectRoot;
+}
+
+switch ($op) {
+
+    // =========================================================
+    // GUARDAR VENTA
+    // =========================================================
+    case 'guardaryeditar':
+
+        require_once __DIR__ . '/../Models/Person.php';
+        require_once __DIR__ . '/../Models/Voucher.php';
+        require_once __DIR__ . '/../Models/ApiSunatEmission.php';
+
+        if ($idusuario <= 0) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'La sesión del usuario no es válida.'
+            ]);
+        }
+
+        $conexionVenta = $sell->getConexion();
+
+        // Ambos modelos usan la misma conexión y transacción.
+        $person = new Person($conexionVenta);
+        $voucher = new Voucher($conexionVenta);
+
+        $transaccionActiva = false;
+
+        try {
+            // =================================================
+            // 1. INICIAR TRANSACCIÓN
+            // =================================================
+            $conexionVenta->beginTransaction();
+            $transaccionActiva = true;
+
+            // =================================================
+            // 2. TIPO DE COMPROBANTE
+            // =================================================
+            $tipo_comprobante = trim(
+                (string)($_POST['tipo_comprobante'] ?? '')
+            );
+
+            if ($tipo_comprobante === '') {
+                throw new Exception(
+                    'Debe seleccionar un tipo de comprobante.'
+                );
+            }
+
+            // =================================================
+            // 3. IMPUESTO CONFIGURADO
+            // =================================================
+            $datosNegocio = $conexionVenta->getData(
+                "SELECT monto_impuesto
+                 FROM datos_negocio
+                 WHERE condicion = 1
+                 ORDER BY id_negocio DESC
+                 LIMIT 1"
+            );
+
+            $impuesto = 18.00;
+
+            if (
+                is_array($datosNegocio)
+                && isset($datosNegocio['monto_impuesto'])
+            ) {
+                $impuestoConfigurado =
+                    (float)$datosNegocio['monto_impuesto'];
+
+                if ($impuestoConfigurado > 0) {
+                    $impuesto = $impuestoConfigurado;
+                }
+            }
+
+            // =================================================
+            // 4. CLIENTE
+            // =================================================
+            $idcliente = (int)($_POST['idcliente'] ?? 0);
+
+            $tipo_documento = strtoupper(
+                trim((string)($_POST['tipo_documento'] ?? ''))
+            );
+
+            /*
+             * num_doc_real conserva el DNI/RUC verdadero.
+             * num_documento puede ser el campo visible.
+             */
+            $numeroDocumentoRecibido =
+                $_POST['num_doc_real']
+                ?? $_POST['num_documento']
+                ?? '';
+
+            $num_documento = preg_replace(
+                '/[^0-9A-Za-z\-]/',
+                '',
+                trim((string)$numeroDocumentoRecibido)
+            );
+
+            $nombre_cli = trim(
+                (string)($_POST['nombre_cli'] ?? '')
+            );
+
+            $direccion = trim(
+                (string)($_POST['direccion'] ?? '')
+            );
+
+            $telefono = trim(
+                (string)($_POST['celular'] ?? '')
+            );
+
+            $email = trim(
+                (string)($_POST['email'] ?? '')
+            );
+
+            // Inferir DNI o RUC cuando el formulario no lo envía.
+            if ($tipo_documento === '') {
+                if (preg_match('/^\d{8}$/', $num_documento)) {
+                    $tipo_documento = 'DNI';
+                } elseif (preg_match('/^\d{11}$/', $num_documento)) {
+                    $tipo_documento = 'RUC';
+                }
+            }
+
+            /*
+             * Si el formulario envió un idcliente,
+             * se valida que realmente exista.
+             */
+            if ($idcliente > 0) {
+                $clienteExistente = $conexionVenta->getData(
+                    "SELECT
+                        idpersona,
+                        nombre,
+                        tipo_documento,
+                        num_documento
+                     FROM persona
+                     WHERE idpersona = ?
+                     LIMIT 1",
+                    [$idcliente]
+                );
+
+                if (!$clienteExistente) {
+                    throw new Exception(
+                        'El cliente seleccionado no existe.'
+                    );
+                }
+            }
+
+            /*
+             * Si no hay idcliente, buscar o crear por documento.
+             */
+            if ($idcliente <= 0) {
+                if ($num_documento === '') {
+                    throw new Exception(
+                        'Debe ingresar el documento del cliente.'
+                    );
+                }
+
+                if (
+                    $tipo_documento === 'DNI'
+                    && !preg_match('/^\d{8}$/', $num_documento)
+                ) {
+                    throw new Exception(
+                        'El DNI debe tener exactamente 8 dígitos.'
+                    );
+                }
+
+                if (
+                    $tipo_documento === 'RUC'
+                    && !preg_match('/^\d{11}$/', $num_documento)
+                ) {
+                    throw new Exception(
+                        'El RUC debe tener exactamente 11 dígitos.'
+                    );
+                }
+
+                $esFactura =
+                    stripos($tipo_comprobante, 'factura') !== false;
+
+                if (
+                    $esFactura
+                    && (
+                        $tipo_documento !== 'RUC'
+                        || strlen($num_documento) !== 11
+                    )
+                ) {
+                    throw new Exception(
+                        'Para emitir una factura debe seleccionar un cliente con RUC válido.'
+                    );
+                }
+
+                $cliente = $person->mostrarPorDocumento(
+                    $num_documento
+                );
+
+                if ($cliente) {
+                    $idcliente = (int)$cliente['idpersona'];
+                } else {
+                    if ($nombre_cli === '') {
+                        throw new Exception(
+                            'No se pudo determinar el nombre del cliente.'
+                        );
+                    }
+
+                    $idcliente = (int)$person->insertar(
+                        'Cliente',
+                        $nombre_cli,
+                        $tipo_documento,
+                        $num_documento,
+                        $direccion,
+                        $telefono,
+                        $email
+                    );
+                }
+            }
+
+            if ($idcliente <= 0) {
+                throw new Exception(
+                    'No se pudo determinar el cliente de la venta.'
+                );
+            }
+
+            // =================================================
+            // 5. VALIDAR PRODUCTOS
+            // =================================================
+            $idarticulos = $_POST['idarticulo'] ?? [];
+            $idingresos = $_POST['idingreso'] ?? [];
+            $cantidades = $_POST['cantidad'] ?? [];
+            $preciosCompra = $_POST['precio_compra'] ?? [];
+            $preciosVenta = $_POST['precio_venta'] ?? [];
+
+            if (
+                !is_array($idarticulos)
+                || count($idarticulos) === 0
+            ) {
+                throw new Exception(
+                    'Debe agregar al menos un producto antes de procesar la venta.'
+                );
+            }
+
+            $cantidadProductos = count($idarticulos);
+
+            if (
+                count($cantidades) !== $cantidadProductos
+                || count($preciosVenta) !== $cantidadProductos
+                || count($preciosCompra) !== $cantidadProductos
+            ) {
+                throw new Exception(
+                    'Los datos del detalle de la venta están incompletos.'
+                );
+            }
+
+            // =================================================
+            // 6. CALCULAR SUBTOTAL
+            // =================================================
+            $subtotal = 0.00;
+
+            for ($i = 0; $i < $cantidadProductos; $i++) {
+                $idArticulo = (int)$idarticulos[$i];
+                $cantidad = (float)$cantidades[$i];
+                $precioVenta = (float)$preciosVenta[$i];
+
+                if ($idArticulo <= 0) {
+                    throw new Exception(
+                        'Se encontró un producto inválido.'
+                    );
+                }
+
+                if ($cantidad <= 0) {
+                    throw new Exception(
+                        'La cantidad de los productos debe ser mayor que cero.'
+                    );
+                }
+
+                if ($precioVenta < 0) {
+                    throw new Exception(
+                        'El precio de venta no puede ser negativo.'
+                    );
+                }
+
+                $subtotal += $cantidad * $precioVenta;
+            }
+
+            $subtotal = round($subtotal, 2);
+
+            // =================================================
+            // 7. DESCUENTO
+            // =================================================
+            $descuento_total = round(
+                (float)($_POST['descuento_total'] ?? 0),
+                2
+            );
+
+            $descuento_porcentaje = round(
+                (float)($_POST['descuento_porcentaje'] ?? 0),
+                2
+            );
+
+            if ($descuento_total < 0) {
+                $descuento_total = 0;
+            }
+
+            if ($descuento_porcentaje < 0) {
+                $descuento_porcentaje = 0;
+            }
+
+            if ($descuento_porcentaje > 100) {
+                $descuento_porcentaje = 100;
+            }
+
+            /*
+             * Compatibilidad:
+             * si no llegó descuento_total pero sí porcentaje,
+             * se calcula en el servidor.
+             */
+            if (
+                $descuento_total <= 0
+                && $descuento_porcentaje > 0
+            ) {
+                $descuento_total = round(
+                    $subtotal * ($descuento_porcentaje / 100),
+                    2
+                );
+            }
+
+            if ($descuento_total > $subtotal) {
+                $descuento_total = $subtotal;
+            }
+
+            /*
+             * Si se aplicó descuento fijo en soles,
+             * calcular el porcentaje equivalente para registro.
+             */
+            if (
+                $descuento_total > 0
+                && $subtotal > 0
+                && $descuento_porcentaje <= 0
+            ) {
+                $descuento_porcentaje = round(
+                    ($descuento_total / $subtotal) * 100,
+                    2
+                );
+            }
+
+            $total_venta = round(
+                $subtotal - $descuento_total,
+                2
+            );
+
+            if ($total_venta < 0) {
+                $total_venta = 0;
+            }
+
+            // =================================================
+            // 8. FORMA Y TIPO DE PAGO
+            // =================================================
+            $idforma_pago = (int)(
+                $_POST['idforma_pago'] ?? 0
+            );
+
+            if ($idforma_pago <= 0) {
+                throw new Exception(
+                    'Debe seleccionar una forma de pago.'
+                );
+            }
+
+            $formaPago = $conexionVenta->getData(
+                "SELECT
+                    idforma_pago,
+                    nombre,
+                    es_efectivo
+                 FROM forma_pago
+                 WHERE idforma_pago = ?
+                   AND activo = 1
+                   AND condicion = 1
+                 LIMIT 1",
+                [$idforma_pago]
+            );
+
+            if (!$formaPago) {
+                throw new Exception(
+                    'La forma de pago seleccionada no es válida.'
+                );
+            }
+
+            /*
+             * El formulario usa idtipopago, pero actualmente
+             * el valor enviado es el nombre del tipo de pago.
+             */
+            $tipo_pago = trim(
+                (string)($_POST['idtipopago'] ?? '')
+            );
+
+            if ($tipo_pago === '') {
+                $tipo_pago = trim(
+                    (string)$formaPago['nombre']
+                );
+            }
+
+            $num_transac = trim(
+                (string)($_POST['num_transac'] ?? '')
+            );
+
+            // =================================================
+            // 9. OBTENER CORRELATIVO BLOQUEADO
+            // =================================================
+            $corr = $voucher->obtenerCorrelativoBloqueado(
+                $tipo_comprobante
+            );
+
+            if (!$corr) {
+                throw new Exception(
+                    'No existe un correlativo activo para el comprobante seleccionado.'
+                );
+            }
+
+            $serie_comprobante = trim(
+                (string)$corr['serie']
+            );
+
+            $numeroActual = (int)$corr['num_comprobante'];
+            $numeroSiguiente = $numeroActual + 1;
+
+            $num_comprobante = str_pad(
+                (string)$numeroSiguiente,
+                8,
+                '0',
+                STR_PAD_LEFT
+            );
+
+            error_log(
+                '[VENTA] '
+                    . $tipo_comprobante
+                    . ' '
+                    . $serie_comprobante
+                    . '-'
+                    . $num_comprobante
+            );
+
+            // =================================================
+            // 10. INSERTAR VENTA Y DETALLES
+            // =================================================
+            $idventa = $sell->insertar(
+                $idcliente,
+                $idusuario,
+                $tipo_comprobante,
+                $serie_comprobante,
+                $num_comprobante,
+                $impuesto,
+                $total_venta,
+                $descuento_total,
+                $descuento_porcentaje,
+                $tipo_pago,
+                $num_transac,
+                $idforma_pago,
+                $idingresos,
+                $idarticulos,
+                $cantidades,
+                $preciosCompra,
+                $preciosVenta
+            );
+
+            if (!$idventa) {
+                throw new Exception(
+                    'Error al registrar la venta.'
+                );
+            }
+
+            // =================================================
+            // 11. REGISTRAR PAGOS
+            // =================================================
+            $pagosMixtos = $_POST['pagos'] ?? [];
+
+            if (
+                is_array($pagosMixtos)
+                && count($pagosMixtos) > 0
+            ) {
+                $totalPagosRegistrados = 0.00;
+                $pagosValidos = 0;
+
+                foreach ($pagosMixtos as $pago) {
+                    $metodo = trim(
+                        (string)($pago['metodo'] ?? '')
+                    );
+
+                    $monto = round(
+                        (float)($pago['monto'] ?? 0),
+                        2
+                    );
+
+                    if ($metodo === '' || $monto <= 0) {
+                        continue;
+                    }
+
+                    $fp = $conexionVenta->getData(
+                        "SELECT idforma_pago
+                         FROM forma_pago
+                         WHERE nombre = ?
+                           AND activo = 1
+                           AND condicion = 1
+                         LIMIT 1",
+                        [$metodo]
+                    );
+
+                    if (!$fp) {
+                        throw new Exception(
+                            'Forma de pago inválida: ' . $metodo
+                        );
+                    }
+
+                    $conexionVenta->setData(
+                        "INSERT INTO venta_pago
+                            (idventa, idforma_pago, monto)
+                         VALUES (?, ?, ?)",
+                        [
+                            $idventa,
+                            $fp['idforma_pago'],
+                            $monto
+                        ]
+                    );
+
+                    $totalPagosRegistrados += $monto;
+                    $pagosValidos++;
+                }
+
+                if ($pagosValidos === 0) {
+                    throw new Exception(
+                        'Debe registrar al menos un método de pago válido.'
+                    );
+                }
+
+                if (
+                    round($totalPagosRegistrados, 2)
+                    < round($total_venta, 2)
+                ) {
+                    throw new Exception(
+                        'La suma de los pagos no cubre el total de la venta.'
+                    );
+                }
+            } else {
+                $conexionVenta->setData(
+                    "INSERT INTO venta_pago
+                        (idventa, idforma_pago, monto)
+                     VALUES (?, ?, ?)",
+                    [
+                        $idventa,
+                        $idforma_pago,
+                        $total_venta
+                    ]
+                );
+            }
+
+            // =================================================
+            // 12. ACTUALIZAR CORRELATIVO
+            // =================================================
+            $actualizado =
+                $voucher->actualizarCorrelativoPorId(
+                    $corr['id_comp_pago'],
+                    $num_comprobante
+                );
+
+            if (!$actualizado) {
+                throw new Exception(
+                    'No se pudo actualizar el correlativo del comprobante.'
+                );
+            }
+
+            // =================================================
+            // 13. CONFIRMAR TRANSACCIÓN LOCAL
+            // =================================================
+            $conexionVenta->commit();
+            $transaccionActiva = false;
+
+                            /*
+                |--------------------------------------------------------------------------
+                | 14. ENVÍO AUTOMÁTICO A APISUNAT
+                |--------------------------------------------------------------------------
+                | El envío se realiza después del COMMIT.
+                | Si APISUNAT falla, la venta sigue registrada y no debe duplicarse.
+                */
+
+            $modoEnvio = strtolower(
+                trim((string)($_POST['modo_envio'] ?? 'inmediato'))
+            );
+
+            $tipoNormalizado = mb_strtolower(
+                trim($tipo_comprobante),
+                'UTF-8'
+            );
+
+            $esFacturaElectronica =
+                str_contains($tipoNormalizado, 'factura');
+
+            $esBoletaElectronica =
+                str_contains($tipoNormalizado, 'boleta');
+
+            $esComprobanteElectronico =
+                $esFacturaElectronica
+                || $esBoletaElectronica;
+
+            $resultadoSunat = [
+                'aplica' => $esComprobanteElectronico,
+                'intentado' => false,
+                'success' => null,
+                'status' => $esComprobanteElectronico
+                    ? 'NO_ENVIADO'
+                    : 'NO_APLICA',
+                'documentId' => null,
+                'mensaje' => $esComprobanteElectronico
+                    ? 'El comprobante todavía no fue enviado.'
+                    : 'Este documento es interno y no se envía a SUNAT.'
+            ];
+
+            if (
+                $esComprobanteElectronico
+                && $modoEnvio === 'inmediato'
+            ) {
+                $resultadoSunat['intentado'] = true;
+
+                try {
+                    $emisionSunat = new ApiSunatEmission();
+
+                    $respuestaEmision =
+                        $emisionSunat->enviarVenta(
+                            (int)$idventa
+                        );
+
+                    $resultadoSunat = [
+                        'aplica' => true,
+                        'intentado' => true,
+                        'success' => ($respuestaEmision['success'] ?? false)
+                            === true,
+                        'status' => strtoupper(
+                            trim(
+                                (string)(
+                                    $respuestaEmision['status']
+                                    ?? 'ERROR'
+                                )
+                            )
+                        ),
+                        'documentId' =>
+                        $respuestaEmision['documentId']
+                            ?? null,
+                        'fileName' =>
+                        $respuestaEmision['fileName']
+                            ?? null,
+                        'production' =>
+                        $respuestaEmision['production']
+                            ?? true,
+                        'mensaje' =>
+                        $respuestaEmision['mensaje']
+                            ?? 'APISUNAT no devolvió un mensaje.'
+                    ];
+                } catch (Throwable $errorSunat) {
+                    /*
+         * No devolvemos success=false para la venta,
+         * porque la venta local sí quedó registrada.
+         */
+                    error_log(
+                        '[APISUNAT ENVÍO AUTOMÁTICO] Venta '
+                            . $idventa
+                            . ': '
+                            . $errorSunat->getMessage()
+                    );
+
+                    $resultadoSunat = [
+                        'aplica' => true,
+                        'intentado' => true,
+                        'success' => false,
+                        'status' => 'ERROR',
+                        'documentId' => null,
+                        'mensaje' => $errorSunat->getMessage()
+                    ];
+                }
+            }
+
+            $mensajeRespuesta = 'Venta registrada correctamente.';
+
+            if (
+                $esComprobanteElectronico
+                && ($resultadoSunat['success'] ?? false) === true
+            ) {
+                $mensajeRespuesta =
+                    'Venta registrada y enviada a APISUNAT.';
+            } elseif (
+                $esComprobanteElectronico
+                && ($resultadoSunat['intentado'] ?? false) === true
+            ) {
+                $mensajeRespuesta =
+                    'La venta fue registrada, pero no pudo enviarse a APISUNAT.';
+            }
+
+            responderJson([
+                'success' => true,
+                'idventa' => (int)$idventa,
+                'tipo_comprobante' => $tipo_comprobante,
+                'serie_comprobante' => $serie_comprobante,
+                'num_comprobante' => $num_comprobante,
+                'comprobante' =>
+                $serie_comprobante
+                    . '-'
+                    . $num_comprobante,
+                'total_venta' => $total_venta,
+                'mensaje' => $mensajeRespuesta,
+                'sunat' => $resultadoSunat
+            ]);
+        } catch (Throwable $e) {
+            if ($transaccionActiva) {
+                try {
+                    $conexionVenta->rollBack();
+                } catch (Throwable $rollbackError) {
+                    error_log(
+                        '[VENTA ROLLBACK] '
+                            . $rollbackError->getMessage()
+                    );
+                }
+            }
+
+            error_log(
+                '[VENTA ERROR] ' . $e->getMessage()
+            );
+
+            responderJson([
+                'success' => false,
+                'mensaje' => $e->getMessage()
+            ]);
+        }
+
+        break;
+
+    // =========================================================
+    // ANULAR VENTA LOCAL
+    // =========================================================
+    case 'anular':
+
+        $rspta = $sell->anular($idventa);
+
+        echo $rspta
+            ? 'Ingreso anulado correctamente'
+            : 'No se pudo anular el ingreso';
+
+        break;
+
+    // =========================================================
+    // MOSTRAR VENTA
+    // =========================================================
+    case 'mostrar':
+
+        responderJson(
+            $sell->mostrar($idventa) ?: []
+        );
+
+        break;
+
+    // =========================================================
+    // PAGOS DE LA VENTA
+    // =========================================================
+    case 'pagos':
+
+        $id = (int)($_GET['idventa'] ?? 0);
+
+        responderJson(
+            $sell->obtenerPagosVenta($id)
+        );
+
+        break;
+
+    // =========================================================
+    // LISTAR COTIZACIONES
+    // =========================================================
+    case 'listarCotizaciones':
+
+        $rspta = $sell->listarCotizaciones();
+        $data = [];
+        $baseUrl = obtenerBaseUrl();
+
+        foreach ($rspta as $reg) {
+            $id = (int)$reg['idventa'];
+
+            $data[] = [
+                '0' => '
+                    <div class="btn-group">
+                        <button
+                            class="btn btn-info btn-sm"
+                            title="Ver"
+                            onclick="mostrar(' . $id . ')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+
+                        <button
+                            class="btn btn-success btn-sm"
+                            title="Imprimir"
+                            onclick="window.open(\'' .
+                    $baseUrl .
+                    'Reports/a4.php?id=' .
+                    $id .
+                    '\', \'_blank\')">
+                            <i class="fas fa-print"></i>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm dropdown-toggle"
+                            data-toggle="dropdown"
+                            title="Más">
+                            <span>...</span>
+                        </button>
+
+                        <div class="dropdown-menu">
+                            <a
+                                class="dropdown-item"
+                                href="' .
+                    $baseUrl .
+                    'Reports/a4.php?id=' .
+                    $id .
+                    '"
+                                target="_blank">
+                                <i class="far fa-file-pdf"></i>
+                                Imprimir A4
+                            </a>
+
+                            ' .
+                    (
+                        $reg['estado'] === 'Aceptado'
+                        ? '
+                                <a
+                                    class="dropdown-item text-danger"
+                                    href="#"
+                                    onclick="anular(' .
+                        $id .
+                        ')">
+                                    <i class="fas fa-times"></i>
+                                    Anular
+                                </a>'
+                        : ''
+                    ) .
+                    '
+                        </div>
+                    </div>
+                ',
+                '1' => $reg['fecha'],
+                '2' => $reg['cliente'],
+                '3' => $reg['usuario'],
+                '4' => $reg['tipo_comprobante'],
+                '5' =>
+                $reg['serie_comprobante']
+                    . '-'
+                    . $reg['num_comprobante'],
+                '6' => number_format(
+                    (float)$reg['total_venta'],
+                    2,
+                    '.',
+                    ''
+                ),
+                '7' =>
+                $reg['estado'] === 'Aceptado'
+                    ? '<div class="badge badge-success">Aceptado</div>'
+                    : '<div class="badge badge-danger">Anulado</div>'
+            ];
+        }
+
+        responderJson([
+            'sEcho' => 1,
+            'iTotalRecords' => count($data),
+            'iTotalDisplayRecords' => count($data),
+            'aaData' => $data
+        ]);
+
+        break;
+
+    // =========================================================
+    // VISTA PREVIA DE SERIE Y NÚMERO
+    // No reserva el correlativo. El número definitivo se asigna
+    // durante guardaryeditar con FOR UPDATE.
+    // =========================================================
+    case 'mostrar_serie_numero':
+
+        $tipoComprobante = trim(
+            (string)(
+                $_POST['tipo_comprobante']
+                ?? $_GET['tipo_comprobante']
+                ?? ''
+            )
+        );
+
+        if ($tipoComprobante === '') {
+            responderJson([
+                'serie' => '',
+                'numero' => ''
+            ]);
+        }
+
+        $registro = $sell->getConexion()->getData(
+            "SELECT
+                CONCAT(letra_serie, serie_comprobante) AS serie,
+                num_comprobante
+             FROM comp_pago
+             WHERE nombre = ?
+               AND condicion = 1
+             ORDER BY id_comp_pago
+             LIMIT 1",
+            [$tipoComprobante]
+        );
+
+        if (!$registro) {
+            responderJson([
+                'serie' => '',
+                'numero' => ''
+            ]);
+        }
+
+        responderJson([
+            'serie' => $registro['serie'],
+            'numero' => str_pad(
+                (string)(
+                    (int)$registro['num_comprobante'] + 1
+                ),
+                8,
+                '0',
+                STR_PAD_LEFT
+            )
+        ]);
+
+        break;
+
+    // =========================================================
+    // MÉTODOS ANTIGUOS DE SERIE Y NÚMERO
+    // =========================================================
+    case 'mostrar_numero':
+
+        require_once __DIR__ . '/../Models/Voucher.php';
+
+        $tipoComprobante = trim(
+            (string)($_REQUEST['tipo_comprobante'] ?? '')
+        );
+
+        if ($tipoComprobante === '') {
+            responderJson('00000001');
+        }
+
+        $comprobantes = new Voucher();
+
+        $registro = $comprobantes->mostrar_numero(
+            $tipoComprobante
+        );
+
+        $numeroActual = isset($registro[0]['num_comprobante'])
+            ? (int)$registro[0]['num_comprobante']
+            : 0;
+
+        $nuevoNumero = $numeroActual >= 99999999
+            ? '00000001'
+            : $numeroActual + 1;
+
+        responderJson($nuevoNumero);
+
+        break;
+
+    case 'mostrar_serie':
+
+        require_once __DIR__ . '/../Models/Voucher.php';
+
+        $tipoComprobante = trim(
+            (string)($_REQUEST['tipo_comprobante'] ?? '')
+        );
+
+        $comprobantes = new Voucher();
+
+        $registro = $comprobantes->mostrar_serie(
+            $tipoComprobante
+        );
+
+        if (empty($registro)) {
+            responderJson([
+                'letra' => '',
+                'serie' => ''
+            ]);
+        }
+
+        $fila = $registro[0];
+
+        $serieActual = (int)$fila['serie_comprobante'];
+        $numeroActual = (int)$fila['num_comprobante'];
+
+        if ($numeroActual >= 99999999) {
+            $serieActual++;
+        }
+
+        responderJson([
+            'letra' => $fila['letra_serie'],
+            'serie' => $serieActual
+        ]);
+
+        break;
+
+    // =========================================================
+    // DETALLE DE VENTA EN HTML
+    // =========================================================
+    case 'listarDetalle':
+
+        require_once __DIR__ . '/../Models/Company.php';
+
+        $company = new Company();
+        $negocio = $company->listar();
+
+        $simbolo = 'S/';
+        $nombreImpuesto = 'IGV';
+        $tasaImpuesto = 18.00;
+
+        if (!empty($negocio)) {
+            $simbolo = $negocio[0]['simbolo'] ?? 'S/';
+            $nombreImpuesto =
+                $negocio[0]['nombre_impuesto'] ?? 'IGV';
+
+            $tasaConfigurada =
+                (float)($negocio[0]['monto_impuesto'] ?? 18);
+
+            if ($tasaConfigurada > 0) {
+                $tasaImpuesto = $tasaConfigurada;
+            }
+        }
+
+        $id = (int)($_GET['id'] ?? 0);
+        $detalles = $sell->listarDetalle($id);
+        $totalVenta = 0.00;
+
+        echo '
+            <thead style="background-color:#A9D0F5">
+                <th>Opciones</th>
+                <th>Artículo</th>
+                <th>Cantidad</th>
+                <th>Precio Venta</th>
+                <th>Descuento</th>
+                <th>Total</th>
+            </thead>
+        ';
+
+        foreach ($detalles as $reg) {
+            $totalArticulo =
+                ((float)$reg['precio_venta']
+                    * (float)$reg['cantidad'])
+                - (float)$reg['descuento'];
+
+            $totalVenta += $totalArticulo;
+
+            echo '
+                <tr class="filas">
+                    <td></td>
+                    <td>' .
+                htmlspecialchars(
+                    $reg['nombre'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) .
+                '</td>
+                    <td>' .
+                number_format(
+                    (float)$reg['cantidad'],
+                    2,
+                    '.',
+                    ''
+                ) .
+                '</td>
+                    <td>' .
+                number_format(
+                    (float)$reg['precio_venta'],
+                    2
+                ) .
+                '</td>
+                    <td>' .
+                number_format(
+                    (float)$reg['descuento'],
+                    2
+                ) .
+                '</td>
+                    <td>' .
+                number_format(
+                    $totalArticulo,
+                    2
+                ) .
+                '</td>
+                </tr>
+            ';
+        }
+
+        /*
+         * Los precios incluyen IGV.
+         * Base = Total / 1.18
+         * IGV = Total - Base
+         */
+        $factor = 1 + ($tasaImpuesto / 100);
+
+        $subtotalSinImpuesto = $factor > 0
+            ? round($totalVenta / $factor, 2)
+            : $totalVenta;
+
+        $importeImpuesto = round(
+            $totalVenta - $subtotalSinImpuesto,
+            2
+        );
+
+        echo '
+            <tfoot>
+                <th>
+                    <span>Subtotal</span><br>
+                    <span id="valor_impuestoc">' .
+            htmlspecialchars(
+                $nombreImpuesto,
+                ENT_QUOTES,
+                'UTF-8'
+            ) .
+            ' ' .
+            number_format(
+                $tasaImpuesto,
+                2
+            ) .
+            '%</span><br>
+                    <span>TOTAL</span>
+                </th>
+
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+
+                <th>
+                    <span class="pull-right" id="total">' .
+            $simbolo .
+            ' ' .
+            number_format(
+                $subtotalSinImpuesto,
+                2,
+                '.',
+                ''
+            ) .
+            '</span><br>
+
+                    <span class="pull-right" id="most_imp">' .
+            $simbolo .
+            ' ' .
+            number_format(
+                $importeImpuesto,
+                2,
+                '.',
+                ''
+            ) .
+            '</span><br>
+
+                    <span class="pull-right" id="most_total">' .
+            $simbolo .
+            ' ' .
+            number_format(
+                $totalVenta,
+                2,
+                '.',
+                ''
+            ) .
+            '</span>
+                </th>
+            </tfoot>
+        ';
+
+        break;
+
+    // =========================================================
+    // DETALLE PARA EDICIÓN
+    // =========================================================
+    case 'listarDetalle_editar':
+
+        $id = (int)($_GET['id'] ?? 0);
+        $rspta = $sell->listarDetalle($id);
+        $data = [];
+
+        foreach ($rspta as $reg) {
+            $data[] = [
+                'Idingreso' => $reg['idarticulo'],
+                'Idarticulo' => $reg['idarticulo'],
+                'Articulo' => $reg['nombre'],
+                'Pcompra' => $reg['precio_compra'],
+                'Pventa' => $reg['precio_venta'],
+                'Cantidad' => $reg['cantidad'],
+                'Stock' => $reg['stock']
+            ];
+        }
+
+        responderJson($data);
+
+        break;
+
+    // =========================================================
+    // LISTAR VENTAS
+    // =========================================================
+    case 'listar':
+
+        $rspta = $sell->listar();
+        $data = [];
+        $baseUrl = obtenerBaseUrl();
+
+        foreach ($rspta as $reg) {
+            $id = (int)$reg['idventa'];
+
+            $whatsappTexto = urlencode(
+                'Detalle de la venta: '
+                    . $id
+                    . ' - Ver PDF: '
+                    . $baseUrl
+                    . 'Reports/a4.php?id='
+                    . $id
+            );
+
+            $data[] = [
+                '0' => '
+                    <div class="btn-group">
+                        <button
+                            class="btn btn-info btn-sm"
+                            title="Ver"
+                            onclick="mostrar(' . $id . ')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+
+                        <button
+                            class="btn btn-success btn-sm"
+                            title="Imprimir Ticket"
+                            onclick="window.open(\'' .
+                    $baseUrl .
+                    'Reports/80mm.php?id=' .
+                    $id .
+                    '\', \'_blank\')">
+                            <i class="fas fa-print"></i>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm dropdown-toggle"
+                            data-toggle="dropdown"
+                            title="Más">
+                            <span>...</span>
+                        </button>
+
+                        <div class="dropdown-menu">
+                            <a
+                                class="dropdown-item"
+                                href="' .
+                    $baseUrl .
+                    'Reports/a4.php?id=' .
+                    $id .
+                    '"
+                                target="_blank">
+                                <i class="far fa-file-pdf"></i>
+                                Imprimir A4
+                            </a>
+
+                            <a
+                                class="dropdown-item"
+                                href="https://wa.me/?text=' .
+                    $whatsappTexto .
+                    '"
+                                target="_blank">
+                                <i class="fab fa-whatsapp"></i>
+                                WhatsApp
+                            </a>
+
+                            ' .
+                    (
+                        $reg['estado'] === 'Aceptado'
+                        ? '
+                                <a
+                                    class="dropdown-item text-danger"
+                                    href="#"
+                                    onclick="anular(' .
+                        $id .
+                        ')">
+                                    <i class="fas fa-times"></i>
+                                    Anular
+                                </a>'
+                        : ''
+                    ) .
+                    '
+                        </div>
+                    </div>
+                ',
+                '1' => $reg['fecha'],
+                '2' => $reg['cliente'],
+                '3' => $reg['usuario'],
+                '4' => $reg['tipo_comprobante'],
+                '5' =>
+                $reg['serie_comprobante']
+                    . '-'
+                    . $reg['num_comprobante'],
+                '6' => number_format(
+                    (float)$reg['total_venta'],
+                    2,
+                    '.',
+                    ''
+                ),
+                '7' =>
+                $reg['estado'] === 'Aceptado'
+                    ? '<div class="badge badge-cdr">Aceptado</div>'
+                    : '<div class="badge badge-danger">Anulado</div>'
+            ];
+        }
+
+        responderJson([
+            'sEcho' => 1,
+            'iTotalRecords' => count($data),
+            'iTotalDisplayRecords' => count($data),
+            'aaData' => $data
+        ]);
+
+        break;
+
+    // =========================================================
+    // SELECT CLIENTES
+    // =========================================================
+    case 'selectCliente':
+
+        require_once __DIR__ . '/../Models/Person.php';
+
+        $persona = new Person();
+        $rspta = $persona->listarc();
+
+        echo '<option value="">Seleccione...</option>';
+
+        foreach ($rspta as $reg) {
+            echo '<option value="' .
+                (int)$reg['idpersona'] .
+                '">' .
+                htmlspecialchars(
+                    $reg['nombre'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) .
+                '</option>';
+        }
+
+        break;
+
+    // =========================================================
+    // CANTIDAD DE ARTÍCULOS
+    // =========================================================
+    case 'cantidad_articulos':
+
+        require_once __DIR__ . '/../Models/Product.php';
+
+        $articulo = new Product();
+
+        responderJson(
+            $articulo->cantidadarticulos()
+        );
+
+        break;
+
+    // =========================================================
+    // LISTAR ARTÍCULOS
+    // =========================================================
+    case 'listarArticulos':
+
+        require_once __DIR__ . '/../Models/Product.php';
+
+        $articulo = new Product();
+        $rspta = $articulo->listarActivosVenta();
+        $data = [];
+        $operacion = 1;
+
+        foreach ($rspta as $reg) {
+            $idingreso = (int)($reg['idingreso'] ?? 0);
+            $idarticulo = (int)($reg['idarticulo'] ?? 0);
+            $precioCompra = (float)($reg['precio_compra'] ?? 0);
+            $precioVenta = (float)($reg['precio_venta'] ?? 0);
+            $stock = (int)($reg['stock'] ?? 0);
+
+            $codigoJs = json_encode(
+                (string)($reg['codigo'] ?? ''),
+                JSON_UNESCAPED_UNICODE
+            );
+
+            $nombreJs = json_encode(
+                (string)($reg['nombre'] ?? 'Sin nombre'),
+                JSON_UNESCAPED_UNICODE
+            );
+
+            if ($stock <= 10) {
+                $btnStock = '<button class="btn btn-danger btn-sm">'
+                    . $stock
+                    . '</button>';
+            } elseif ($stock < 30) {
+                $btnStock = '<button class="btn btn-warning btn-sm">'
+                    . $stock
+                    . '</button>';
+            } else {
+                $btnStock = '<button class="btn btn-success btn-sm">'
+                    . $stock
+                    . '</button>';
+            }
+
+            $data[] = [
+                '0' => '
+                    <button
+                        class="btn btn-success btn-sm"
+                        onclick=\'agregarDetalle(
+                            ' . $idingreso . ',
+                            ' . $idarticulo . ',
+                            ' . $codigoJs . ',
+                            ' . $nombreJs . ',
+                            ' . $precioCompra . ',
+                            ' . $precioVenta . ',
+                            ' . $stock . ',
+                            ' . $operacion . '
+                        )\'>
+                        <span class="fa fa-plus"></span>
+                        Añadir
+                    </button>
+                ',
+                '1' =>
+                htmlspecialchars(
+                    $reg['nombre'] ?? '',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) .
+                    '<br><span style="font-size:0.95em;color:#888;">(' .
+                    htmlspecialchars(
+                        $reg['almacen'] ?? 'Sin almacén',
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) .
+                    ')</span>',
+                '2' => htmlspecialchars(
+                    $reg['codigo'] ?? '',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+                '3' => $btnStock,
+                '4' => "<img src='Assets/img/products/" .
+                    rawurlencode($reg['imagen'] ?? '') .
+                    "' height='40' width='40' alt='Producto'>"
+            ];
+        }
+
+        responderJson([
+            'sEcho' => 1,
+            'iTotalRecords' => count($data),
+            'iTotalDisplayRecords' => count($data),
+            'aaData' => $data
+        ]);
+
+        break;
+
+    // =========================================================
+    // SELECT COMPROBANTES
+    // =========================================================
+    case 'selectComprobante':
+
+        require_once __DIR__ . '/../Models/Voucher.php';
+
+        $comprobantes = new Voucher();
+        $rspta = $comprobantes->select();
+
+        echo '<option value="">Seleccione...</option>';
+
+        foreach ($rspta as $reg) {
+            $nombre = htmlspecialchars(
+                $reg['nombre'],
+                ENT_QUOTES,
+                'UTF-8'
+            );
+
+            echo '<option value="' .
+                $nombre .
+                '">' .
+                $nombre .
+                '</option>';
+        }
+
+        break;
+
+    // =========================================================
+    // SELECT TIPO DE PAGO
+    // =========================================================
+    case 'selectTipopago':
+
+        require_once __DIR__ . '/../Models/Paymentstype.php';
+
+        $tipopago = new Paymentstype();
+        $rspta = $tipopago->select();
+
+        echo '<option value="">Seleccione...</option>';
+
+        foreach ($rspta as $reg) {
+            $nombre = htmlspecialchars(
+                $reg['nombre'],
+                ENT_QUOTES,
+                'UTF-8'
+            );
+
+            echo '<option value="' .
+                $nombre .
+                '">' .
+                $nombre .
+                '</option>';
+        }
+
+        break;
+
+    // =========================================================
+    // CATEGORÍAS
+    // =========================================================
+    case 'listarCategorias':
+
+        require_once __DIR__ . '/../Models/Product.php';
+
+        $product = new Product();
+
+        responderJson(
+            $product->listarCategoriasActivas()
+        );
+
+        break;
+
+    // =========================================================
+    // ARTÍCULOS POR CATEGORÍA
+    // =========================================================
+    case 'listarArticulosPorCategoria':
+
+        require_once __DIR__ . '/../Models/Product.php';
+
+        $idcategoria = (int)($_GET['idcategoria'] ?? 0);
+
+        $product = new Product();
+
+        responderJson(
+            $product->listarActivosVentaPorCategoria(
+                $idcategoria
+            )
+        );
+
+        break;
+
+    // =========================================================
+    // ARTÍCULOS PARA MODAL
+    // =========================================================
+    case 'listarArticulosModal':
+
+        require_once __DIR__ . '/../Models/Product.php';
+
+        $product = new Product();
+
+        responderJson(
+            $product->listarActivosVenta()
+        );
+
+        break;
+
+    // =========================================================
+    // FORMAS DE PAGO
+    // =========================================================
+    case 'selectFormaPago':
+
+        require_once __DIR__ . '/../Models/FormaPago.php';
+
+        $formaPago = new FormaPago();
+        $rspta = $formaPago->select();
+
+        echo '<option value="">Seleccione...</option>';
+
+        foreach ($rspta as $r) {
+            echo '<option
+                    value="' . (int)$r['idforma_pago'] . '"
+                    data-nombre="' .
+                htmlspecialchars(
+                    $r['nombre'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) .
+                '"
+                    data-efectivo="' .
+                (int)$r['es_efectivo'] .
+                '">' .
+                htmlspecialchars(
+                    $r['nombre'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) .
+                '</option>';
+        }
+
+        break;
+
+    // =========================================================
+    // BUSCAR PRODUCTO POR CÓDIGO
+    // =========================================================
+    case 'buscarProductoPorCodigo':
+
+        $codigo = trim(
+            (string)($_POST['codigo'] ?? '')
+        );
+
+        if ($codigo === '') {
+            responderJson([]);
+        }
+
+        $producto = $sell->buscarProductoPorCodigo(
+            $codigo
+        );
+
+        responderJson(
+            $producto ?: []
+        );
+
+        break;
+
+    // =========================================================
+    // OPERACIÓN INVÁLIDA
+    // =========================================================
+    default:
+
+        responderJson([
+            'success' => false,
+            'mensaje' => 'Operación no válida.'
+        ]);
 }

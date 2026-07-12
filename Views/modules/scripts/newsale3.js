@@ -99,11 +99,11 @@ function inicializarEventos() {
     $('#descuentoSwitch').on('change', function () {
 
         const esPorcentaje = $(this).is(':checked');
-    
+
         if (esPorcentaje) {
             // 🔢 MODO PORCENTAJE
             $('#labelDescuento').text('Descuento en %');
-    
+
             $('#descuentoPorcentaje')
                 .prop('disabled', false)
                 .attr('max', 100)
@@ -112,17 +112,17 @@ function inicializarEventos() {
         } else {
             // 💰 MODO SOLES
             $('#labelDescuento').text('Descuento en S/');
-    
+
             $('#descuentoPorcentaje')
                 .prop('disabled', false)
                 .removeAttr('max')
                 .attr('step', '0.01')
                 .attr('placeholder', 'S/');
         }
-    
+
         calcularTotales();
     });
-    
+
 
 
     $('#descuentoPorcentaje').on('input', calcularTotales);
@@ -144,8 +144,24 @@ function mostrarSerieNumero() {
 
 // 4. ENVÍA LA VENTA
 function guardarVenta() {
-    let form = $('#formularioVenta')[0];
-    let formData = new FormData(form);
+    const form = $('#formularioVenta')[0];
+
+    if (!form) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se encontró el formulario de venta.'
+        });
+        return;
+    }
+
+    const formData = new FormData(form);
+    const $botonGuardar = $('#formularioVenta button[type="submit"]');
+
+    $botonGuardar
+        .prop('disabled', true)
+        .data('texto-original', $botonGuardar.html())
+        .html('<span class="spinner-border spinner-border-sm me-2"></span>Guardando...');
 
     $.ajax({
         url: "Controllers/Sell.php?op=guardaryeditar",
@@ -153,87 +169,236 @@ function guardarVenta() {
         data: formData,
         contentType: false,
         processData: false,
-        success: function (resp) {
 
-            let data;
-            try {
-                data = JSON.parse(resp);
-            } catch (e) {
-                data = { success: false, mensaje: resp };
+        // El controlador devuelve JSON.
+        dataType: "json",
+
+        success: function (data) {
+            if (!data || typeof data !== 'object') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Respuesta inválida',
+                    text: 'El servidor no devolvió una respuesta JSON válida.'
+                });
+                return;
             }
 
-            if (data.success) {
+            if (data.success !== true) {
+                let mensajeError = 'No se pudo guardar la venta.';
 
-                // 📱 Extraer celular sin 51
-                let celularBase = data.celular
-                    ? data.celular.replace(/^51/, '')
-                    : '';
+                if (typeof data.mensaje === 'string' && data.mensaje.trim() !== '') {
+                    mensajeError = data.mensaje;
+                } else if (typeof data.message === 'string' && data.message.trim() !== '') {
+                    mensajeError = data.message;
+                }
 
                 Swal.fire({
-                    title: 'Venta registrada',
-                    html: `
-                    <p>¿Qué deseas hacer ahora?</p>
-                    <input id="swal-input-cel"
-                           class="swal2-input"
-                           maxlength="9"
-                           placeholder="Celular"
-                           value="${celularBase}">
-                `,
-                    icon: 'success',
-                    showDenyButton: true,
-                    showCancelButton: true,
-                    confirmButtonText: 'Imprimir',
-                    denyButtonText: 'Enviar WhatsApp',
-                    cancelButtonText: 'Cerrar'
-                }).then((result) => {
-
-                    let celular = document
-                        .getElementById('swal-input-cel')
-                        ?.value.trim();
-
-                    // 🧹 LIMPIEZA
-                    form.reset();
-                    if (typeof cargarCarrito === 'function') cargarCarrito();
-                    if (typeof limpiar === 'function') limpiar();
-
-                    // 🖨️ IMPRIMIR
-                    if (result.isConfirmed) {
-                        window.open(
-                            'Reports/80mm.php?id=' + data.idventa,
-                            '_blank'
-                        );
-                    }
-
-                    // 📲 WHATSAPP
-                    else if (result.isDenied) {
-
-                        if (!/^\d{9}$/.test(celular)) {
-                            Swal.fire(
-                                'Número inválido',
-                                'Ingrese los 9 dígitos del celular',
-                                'warning'
-                            );
-                            return;
-                        }
-
-                        let celularCompleto = '51' + celular;
-                        let urlPDF = location.origin + "/Reports/80mm.php?id=" + data.idventa;
-
-                        let mensaje = `Hola ${data.nombre || ''}, aquí está tu comprobante de venta: ${urlPDF}`;
-
-                        let whatsappLink =
-                            `https://wa.me/${celularCompleto}?text=${encodeURIComponent(mensaje)}`;
-
-                        window.open(whatsappLink, '_blank');
-                    }
+                    icon: 'error',
+                    title: 'Error',
+                    text: mensajeError
                 });
 
-            } else {
-                Swal.fire("Error", data.mensaje || "No se pudo guardar la venta.", "error");
+                return;
             }
+
+            const idventa = Number.parseInt(data.idventa, 10) || 0;
+
+            if (idventa <= 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Venta registrada',
+                    text: 'La venta fue procesada, pero el servidor no devolvió su identificador.'
+                });
+                return;
+            }
+
+            const celularBase = String(data.celular || '')
+                .replace(/\D/g, '')
+                .replace(/^51/, '')
+                .slice(-9);
+
+            const nombreCliente = typeof data.nombre === 'string'
+                ? data.nombre
+                : '';
+
+            const sunat = data.sunat && typeof data.sunat === 'object'
+                ? data.sunat
+                : null;
+
+            let mensajeSunat = '';
+
+            if (sunat && sunat.aplica === true) {
+                if (sunat.success === true) {
+                    mensajeSunat =
+                        '<div class="alert alert-success mt-3 mb-0">' +
+                        '<strong>APISUNAT:</strong> comprobante enviado. ' +
+                        'Estado: ' +
+                        String(sunat.status || 'PENDIENTE') +
+                        '</div>';
+                } else {
+                    mensajeSunat =
+                        '<div class="alert alert-warning mt-3 mb-0">' +
+                        '<strong>Venta registrada.</strong><br>' +
+                        'El comprobante no pudo enviarse a APISUNAT. ' +
+                        'No vuelvas a registrar la venta.' +
+                        '</div>';
+                }
+            }
+
+            Swal.fire({
+                title: 'Venta registrada',
+                html: `
+                <p class="mb-3">¿Qué deseas hacer ahora?</p>
+            
+                ${mensajeSunat}
+
+                    <input
+                        id="swal-input-cel"
+                        class="swal2-input"
+                        type="tel"
+                        inputmode="numeric"
+                        maxlength="9"
+                        placeholder="Celular"
+                        value="${celularBase}"
+                    >
+                `,
+                icon: 'success',
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonText: 'Imprimir',
+                denyButtonText: 'Enviar WhatsApp',
+                cancelButtonText: 'Cerrar',
+                allowOutsideClick: false
+            }).then(function (result) {
+                const inputCelular = document.getElementById('swal-input-cel');
+
+                const celular = inputCelular
+                    ? String(inputCelular.value || '').replace(/\D/g, '')
+                    : '';
+
+                // Imprimir comprobante
+                if (result.isConfirmed) {
+                    window.open(
+                        'Reports/80mm.php?id=' + encodeURIComponent(idventa),
+                        '_blank'
+                    );
+                }
+
+                // Enviar por WhatsApp
+                if (result.isDenied) {
+                    if (!/^\d{9}$/.test(celular)) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Número inválido',
+                            text: 'Ingrese los 9 dígitos del celular.'
+                        });
+
+                        return;
+                    }
+
+                    const celularCompleto = '51' + celular;
+
+                    const urlPDF =
+                        location.origin +
+                        '/Reports/80mm.php?id=' +
+                        encodeURIComponent(idventa);
+
+                    const mensaje =
+                        'Hola ' +
+                        nombreCliente +
+                        ', aquí está tu comprobante de venta: ' +
+                        urlPDF;
+
+                    const whatsappLink =
+                        'https://wa.me/' +
+                        celularCompleto +
+                        '?text=' +
+                        encodeURIComponent(mensaje);
+
+                    window.open(whatsappLink, '_blank');
+                }
+
+                // Limpiar después de cerrar la alerta
+                form.reset();
+
+                $('#detallesCards').html('');
+                $('#totalGeneral').text('S/0.00');
+                $('#total_recibido').val('');
+                $('#vuelto').val('0.00');
+
+                if (typeof limpiar === 'function') {
+                    limpiar();
+                }
+
+                if (typeof mostrarSerieNumero === 'function') {
+                    mostrarSerieNumero();
+                }
+
+                if (typeof actualizarMensajePedido === 'function') {
+                    actualizarMensajePedido();
+                }
+
+                if (
+                    sunat
+                    && sunat.success === true
+                    && String(sunat.status).toUpperCase() === 'PENDIENTE'
+                ) {
+                    consultarEstadoSunat(idventa);
+                }
+
+                cont = 0;
+            });
         },
-        error: function () {
-            Swal.fire("Error", "No se pudo conectar con el servidor.", "error");
+
+        error: function (xhr) {
+            console.error(
+                'Error al guardar venta:',
+                xhr.status,
+                xhr.responseText
+            );
+
+            let mensaje = 'No se pudo conectar con el servidor.';
+
+            if (
+                xhr.responseJSON &&
+                typeof xhr.responseJSON.mensaje === 'string'
+            ) {
+                mensaje = xhr.responseJSON.mensaje;
+            } else if (
+                xhr.responseJSON &&
+                typeof xhr.responseJSON.message === 'string'
+            ) {
+                mensaje = xhr.responseJSON.message;
+            } else if (xhr.responseText) {
+                try {
+                    const respuesta = JSON.parse(xhr.responseText);
+
+                    if (typeof respuesta.mensaje === 'string') {
+                        mensaje = respuesta.mensaje;
+                    } else if (typeof respuesta.message === 'string') {
+                        mensaje = respuesta.message;
+                    }
+                } catch (error) {
+                    console.error(
+                        'Respuesta no JSON:',
+                        xhr.responseText
+                    );
+                }
+            }
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: mensaje
+            });
+        },
+
+        complete: function () {
+            const textoOriginal = $botonGuardar.data('texto-original');
+
+            $botonGuardar
+                .prop('disabled', false)
+                .html(textoOriginal || 'Guardar venta');
         }
     });
 }
@@ -1253,4 +1418,73 @@ function cargarFormaPago() {
     });
 }
 
+function consultarEstadoSunat(idventa, intento = 1) {
+    const maxIntentos = 6;
 
+    setTimeout(function () {
+        $.ajax({
+            url: 'Controllers/ApiSunat.php',
+            type: 'GET',
+            dataType: 'json',
+            data: {
+                op: 'consultar',
+                idventa: idventa,
+                v: Date.now()
+            },
+
+            success: function (respuesta) {
+                const estado = String(
+                    respuesta.status || ''
+                ).toUpperCase();
+
+                if (estado === 'ACEPTADO') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Comprobante aceptado',
+                        text: 'SUNAT aceptó correctamente el comprobante.',
+                        timer: 3500,
+                        showConfirmButton: false
+                    });
+
+                    return;
+                }
+
+                if (
+                    estado === 'RECHAZADO'
+                    || estado === 'EXCEPCION'
+                ) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Comprobante no aceptado',
+                        text:
+                            respuesta.mensaje
+                            || 'SUNAT devolvió el estado ' + estado + '.'
+                    });
+
+                    return;
+                }
+
+                if (intento < maxIntentos) {
+                    consultarEstadoSunat(
+                        idventa,
+                        intento + 1
+                    );
+                }
+            },
+
+            error: function (xhr) {
+                console.error(
+                    'No se pudo consultar APISUNAT:',
+                    xhr.responseText
+                );
+
+                if (intento < maxIntentos) {
+                    consultarEstadoSunat(
+                        idventa,
+                        intento + 1
+                    );
+                }
+            }
+        });
+    }, intento === 1 ? 3000 : 5000);
+}
