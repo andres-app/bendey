@@ -909,7 +909,17 @@ require 'footer.php';
 ?>
 
 <script src="Views/modules/scripts/generaldata.js"></script>
-<script src="Views/modules/scripts/newsale3.js"></script>
+<?php
+$rutaNewsaleJs = __DIR__ . '/scripts/newsale3.js';
+
+$versionNewsaleJs = file_exists($rutaNewsaleJs)
+    ? filemtime($rutaNewsaleJs)
+    : time();
+?>
+
+<script
+    src="Views/modules/scripts/newsale3.js?v=<?= $versionNewsaleJs ?>">
+</script>
 
 <script>
     /*
