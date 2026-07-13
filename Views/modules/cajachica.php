@@ -1,4 +1,5 @@
 <?php
+//Views/modules/cajachica.php
 ob_start();
 session_start();
 
@@ -82,7 +83,7 @@ if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
                                 <!-- ================= BOTONES ================= -->
 
                                 <div class="d-flex justify-content-end align-items-center" style="gap:10px;">
-                                    
+
                                     <button type="button"
                                         class="btn btn-success btn-sm"
                                         onclick="exportarExcel()">
@@ -95,12 +96,15 @@ if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
                                         <i class="fa fa-file-pdf"></i> PDF
                                     </button>
 
-                                    <button type="button"
+                                    <button
+                                        type="button"
+                                        id="btnCerrarCaja"
                                         class="btn btn-warning btn-sm"
                                         onclick="cerrarCaja()">
-                                        <i class="fas fa-lock"></i> Cerrar Caja
-                                    </button>
 
+                                        <i class="fas fa-lock"></i>
+                                        Cerrar Caja
+                                    </button>
 
                                 </div>
 
@@ -152,7 +156,9 @@ if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
                                                 <div class="card-header">
                                                     <h4>Egresos</h4>
                                                 </div>
-                                                <div class="card-body">
+                                                <div
+                                                    id="totalEgresos"
+                                                    class="card-body">
                                                     S/ 0.00
                                                 </div>
                                             </div>
@@ -195,7 +201,19 @@ require "footer.php";
 ?>
 
 <!-- ================= JS ================= -->
-<script src="Views/modules/scripts/cajachica.js"></script>
+<?php
+$rutaCajaJs =
+    __DIR__ . '/scripts/cajachica.js';
+
+$versionCajaJs =
+    file_exists($rutaCajaJs)
+    ? filemtime($rutaCajaJs)
+    : time();
+?>
+
+<script
+    src="Views/modules/scripts/cajachica.js?v=<?= $versionCajaJs ?>">
+</script>
 
 <?php
 ob_end_flush();

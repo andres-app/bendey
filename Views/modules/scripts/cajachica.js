@@ -1,297 +1,872 @@
+// Views/modules/scripts/cajachica.js
+
 $(document).ready(function () {
+  cargarCaja();
 
-    // Solo se ejecuta en la vista Caja Chica
-    cargarCaja();
-
-    $('#fecha_inicio, #fecha_fin, #idusuario').on('change', function () {
-        cargarCaja();
-    });
-
+  $(
+    "#fecha_inicio, #fecha_fin, #idusuario"
+  ).on(
+    "change",
+    function () {
+      cargarCaja();
+    }
+  );
 });
 
+/*
+|--------------------------------------------------------------------------
+| CARGAR RESUMEN
+|--------------------------------------------------------------------------
+*/
 function cargarCaja() {
+  const fechaInicio =
+    $("#fecha_inicio").val();
 
-    let fecha_inicio = $('#fecha_inicio').val();
-    let fecha_fin = $('#fecha_fin').val();
-    let idusuario = $('#idusuario').val();
+  const fechaFin =
+    $("#fecha_fin").val();
 
-    $.getJSON(
-        'Controllers/Cajachica.php?op=resumen',
-        {
-            fecha_inicio,
-            fecha_fin,
-            idusuario
-        },
-        function (resp) {
+  const idusuario =
+    $("#idusuario").val();
 
-            renderTabla(resp.detalle, resp.apertura);
-            renderTotales(resp.totales, resp.apertura);
+  $.ajax({
+    url:
+      "Controllers/Cajachica.php" +
+      "?op=resumen",
 
-            // 🔥 CONTROL DE ESTADO
-            if (resp.estado === 'CERRADA') {
+    type: "GET",
+    dataType: "json",
 
-                $('#btnCerrarCaja')
-                    .prop('disabled', true)
-                    .removeClass('btn-warning')
-                    .addClass('btn-secondary');
+    data: {
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin,
+      idusuario: idusuario,
+    },
 
-                $('#estadoCajaBadge')
-                    .removeClass('badge-success')
-                    .addClass('badge-danger')
-                    .text('Caja Cerrada');
+    success: function (resp) {
+      if (resp.status !== "ok") {
+        Swal.fire(
+          "Error",
+          resp.message ||
+            "No se pudo cargar la caja.",
+          "error"
+        );
 
-            } else {
+        return;
+      }
 
-                $('#btnCerrarCaja')
-                    .prop('disabled', false);
+      renderTabla(
+        resp.detalle || [],
+        resp.apertura || null
+      );
 
-                $('#estadoCajaBadge')
-                    .removeClass('badge-danger')
-                    .addClass('badge-success')
-                    .text('Caja Abierta');
-            }
+      renderTotales(
+        resp.totales || {},
+        resp.apertura || null
+      );
 
-        }
+      actualizarEstadoCaja(
+        resp.estado
+      );
+    },
+
+    error: function (xhr) {
+      console.error(
+        "Error al cargar caja:",
+        xhr.responseText
+      );
+    },
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| ESTADO DE CAJA
+|--------------------------------------------------------------------------
+*/
+function actualizarEstadoCaja(
+  estado
+) {
+  const boton =
+    $("#btnCerrarCaja");
+
+  const badge =
+    $("#estadoCajaBadge");
+
+  if (estado === "ABIERTA") {
+    boton
+      .prop("disabled", false)
+      .removeClass(
+        "btn-secondary"
+      )
+      .addClass(
+        "btn-warning"
+      );
+
+    badge
+      .removeClass(
+        "badge-danger badge-warning"
+      )
+      .addClass(
+        "badge-success"
+      )
+      .text(
+        "Caja Abierta"
+      );
+
+    return;
+  }
+
+  if (estado === "CERRADA") {
+    boton
+      .prop("disabled", true)
+      .removeClass(
+        "btn-warning"
+      )
+      .addClass(
+        "btn-secondary"
+      );
+
+    badge
+      .removeClass(
+        "badge-success badge-warning"
+      )
+      .addClass(
+        "badge-danger"
+      )
+      .text(
+        "Caja Cerrada"
+      );
+
+    return;
+  }
+
+  boton
+    .prop("disabled", true)
+    .removeClass(
+      "btn-warning"
+    )
+    .addClass(
+      "btn-secondary"
+    );
+
+  badge
+    .removeClass(
+      "badge-success badge-danger"
+    )
+    .addClass(
+      "badge-warning"
+    )
+    .text(
+      "Sin apertura"
     );
 }
 
+/*
+|--------------------------------------------------------------------------
+| EXPORTACIONES
+|--------------------------------------------------------------------------
+*/
 function exportarExcel() {
+  const fechaInicio =
+    $("#fecha_inicio").val();
 
-    let fecha_inicio = $('#fecha_inicio').val();
-    let fecha_fin = $('#fecha_fin').val();
-    let idusuario = $('#idusuario').val();
+  const fechaFin =
+    $("#fecha_fin").val();
 
-    let url = 'Reports/ExcelCajaChica.php'
-        + '?fecha_inicio=' + fecha_inicio
-        + '&fecha_fin=' + fecha_fin
-        + '&idusuario=' + idusuario;
+  const idusuario =
+    $("#idusuario").val();
 
-    window.open(url, '_blank');
+  const url =
+    "Reports/ExcelCajaChica.php" +
+    "?fecha_inicio=" +
+    encodeURIComponent(fechaInicio) +
+    "&fecha_fin=" +
+    encodeURIComponent(fechaFin) +
+    "&idusuario=" +
+    encodeURIComponent(idusuario);
+
+  window.open(
+    url,
+    "_blank"
+  );
 }
-
 
 function exportarPDF() {
+  const fechaInicio =
+    $("#fecha_inicio").val();
 
-    let fecha_inicio = $('#fecha_inicio').val();
-    let fecha_fin = $('#fecha_fin').val();
+  const fechaFin =
+    $("#fecha_fin").val();
 
-    let url = 'Reports/caja_chica.php'
-        + '?fecha_inicio=' + fecha_inicio
-        + '&fecha_fin=' + fecha_fin;
+  const url =
+    "Reports/caja_chica.php" +
+    "?fecha_inicio=" +
+    encodeURIComponent(fechaInicio) +
+    "&fecha_fin=" +
+    encodeURIComponent(fechaFin);
 
-    window.open(url, '_blank');
+  window.open(
+    url,
+    "_blank"
+  );
 }
 
+/*
+|--------------------------------------------------------------------------
+| TABLA
+|--------------------------------------------------------------------------
+*/
+function renderTabla(
+  data,
+  apertura
+) {
+  const filas = {};
 
-function renderTabla(data, apertura) {
+  if (!Array.isArray(data)) {
+    data = [];
+  }
 
-    let filas = {};
+  data.forEach(function (registro) {
+    const tipo =
+      registro.tipo_comprobante ||
+      "SIN COMPROBANTE";
 
-    data.forEach(r => {
-
-        if (!filas[r.tipo_comprobante]) {
-            filas[r.tipo_comprobante] = {
-                efectivo: 0,
-                tarjeta: 0,
-                transferencia: 0,
-                yape: 0,
-                plin: 0
-            };
-        }
-
-        let monto = parseFloat(r.total);
-        let forma = r.forma_pago.toLowerCase().trim();
-
-        if (forma.includes('efectivo')) {
-            filas[r.tipo_comprobante].efectivo += monto;
-        } else if (forma.includes('tarjeta')) {
-            filas[r.tipo_comprobante].tarjeta += monto;
-        } else if (forma.includes('transfer')) {
-            filas[r.tipo_comprobante].transferencia += monto;
-        } else if (forma.includes('yape')) {
-            filas[r.tipo_comprobante].yape += monto;
-        } else if (forma.includes('plin')) {
-            filas[r.tipo_comprobante].plin += monto;
-        }
-    });
-
-    let html = '';
-
-    // 🔥 INSERTAR APERTURA PRIMERO
-    let montoApertura = parseFloat(apertura?.monto_apertura || 0);
-
-    if (montoApertura > 0) {
-        html += `
-            <tr class="table-success font-weight-bold">
-                <td>APERTURA DE CAJA</td>
-                <td class="text-right">S/ ${montoApertura.toFixed(2)}</td>
-                <td class="text-right">-</td>
-                <td class="text-right">-</td>
-                <td class="text-right">-</td>
-                <td class="text-right">S/ ${montoApertura.toFixed(2)}</td>
-            </tr>
-        `;
+    if (!filas[tipo]) {
+      filas[tipo] = {
+        efectivo: 0,
+        tarjeta: 0,
+        transferencia: 0,
+        yape: 0,
+        plin: 0,
+        otros: 0,
+      };
     }
 
+    const monto =
+      parseFloat(
+        registro.total
+      ) || 0;
 
+    const forma =
+      String(
+        registro.forma_pago || ""
+      )
+        .toLowerCase()
+        .trim();
 
-    // 🔹 FILAS NORMALES
-    Object.keys(filas).forEach(tc => {
+    if (
+      forma.includes(
+        "efectivo"
+      )
+    ) {
+      filas[tipo].efectivo +=
+        monto;
+    } else if (
+      forma.includes(
+        "tarjeta"
+      ) ||
+      forma.includes(
+        "izipay"
+      )
+    ) {
+      filas[tipo].tarjeta +=
+        monto;
+    } else if (
+      forma.includes(
+        "transfer"
+      )
+    ) {
+      filas[tipo].transferencia +=
+        monto;
+    } else if (
+      forma.includes(
+        "yape"
+      )
+    ) {
+      filas[tipo].yape +=
+        monto;
+    } else if (
+      forma.includes(
+        "plin"
+      )
+    ) {
+      filas[tipo].plin +=
+        monto;
+    } else {
+      filas[tipo].otros +=
+        monto;
+    }
+  });
 
-        let f = filas[tc];
-        let total = f.efectivo + f.tarjeta + f.transferencia + f.yape + f.plin;
+  let html = "";
 
-        html += `
-            <tr>
-                <td>${tc}</td>
-                <td class="text-right">S/ ${f.efectivo.toFixed(2)}</td>
-                <td class="text-right">S/ ${f.tarjeta.toFixed(2)}</td>
-                <td class="text-right">S/ ${f.transferencia.toFixed(2)}</td>
-                <td class="text-right">S/ ${(f.yape + f.plin).toFixed(2)}</td>
-                <td class="text-right font-weight-bold">S/ ${total.toFixed(2)}</td>
-            </tr>
-        `;
-    });
+  const montoApertura =
+    parseFloat(
+      apertura?.monto_apertura
+    ) || 0;
 
-    // 🔥 INSERTAR CIERRE SI LA CAJA ESTÁ CERRADA
-    if (apertura?.estado === 'CERRADA') {
+  if (apertura) {
+    html += `
+      <tr class="table-success font-weight-bold">
+        <td>
+          APERTURA DE CAJA
+        </td>
 
-        html += `
-        <tr class="table-danger font-weight-bold">
-            <td>CIERRE DE CAJA</td>
-            <td colspan="4" class="text-center">
-                Caja Cerrada
-            </td>
-            <td class="text-right">
-                ✔
-            </td>
-        </tr>
+        <td class="text-right">
+          S/ ${formatearMonto(
+            montoApertura
+          )}
+        </td>
+
+        <td class="text-right">-</td>
+        <td class="text-right">-</td>
+        <td class="text-right">-</td>
+
+        <td class="text-right">
+          S/ ${formatearMonto(
+            montoApertura
+          )}
+        </td>
+      </tr>
     `;
-    }
+  }
 
+  Object.keys(
+    filas
+  ).forEach(function (tipo) {
+    const fila =
+      filas[tipo];
 
-    $('#tablaCaja tbody').html(html);
+    const billeteras =
+      fila.yape +
+      fila.plin;
+
+    const total =
+      fila.efectivo +
+      fila.tarjeta +
+      fila.transferencia +
+      billeteras +
+      fila.otros;
+
+    html += `
+      <tr>
+        <td>
+          ${escaparHtml(tipo)}
+        </td>
+
+        <td class="text-right">
+          S/ ${formatearMonto(
+            fila.efectivo
+          )}
+        </td>
+
+        <td class="text-right">
+          S/ ${formatearMonto(
+            fila.tarjeta
+          )}
+        </td>
+
+        <td class="text-right">
+          S/ ${formatearMonto(
+            fila.transferencia
+          )}
+        </td>
+
+        <td class="text-right">
+          S/ ${formatearMonto(
+            billeteras
+          )}
+        </td>
+
+        <td class="text-right font-weight-bold">
+          S/ ${formatearMonto(
+            total
+          )}
+        </td>
+      </tr>
+    `;
+  });
+
+  if (apertura?.estado === "CERRADA") {
+    html += `
+      <tr class="table-danger font-weight-bold">
+        <td>
+          CIERRE DE CAJA
+        </td>
+
+        <td
+          colspan="4"
+          class="text-center">
+          Caja cerrada
+        </td>
+
+        <td class="text-right">
+          <i class="fas fa-check"></i>
+        </td>
+      </tr>
+    `;
+  }
+
+  if (html === "") {
+    html = `
+      <tr>
+        <td
+          colspan="6"
+          class="text-center text-muted">
+          No existen movimientos en el periodo.
+        </td>
+      </tr>
+    `;
+  }
+
+  $("#tablaCaja tbody").html(
+    html
+  );
 }
 
+/*
+|--------------------------------------------------------------------------
+| TOTALES
+|--------------------------------------------------------------------------
+*/
+function renderTotales(
+  totales,
+  apertura
+) {
+  const ingresos =
+    parseFloat(
+      totales.ingresos
+    ) || 0;
 
-function renderTotales(t, apertura) {
+  const efectivo =
+    parseFloat(
+      totales.efectivo
+    ) || 0;
 
-    let ingresos = parseFloat(t.ingresos || 0);
-    let montoApertura = parseFloat(apertura?.monto_apertura || 0);
+  const egresos =
+    parseFloat(
+      totales.egresos
+    ) || 0;
 
-    // Mostrar apertura
-    $('#montoAperturaCard').text('S/ ' + montoApertura.toFixed(2));
+  const egresosEfectivo =
+    parseFloat(
+      totales.egresos_efectivo
+    ) || 0;
 
-    // Mostrar ingresos
-    $('#totalIngresos').text('S/ ' + ingresos.toFixed(2));
+  const montoApertura =
+    parseFloat(
+      apertura?.monto_apertura
+    ) || 0;
 
-    // Total real en caja
-    let totalCaja = montoApertura + ingresos;
+  const totalCajaFisica =
+    montoApertura +
+    efectivo -
+    egresosEfectivo;
 
-    $('#totalCaja').text('S/ ' + totalCaja.toFixed(2));
+  $("#montoAperturaCard").text(
+    "S/ " +
+    formatearMonto(
+      montoApertura
+    )
+  );
+
+  $("#totalIngresos").text(
+    "S/ " +
+    formatearMonto(
+      ingresos
+    )
+  );
+
+  $("#totalEgresos").text(
+    "S/ " +
+    formatearMonto(
+      egresos
+    )
+  );
+
+  /*
+   * Total en Caja representa únicamente
+   * el efectivo físico esperado.
+   * No incluye Yape, tarjetas ni cuentas bancarias.
+   */
+  $("#totalCaja").text(
+    "S/ " +
+    formatearMonto(
+      totalCajaFisica
+    )
+  );
 }
 
+/*
+|--------------------------------------------------------------------------
+| CERRAR CAJA
+|--------------------------------------------------------------------------
+*/
 function cerrarCaja() {
+  $.ajax({
+    url:
+      "Controllers/Cajachica.php" +
+      "?op=datos_cierre",
 
-    $.getJSON('Controllers/Cajachica.php?op=datos_cierre', function (resp) {
+    type: "GET",
+    dataType: "json",
 
-        if (!resp.status) {
-            Swal.fire('Atención', 'La caja esta cerrada', 'error');
-            return;
+    success: function (resp) {
+      if (!resp.status) {
+        Swal.fire(
+          "Atención",
+          resp.message ||
+            "No existe una caja abierta.",
+          "warning"
+        );
+
+        return;
+      }
+
+      const totalSistema =
+        parseFloat(
+          resp.total_sistema
+        ) || 0;
+
+      const montoApertura =
+        parseFloat(
+          resp.monto_apertura
+        ) || 0;
+
+      const ventasEfectivo =
+        parseFloat(
+          resp.ventas_efectivo
+        ) || 0;
+
+      const otrosIngresos =
+        parseFloat(
+          resp.otros_ingresos_efectivo
+        ) || 0;
+
+      const egresosEfectivo =
+        parseFloat(
+          resp.egresos_efectivo
+        ) || 0;
+
+      Swal.fire({
+        title:
+          "Arqueo de Caja",
+
+        html: `
+          <div class="text-left">
+
+            <div class="mb-2">
+              <strong>Apertura:</strong>
+              S/ ${formatearMonto(
+                montoApertura
+              )}
+            </div>
+
+            <div class="mb-2">
+              <strong>Ventas en efectivo:</strong>
+              S/ ${formatearMonto(
+                ventasEfectivo
+              )}
+            </div>
+
+            <div class="mb-2">
+              <strong>Otros ingresos en efectivo:</strong>
+              S/ ${formatearMonto(
+                otrosIngresos
+              )}
+            </div>
+
+            <div class="mb-3">
+              <strong>Egresos en efectivo:</strong>
+              S/ ${formatearMonto(
+                egresosEfectivo
+              )}
+            </div>
+
+            <label>
+              Efectivo esperado en gaveta
+            </label>
+
+            <input
+              type="text"
+              class="swal2-input"
+              value="S/ ${formatearMonto(
+                totalSistema
+              )}"
+              readonly>
+
+            <label>
+              Efectivo contado físicamente
+            </label>
+
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              id="montoContado"
+              class="swal2-input"
+              placeholder="0.00">
+
+            <div
+              id="diferenciaBox"
+              style="
+                margin-top:10px;
+                font-weight:bold;
+              ">
+            </div>
+
+          </div>
+        `,
+
+        showCancelButton: true,
+        confirmButtonText:
+          "Cerrar Caja",
+        cancelButtonText:
+          "Cancelar",
+
+        didOpen: function () {
+          const input =
+            document.getElementById(
+              "montoContado"
+            );
+
+          const diferenciaBox =
+            document.getElementById(
+              "diferenciaBox"
+            );
+
+          input.addEventListener(
+            "input",
+            function () {
+              const contado =
+                parseFloat(
+                  this.value || 0
+                ) || 0;
+
+              const diferencia =
+                contado -
+                totalSistema;
+
+              let color =
+                "green";
+
+              let texto =
+                "Cuadre exacto";
+
+              if (diferencia > 0) {
+                color =
+                  "orange";
+
+                texto =
+                  "Sobrante";
+              } else if (
+                diferencia < 0
+              ) {
+                color =
+                  "red";
+
+                texto =
+                  "Faltante";
+              }
+
+              diferenciaBox.innerHTML = `
+                ${texto}:
+                <span style="color:${color}">
+                  S/ ${formatearMonto(
+                    diferencia
+                  )}
+                </span>
+              `;
+            }
+          );
+        },
+
+        preConfirm: function () {
+          const campo =
+            document.getElementById(
+              "montoContado"
+            );
+
+          const valor =
+            String(
+              campo.value || ""
+            ).trim();
+
+          if (valor === "") {
+            Swal.showValidationMessage(
+              "Ingrese el monto contado."
+            );
+
+            return false;
+          }
+
+          const montoContado =
+            parseFloat(valor);
+
+          if (
+            !Number.isFinite(
+              montoContado
+            ) ||
+            montoContado < 0
+          ) {
+            Swal.showValidationMessage(
+              "Ingrese un monto válido."
+            );
+
+            return false;
+          }
+
+          return {
+            montoContado:
+              montoContado,
+          };
+        },
+      }).then(function (resultado) {
+        if (!resultado.isConfirmed) {
+          return;
         }
 
-        let totalSistema = parseFloat(resp.total_sistema);
+        registrarCierreCaja(
+          resultado.value
+            .montoContado
+        );
+      });
+    },
+
+    error: function (xhr) {
+      console.error(
+        "Error en datos de cierre:",
+        xhr.responseText
+      );
+
+      Swal.fire(
+        "Error",
+        "No se pudieron obtener los datos del cierre.",
+        "error"
+      );
+    },
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| REGISTRAR CIERRE
+|--------------------------------------------------------------------------
+*/
+function registrarCierreCaja(
+  montoContado
+) {
+  const boton =
+    $("#btnCerrarCaja");
+
+  boton.prop(
+    "disabled",
+    true
+  );
+
+  $.ajax({
+    url:
+      "Controllers/Cajachica.php" +
+      "?op=cerrar_caja",
+
+    type: "POST",
+    dataType: "json",
+
+    data: {
+      monto_contado:
+        montoContado,
+    },
+
+    success: function (resp) {
+      if (resp.status === "ok") {
+        let mensaje =
+          "Total del sistema: S/ " +
+          formatearMonto(
+            resp.total_sistema
+          );
+
+        mensaje +=
+          "\nMonto contado: S/ " +
+          formatearMonto(
+            resp.monto_contado
+          );
+
+        mensaje +=
+          "\nDiferencia: S/ " +
+          formatearMonto(
+            resp.diferencia
+          );
 
         Swal.fire({
-            title: 'Arqueo de Caja',
-            html: `
-                <div class="text-left">
-                    <label>Total Efectivo en Gaveta</label>
-                    <input type="text" 
-                           class="swal2-input" 
-                           value="S/ ${totalSistema.toFixed(2)}" 
-                           readonly>
-
-                    <label>Monto efectivo Real</label>
-                    <input type="number" 
-                           step="0.01" 
-                           id="montoContado" 
-                           class="swal2-input" 
-                           placeholder="0.00">
-
-                    <div id="diferenciaBox" 
-                         style="margin-top:10px;font-weight:bold;">
-                    </div>
-                </div>
-            `,
-            showCancelButton: true,
-            confirmButtonText: 'Cerrar Caja',
-            didOpen: () => {
-
-                const input = document.getElementById('montoContado');
-                const diffBox = document.getElementById('diferenciaBox');
-
-                input.addEventListener('input', function () {
-                    let contado = parseFloat(this.value || 0);
-                    let diferencia = contado - totalSistema;
-
-                    let color = diferencia == 0
-                        ? 'green'
-                        : (diferencia > 0 ? 'orange' : 'red');
-
-                    diffBox.innerHTML = `
-                        Diferencia: 
-                        <span style="color:${color}">
-                            S/ ${diferencia.toFixed(2)}
-                        </span>
-                    `;
-                });
-            },
-            preConfirm: () => {
-
-                let montoContado = document.getElementById('montoContado').value;
-
-                if (!montoContado || parseFloat(montoContado) <= 0) {
-                    Swal.showValidationMessage('Ingrese monto válido');
-                    return false;
-                }
-
-                return {
-                    montoContado: parseFloat(montoContado)
-                };
-            }
-        }).then((result) => {
-
-            if (result.isConfirmed) {
-
-                $.post(
-                    'Controllers/Cajachica.php?op=cerrar_caja',
-                    { monto_contado: result.value.montoContado },
-                    function (r) {
-
-                        let res = JSON.parse(r);
-
-                        if (res.status === 'ok') {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Caja cerrada correctamente',
-                                timer: 1500,
-                                showConfirmButton: false
-                            });
-
-                            setTimeout(() => {
-                                location.reload();
-                            }, 1500);
-                        } else {
-                            Swal.fire('Error', res.message, 'error');
-                        }
-                    }
-                );
-
-            }
-
+          icon: "success",
+          title:
+            "Caja cerrada correctamente",
+          text: mensaje,
+        }).then(function () {
+          window.location.reload();
         });
 
-    });
+        return;
+      }
 
+      Swal.fire(
+        "Error",
+        resp.message ||
+          "No se pudo cerrar la caja.",
+        "error"
+      );
+    },
+
+    error: function (xhr) {
+      console.error(
+        "Error al cerrar caja:",
+        xhr.responseText
+      );
+
+      Swal.fire(
+        "Error",
+        "No se pudo registrar el cierre.",
+        "error"
+      );
+    },
+
+    complete: function () {
+      boton.prop(
+        "disabled",
+        false
+      );
+    },
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| UTILIDADES
+|--------------------------------------------------------------------------
+*/
+function formatearMonto(
+  monto
+) {
+  return (
+    parseFloat(monto) || 0
+  ).toLocaleString(
+    "es-PE",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  );
+}
+
+function escaparHtml(
+  texto
+) {
+  return String(
+    texto || ""
+  )
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }

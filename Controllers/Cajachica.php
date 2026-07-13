@@ -1,124 +1,289 @@
 <?php
-require_once "../Models/Cajachica.php";
 
-if (strlen(session_id()) < 1) {
+declare(strict_types=1);
+
+require_once __DIR__ . '/../Models/Cajachica.php';
+
+date_default_timezone_set('America/Lima');
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
 $caja = new Cajachica();
-
 $op = $_GET['op'] ?? '';
 
-switch ($op) {
+function responderCaja(array $respuesta): void
+{
+    header('Content-Type: application/json; charset=utf-8');
 
-    case 'resumen':
+    echo json_encode(
+        $respuesta,
+        JSON_UNESCAPED_UNICODE |
+        JSON_UNESCAPED_SLASHES
+    );
 
-        $fecha_inicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-d');
-        $fecha_fin    = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-d');
-        $idusuario    = isset($_GET['idusuario']) ? $_GET['idusuario'] : null;
-    
-        $detalle = $caja->resumen($fecha_inicio, $fecha_fin, $idusuario);
-        $totales = $caja->totales($fecha_inicio, $fecha_fin, $idusuario);
-    
-        // Apertura por la fecha del filtro
-        $apertura = $caja->obtenerAperturaPorFecha($fecha_inicio);
-    
-        // Estado del día de HOY (si hay registro, sea ABIERTA o CERRADA)
-        $aperturaHoy = $caja->obtenerAperturaHoy();
-    
-        $estadoHoy = 'SIN_APERTURA';
-        if (is_array($aperturaHoy) && isset($aperturaHoy['estado'])) {
-            $estadoHoy = $aperturaHoy['estado']; // ABIERTA | CERRADA
-        }
-    
-        echo json_encode(array(
-            'detalle'  => $detalle,
-            'totales'  => $totales,
-            'apertura' => $apertura,
-            'estado'   => $estadoHoy
-        ));
-    
-        break;
-    
+    exit;
+}
 
-    case 'verificar_apertura':
+$idusuarioSesion = (int)(
+    $_SESSION['idusuario']
+    ?? 0
+);
 
-        $apertura = $caja->obtenerAperturaHoy();
+if ($idusuarioSesion <= 0) {
+    responderCaja([
+        'status' => 'error',
+        'message' => 'La sesión del usuario no es válida.'
+    ]);
+}
 
-        if ($apertura) {
+try {
+    switch ($op) {
+        /*
+        |--------------------------------------------------------------------------
+        | RESUMEN
+        |--------------------------------------------------------------------------
+        */
+        case 'resumen':
 
-            echo json_encode([
-                'existe' => $apertura ? true : false,
-                'estado' => $apertura['estado'] ?? 'SIN_APERTURA'
+            $fechaInicio = trim(
+                (string)(
+                    $_GET['fecha_inicio']
+                    ?? date('Y-m-d')
+                )
+            );
+
+            $fechaFin = trim(
+                (string)(
+                    $_GET['fecha_fin']
+                    ?? date('Y-m-d')
+                )
+            );
+
+            $idusuarioFiltro = isset($_GET['idusuario'])
+                && (int)$_GET['idusuario'] > 0
+                    ? (int)$_GET['idusuario']
+                    : null;
+
+            $detalle = $caja->resumen(
+                $fechaInicio,
+                $fechaFin,
+                $idusuarioFiltro
+            );
+
+            $totales = $caja->totales(
+                $fechaInicio,
+                $fechaFin,
+                $idusuarioFiltro
+            );
+
+            $usuarioApertura =
+                $idusuarioFiltro
+                ?? $idusuarioSesion;
+
+            $apertura =
+                $caja->obtenerAperturaPorFecha(
+                    $fechaInicio,
+                    $usuarioApertura
+                );
+
+            $aperturaHoy =
+                $caja->obtenerAperturaHoyUsuario(
+                    $idusuarioSesion
+                );
+
+            $cajaAbierta =
+                $caja->obtenerCajaAbiertaUsuario(
+                    $idusuarioSesion
+                );
+
+            $estado = 'SIN_APERTURA';
+
+            if ($cajaAbierta) {
+                $estado = 'ABIERTA';
+            } elseif ($aperturaHoy) {
+                $estado = strtoupper(
+                    (string)$aperturaHoy['estado']
+                );
+            }
+
+            responderCaja([
+                'status' => 'ok',
+                'detalle' => $detalle,
+                'totales' => $totales,
+                'apertura' => $apertura,
+                'estado' => $estado
             ]);
-            
-        } else {
 
-            echo json_encode([
-                'existe' => false,
-                'estado' => 'CERRADA'
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFICAR APERTURA
+        |--------------------------------------------------------------------------
+        */
+        case 'verificar_apertura':
+
+            $cantidad =
+                $caja->contarCajasAbiertasUsuario(
+                    $idusuarioSesion
+                );
+
+            if ($cantidad > 1) {
+                responderCaja([
+                    'status' => 'error',
+                    'existe' => true,
+                    'estado' => 'ERROR',
+                    'message' =>
+                        'Se encontraron varias cajas abiertas para el usuario.'
+                ]);
+            }
+
+            $apertura =
+                $caja->obtenerCajaAbiertaUsuario(
+                    $idusuarioSesion
+                );
+
+            responderCaja([
+                'status' => 'ok',
+                'existe' => $apertura !== null,
+                'estado' => $apertura
+                    ? 'ABIERTA'
+                    : 'SIN_APERTURA',
+                'apertura' => $apertura
             ]);
-        }
 
-        break;
+            break;
 
+        /*
+        |--------------------------------------------------------------------------
+        | GUARDAR APERTURA
+        |--------------------------------------------------------------------------
+        */
+        case 'guardar_apertura':
 
+            $monto = round(
+                (float)(
+                    $_POST['monto']
+                    ?? 0
+                ),
+                2
+            );
 
-    case 'guardar_apertura':
+            $resultado =
+                $caja->registrarApertura(
+                    $monto,
+                    $idusuarioSesion
+                );
 
-        $monto = $_POST['monto'] ?? 0;
-        $idusuario = $_SESSION['idusuario'] ?? 0;
+            responderCaja($resultado);
 
-        $ok = $caja->registrarApertura($monto, $idusuario);
+            break;
 
-        echo json_encode([
-            'status' => $ok ? 'ok' : 'error'
-        ]);
+        /*
+        |--------------------------------------------------------------------------
+        | DATOS PARA CIERRE
+        |--------------------------------------------------------------------------
+        */
+        case 'datos_cierre':
 
-        break;
+            $cantidad =
+                $caja->contarCajasAbiertasUsuario(
+                    $idusuarioSesion
+                );
 
-    case 'cerrar_caja':
+            if ($cantidad === 0) {
+                responderCaja([
+                    'status' => false,
+                    'message' =>
+                        'No existe una caja abierta.'
+                ]);
+            }
 
-        $montoContado = $_POST['monto_contado'] ?? 0;
-        $idusuario = $_SESSION['idusuario'] ?? 0;
+            if ($cantidad > 1) {
+                responderCaja([
+                    'status' => false,
+                    'message' =>
+                        'Se encontraron varias cajas abiertas.'
+                ]);
+            }
 
-        // 🔒 Verificar si realmente hay caja ABIERTA
-        $apertura = $caja->obtenerCajaAbiertaHoy();
+            $apertura =
+                $caja->obtenerCajaAbiertaUsuario(
+                    $idusuarioSesion
+                );
 
-        if (!$apertura) {
-            echo json_encode([
+            if (!$apertura) {
+                responderCaja([
+                    'status' => false,
+                    'message' =>
+                        'No existe una caja abierta.'
+                ]);
+            }
+
+            $totales =
+                $caja->calcularTotalesApertura(
+                    (int)$apertura['idapertura']
+                );
+
+            responderCaja([
+                'status' => true,
+                'apertura' => $apertura,
+                'monto_apertura' =>
+                    $totales['monto_apertura'],
+                'ventas_efectivo' =>
+                    $totales['ventas_efectivo'],
+                'otros_ingresos_efectivo' =>
+                    $totales['otros_ingresos_efectivo'],
+                'egresos_efectivo' =>
+                    $totales['egresos_efectivo'],
+                'total_sistema' =>
+                    $totales['total_sistema']
+            ]);
+
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
+        | CERRAR CAJA
+        |--------------------------------------------------------------------------
+        */
+        case 'cerrar_caja':
+
+            $montoContado = round(
+                (float)(
+                    $_POST['monto_contado']
+                    ?? 0
+                ),
+                2
+            );
+
+            $resultado =
+                $caja->cerrarCaja(
+                    $montoContado,
+                    $idusuarioSesion
+                );
+
+            responderCaja($resultado);
+
+            break;
+
+        default:
+
+            responderCaja([
                 'status' => 'error',
-                'message' => 'La caja ya está cerrada'
+                'message' => 'Operación no válida.'
             ]);
-            break;
-        }
+    }
+} catch (Throwable $e) {
+    error_log(
+        '[CONTROLADOR CAJA] '
+        . $e->getMessage()
+    );
 
-        $resultado = $caja->cerrarCaja($montoContado, $idusuario);
-
-        echo json_encode($resultado);
-
-        break;
-
-
-
-    case 'datos_cierre':
-
-        $apertura = $caja->obtenerCajaAbiertaHoy();
-
-        if (!$apertura) {
-            echo json_encode([
-                'status' => false,
-                'message' => 'La caja ya está cerrada'
-            ]);
-            break;
-        }
-
-        $totales = $caja->totales(date('Y-m-d'), date('Y-m-d'));
-
-        $totalSistema = $apertura['monto_apertura'] + ($totales['ingresos'] ?? 0);
-
-        echo json_encode([
-            'status' => true,
-            'total_sistema' => $totalSistema
-        ]);
+    responderCaja([
+        'status' => 'error',
+        'message' => $e->getMessage()
+    ]);
 }
