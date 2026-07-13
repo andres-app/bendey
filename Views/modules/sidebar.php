@@ -7,16 +7,86 @@ $esPOS = ($url === 'newsale3');
 ?>
 
 
+<style>
+    /* =========================================================
+       LOGO DEL SIDEBAR
+       Evita que la imagen sobresalga al colapsar el menú.
+       ========================================================= */
+    .main-sidebar .tiquepos-sidebar-brand {
+        box-sizing: border-box;
+        width: 100%;
+        height: 150px !important;
+        padding: 20px 12px !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        transition: height .25s ease, padding .25s ease;
+    }
+
+    .main-sidebar .tiquepos-sidebar-brand > a {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .main-sidebar .tiquepos-sidebar-logo {
+        display: block;
+        width: auto;
+        height: 105px;
+        max-width: 100%;
+        object-fit: contain;
+        object-position: center;
+        transition: width .25s ease, height .25s ease, max-width .25s ease;
+    }
+
+    /* Estado colapsado de Stisla */
+    body.sidebar-mini .main-sidebar .tiquepos-sidebar-brand {
+        height: 78px !important;
+        padding: 11px 7px !important;
+    }
+
+    body.sidebar-mini .main-sidebar .tiquepos-sidebar-brand > a {
+        width: 50px !important;
+        height: 50px !important;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+
+    body.sidebar-mini .main-sidebar .tiquepos-sidebar-logo {
+        width: 46px !important;
+        height: 46px !important;
+        max-width: 46px !important;
+        max-height: 46px !important;
+        object-fit: contain;
+    }
+
+    /* Protección adicional para pantallas pequeñas */
+    @media (max-width: 767.98px) {
+        body:not(.sidebar-mini) .main-sidebar .tiquepos-sidebar-brand {
+            height: 130px !important;
+            padding: 15px 12px !important;
+        }
+
+        body:not(.sidebar-mini) .main-sidebar .tiquepos-sidebar-logo {
+            height: 92px;
+        }
+    }
+</style>
+
 <div class="main-sidebar sidebar-style-2">
     <aside id="sidebar-wrapper">
 
         <!-- LOGO EMPRESA -->
-        <div class="sidebar-brand" style="padding:80px 0; display:flex; justify-content:center; align-items:center;">
-            <a href="dashboard" style="display:flex; justify-content:center; width:100%;">
+        <div class="sidebar-brand tiquepos-sidebar-brand">
+            <a href="dashboard" aria-label="Ir al escritorio">
                 <img
+                    class="tiquepos-sidebar-logo"
                     src="Assets/img/tiquepos_logo.png"
-                    alt="TiquePOS"
-                    style="height:100px; width:auto; display:block;">
+                    alt="TiquePOS">
             </a>
         </div>
 
