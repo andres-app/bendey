@@ -98,8 +98,8 @@ function abrirCobranza(idventa) {
       $("#cobranzaCliente").text(venta.cliente || "-");
       $("#cobranzaFactura").text(
         (venta.serie_comprobante || "") +
-          "-" +
-          (venta.num_comprobante || "")
+        "-" +
+        (venta.num_comprobante || "")
       );
       $("#cobranzaTotal").text(
         "S/ " + formatearMontoCobranza(venta.total_venta)
@@ -233,12 +233,16 @@ function renderizarHistorialCobranza(historial) {
 }
 
 function agregarLineaPagoCobranza() {
-  if (!Array.isArray(formasPagoCobranza) || formasPagoCobranza.length === 0) {
+  if (
+    !Array.isArray(formasPagoCobranza) ||
+    formasPagoCobranza.length === 0
+  ) {
     Swal.fire(
       "Atención",
       "No existen formas de pago habilitadas para cobranzas.",
       "warning"
     );
+
     return;
   }
 
@@ -246,11 +250,17 @@ function agregarLineaPagoCobranza() {
 
   const opciones = formasPagoCobranza
     .map(function (forma) {
+      const destino =
+        forma.cuenta_destino ||
+        "Sin destino configurado";
+
       return `
         <option
           value="${forma.idforma_pago}"
           data-requiere-operacion="${forma.requiere_operacion}"
-          data-requiere-caja="${forma.requiere_caja_abierta}">
+          data-requiere-caja="${forma.requiere_caja_abierta}"
+          data-destino="${escaparHtmlCobranza(destino)}">
+
           ${escaparHtmlCobranza(forma.nombre)}
         </option>
       `;
@@ -258,59 +268,161 @@ function agregarLineaPagoCobranza() {
     .join("");
 
   $("#contenedorPagosCobranza").append(`
-    <div class="pago-linea" data-linea="${contadorPagosCobranza}">
+    <div
+      class="pago-linea"
+      data-linea="${contadorPagosCobranza}">
+
       <div class="row align-items-end">
+
         <div class="col-md-4">
-          <label>Forma de pago</label>
-          <select class="form-control forma-pago-cobranza">
-            <option value="">Seleccione...</option>
+
+          <label>
+            Forma de pago
+          </label>
+
+          <select
+            class="form-control forma-pago-cobranza">
+
+            <option
+              value=""
+              data-requiere-operacion="0"
+              data-requiere-caja="0"
+              data-destino="">
+
+              Seleccione...
+            </option>
+
             ${opciones}
           </select>
+
+          <div
+            class="destino-pago-cobranza mt-2 px-3 py-2"
+            style="
+              display:block;
+              min-height:38px;
+              border:1px solid #dfe6ee;
+              border-radius:8px;
+              background:#f5f8fb;
+              color:#506176;
+              font-size:13px;
+              font-weight:600;
+            ">
+
+            <i class="fas fa-university mr-1"></i>
+            Destino: seleccione una forma de pago
+          </div>
+
         </div>
 
         <div class="col-md-3">
-          <label>Monto</label>
+
+          <label>
+            Monto
+          </label>
+
           <input
             type="number"
             min="0.01"
             step="0.01"
             class="form-control monto-pago-cobranza"
             value="0.00">
+
         </div>
 
-        <div class="col-md-4 bloque-operacion-cobranza" style="display:none;">
-          <label>Número de operación</label>
+        <div
+          class="col-md-4 bloque-operacion-cobranza"
+          style="display:none;">
+
+          <label>
+            Número de operación
+          </label>
+
           <input
             type="text"
             maxlength="100"
             class="form-control numero-operacion-cobranza"
             placeholder="Operación o referencia">
+
         </div>
 
         <div class="col-md-1">
+
           <button
             type="button"
             class="btn btn-outline-danger btn-eliminar-pago-cobranza"
             title="Eliminar">
+
             <i class="fas fa-trash"></i>
+
           </button>
+
         </div>
+
       </div>
     </div>
   `);
 }
 
 function actualizarLineaPago(linea) {
-  const opcion = linea.find(".forma-pago-cobranza option:selected");
+  const opcion = linea.find(
+    ".forma-pago-cobranza option:selected"
+  );
+
+  const idFormaPago =
+    parseInt(opcion.val(), 10) || 0;
 
   const requiereOperacion =
-    parseInt(opcion.data("requiere-operacion"), 10) === 1;
+    parseInt(
+      opcion.attr("data-requiere-operacion"),
+      10
+    ) === 1;
 
-  linea.find(".bloque-operacion-cobranza").toggle(requiereOperacion);
+  const requiereCaja =
+    parseInt(
+      opcion.attr("data-requiere-caja"),
+      10
+    ) === 1;
+
+  const destino =
+    opcion.attr("data-destino") || "";
+
+  linea
+    .find(".bloque-operacion-cobranza")
+    .toggle(requiereOperacion);
 
   if (!requiereOperacion) {
-    linea.find(".numero-operacion-cobranza").val("");
+    linea
+      .find(".numero-operacion-cobranza")
+      .val("");
   }
+
+  let textoDestino = `
+    <i class="fas fa-university mr-1"></i>
+    Destino: seleccione una forma de pago
+  `;
+
+  if (idFormaPago > 0) {
+    textoDestino = `
+      <i class="fas fa-university mr-1"></i>
+      Destino: ${escaparHtmlCobranza(
+        destino || "Sin destino configurado"
+      )}
+    `;
+
+    if (requiereCaja) {
+      textoDestino += `
+        <br>
+        <small>
+          <i class="fas fa-cash-register mr-1"></i>
+          Se registrará en la caja abierta del usuario
+        </small>
+      `;
+    }
+  }
+
+  linea
+    .find(".destino-pago-cobranza")
+    .html(textoDestino);
 }
 
 function recalcularCobranza() {
