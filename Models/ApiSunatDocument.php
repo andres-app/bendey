@@ -101,18 +101,57 @@ class ApiSunatDocument
             );
         }
 
+        /*
+|--------------------------------------------------------------------------
+| CONDICIÓN DE PAGO SUNAT
+|--------------------------------------------------------------------------
+| tipo_pago puede almacenarse como:
+| 1 = Contado
+| 4 = Crédito
+| o directamente como texto.
+|
+| La forma de pago Efectivo, Yape, Tarjeta, etc. es diferente
+| de la condición tributaria Contado/Crédito.
+*/
         $tipoPago = $this->normalizarTexto(
             (string)($venta['tipo_pago'] ?? '')
         );
 
-        if (
+        $esContado = (
+            $tipoPago === '1'
+            || $tipoPago === 'CONTADO'
+            || str_contains(
+                $tipoPago,
+                'CONTADO'
+            )
+        );
+
+        $esCredito = (
             $tipoPago === '4'
-            || str_contains($tipoPago, 'CREDITO')
-        ) {
+            || $tipoPago === 'CREDITO'
+            || str_contains(
+                $tipoPago,
+                'CREDITO'
+            )
+        );
+
+        if (!$esContado && !$esCredito) {
             throw new RuntimeException(
-                'La primera prueba debe ser una venta al contado.'
+                'No se pudo determinar si la factura es al contado o al crédito.'
             );
         }
+
+        /*
+        * Por ahora las cuotas todavía no se guardan en la base de datos.
+        * Para evitar otra factura incorrecta se bloquea el crédito.
+        */
+        if ($esCredito) {
+            throw new RuntimeException(
+                'La emisión de facturas al crédito todavía requiere registrar las cuotas y fechas de vencimiento.'
+            );
+        }
+
+        $condicionPagoSunat = 'Contado';
 
         $cliente = [
             'tipo_documento' => trim(
@@ -459,10 +498,10 @@ class ApiSunatDocument
                         'cbc:ID' => [
                             '_attributes' => [
                                 'schemeID' =>
-                                    $tipoDocumentoCliente
+                                $tipoDocumentoCliente
                             ],
                             '_text' =>
-                                $cliente['num_documento']
+                            $cliente['num_documento']
                         ]
                     ],
 
@@ -475,9 +514,9 @@ class ApiSunatDocument
                             'cac:AddressLine' => [
                                 'cbc:Line' => [
                                     '_text' =>
-                                        $cliente['direccion'] !== ''
-                                            ? $cliente['direccion']
-                                            : '-'
+                                    $cliente['direccion'] !== ''
+                                        ? $cliente['direccion']
+                                        : '-'
                                 ]
                             ]
                         ]
@@ -571,6 +610,32 @@ class ApiSunatDocument
 
             'cac:InvoiceLine' => $lineas
         ];
+
+        /*
+|--------------------------------------------------------------------------
+| FORMA DE PAGO DE LA FACTURA
+|--------------------------------------------------------------------------
+| SUNAT exige obligatoriamente FormaPago + Contado/Credito
+| para las facturas electrónicas.
+|
+| Se inserta antes de cac:TaxTotal para mantener el orden UBL.
+*/
+        if ($tipoSunat === '01') {
+            $documentBody = $this->insertarAntesDeClave(
+                $documentBody,
+                'cac:TaxTotal',
+                'cac:PaymentTerms',
+                [
+                    'cbc:ID' => [
+                        '_text' => 'FormaPago'
+                    ],
+
+                    'cbc:PaymentMeansID' => [
+                        '_text' => $condicionPagoSunat
+                    ]
+                ]
+            );
+        }
 
         return [
             'idventa' => $idventa,
@@ -841,6 +906,42 @@ class ApiSunatDocument
         }
     }
 
+    /*
+|--------------------------------------------------------------------------
+| INSERTAR ELEMENTO RESPETANDO EL ORDEN UBL
+|--------------------------------------------------------------------------
+*/
+private function insertarAntesDeClave(
+    array $contenido,
+    string $claveReferencia,
+    string $nuevaClave,
+    mixed $nuevoValor
+): array {
+    $resultado = [];
+    $insertado = false;
+
+    foreach ($contenido as $clave => $valor) {
+        if (
+            !$insertado
+            && $clave === $claveReferencia
+        ) {
+            $resultado[$nuevaClave] =
+                $nuevoValor;
+
+            $insertado = true;
+        }
+
+        $resultado[$clave] = $valor;
+    }
+
+    if (!$insertado) {
+        $resultado[$nuevaClave] =
+            $nuevoValor;
+    }
+
+    return $resultado;
+}
+
     private function normalizarUnidadSunat(
         string $codigo
     ): string {
@@ -914,14 +1015,14 @@ class ApiSunatDocument
 
         return mb_strtoupper(
             trim($texto)
-            . ' CON '
-            . str_pad(
-                (string)$centimos,
-                2,
-                '0',
-                STR_PAD_LEFT
-            )
-            . '/100 SOLES',
+                . ' CON '
+                . str_pad(
+                    (string)$centimos,
+                    2,
+                    '0',
+                    STR_PAD_LEFT
+                )
+                . '/100 SOLES',
             'UTF-8'
         );
     }
@@ -1022,11 +1123,11 @@ class ApiSunatDocument
             return $decenas[$decena]
                 . (
                     $resto > 0
-                        ? ' Y '
-                            . $this->convertirEnteroALetras(
-                                $resto
-                            )
-                        : ''
+                    ? ' Y '
+                    . $this->convertirEnteroALetras(
+                        $resto
+                    )
+                    : ''
                 );
         }
 
@@ -1057,11 +1158,11 @@ class ApiSunatDocument
             return $centenas[$centena]
                 . (
                     $resto > 0
-                        ? ' '
-                            . $this->convertirEnteroALetras(
-                                $resto
-                            )
-                        : ''
+                    ? ' '
+                    . $this->convertirEnteroALetras(
+                        $resto
+                    )
+                    : ''
                 );
         }
 
@@ -1084,11 +1185,11 @@ class ApiSunatDocument
             return $textoMiles
                 . (
                     $resto > 0
-                        ? ' '
-                            . $this->convertirEnteroALetras(
-                                $resto
-                            )
-                        : ''
+                    ? ' '
+                    . $this->convertirEnteroALetras(
+                        $resto
+                    )
+                    : ''
                 );
         }
 
@@ -1111,11 +1212,11 @@ class ApiSunatDocument
             return $textoMillones
                 . (
                     $resto > 0
-                        ? ' '
-                            . $this->convertirEnteroALetras(
-                                $resto
-                            )
-                        : ''
+                    ? ' '
+                    . $this->convertirEnteroALetras(
+                        $resto
+                    )
+                    : ''
                 );
         }
 
