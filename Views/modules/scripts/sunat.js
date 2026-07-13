@@ -3,6 +3,18 @@ $(document).ready(function () {
         responsive: true,
         autoWidth: false,
         scrollX: false,
+
+        // Mantiene el orden recibido desde PHP:
+        // último comprobante emitido primero.
+        order: [],
+
+        columnDefs: [
+            {
+                targets: [0, 4, 5, 6],
+                orderable: false
+            }
+        ],
+
         ajax: {
             url: "Controllers/Sunat.php",
             type: "GET",
@@ -16,6 +28,7 @@ $(document).ready(function () {
                 };
             }
         },
+
         columns: [
             { data: "0", className: "text-center" },
             { data: "1" },
@@ -26,9 +39,25 @@ $(document).ready(function () {
             { data: "6", className: "text-center" },
             { data: "7" },
             { data: "8", className: "text-center" }
-        ]
-    });
+        ],
 
+        language: {
+            emptyTable: "No hay comprobantes electrónicos registrados",
+            processing: "Cargando comprobantes...",
+            search: "Buscar:",
+            lengthMenu: "Mostrar _MENU_ registros",
+            info: "Mostrando _START_ a _END_ de _TOTAL_ comprobantes",
+            infoEmpty: "No hay comprobantes disponibles",
+            infoFiltered: "(filtrado de _MAX_ comprobantes)",
+            zeroRecords: "No se encontraron resultados",
+            paginate: {
+                first: "Primero",
+                last: "Último",
+                next: "Siguiente",
+                previous: "Anterior"
+            }
+        }
+    });
 });
 
 function verDetalle(idventa) {
