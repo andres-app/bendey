@@ -59,49 +59,109 @@ input.form-control.total-display:focus {
     border-color: #52b848;
 }
 
-/* =========================
-   BADGES SUNAT - SUTILES
-========================= */
+/* =========================================================
+   BADGES SUNAT - CENTRADOS / TONOS SUAVES Y FRIOS
+========================================================= */
 
-.badge-sunat {
-    font-size: 12px;
-    font-weight: 500;
-    padding: 4px 10px;
-    border-radius: 12px;
-    background: #f4f5f7;
-    color: #555;
-    border: 1px solid rgba(0,0,0,0.06);
+#tbllistado .badge-sunat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    min-width: 108px;
+    height: 30px;
+    padding: 0 14px;
+
+    border: 1px solid transparent;
+    border-radius: 999px;
+
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
 }
 
-/* Estados */
-.sunat-pendiente {
-    color: #9a7b00;
-    background: #fff7d6;
-    border-color: #ffe58f;
+/* Puntito */
+#tbllistado .badge-sunat::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    min-width: 7px;
+    border-radius: 50%;
+    background-color: currentColor;
+    opacity: 0.9;
 }
 
-.sunat-enviado {
-    color: #005c99;
-    background: #e6f2ff;
-    border-color: #b3dbff;
+/* ACEPTADO */
+#tbllistado .badge-sunat.sunat-aceptado {
+    color: #1f7a52;
+    background-color: #e7f5ee;
+    border-color: #a9d8bf;
 }
 
-.sunat-aceptado {
-    color: #1f7a1f;
-    background: #eaf6ea;
-    border-color: #bfe6bf;
+/* NO ENVIADO */
+#tbllistado .badge-sunat.sunat-pendiente {
+    color: #9a6a16;
+    background-color: #f8f1df;
+    border-color: #dfc58a;
 }
 
-.sunat-rechazado {
-    color: #9a1c1c;
-    background: #fdeaea;
-    border-color: #f5b5b5;
+/* EN PROCESO */
+#tbllistado .badge-sunat.sunat-proceso {
+    color: #356ac3;
+    background-color: #e9f0fb;
+    border-color: #aac2ee;
 }
 
-.sunat-error {
-    color: #9a1c1c;
-    background: #fdeaea;
-    border-color: #f5b5b5;
+/* ENVIADO */
+#tbllistado .badge-sunat.sunat-enviado {
+    color: #2b6f8c;
+    background-color: #e8f4f8;
+    border-color: #add0dd;
+}
+
+/* RECHAZADO / EXCEPCION */
+#tbllistado .badge-sunat.sunat-rechazado {
+    color: #a24a56;
+    background-color: #fbecee;
+    border-color: #e6bcc3;
+}
+
+/* ERROR */
+#tbllistado .badge-sunat.sunat-error {
+    color: #9a4d78;
+    background-color: #f8ecf3;
+    border-color: #e1bfd1;
+}
+
+/* ANULADO */
+#tbllistado .badge-sunat.sunat-anulado {
+    color: #5f6b7a;
+    background-color: #eef2f6;
+    border-color: #c8d1db;
+}
+
+/* NO APLICA */
+#tbllistado .badge-sunat.sunat-no-aplica {
+    color: #607080;
+    background-color: #f1f4f7;
+    border-color: #ced6df;
+}
+
+/* Centrado de toda la columna Estado SUNAT */
+#tbllistado tbody td:nth-child(8),
+#tbllistado thead th:nth-child(8) {
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+/* Centrado vertical de todas las celdas */
+#tbllistado tbody td {
+    vertical-align: middle !important;
 }
 
 /* XML */
@@ -111,7 +171,7 @@ input.form-control.total-display:focus {
     border-radius: 10px;
     background: #eef3ff;
     color: #3b5bfd;
-    border: 1px solid rgba(59,91,253,0.25);
+    border: 1px solid rgba(59, 91, 253, 0.25);
     text-decoration: none;
 }
 
@@ -128,7 +188,7 @@ input.form-control.total-display:focus {
     border-radius: 10px;
     background: #e9f7ef;
     color: #1e7e34;
-    border: 1px solid rgba(30,126,52,0.25);
+    border: 1px solid rgba(30, 126, 52, 0.25);
     text-decoration: none;
 }
 
@@ -143,18 +203,17 @@ input.form-control.total-display:focus {
 .modal-caja {
     border-radius: 14px;
     padding: 10px;
-  }
-  
-  .modal-caja .modal-body {
+}
+
+.modal-caja .modal-body {
     padding: 30px;
-  }
-  
-  #montoApertura {
+}
+
+#montoApertura {
     font-size: 28px;
     height: 65px;
-  }
-  
-  .modal-backdrop.show {
+}
+
+.modal-backdrop.show {
     opacity: 0.85;
-  }
-  
+}

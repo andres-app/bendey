@@ -1,6 +1,5 @@
 <?php
-//incluir la conexion de base de datos
-//incluir la conexion de base de datos
+//Models/Sell.php
 require_once __DIR__ . '/../Config/Conexion.php';
 class Sell
 {
@@ -454,27 +453,101 @@ class Sell
     }
 
     //listar registros
+    // LISTAR VENTAS CON ESTADO REAL DE SUNAT
     public function listar()
     {
-        $sql = "SELECT 
-                v.idventa,
-                DATE(v.fecha_hora) as fecha,
-                v.idcliente,
-                COALESCE(p.nombre, 'SIN CLIENTE') AS cliente,
-                u.nombre AS usuario,
-                v.tipo_comprobante,
-                v.serie_comprobante,
-                v.num_comprobante,
-                v.total_venta,
-                v.impuesto,
-                v.estado
-            FROM venta v
-            LEFT JOIN persona p ON v.idcliente = p.idpersona
-            LEFT JOIN usuario u ON v.idusuario = u.idusuario
-            WHERE v.tipo_comprobante <> 'Cotizacion'
-            ORDER BY v.idventa DESC";
-    
-        return $this->conexion->getDataAll($sql);
+        $sql = "
+        SELECT
+            v.idventa,
+
+            DATE_FORMAT(
+                v.fecha_hora,
+                '%d/%m/%Y %H:%i'
+            ) AS fecha,
+
+            v.idcliente,
+
+            COALESCE(
+                p.nombre,
+                'SIN CLIENTE'
+            ) AS cliente,
+
+            COALESCE(
+                u.nombre,
+                'SIN USUARIO'
+            ) AS usuario,
+
+            v.tipo_comprobante,
+            v.serie_comprobante,
+            v.num_comprobante,
+            v.total_venta,
+            v.impuesto,
+
+            /* Estado local de la venta */
+            v.estado,
+
+            /* Datos registrados por APISUNAT */
+            vs.idventa_sunat,
+            vs.document_id,
+            vs.estado_sunat AS estado_sunat_original,
+            vs.mensaje_sunat,
+
+            /* Estado SUNAT unificado */
+            CASE
+                WHEN v.estado <> 'Aceptado'
+                THEN 'ANULADO'
+
+                WHEN v.tipo_comprobante NOT IN (
+                    'Factura Electrónica',
+                    'Boleta Electrónica'
+                )
+                THEN 'NO_APLICA'
+
+                WHEN vs.idventa_sunat IS NULL
+                THEN 'NO_ENVIADO'
+
+                WHEN COALESCE(
+                    vs.document_id,
+                    ''
+                ) = ''
+                THEN 'NO_ENVIADO'
+
+                WHEN COALESCE(
+                    vs.estado_sunat,
+                    ''
+                ) = ''
+                THEN 'PENDIENTE'
+
+                ELSE UPPER(
+                    TRIM(
+                        vs.estado_sunat
+                    )
+                )
+            END AS estado_sunat
+
+        FROM venta v
+
+        LEFT JOIN persona p
+            ON p.idpersona = v.idcliente
+
+        LEFT JOIN usuario u
+            ON u.idusuario = v.idusuario
+
+        LEFT JOIN venta_sunat vs
+            ON vs.idventa = v.idventa
+
+        WHERE v.tipo_comprobante <> 'Cotizacion'
+
+        ORDER BY v.idventa DESC
+    ";
+
+        $resultado = $this->conexion->getDataAll(
+            $sql
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
     }
 
 
@@ -507,9 +580,9 @@ class Sell
         INNER JOIN persona p ON v.idcliente = p.idpersona
         INNER JOIN usuario u ON v.idusuario = u.idusuario
         WHERE v.idventa = ?";
-    
+
         return $this->conexion->getDataAll($sql, [$idventa]);
-    }    
+    }
 
 
 
@@ -532,8 +605,8 @@ class Sell
     }
 
     public function listarCotizaciones()
-{
-    $sql = "SELECT 
+    {
+        $sql = "SELECT 
                 v.idventa,
                 DATE(v.fecha_hora) as fecha,
                 v.idcliente,
@@ -551,8 +624,8 @@ class Sell
             WHERE v.tipo_comprobante = 'Cotizacion'
             ORDER BY v.idventa DESC";
 
-    return $this->conexion->getDataAll($sql);
-}
+        return $this->conexion->getDataAll($sql);
+    }
 
 
     public function obtenerPagosVenta($idventa)

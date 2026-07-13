@@ -1,5 +1,5 @@
 <?php
-
+//Controllers/Sell.php
 require_once __DIR__ . '/../Models/Sell.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -45,6 +45,99 @@ function obtenerBaseUrl(): string
     ) . '/';
 
     return $protocol . $host . $projectRoot;
+}
+
+/**
+ * Genera el estado visual real del comprobante ante SUNAT.
+ * No utiliza las clases badge de Bootstrap/Stisla.
+ */
+function generarEstadoSunatVenta(
+    array $registro
+): string {
+    $estado = strtoupper(
+        trim(
+            (string)(
+                $registro['estado_sunat']
+                ?? 'NO_ENVIADO'
+            )
+        )
+    );
+
+    $mensaje = trim(
+        (string)(
+            $registro['mensaje_sunat']
+                ?? ''
+        )
+    );
+
+    $titulo = '';
+
+    if ($mensaje !== '') {
+        $titulo = ' title="' .
+            htmlspecialchars(
+                $mensaje,
+                ENT_QUOTES,
+                'UTF-8'
+            ) .
+            '"';
+    }
+
+    switch ($estado) {
+        case 'ACEPTADO':
+            $clase = 'sunat-aceptado';
+            $texto = 'Aceptado';
+            break;
+
+        case 'PENDIENTE':
+        case 'EN_PROCESO':
+            $clase = 'sunat-proceso';
+            $texto = 'En proceso';
+            break;
+
+        case 'ENVIADO':
+            $clase = 'sunat-enviado';
+            $texto = 'Enviado';
+            break;
+
+        case 'RECHAZADO':
+            $clase = 'sunat-rechazado';
+            $texto = 'Rechazado';
+            break;
+
+        case 'EXCEPCION':
+            $clase = 'sunat-rechazado';
+            $texto = 'Excepción';
+            break;
+
+        case 'ERROR':
+            $clase = 'sunat-error';
+            $texto = 'Error';
+            break;
+
+        case 'ANULADO':
+            $clase = 'sunat-anulado';
+            $texto = 'Anulado';
+            break;
+
+        case 'NO_APLICA':
+            $clase = 'sunat-no-aplica';
+            $texto = 'No aplica';
+            break;
+
+        case 'NO_ENVIADO':
+        default:
+            $clase = 'sunat-pendiente';
+            $texto = 'No enviado';
+            break;
+    }
+
+    return '<span class="badge-sunat '
+        . $clase
+        . '"'
+        . $titulo
+        . '>'
+        . $texto
+        . '</span>';
 }
 
 switch ($op) {
@@ -1388,10 +1481,9 @@ switch ($op) {
                     '.',
                     ''
                 ),
-                '7' =>
-                $reg['estado'] === 'Aceptado'
-                    ? '<div class="badge badge-cdr">Aceptado</div>'
-                    : '<div class="badge badge-danger">Anulado</div>'
+                '7' => generarEstadoSunatVenta(
+                    $reg
+                )
             ];
         }
 

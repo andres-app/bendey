@@ -1,4 +1,4 @@
-//funcion que se ejecuta al inicio
+//listsales.js
 function init() {
   listar();
 }
@@ -48,7 +48,7 @@ function listar() {
       },
       bDestroy: true,
       iDisplayLength: 10, //paginacion
-      order: [[0, "desc"]], //ordenar (columna, orden)
+      order: [], // respeta ORDER BY v.idventa DESC del modelo
     })
     .DataTable();
 }
