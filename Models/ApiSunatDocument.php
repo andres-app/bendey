@@ -113,8 +113,19 @@ class ApiSunatDocument
 | La forma de pago Efectivo, Yape, Tarjeta, etc. es diferente
 | de la condición tributaria Contado/Crédito.
 */
+        /*
+|--------------------------------------------------------------------------
+| CONDICIÓN DE PAGO
+|--------------------------------------------------------------------------
+| Valores admitidos:
+| - 1 o Contado
+| - 4 o Crédito
+*/
         $tipoPago = $this->normalizarTexto(
-            (string)($venta['tipo_pago'] ?? '')
+            (string)(
+                $venta['tipo_pago']
+                ?? ''
+            )
         );
 
         $esContado = (
@@ -137,21 +148,18 @@ class ApiSunatDocument
 
         if (!$esContado && !$esCredito) {
             throw new RuntimeException(
-                'No se pudo determinar si la factura es al contado o al crédito.'
+                'No se pudo determinar si la venta es al contado o al crédito.'
             );
         }
 
-        /*
-        * Por ahora las cuotas todavía no se guardan en la base de datos.
-        * Para evitar otra factura incorrecta se bloquea el crédito.
-        */
-        if ($esCredito) {
+        if (
+            $esCredito
+            && $tipoSunat !== '01'
+        ) {
             throw new RuntimeException(
-                'La emisión de facturas al crédito todavía requiere registrar las cuotas y fechas de vencimiento.'
+                'El pago al crédito está habilitado únicamente para facturas electrónicas.'
             );
         }
-
-        $condicionPagoSunat = 'Contado';
 
         $cliente = [
             'tipo_documento' => trim(
@@ -391,14 +399,242 @@ class ApiSunatDocument
             2
         );
 
-        if (
-            abs(
-                $totalDocumentoCalculado - $totalVenta
-            ) > 0.02
-        ) {
-            throw new RuntimeException(
-                'El total calculado de los productos no coincide con el total guardado en la venta.'
-            );
+        /*
+|--------------------------------------------------------------------------
+| TÉRMINOS DE PAGO SUNAT
+|--------------------------------------------------------------------------
+*/
+        $paymentTerms = null;
+        $fechaUltimaCuota = null;
+        $resumenCuotas = [];
+
+        if ($tipoSunat === '01') {
+            /*
+    |--------------------------------------------------------------------------
+    | FACTURA AL CONTADO
+    |--------------------------------------------------------------------------
+    */
+            if ($esContado) {
+                $paymentTerms = [
+                    'cbc:ID' => [
+                        '_text' => 'FormaPago'
+                    ],
+
+                    'cbc:PaymentMeansID' => [
+                        '_text' => 'Contado'
+                    ]
+                ];
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | FACTURA AL CRÉDITO
+    |--------------------------------------------------------------------------
+    */
+            if ($esCredito) {
+                $cuotas = $this->obtenerCuotas(
+                    $idventa
+                );
+
+                if (empty($cuotas)) {
+                    throw new RuntimeException(
+                        'La factura al crédito no tiene un cronograma de cuotas.'
+                    );
+                }
+
+                $paymentTerms = [];
+
+                /*
+         * En esta implementación no existen detracciones,
+         * retenciones u otras deducciones.
+         * Por eso el monto neto pendiente es el total.
+         */
+                $paymentTerms[] = [
+                    'cbc:ID' => [
+                        '_text' => 'FormaPago'
+                    ],
+
+                    'cbc:PaymentMeansID' => [
+                        '_text' => 'Credito'
+                    ],
+
+                    'cbc:Amount' => [
+                        '_attributes' => [
+                            'currencyID' => self::MONEDA
+                        ],
+
+                        '_text' => $this->numeroJson(
+                            $totalVenta,
+                            2
+                        )
+                    ]
+                ];
+
+                $sumaCuotas = 0.00;
+                $numeroEsperado = 1;
+
+                foreach ($cuotas as $cuota) {
+                    $numeroCuota = (int)(
+                        $cuota['numero_cuota']
+                        ?? 0
+                    );
+
+                    if (
+                        $numeroCuota
+                        !== $numeroEsperado
+                    ) {
+                        throw new RuntimeException(
+                            'El cronograma de cuotas no es correlativo.'
+                        );
+                    }
+
+                    $codigoCuota = trim(
+                        (string)(
+                            $cuota['codigo']
+                            ?? ''
+                        )
+                    );
+
+                    if ($codigoCuota === '') {
+                        $codigoCuota = 'Cuota'
+                            . str_pad(
+                                (string)$numeroCuota,
+                                3,
+                                '0',
+                                STR_PAD_LEFT
+                            );
+                    }
+
+                    if (
+                        !preg_match(
+                            '/^Cuota\d{3}$/',
+                            $codigoCuota
+                        )
+                    ) {
+                        throw new RuntimeException(
+                            'Código de cuota inválido: '
+                                . $codigoCuota
+                        );
+                    }
+
+                    $montoCuota = round(
+                        (float)(
+                            $cuota['monto']
+                            ?? 0
+                        ),
+                        2
+                    );
+
+                    if ($montoCuota <= 0) {
+                        throw new RuntimeException(
+                            $codigoCuota
+                                . ' tiene un monto inválido.'
+                        );
+                    }
+
+                    $fechaVencimiento = trim(
+                        (string)(
+                            $cuota['fecha_vencimiento']
+                            ?? ''
+                        )
+                    );
+
+                    if (
+                        !preg_match(
+                            '/^\d{4}-\d{2}-\d{2}$/',
+                            $fechaVencimiento
+                        )
+                    ) {
+                        throw new RuntimeException(
+                            $codigoCuota
+                                . ' no tiene una fecha válida.'
+                        );
+                    }
+
+                    try {
+                        $fechaCuota =
+                            new DateTimeImmutable(
+                                $fechaVencimiento,
+                                new DateTimeZone(
+                                    'America/Lima'
+                                )
+                            );
+                    } catch (Throwable $errorFecha) {
+                        throw new RuntimeException(
+                            $codigoCuota
+                                . ' tiene una fecha inválida.'
+                        );
+                    }
+
+                    if (
+                        $fechaCuota->format('Y-m-d')
+                        !== $fechaVencimiento
+                    ) {
+                        throw new RuntimeException(
+                            $codigoCuota
+                                . ' tiene una fecha inválida.'
+                        );
+                    }
+
+                    $paymentTerms[] = [
+                        'cbc:ID' => [
+                            '_text' => 'FormaPago'
+                        ],
+
+                        'cbc:PaymentMeansID' => [
+                            '_text' => $codigoCuota
+                        ],
+
+                        'cbc:Amount' => [
+                            '_attributes' => [
+                                'currencyID' => self::MONEDA
+                            ],
+
+                            '_text' => $this->numeroJson(
+                                $montoCuota,
+                                2
+                            )
+                        ],
+
+                        'cbc:PaymentDueDate' => [
+                            '_text' => $fechaVencimiento
+                        ]
+                    ];
+
+                    $resumenCuotas[] = [
+                        'codigo' =>
+                        $codigoCuota,
+
+                        'monto' =>
+                        $montoCuota,
+
+                        'fecha_vencimiento' =>
+                        $fechaVencimiento
+                    ];
+
+                    $sumaCuotas += $montoCuota;
+
+                    $fechaUltimaCuota =
+                        $fechaVencimiento;
+
+                    $numeroEsperado++;
+                }
+
+                $sumaCuotas = round(
+                    $sumaCuotas,
+                    2
+                );
+
+                if (
+                    abs(
+                        $sumaCuotas - $totalVenta
+                    ) > 0.01
+                ) {
+                    throw new RuntimeException(
+                        'La suma de las cuotas no coincide con el total de la factura.'
+                    );
+                }
+            }
         }
 
         /*
@@ -620,20 +856,41 @@ class ApiSunatDocument
 |
 | Se inserta antes de cac:TaxTotal para mantener el orden UBL.
 */
-        if ($tipoSunat === '01') {
+        /*
+|--------------------------------------------------------------------------
+| FECHA DE VENCIMIENTO GENERAL
+|--------------------------------------------------------------------------
+| En factura al crédito se usa la fecha de la última cuota.
+*/
+        if (
+            $tipoSunat === '01'
+            && $esCredito
+            && $fechaUltimaCuota !== null
+        ) {
+            $documentBody = $this->insertarAntesDeClave(
+                $documentBody,
+                'cbc:InvoiceTypeCode',
+                'cbc:DueDate',
+                [
+                    '_text' => $fechaUltimaCuota
+                ]
+            );
+        }
+
+        /*
+|--------------------------------------------------------------------------
+| FORMA DE PAGO Y CUOTAS
+|--------------------------------------------------------------------------
+*/
+        if (
+            $tipoSunat === '01'
+            && $paymentTerms !== null
+        ) {
             $documentBody = $this->insertarAntesDeClave(
                 $documentBody,
                 'cac:TaxTotal',
                 'cac:PaymentTerms',
-                [
-                    'cbc:ID' => [
-                        '_text' => 'FormaPago'
-                    ],
-
-                    'cbc:PaymentMeansID' => [
-                        '_text' => $condicionPagoSunat
-                    ]
-                ]
+                $paymentTerms
             );
         }
 
@@ -643,6 +900,19 @@ class ApiSunatDocument
             'tipoSunat' => $tipoSunat,
             'serie' => $serie,
             'numero' => $numero,
+            'formaPagoSunat' =>
+            $tipoSunat === '01'
+                ? (
+                    $esCredito
+                    ? 'Credito'
+                    : 'Contado'
+                )
+                : null,
+
+            'cuotas' =>
+            $esCredito
+                ? $resumenCuotas
+                : [],
             'customerEmail' => filter_var(
                 $cliente['email'],
                 FILTER_VALIDATE_EMAIL
@@ -728,6 +998,36 @@ class ApiSunatDocument
         }
 
         return $empresa;
+    }
+
+    /*
+|--------------------------------------------------------------------------
+| OBTENER CRONOGRAMA DE CUOTAS
+|--------------------------------------------------------------------------
+*/
+    private function obtenerCuotas(
+        int $idventa
+    ): array {
+        $resultado = $this->conexion->getDataAll(
+            "SELECT
+            idventa_cuota,
+            idventa,
+            numero_cuota,
+            codigo,
+            monto,
+            fecha_vencimiento,
+            monto_pagado,
+            fecha_pago,
+            estado
+         FROM venta_cuota
+         WHERE idventa = ?
+         ORDER BY numero_cuota ASC",
+            [$idventa]
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
     }
 
     private function obtenerDetalles(
@@ -911,36 +1211,36 @@ class ApiSunatDocument
 | INSERTAR ELEMENTO RESPETANDO EL ORDEN UBL
 |--------------------------------------------------------------------------
 */
-private function insertarAntesDeClave(
-    array $contenido,
-    string $claveReferencia,
-    string $nuevaClave,
-    mixed $nuevoValor
-): array {
-    $resultado = [];
-    $insertado = false;
+    private function insertarAntesDeClave(
+        array $contenido,
+        string $claveReferencia,
+        string $nuevaClave,
+        mixed $nuevoValor
+    ): array {
+        $resultado = [];
+        $insertado = false;
 
-    foreach ($contenido as $clave => $valor) {
-        if (
-            !$insertado
-            && $clave === $claveReferencia
-        ) {
-            $resultado[$nuevaClave] =
-                $nuevoValor;
+        foreach ($contenido as $clave => $valor) {
+            if (
+                !$insertado
+                && $clave === $claveReferencia
+            ) {
+                $resultado[$nuevaClave] =
+                    $nuevoValor;
 
-            $insertado = true;
+                $insertado = true;
+            }
+
+            $resultado[$clave] = $valor;
         }
 
-        $resultado[$clave] = $valor;
-    }
+        if (!$insertado) {
+            $resultado[$nuevaClave] =
+                $nuevoValor;
+        }
 
-    if (!$insertado) {
-        $resultado[$nuevaClave] =
-            $nuevoValor;
+        return $resultado;
     }
-
-    return $resultado;
-}
 
     private function normalizarUnidadSunat(
         string $codigo
