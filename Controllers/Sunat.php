@@ -1,307 +1,457 @@
 <?php
-// ===============================
-// CONFIGURACIÓN DE ERRORES
-// ===============================
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 
-// ===============================
-// DEPENDENCIAS
-// ===============================
-require_once __DIR__ . '/../Config/Conexion.php';
+declare(strict_types=1);
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../Models/Sunat.php';
+require_once __DIR__ . '/../Models/ApiSunatStatus.php';
+require_once __DIR__ . '/../Models/ApiSunatStorage.php';
+require_once __DIR__ . '/../Models/ApiSunatEmission.php';
 
-// ===============================
-// INSTANCIA PRINCIPAL
-// ===============================
+if (
+    !isset($_SESSION['nombre'])
+    || (int)($_SESSION['ventas'] ?? 0) !== 1
+) {
+    http_response_code(403);
+
+    echo json_encode([
+        'status' => false,
+        'message' => 'Acceso no autorizado.'
+    ]);
+
+    exit;
+}
+
 $sunat = new Sunat();
+$op = trim(
+    (string)($_GET['op'] ?? '')
+);
 
-// ===============================
-// ROUTER
-// ===============================
-$op = $_GET['op'] ?? '';
+function responderSunat(
+    array $respuesta,
+    int $codigo = 200
+): void {
+    http_response_code($codigo);
 
-switch ($op) {
+    header(
+        'Content-Type: application/json; charset=utf-8'
+    );
 
-    // ===============================
-    // LISTAR COMPROBANTES SUNAT
-    // ===============================
-    case 'listar':
+    echo json_encode(
+        $respuesta,
+        JSON_UNESCAPED_UNICODE
+        | JSON_UNESCAPED_SLASHES
+    );
 
-        $rspta = $sunat->listar();
-        $data = [];
+    exit;
+}
 
-        foreach ($rspta as $reg) {
+function escaparSunat(
+    string $texto
+): string {
+    return htmlspecialchars(
+        $texto,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+}
 
-            // XML
-            $xml = !empty($reg['xml'])
-                ? '<a href="' . $reg['xml'] . '" target="_blank" class="badge-xml">XML</a>'
-                : '<span class="badge-xml">—</span>';
+try {
+    switch ($op) {
 
-            // CDR
-            $cdr = !empty($reg['cdr'])
-                ? '<a href="' . $reg['cdr'] . '" target="_blank" class="badge-cdr">CDR</a>'
-                : '<span class="badge-cdr">—</span>';
+        case 'listar':
 
-            // Estado SUNAT
-            switch ($reg['estado_sunat']) {
-                case 'ACEPTADO':
-                    $estado = '<span class="badge-sunat sunat-aceptado">Aceptado</span>';
-                    break;
+            $registros = $sunat->listar();
+            $data = [];
 
-                case 'EN_PROCESO':
-                    $estado = '<span class="badge-sunat sunat-proceso">En proceso</span>';
-                    break;
+            foreach ($registros as $reg) {
+                $idventa = (int)$reg['idventa'];
 
-                case 'ENVIADO':
-                    $estado = '<span class="badge-sunat sunat-enviado">Enviado</span>';
-                    break;
+                $tieneXml =
+                    !empty($reg['xml'])
+                    || !empty($reg['xml_local']);
 
-                case 'RECHAZADO':
-                    $estado = '<span class="badge-sunat sunat-rechazado">Rechazado</span>';
-                    break;
+                $tieneCdr =
+                    !empty($reg['cdr'])
+                    || !empty($reg['cdr_local']);
 
-                case 'ERROR':
-                    $estado = '<span class="badge-sunat sunat-error">Error</span>';
-                    break;
+                $xml = $tieneXml
+                    ? '<a
+                            href="Controllers/Sunat.php?op=descargar&tipo=xml&idventa='
+                        . $idventa
+                        . '"
+                            target="_blank"
+                            class="badge-xml">
+                            XML
+                       </a>'
+                    : '<span class="badge-xml">—</span>';
 
-                default:
-                    $estado = '<span class="badge-sunat sunat-pendiente">Pendiente</span>';
-                    break;
+                $cdr = $tieneCdr
+                    ? '<a
+                            href="Controllers/Sunat.php?op=descargar&tipo=cdr&idventa='
+                        . $idventa
+                        . '"
+                            target="_blank"
+                            class="badge-cdr">
+                            CDR
+                       </a>'
+                    : '<span class="badge-cdr">—</span>';
+
+                $estadoSunat = strtoupper(
+                    trim(
+                        (string)(
+                            $reg['estado_sunat']
+                            ?? 'PENDIENTE'
+                        )
+                    )
+                );
+
+                switch ($estadoSunat) {
+                    case 'ACEPTADO':
+                        $estado =
+                            '<span class="badge-sunat sunat-aceptado">Aceptado</span>';
+                        break;
+
+                    case 'EN_PROCESO':
+                    case 'PENDIENTE':
+                        $estado =
+                            '<span class="badge-sunat sunat-proceso">En proceso</span>';
+                        break;
+
+                    case 'ENVIADO':
+                        $estado =
+                            '<span class="badge-sunat sunat-enviado">Enviado</span>';
+                        break;
+
+                    case 'RECHAZADO':
+                    case 'EXCEPCION':
+                        $estado =
+                            '<span class="badge-sunat sunat-rechazado">'
+                            . escaparSunat($estadoSunat)
+                            . '</span>';
+                        break;
+
+                    case 'ERROR':
+                        $estado =
+                            '<span class="badge-sunat sunat-error">Error</span>';
+                        break;
+
+                    default:
+                        $estado =
+                            '<span class="badge-sunat sunat-pendiente">Pendiente</span>';
+                }
+
+                $mensaje = !empty(
+                    $reg['mensaje_sunat']
+                )
+                    ? '<small>'
+                        . escaparSunat(
+                            (string)$reg['mensaje_sunat']
+                        )
+                        . '</small>'
+                    : '<span class="text-muted">—</span>';
+
+                $data[] = [
+                    '0' =>
+                        '<button
+                            class="btn btn-light btn-sm"
+                            onclick="verDetalle('
+                        . $idventa
+                        . ')">
+                            <i class="fas fa-eye"></i>
+                         </button>',
+                    '1' => escaparSunat(
+                        (string)$reg['comprobante']
+                    ),
+                    '2' => escaparSunat(
+                        (string)$reg['cliente']
+                    ),
+                    '3' => 'S/ '
+                        . number_format(
+                            (float)$reg['total'],
+                            2
+                        ),
+                    '4' => $xml,
+                    '5' => $cdr,
+                    '6' => $estado,
+                    '7' => $mensaje,
+                    '8' => escaparSunat(
+                        (string)$reg['fecha']
+                    )
+                ];
             }
 
-            // Mensaje SUNAT
-            $mensaje = !empty($reg['mensaje_sunat'])
-                ? '<small>' . $reg['mensaje_sunat'] . '</small>'
-                : '<span class="text-muted">—</span>';
-
-            // DataTable row
-            $data[] = [
-                "0" => '<button class="btn btn-light btn-sm" onclick="verDetalle(' . $reg['idventa'] . ')">
-                            <i class="fas fa-eye"></i>
-                        </button>',
-                "1" => $reg['comprobante'],
-                "2" => $reg['cliente'],
-                "3" => 'S/ ' . number_format((float)$reg['total'], 2),
-                "4" => $xml,
-                "5" => $cdr,
-                "6" => $estado,
-                "7" => $mensaje,
-                "8" => $reg['fecha']
-            ];
-        }
-
-        echo json_encode([
-            "draw" => 1,
-            "recordsTotal" => count($data),
-            "recordsFiltered" => count($data),
-            "data" => $data
-        ]);
-        exit;
-
-        // ===============================
-        // GENERAR XML
-        // ===============================
-    case 'generarxml':
-
-        require_once __DIR__ . '/../Models/GenerarXML.php';
-
-        $idventa = (int)($_REQUEST['idventa'] ?? 0);
-
-        if ($idventa <= 0) {
-            echo json_encode([
-                'status' => false,
-                'message' => 'ID de venta inválido'
+            responderSunat([
+                'draw' => 1,
+                'recordsTotal' => count($data),
+                'recordsFiltered' => count($data),
+                'data' => $data
             ]);
-            exit;
-        }
 
-        $xmlModel = new GenerarXML();
-        $rutaXML = $xmlModel->generar($idventa);
-
-        if (!$rutaXML) {
-            echo json_encode([
-                'status' => false,
-                'message' => 'No se pudo generar el XML'
-            ]);
-            exit;
-        }
-
-        $conexion = new Conexion();
-        $sql = "INSERT INTO venta_sunat (idventa, xml, estado_sunat)
-                VALUES (?, ?, 'GENERADO')
-                ON DUPLICATE KEY UPDATE
-                    xml = VALUES(xml),
-                    estado_sunat = 'GENERADO'";
-
-        $conexion->setData($sql, [$idventa, $rutaXML]);
-
-        echo json_encode([
-            'status' => true,
-            'message' => 'XML generado correctamente'
-        ]);
-        exit;
-
-        // ===============================
-        // DETALLE COMPROBANTE
-        // ===============================
-    case 'detalle':
-
-        $idventa = (int)($_POST['idventa'] ?? 0);
-
-        if ($idventa <= 0) {
-            echo json_encode([
-                'status' => false,
-                'message' => 'ID de venta inválido'
-            ]);
-            exit;
-        }
-
-        $conexion = new Conexion();
-
-        $sql = "SELECT
-                    CONCAT(v.tipo_comprobante,' ',v.serie_comprobante,'-',v.num_comprobante) AS comprobante,
-                    p.nombre AS cliente,
-                    v.total_venta AS total,
-                    vs.xml,
-                    vs.cdr,
-                    vs.estado_sunat
-                FROM venta v
-                INNER JOIN persona p ON v.idcliente = p.idpersona
-                LEFT JOIN venta_sunat vs ON v.idventa = vs.idventa
-                WHERE v.idventa = ?
-                LIMIT 1";
-
-        $r = $conexion->getData($sql, [$idventa]);
-
-        if (!is_array($r)) {
-            echo json_encode([
-                'status' => false,
-                'message' => 'No se encontró el comprobante'
-            ]);
-            exit;
-        }
-
-        echo json_encode([
-            'status' => true,
-            'comprobante' => $r['comprobante'] ?? '',
-            'cliente' => $r['cliente'] ?? '',
-            'total' => number_format((float)($r['total'] ?? 0), 2),
-            'xml' => $r['xml'] ?? '',
-            'cdr' => $r['cdr'] ?? '',
-            'estado' => $r['estado_sunat'] ?? 'PENDIENTE'
-        ]);
-        exit;
-
-    case 'getStatus':
-        require_once '../Models/EnviarSunat.php';
-
-        $idventa = (int)($_POST['idventa'] ?? 0);
-
-        if ($idventa <= 0) {
-            echo json_encode([
-                'status' => false,
-                'message' => 'ID de venta inválido'
-            ]);
             break;
-        }
 
-        // 🔹 Traes datos reales de la venta
-        $conexion = new Conexion();
+        case 'detalle':
 
-        $row = $conexion->getData(
-            "SELECT ruc, tipo_comprobante, serie_comprobante, num_comprobante
-                 FROM venta
-                 WHERE idventa = ?",
-            [$idventa]
-        );
+            $idventa = (int)(
+                $_POST['idventa']
+                ?? $_GET['idventa']
+                ?? 0
+            );
 
-        if (!$row) {
-            echo json_encode([
-                'status' => false,
-                'message' => 'Venta no encontrada'
+            $detalle = $sunat->detalle(
+                $idventa
+            );
+
+            if (!$detalle) {
+                responderSunat([
+                    'status' => false,
+                    'message' =>
+                        'No se encontró el comprobante.'
+                ], 404);
+            }
+
+            responderSunat([
+                'status' => true,
+                'idventa' => $idventa,
+                'comprobante' =>
+                    $detalle['comprobante'],
+                'cliente' =>
+                    $detalle['cliente'],
+                'total' => number_format(
+                    (float)$detalle['total'],
+                    2
+                ),
+                'documentId' =>
+                    $detalle['document_id'],
+                'estado' =>
+                    $detalle['estado_sunat']
+                    ?? 'PENDIENTE',
+                'mensaje' =>
+                    $detalle['mensaje_sunat']
+                    ?? '',
+                'xml' =>
+                    $detalle['xml_local']
+                    ?? $detalle['xml']
+                    ?? '',
+                'cdr' =>
+                    $detalle['cdr_local']
+                    ?? $detalle['cdr']
+                    ?? ''
             ]);
+
             break;
-        }
 
-        $sunat = new EnviarSunat();
+        case 'consultar':
+        case 'getStatus':
 
-        $res = $sunat->consultarEstado(
-            $row['ruc'],                     // 20609068800
-            $row['tipo_comprobante'],        // 03
-            $row['serie_comprobante'],       // B001
-            (int)$row['num_comprobante']     // 10
-        );
+            $idventa = (int)(
+                $_POST['idventa']
+                ?? $_GET['idventa']
+                ?? 0
+            );
 
-        echo json_encode($res);
-        break;
+            $servicio = new ApiSunatStatus();
 
+            $resultado =
+                $servicio->consultarYGuardar(
+                    $idventa
+                );
 
-    // ===============================
-    // ENVIAR A SUNAT
-    // ===============================
-    case 'enviarsunat':
-
-        require_once __DIR__ . '/../Models/EnviarSunat.php';
-
-        $idventa = (int)($_POST['idventa'] ?? 0);
-
-        if ($idventa <= 0) {
-            echo json_encode([
-                'status' => false,
-                'message' => 'ID de venta inválido'
+            responderSunat([
+                'status' =>
+                    ($resultado['success'] ?? false)
+                    === true,
+                'message' =>
+                    $resultado['mensaje']
+                    ?? '',
+                'resultado' =>
+                    $resultado
             ]);
-            exit;
-        }
 
-        $envio = new EnviarSunat();
-        $respuesta = $envio->enviar($idventa);
+            break;
 
-        if (!$respuesta['status']) {
-            echo json_encode([
-                'status' => false,
-                'message' => $respuesta['mensaje']
+        case 'enviarsunat':
+
+            if (
+                $_SERVER['REQUEST_METHOD']
+                !== 'POST'
+            ) {
+                responderSunat([
+                    'status' => false,
+                    'message' =>
+                        'El envío requiere una petición POST.'
+                ], 405);
+            }
+
+            $idventa = (int)(
+                $_POST['idventa']
+                ?? 0
+            );
+
+            $emision = new ApiSunatEmission();
+
+            $resultado =
+                $emision->enviarVenta(
+                    $idventa
+                );
+
+            responderSunat([
+                'status' =>
+                    ($resultado['success'] ?? false)
+                    === true,
+                'message' =>
+                    $resultado['mensaje']
+                    ?? '',
+                'resultado' =>
+                    $resultado
             ]);
+
+            break;
+
+        case 'descargar':
+
+            $idventa = (int)(
+                $_GET['idventa']
+                ?? 0
+            );
+
+            $tipo = strtolower(
+                trim(
+                    (string)(
+                        $_GET['tipo']
+                        ?? ''
+                    )
+                )
+            );
+
+            if (
+                $idventa <= 0
+                || !in_array(
+                    $tipo,
+                    ['xml', 'cdr'],
+                    true
+                )
+            ) {
+                throw new RuntimeException(
+                    'Solicitud de descarga inválida.'
+                );
+            }
+
+            $archivo = $sunat->obtenerArchivo(
+                $idventa,
+                $tipo
+            );
+
+            if (!$archivo) {
+                throw new RuntimeException(
+                    'No se encontró el archivo solicitado.'
+                );
+            }
+
+            $storage = new ApiSunatStorage();
+
+            $rutaLocal = trim(
+                (string)(
+                    $archivo['ruta_local']
+                    ?? ''
+                )
+            );
+
+            if (
+                !$storage->existe($rutaLocal)
+            ) {
+                $url = trim(
+                    (string)(
+                        $archivo['url']
+                        ?? ''
+                    )
+                );
+
+                if ($url === '') {
+                    throw new RuntimeException(
+                        'El comprobante todavía no tiene archivo disponible.'
+                    );
+                }
+
+                $rutaLocal =
+                    $storage->guardarDesdeUrl(
+                        $url,
+                        $tipo
+                    );
+
+                $sunat->actualizarRutaLocal(
+                    $idventa,
+                    $tipo,
+                    $rutaLocal
+                );
+            }
+
+            $rutaAbsoluta =
+                $storage->rutaAbsoluta(
+                    $rutaLocal
+                );
+
+            if (!is_file($rutaAbsoluta)) {
+                throw new RuntimeException(
+                    'El archivo local no existe.'
+                );
+            }
+
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            header(
+                'Content-Type: application/zip'
+            );
+
+            header(
+                'Content-Disposition: attachment; filename="'
+                . basename($rutaAbsoluta)
+                . '"'
+            );
+
+            header(
+                'Content-Length: '
+                . filesize($rutaAbsoluta)
+            );
+
+            header(
+                'Cache-Control: private, no-store, max-age=0'
+            );
+
+            readfile($rutaAbsoluta);
             exit;
-        }
 
-        // 🔥 FIX REAL
-        $estado = (!empty($respuesta['estado']))
-            ? $respuesta['estado']
-            : 'EN_PROCESO';
+        case 'generarxml':
 
-        $conexion = new Conexion();
+            responderSunat([
+                'status' => false,
+                'message' =>
+                    'El XML ahora es generado y firmado por APISUNAT.'
+            ], 410);
 
-        $sql = "UPDATE venta_sunat
-                SET
-                    cdr = ?,
-                    estado_sunat = ?,
-                    mensaje_sunat = ?,
-                    fecha_respuesta = NOW()
-                WHERE idventa = ?";
+            break;
 
-        $conexion->setData($sql, [
-            $respuesta['cdr'] ?? '',
-            $estado,
-            $respuesta['mensaje'] ?? '',
-            $idventa
-        ]);
+        default:
 
+            responderSunat([
+                'status' => false,
+                'message' =>
+                    'Operación no válida.'
+            ], 404);
+    }
+} catch (Throwable $e) {
+    error_log(
+        '[SUNAT CONTROLLER] '
+        . $e->getMessage()
+    );
 
-        echo json_encode([
-            'status' => true,
-            'message' => 'SUNAT respondió correctamente'
-        ]);
-        exit;
-
-        // ===============================
-        // DEFAULT
-        // ===============================
-    default:
-        echo json_encode([
-            'status' => false,
-            'message' => 'Operación no válida'
-        ]);
-        exit;
+    responderSunat([
+        'status' => false,
+        'message' => $e->getMessage()
+    ], 500);
 }

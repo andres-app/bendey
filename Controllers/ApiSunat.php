@@ -9,11 +9,23 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
+header('Expires: 0');
 
-require_once __DIR__ . '/../Config/Conexion.php';
-require_once __DIR__ . '/../Models/ApiSunatDocument.php';
+/*
+|--------------------------------------------------------------------------
+| Dependencias
+|--------------------------------------------------------------------------
+*/
 require_once __DIR__ . '/../Models/ApiSunat.php';
+require_once __DIR__ . '/../Models/ApiSunatDocument.php';
+require_once __DIR__ . '/../Models/ApiSunatEmission.php';
+require_once __DIR__ . '/../Models/ApiSunatStatus.php';
 
+/*
+|--------------------------------------------------------------------------
+| Respuesta JSON uniforme
+|--------------------------------------------------------------------------
+*/
 function responderApiSunat(
     array $respuesta,
     int $codigoHttp = 200
@@ -46,6 +58,11 @@ if (
     ], 403);
 }
 
+/*
+|--------------------------------------------------------------------------
+| Operación solicitada
+|--------------------------------------------------------------------------
+*/
 $op = trim(
     (string)(
         $_GET['op']
@@ -59,8 +76,9 @@ try {
 
         /*
         |--------------------------------------------------------------------------
-        | Vista previa
+        | VISTA PREVIA
         |--------------------------------------------------------------------------
+        | Construye el JSON UBL, pero no envía nada.
         */
         case 'preview':
 
@@ -73,33 +91,47 @@ try {
             if ($idventa <= 0) {
                 responderApiSunat([
                     'success' => false,
-                    'mensaje' => 'El ID de venta no es válido.'
+                    'mensaje' =>
+                        'El ID de venta no es válido.'
                 ], 400);
             }
 
             $documento = new ApiSunatDocument();
-            $resultado = $documento->construir($idventa);
+
+            $resultado = $documento->construir(
+                $idventa
+            );
 
             responderApiSunat([
                 'success' => true,
                 'mensaje' =>
                     'JSON construido correctamente. No se realizó ningún envío.',
-                'idventa' => $resultado['idventa'],
-                'fileName' => $resultado['fileName'],
-                'tipoSunat' => $resultado['tipoSunat'],
-                'serie' => $resultado['serie'],
-                'numero' => $resultado['numero'],
-                'customerEmail' => $resultado['customerEmail'],
-                'totales' => $resultado['totales'],
-                'documentBody' => $resultado['documentBody']
+                'idventa' =>
+                    $resultado['idventa'],
+                'fileName' =>
+                    $resultado['fileName'],
+                'tipoSunat' =>
+                    $resultado['tipoSunat'],
+                'serie' =>
+                    $resultado['serie'],
+                'numero' =>
+                    $resultado['numero'],
+                'customerEmail' =>
+                    $resultado['customerEmail'],
+                'totales' =>
+                    $resultado['totales'],
+                'documentBody' =>
+                    $resultado['documentBody']
             ]);
 
             break;
 
         /*
         |--------------------------------------------------------------------------
-        | Último correlativo
+        | ÚLTIMO CORRELATIVO
         |--------------------------------------------------------------------------
+        | Consulta el último número registrado en APISUNAT.
+        | No emite ningún comprobante.
         */
         case 'lastDocument':
 
@@ -121,11 +153,15 @@ try {
                 )
             );
 
-            if ($tipo === '') {
+            if (!in_array(
+                $tipo,
+                ['01', '03'],
+                true
+            )) {
                 responderApiSunat([
                     'success' => false,
                     'mensaje' =>
-                        'Debe indicar el tipo de comprobante.'
+                        'El tipo debe ser 01 para factura o 03 para boleta.'
                 ], 400);
             }
 
@@ -156,8 +192,71 @@ try {
 
         /*
         |--------------------------------------------------------------------------
-        | Consultar resultado y guardar XML/CDR
+        | ENVIAR COMPROBANTE
         |--------------------------------------------------------------------------
+        | Se utiliza para reintentos controlados.
+        | La emisión normal ya se ejecuta desde Controllers/Sell.php.
+        */
+        case 'enviar':
+
+            if (
+                ($_SERVER['REQUEST_METHOD'] ?? '')
+                !== 'POST'
+            ) {
+                responderApiSunat([
+                    'success' => false,
+                    'mensaje' =>
+                        'La operación de envío requiere una petición POST.'
+                ], 405);
+            }
+
+            $idventa = (int)(
+                $_POST['idventa']
+                ?? 0
+            );
+
+            if ($idventa <= 0) {
+                responderApiSunat([
+                    'success' => false,
+                    'mensaje' =>
+                        'El ID de venta no es válido.'
+                ], 400);
+            }
+
+            $emision = new ApiSunatEmission();
+
+            /*
+             * ApiSunatEmission valida:
+             * - correlativo;
+             * - ambiente de producción;
+             * - duplicados;
+             * - documentId existente;
+             * - factura o boleta válida.
+             */
+            $resultado = $emision->enviarVenta(
+                $idventa
+            );
+
+            responderApiSunat(
+                $resultado,
+                ($resultado['success'] ?? false)
+                    ? 200
+                    : 400
+            );
+
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
+        | CONSULTAR ESTADO
+        |--------------------------------------------------------------------------
+        | Consulta APISUNAT y actualiza venta_sunat.
+        |
+        | Cuando el comprobante está ACEPTADO:
+        | - guarda las URL originales;
+        | - descarga XML al servidor;
+        | - descarga CDR al servidor;
+        | - registra xml_local y cdr_local.
         */
         case 'consultar':
 
@@ -170,278 +269,44 @@ try {
             if ($idventa <= 0) {
                 responderApiSunat([
                     'success' => false,
-                    'mensaje' => 'El ID de venta no es válido.'
+                    'mensaje' =>
+                        'El ID de venta no es válido.'
                 ], 400);
             }
 
-            $pdo = Conexion::conectar();
+            $estadoSunat = new ApiSunatStatus();
 
-            $pdo->setAttribute(
-                PDO::ATTR_ERRMODE,
-                PDO::ERRMODE_EXCEPTION
-            );
-
-            $pdo->setAttribute(
-                PDO::ATTR_DEFAULT_FETCH_MODE,
-                PDO::FETCH_ASSOC
-            );
-
-            $stmt = $pdo->prepare(
-                "
-                SELECT
-                    idventa_sunat,
-                    idventa,
-                    document_id,
-                    file_name,
-                    estado_sunat,
-                    xml,
-                    cdr,
-                    pdf
-                FROM venta_sunat
-                WHERE idventa = :idventa
-                LIMIT 1
-                "
-            );
-
-            $stmt->execute([
-                ':idventa' => $idventa
-            ]);
-
-            $registro = $stmt->fetch();
-
-            if (!$registro) {
-                responderApiSunat([
-                    'success' => false,
-                    'mensaje' =>
-                        'La venta no tiene un registro en venta_sunat.'
-                ], 404);
-            }
-
-            $documentId = trim(
-                (string)(
-                    $registro['document_id']
-                    ?? ''
-                )
-            );
-
-            if ($documentId === '') {
-                responderApiSunat([
-                    'success' => false,
-                    'mensaje' =>
-                        'La venta todavía no tiene documentId.'
-                ], 400);
-            }
-
-            $apiSunat = new ApiSunat();
-
-            $consulta =
-                $apiSunat->consultarDocumento(
-                    $documentId
+            $resultado =
+                $estadoSunat->consultarYGuardar(
+                    $idventa
                 );
 
-            $estado = strtoupper(
-                trim(
-                    (string)(
-                        $consulta['status']
-                        ?? 'ERROR'
-                    )
-                )
+            responderApiSunat(
+                $resultado,
+                ($resultado['success'] ?? false)
+                    ? 200
+                    : 400
             );
-
-            if ($estado === '') {
-                $estado = 'ERROR';
-            }
-
-            $xmlNuevo = trim(
-                (string)(
-                    $consulta['xml']
-                    ?? ''
-                )
-            );
-
-            $cdrNuevo = trim(
-                (string)(
-                    $consulta['cdr']
-                    ?? ''
-                )
-            );
-
-            /*
-             * Si APISUNAT todavía no devuelve XML o CDR,
-             * conservamos los valores existentes.
-             */
-            $xmlGuardar = $xmlNuevo !== ''
-                ? $xmlNuevo
-                : (
-                    $registro['xml']
-                    ?? null
-                );
-
-            $cdrGuardar = $cdrNuevo !== ''
-                ? $cdrNuevo
-                : (
-                    $registro['cdr']
-                    ?? null
-                );
-
-            $faults = is_array(
-                $consulta['faults']
-                ?? null
-            )
-                ? $consulta['faults']
-                : [];
-
-            $notes = is_array(
-                $consulta['notes']
-                ?? null
-            )
-                ? $consulta['notes']
-                : [];
-
-            $faultsJson = json_encode(
-                $faults,
-                JSON_UNESCAPED_UNICODE
-                | JSON_UNESCAPED_SLASHES
-            );
-
-            $notesJson = json_encode(
-                $notes,
-                JSON_UNESCAPED_UNICODE
-                | JSON_UNESCAPED_SLASHES
-            );
-
-            $responseJson = json_encode(
-                $consulta['document']
-                ?? $consulta,
-                JSON_UNESCAPED_UNICODE
-                | JSON_UNESCAPED_SLASHES
-                | JSON_PRESERVE_ZERO_FRACTION
-            );
-
-            if ($faultsJson === false) {
-                $faultsJson = '[]';
-            }
-
-            if ($notesJson === false) {
-                $notesJson = '[]';
-            }
-
-            if ($responseJson === false) {
-                $responseJson = '{}';
-            }
-
-            $estadosFinales = [
-                'ACEPTADO',
-                'RECHAZADO',
-                'EXCEPCION'
-            ];
-
-            $fechaRespuesta = null;
-
-            $responseTime = $consulta['responseTime']
-                ?? null;
-
-            if (
-                is_numeric($responseTime)
-                && (int)$responseTime > 0
-            ) {
-                $fechaRespuesta = date(
-                    'Y-m-d H:i:s',
-                    (int)$responseTime
-                );
-            } elseif (
-                in_array(
-                    $estado,
-                    $estadosFinales,
-                    true
-                )
-            ) {
-                $fechaRespuesta = date(
-                    'Y-m-d H:i:s'
-                );
-            }
-
-            $mensaje = trim(
-                (string)(
-                    $consulta['message']
-                    ?? ''
-                )
-            );
-
-            if ($mensaje === '') {
-                $mensaje = 'Estado consultado en APISUNAT.';
-            }
-
-            $actualizar = $pdo->prepare(
-                "
-                UPDATE venta_sunat
-                SET
-                    estado_sunat = :estado,
-                    mensaje_sunat = :mensaje,
-                    xml = :xml,
-                    cdr = :cdr,
-                    referencia = :referencia,
-                    faults = :faults,
-                    notes = :notes,
-                    response_json = :response_json,
-                    intentos_consulta =
-                        intentos_consulta + 1,
-                    fecha_ultima_consulta = NOW(),
-                    fecha_respuesta = :fecha_respuesta
-                WHERE idventa = :idventa
-                "
-            );
-
-            $actualizar->execute([
-                ':estado' => $estado,
-                ':mensaje' => $mensaje,
-                ':xml' => $xmlGuardar,
-                ':cdr' => $cdrGuardar,
-                ':referencia' => trim(
-                    (string)(
-                        $consulta['reference']
-                        ?? ''
-                    )
-                ),
-                ':faults' => $faultsJson,
-                ':notes' => $notesJson,
-                ':response_json' => $responseJson,
-                ':fecha_respuesta' => $fechaRespuesta,
-                ':idventa' => $idventa
-            ]);
-
-            responderApiSunat([
-                'success' =>
-                    ($consulta['success'] ?? false)
-                    === true,
-                'idventa' => $idventa,
-                'documentId' => $documentId,
-                'fileName' =>
-                    $consulta['fileName']
-                    ?? $registro['file_name'],
-                'production' =>
-                    $consulta['production']
-                    ?? true,
-                'status' => $estado,
-                'mensaje' => $mensaje,
-                'xml' => $xmlGuardar,
-                'cdr' => $cdrGuardar,
-                'faults' => $faults,
-                'notes' => $notes,
-                'fecha_respuesta' => $fechaRespuesta
-            ]);
 
             break;
 
+        /*
+        |--------------------------------------------------------------------------
+        | OPERACIÓN INVÁLIDA
+        |--------------------------------------------------------------------------
+        */
         default:
 
             responderApiSunat([
                 'success' => false,
-                'mensaje' => 'Operación no válida.',
-                'operacion_recibida' => $op,
+                'mensaje' =>
+                    'Operación no válida.',
+                'operacion_recibida' =>
+                    $op,
                 'operaciones_disponibles' => [
                     'preview',
                     'lastDocument',
+                    'enviar',
                     'consultar'
                 ]
             ], 404);

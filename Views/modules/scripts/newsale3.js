@@ -248,7 +248,7 @@ function guardarVenta() {
                 ).toUpperCase();
 
                 if (sunat.success === true) {
-                    titulo = 'Venta enviada a APISUNAT';
+                    titulo = 'Venta enviada a SUNAT';
 
                     mensaje =
                         'Comprobante: ' +
