@@ -167,7 +167,14 @@ if (!isset($_SESSION['nombre'])) {
     }
     require "footer.php";
     ?>
-    <script src="Views/modules/scripts/listsales.js"></script>
+    <?php
+    $rutaListsalesJs = __DIR__ . '/scripts/listsales.js';
+    $versionListsalesJs = file_exists($rutaListsalesJs)
+        ? filemtime($rutaListsalesJs)
+        : time();
+    ?>
+
+    <script src="Views/modules/scripts/listsales.js?v=<?= $versionListsalesJs ?>"></script>
 <?php
 }
 ob_end_flush();

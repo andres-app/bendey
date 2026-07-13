@@ -5,7 +5,7 @@ function init() {
 
 //$("#concretar_oferta").on("click", myFuncion());
 $("#btnagregar").on("click", function () {
-  $(location).attr("href", "newsale");
+  $(location).attr("href", "newsale3");
 });
 //funcion listar
 function listar() {
