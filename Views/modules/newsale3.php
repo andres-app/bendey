@@ -6,6 +6,15 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+date_default_timezone_set('America/Lima');
+
+$fechaMinimaCredito = (
+    new DateTimeImmutable(
+        'tomorrow',
+        new DateTimeZone('America/Lima')
+    )
+)->format('Y-m-d');
+
 if (!isset($_SESSION['nombre'])) {
     header('Location: login');
     exit;
@@ -297,7 +306,12 @@ if ($_SESSION['ventas'] == 1) {
                                                     type="date"
                                                     class="form-control"
                                                     id="fecha_pago"
-                                                    name="fecha_pago">
+                                                    name="fecha_pago"
+                                                    min="<?= htmlspecialchars(
+                                                                $fechaMinimaCredito,
+                                                                ENT_QUOTES,
+                                                                'UTF-8'
+                                                            ) ?>">
 
                                             </div>
 
@@ -992,6 +1006,93 @@ $versionNewsaleJs = file_exists($rutaNewsaleJs)
             'la venta se registrará y será enviada automáticamente mediante APISUNAT.'
         );
     });
+
+    /*
+|--------------------------------------------------------------------------
+| VALIDAR FECHA DE VENCIMIENTO DEL CRÉDITO
+|--------------------------------------------------------------------------
+| La fecha mínima permitida es mañana.
+*/
+    const fechaMinimaCredito = <?= json_encode(
+                                    $fechaMinimaCredito,
+                                    JSON_UNESCAPED_UNICODE |
+                                        JSON_UNESCAPED_SLASHES
+                                ) ?>;
+
+    function validarFechaVencimientoCredito(mostrarMensaje = true) {
+        const tipoPago = String(
+                $('#tipo_pago option:selected').text() || ''
+            )
+            .trim()
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+        const esCredito = tipoPago.includes('CREDITO');
+
+        const inputFecha = document.getElementById(
+            'fecha_pago'
+        );
+
+        if (!inputFecha) {
+            return true;
+        }
+
+        inputFecha.min = fechaMinimaCredito;
+        inputFecha.setCustomValidity('');
+
+        if (!esCredito) {
+            return true;
+        }
+
+        const fechaSeleccionada = String(
+            inputFecha.value || ''
+        ).trim();
+
+        if (fechaSeleccionada === '') {
+            inputFecha.setCustomValidity(
+                'Debe seleccionar la fecha de vencimiento de la primera cuota.'
+            );
+
+            if (mostrarMensaje) {
+                inputFecha.reportValidity();
+            }
+
+            return false;
+        }
+
+        if (fechaSeleccionada < fechaMinimaCredito) {
+            inputFecha.setCustomValidity(
+                'La fecha de vencimiento debe ser posterior a la fecha de hoy.'
+            );
+
+            if (mostrarMensaje) {
+                inputFecha.reportValidity();
+            }
+
+            return false;
+        }
+
+        inputFecha.setCustomValidity('');
+
+        return true;
+    }
+
+    $(document).on(
+        'change input',
+        '#fecha_pago',
+        function() {
+            validarFechaVencimientoCredito(true);
+        }
+    );
+
+    $(document).on(
+        'change',
+        '#tipo_pago',
+        function() {
+            validarFechaVencimientoCredito(false);
+        }
+    );
 </script>
 
 <?php

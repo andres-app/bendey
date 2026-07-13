@@ -668,14 +668,28 @@ switch ($op) {
                     );
                 }
 
+                /*
+|--------------------------------------------------------------------------
+| VALIDAR VENCIMIENTO POSTERIOR A HOY
+|--------------------------------------------------------------------------
+| SUNAT no admite como vencimiento una fecha anterior
+| ni igual a la fecha de emisión.
+*/
                 $fechaActual = new DateTimeImmutable(
                     'today',
                     $zonaHoraria
                 );
 
-                if ($fechaPrimeraCuota < $fechaActual) {
+                $fechaMinimaPermitida = $fechaActual->modify(
+                    '+1 day'
+                );
+
+                if (
+                    $fechaPrimeraCuota
+                    < $fechaMinimaPermitida
+                ) {
                     throw new Exception(
-                        'La primera cuota no puede vencer antes de la fecha actual.'
+                        'La fecha de vencimiento de la primera cuota debe ser posterior a la fecha de hoy.'
                     );
                 }
             }
