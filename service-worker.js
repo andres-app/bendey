@@ -3,7 +3,7 @@
    Cambiar VERSION cada vez que publiques cambios importantes
 ========================================================= */
 
-const VERSION = "6.1.0";
+const VERSION = "6.2";
 
 const STATIC_CACHE = `tiquepos-static-${VERSION}`;
 const RUNTIME_CACHE = `tiquepos-runtime-${VERSION}`;

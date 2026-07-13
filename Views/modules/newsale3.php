@@ -461,8 +461,8 @@ if ($_SESSION['ventas'] == 1) {
                                         </div>
 
                                         <!-- =====================================
-                                             MODO DE ENVÍO
-                                        ====================================== -->
+     MODO DE ENVÍO
+====================================== -->
                                         <div class="mb-4">
 
                                             <label
@@ -474,16 +474,23 @@ if ($_SESSION['ventas'] == 1) {
                                             <select
                                                 class="form-control form-select"
                                                 id="modo_envio"
-                                                name="modo_envio">
+                                                name="modo_envio"
+                                                required>
 
                                                 <option value="inmediato">
-                                                    Enviar a SUNAT después de registrar
+                                                    Registrar y enviar inmediatamente a SUNAT
+                                                </option>
+
+                                                <option value="manual">
+                                                    Registrar ahora y enviar manualmente después
                                                 </option>
 
                                             </select>
 
-                                            <small class="text-muted d-block mt-2">
-                                                La venta se registrará primero. El envío electrónico se realizará posteriormente mediante APISUNAT.
+                                            <small
+                                                class="text-muted d-block mt-2"
+                                                id="mensajeModoEnvio">
+                                                La venta se registrará y luego será enviada automáticamente mediante APISUNAT.
                                             </small>
 
                                         </div>
@@ -929,7 +936,7 @@ $versionNewsaleJs = file_exists($rutaNewsaleJs)
     | newsale3.js utiliza #condicion_pago para mostrar el bloque de crédito.
     | El selector real cargado desde la base de datos es #tipo_pago.
     */
-    $(document).on('change', '#tipo_pago', function () {
+    $(document).on('change', '#tipo_pago', function() {
         const condicion = $(this).find('option:selected').text().trim();
 
         $('#condicion_pago')
@@ -942,7 +949,7 @@ $versionNewsaleJs = file_exists($rutaNewsaleJs)
     | Mantener monto numérico de la cuota
     |--------------------------------------------------------------------------
     */
-    $(document).on('input change', '#numero_cuotas', function () {
+    $(document).on('input change', '#numero_cuotas', function() {
         const cuotas = parseInt($(this).val(), 10);
         const textoTotal = $('#totalGeneral').text().replace(/[^\d.]/g, '');
         const total = parseFloat(textoTotal) || 0;
@@ -957,6 +964,33 @@ $versionNewsaleJs = file_exists($rutaNewsaleJs)
 
         $('#monto_cuota').val('S/ ' + monto.toFixed(2));
         $('#monto_cuota_real').val(monto.toFixed(2));
+    });
+
+    /*
+|--------------------------------------------------------------------------
+| DESCRIPCIÓN DEL MODO DE ENVÍO
+|--------------------------------------------------------------------------
+*/
+    $(document).on('change', '#modo_envio', function() {
+        const modo = String(
+            $(this).val() || 'inmediato'
+        );
+
+        if (modo === 'manual') {
+            $('#mensajeModoEnvio').html(
+                '<strong>Envío manual:</strong> ' +
+                'la venta se registrará y reservará su correlativo, ' +
+                'pero no será enviada a SUNAT. Podrá enviarla posteriormente ' +
+                'desde Estado de Comprobantes SUNAT.'
+            );
+
+            return;
+        }
+
+        $('#mensajeModoEnvio').html(
+            '<strong>Envío inmediato:</strong> ' +
+            'la venta se registrará y será enviada automáticamente mediante APISUNAT.'
+        );
     });
 </script>
 

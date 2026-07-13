@@ -46,7 +46,17 @@ if (!isset($_SESSION['nombre'])) {
     }
     require "footer.php";
     ?>
-    <script src="Views/modules/scripts/sunat.js"></script>
+    <?php
+$rutaSunatJs = __DIR__ . '/scripts/sunat.js';
+
+$versionSunatJs = is_file($rutaSunatJs)
+    ? filemtime($rutaSunatJs)
+    : time();
+?>
+
+<script
+    src="Views/modules/scripts/sunat.js?v=<?= (int)$versionSunatJs ?>"
+></script>
 <?php
 }
 ob_end_flush();

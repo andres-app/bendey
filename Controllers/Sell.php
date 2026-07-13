@@ -616,7 +616,7 @@ switch ($op) {
             $conexionVenta->commit();
             $transaccionActiva = false;
 
-                            /*
+            /*
                 |--------------------------------------------------------------------------
                 | 14. ENVÍO AUTOMÁTICO A APISUNAT
                 |--------------------------------------------------------------------------
@@ -625,8 +625,26 @@ switch ($op) {
                 */
 
             $modoEnvio = strtolower(
-                trim((string)($_POST['modo_envio'] ?? 'inmediato'))
+                trim(
+                    (string)(
+                        $_POST['modo_envio']
+                        ?? 'inmediato'
+                    )
+                )
             );
+
+            if (
+                !in_array(
+                    $modoEnvio,
+                    [
+                        'inmediato',
+                        'manual'
+                    ],
+                    true
+                )
+            ) {
+                $modoEnvio = 'inmediato';
+            }
 
             $tipoNormalizado = mb_strtolower(
                 trim($tipo_comprobante),
@@ -655,6 +673,30 @@ switch ($op) {
                     ? 'El comprobante todavía no fue enviado.'
                     : 'Este documento es interno y no se envía a SUNAT.'
             ];
+
+            /*
+                |--------------------------------------------------------------------------
+                | COMPROBANTE PARA ENVÍO MANUAL
+                |--------------------------------------------------------------------------
+                | No se llama a APISUNAT.
+                | La venta queda registrada localmente con su correlativo.
+                */
+            if (
+                $esComprobanteElectronico
+                && $modoEnvio === 'manual'
+            ) {
+                $resultadoSunat = [
+                    'aplica' => true,
+                    'intentado' => false,
+                    'success' => null,
+                    'status' => 'NO_ENVIADO',
+                    'documentId' => null,
+                    'fileName' => null,
+                    'production' => true,
+                    'mensaje' =>
+                    'Comprobante registrado para envío manual posterior.'
+                ];
+            }
 
             if (
                 $esComprobanteElectronico
@@ -719,9 +761,16 @@ switch ($op) {
                 }
             }
 
-            $mensajeRespuesta = 'Venta registrada correctamente.';
+            $mensajeRespuesta =
+                'Venta registrada correctamente.';
 
             if (
+                $esComprobanteElectronico
+                && $modoEnvio === 'manual'
+            ) {
+                $mensajeRespuesta =
+                    'Venta registrada. El comprobante quedó pendiente de envío manual.';
+            } elseif (
                 $esComprobanteElectronico
                 && ($resultadoSunat['success'] ?? false) === true
             ) {
@@ -746,6 +795,7 @@ switch ($op) {
                     . '-'
                     . $num_comprobante,
                 'total_venta' => $total_venta,
+                'modo_envio' => $modoEnvio,
                 'mensaje' => $mensajeRespuesta,
                 'sunat' => $resultadoSunat
             ]);

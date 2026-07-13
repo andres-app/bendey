@@ -43,7 +43,7 @@ function responderSunat(
     echo json_encode(
         $respuesta,
         JSON_UNESCAPED_UNICODE
-        | JSON_UNESCAPED_SLASHES
+            | JSON_UNESCAPED_SLASHES
     );
 
     exit;
@@ -81,8 +81,8 @@ try {
                 $xml = $tieneXml
                     ? '<a
                             href="Controllers/Sunat.php?op=descargar&tipo=xml&idventa='
-                        . $idventa
-                        . '"
+                    . $idventa
+                    . '"
                             target="_blank"
                             class="badge-xml">
                             XML
@@ -92,8 +92,8 @@ try {
                 $cdr = $tieneCdr
                     ? '<a
                             href="Controllers/Sunat.php?op=descargar&tipo=cdr&idventa='
-                        . $idventa
-                        . '"
+                    . $idventa
+                    . '"
                             target="_blank"
                             class="badge-cdr">
                             CDR
@@ -104,10 +104,17 @@ try {
                     trim(
                         (string)(
                             $reg['estado_sunat']
-                            ?? 'PENDIENTE'
+                            ?? ''
                         )
                     )
                 );
+
+                if (
+                    empty($reg['document_id'])
+                    && $estadoSunat === ''
+                ) {
+                    $estadoSunat = 'NO_ENVIADO';
+                }
 
                 switch ($estadoSunat) {
                     case 'ACEPTADO':
@@ -139,30 +146,91 @@ try {
                             '<span class="badge-sunat sunat-error">Error</span>';
                         break;
 
+                    case 'NO_ENVIADO':
+                        $estado =
+                            '<span class="badge-sunat sunat-pendiente">'
+                            . 'No enviado'
+                            . '</span>';
+                        break;
+
                     default:
                         $estado =
                             '<span class="badge-sunat sunat-pendiente">Pendiente</span>';
                 }
 
-                $mensaje = !empty(
-                    $reg['mensaje_sunat']
-                )
+                $mensaje = !empty($reg['mensaje_sunat'])
                     ? '<small>'
-                        . escaparSunat(
-                            (string)$reg['mensaje_sunat']
-                        )
-                        . '</small>'
+                    . escaparSunat(
+                        (string)$reg['mensaje_sunat']
+                    )
+                    . '</small>'
                     : '<span class="text-muted">—</span>';
 
                 $data[] = [
-                    '0' =>
-                        '<button
-                            class="btn btn-light btn-sm"
-                            onclick="verDetalle('
+                    '0' => (
+                        '<div class="btn-group">
+
+        <button
+            type="button"
+            class="btn btn-light btn-sm"
+            title="Ver detalle"
+            onclick="verDetalle('
                         . $idventa
                         . ')">
-                            <i class="fas fa-eye"></i>
-                         </button>',
+
+            <i class="fas fa-eye"></i>
+        </button>'
+
+                        . (
+                            empty($reg['document_id'])
+                            ? '
+                <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    title="Enviar manualmente a SUNAT"
+                    onclick="enviarSunatManual('
+                            . $idventa
+                            . ')">
+
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+              '
+                            : ''
+                        )
+
+                        . (
+                            !empty($reg['document_id'])
+                            && in_array(
+                                strtoupper(
+                                    (string)(
+                                        $reg['estado_sunat']
+                                        ?? ''
+                                    )
+                                ),
+                                [
+                                    'PENDIENTE',
+                                    'EN_PROCESO',
+                                    'ENVIADO'
+                                ],
+                                true
+                            )
+                            ? '
+                <button
+                    type="button"
+                    class="btn btn-warning btn-sm"
+                    title="Consultar respuesta SUNAT"
+                    onclick="consultarSunatManual('
+                            . $idventa
+                            . ')">
+
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+              '
+                            : ''
+                        )
+
+                        . '</div>'
+                    ),
                     '1' => escaparSunat(
                         (string)$reg['comprobante']
                     ),
@@ -209,7 +277,7 @@ try {
                 responderSunat([
                     'status' => false,
                     'message' =>
-                        'No se encontró el comprobante.'
+                    'No se encontró el comprobante.'
                 ], 404);
             }
 
@@ -217,27 +285,27 @@ try {
                 'status' => true,
                 'idventa' => $idventa,
                 'comprobante' =>
-                    $detalle['comprobante'],
+                $detalle['comprobante'],
                 'cliente' =>
-                    $detalle['cliente'],
+                $detalle['cliente'],
                 'total' => number_format(
                     (float)$detalle['total'],
                     2
                 ),
                 'documentId' =>
-                    $detalle['document_id'],
+                $detalle['document_id'],
                 'estado' =>
-                    $detalle['estado_sunat']
+                $detalle['estado_sunat']
                     ?? 'PENDIENTE',
                 'mensaje' =>
-                    $detalle['mensaje_sunat']
+                $detalle['mensaje_sunat']
                     ?? '',
                 'xml' =>
-                    $detalle['xml_local']
+                $detalle['xml_local']
                     ?? $detalle['xml']
                     ?? '',
                 'cdr' =>
-                    $detalle['cdr_local']
+                $detalle['cdr_local']
                     ?? $detalle['cdr']
                     ?? ''
             ]);
@@ -261,14 +329,13 @@ try {
                 );
 
             responderSunat([
-                'status' =>
-                    ($resultado['success'] ?? false)
+                'status' => ($resultado['success'] ?? false)
                     === true,
                 'message' =>
-                    $resultado['mensaje']
+                $resultado['mensaje']
                     ?? '',
                 'resultado' =>
-                    $resultado
+                $resultado
             ]);
 
             break;
@@ -282,7 +349,7 @@ try {
                 responderSunat([
                     'status' => false,
                     'message' =>
-                        'El envío requiere una petición POST.'
+                    'El envío requiere una petición POST.'
                 ], 405);
             }
 
@@ -299,14 +366,13 @@ try {
                 );
 
             responderSunat([
-                'status' =>
-                    ($resultado['success'] ?? false)
+                'status' => ($resultado['success'] ?? false)
                     === true,
                 'message' =>
-                    $resultado['mensaje']
+                $resultado['mensaje']
                     ?? '',
                 'resultado' =>
-                    $resultado
+                $resultado
             ]);
 
             break;
@@ -410,13 +476,13 @@ try {
 
             header(
                 'Content-Disposition: attachment; filename="'
-                . basename($rutaAbsoluta)
-                . '"'
+                    . basename($rutaAbsoluta)
+                    . '"'
             );
 
             header(
                 'Content-Length: '
-                . filesize($rutaAbsoluta)
+                    . filesize($rutaAbsoluta)
             );
 
             header(
@@ -431,7 +497,7 @@ try {
             responderSunat([
                 'status' => false,
                 'message' =>
-                    'El XML ahora es generado y firmado por APISUNAT.'
+                'El XML ahora es generado y firmado por APISUNAT.'
             ], 410);
 
             break;
@@ -441,13 +507,13 @@ try {
             responderSunat([
                 'status' => false,
                 'message' =>
-                    'Operación no válida.'
+                'Operación no válida.'
             ], 404);
     }
 } catch (Throwable $e) {
     error_log(
         '[SUNAT CONTROLLER] '
-        . $e->getMessage()
+            . $e->getMessage()
     );
 
     responderSunat([

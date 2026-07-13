@@ -4,9 +4,17 @@ $(document).ready(function () {
         autoWidth: false,
         scrollX: false,
         ajax: {
-            url: 'Controllers/Sunat.php?op=listar',
-            type: 'GET',
-            dataType: 'json'
+            url: "Controllers/Sunat.php",
+            type: "GET",
+            dataType: "json",
+            cache: false,
+
+            data: function () {
+                return {
+                    op: "listar",
+                    v: Date.now()
+                };
+            }
         },
         columns: [
             { data: "0", className: "text-center" },
@@ -171,4 +179,272 @@ function consultarEstado(idventa) {
         },
         'json'
     );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ENVIAR MANUALMENTE A APISUNAT
+|--------------------------------------------------------------------------
+*/
+function enviarSunatManual(idventa) {
+    idventa = Number.parseInt(
+        idventa,
+        10
+    );
+
+    if (!idventa || idventa <= 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Venta inválida',
+            text: 'No se pudo determinar la venta.'
+        });
+
+        return;
+    }
+
+    Swal.fire({
+        icon: 'question',
+        title: 'Enviar comprobante',
+        text:
+            'El comprobante será enviado a SUNAT mediante APISUNAT.',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, enviar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        allowOutsideClick: false
+    }).then(function (resultado) {
+        if (!resultado.isConfirmed) {
+            return;
+        }
+
+        Swal.fire({
+            title: 'Enviando comprobante',
+            text: 'Espere mientras APISUNAT recibe el documento.',
+            allowOutsideClick: false,
+            didOpen: function () {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: 'Controllers/ApiSunat.php?op=enviar',
+            type: 'POST',
+            dataType: 'json',
+            cache: false,
+
+            data: {
+                idventa: idventa
+            },
+
+            success: function (respuesta) {
+                console.log(
+                    'ENVÍO MANUAL APISUNAT:',
+                    respuesta
+                );
+
+                if (
+                    !respuesta
+                    || respuesta.success !== true
+                ) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'No se pudo enviar',
+                        text: String(
+                            respuesta.mensaje
+                            || respuesta.message
+                            || 'APISUNAT no recibió el comprobante.'
+                        )
+                    });
+
+                    recargarTablaSunat();
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Comprobante enviado',
+                    text:
+                        'APISUNAT recibió el comprobante. ' +
+                        'Estado inicial: ' +
+                        String(
+                            respuesta.status
+                            || 'PENDIENTE'
+                        )
+                }).then(function () {
+                    consultarSunatManual(
+                        idventa,
+                        true
+                    );
+                });
+
+                recargarTablaSunat();
+            },
+
+            error: function (xhr) {
+                console.error(
+                    'ERROR ENVÍO MANUAL:',
+                    xhr.status,
+                    xhr.responseText
+                );
+
+                let mensaje =
+                    'No se pudo completar el envío.';
+
+                if (
+                    xhr.responseJSON
+                    && typeof xhr.responseJSON.mensaje
+                    === 'string'
+                ) {
+                    mensaje =
+                        xhr.responseJSON.mensaje;
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de envío',
+                    text: mensaje
+                });
+
+                recargarTablaSunat();
+            }
+        });
+    });
+}
+
+/*
+|--------------------------------------------------------------------------
+| CONSULTAR RESPUESTA DE APISUNAT
+|--------------------------------------------------------------------------
+*/
+function consultarSunatManual(
+    idventa,
+    automatico = false
+) {
+    idventa = Number.parseInt(
+        idventa,
+        10
+    );
+
+    if (!idventa || idventa <= 0) {
+        return;
+    }
+
+    const ejecutarConsulta = function () {
+        $.ajax({
+            url: 'Controllers/ApiSunat.php',
+            type: 'GET',
+            dataType: 'json',
+            cache: false,
+
+            data: {
+                op: 'consultar',
+                idventa: idventa,
+                v: Date.now()
+            },
+
+            success: function (respuesta) {
+                console.log(
+                    'CONSULTA MANUAL APISUNAT:',
+                    respuesta
+                );
+
+                const estado = String(
+                    respuesta.status || ''
+                ).toUpperCase();
+
+                if (estado === 'ACEPTADO') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Comprobante aceptado',
+                        text:
+                            'SUNAT aceptó correctamente el comprobante.'
+                    });
+
+                    recargarTablaSunat();
+                    return;
+                }
+
+                if (
+                    estado === 'RECHAZADO'
+                    || estado === 'EXCEPCION'
+                ) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Comprobante no aceptado',
+                        text: String(
+                            respuesta.mensaje
+                            || respuesta.message
+                            || 'Estado: ' + estado
+                        )
+                    });
+
+                    recargarTablaSunat();
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Comprobante en proceso',
+                    text:
+                        'APISUNAT todavía está procesando el comprobante.'
+                });
+
+                recargarTablaSunat();
+            },
+
+            error: function (xhr) {
+                console.error(
+                    'ERROR CONSULTA APISUNAT:',
+                    xhr.responseText
+                );
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'No se pudo consultar',
+                    text:
+                        'Revise nuevamente el comprobante desde esta pantalla.'
+                });
+            }
+        });
+    };
+
+    if (automatico) {
+        window.setTimeout(
+            ejecutarConsulta,
+            4000
+        );
+
+        return;
+    }
+
+    Swal.fire({
+        title: 'Consultando SUNAT',
+        allowOutsideClick: false,
+        didOpen: function () {
+            Swal.showLoading();
+            ejecutarConsulta();
+        }
+    });
+}
+
+/*
+|--------------------------------------------------------------------------
+| RECARGAR TABLA
+|--------------------------------------------------------------------------
+*/
+function recargarTablaSunat() {
+    if (
+        $.fn.DataTable
+        && $.fn.DataTable.isDataTable(
+            '#tbllistado'
+        )
+    ) {
+        $('#tbllistado')
+            .DataTable()
+            .ajax
+            .reload(
+                null,
+                false
+            );
+    }
 }
