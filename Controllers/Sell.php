@@ -1326,6 +1326,26 @@ switch ($op) {
         break;
 
     // =========================================================
+    // CUOTAS DE VENTA AL CRÉDITO
+    // =========================================================
+    case 'cuotas':
+
+        $id = (int)(
+            $_GET['idventa']
+            ?? $_POST['idventa']
+            ?? 0
+        );
+
+        if ($id <= 0) {
+            responderJson([]);
+        }
+
+        responderJson(
+            $sell->obtenerCuotasVenta($id)
+        );
+
+        break;
+    // =========================================================
     // LISTAR COTIZACIONES
     // =========================================================
     case 'listarCotizaciones':

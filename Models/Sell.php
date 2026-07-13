@@ -424,25 +424,58 @@ class Sell
     //implementar un metodopara mostrar los datos de unregistro a modificar
     public function mostrar($idventa)
     {
-        $sql = "SELECT 
-            v.idventa,
-            DATE(v.fecha_hora) as fecha,
-            v.idcliente,
-            p.nombre as cliente,
-            u.nombre as usuario,
-            v.tipo_comprobante,
-            v.serie_comprobante,
-            v.num_comprobante,
-            v.total_venta,
-            v.impuesto,
-            v.estado,
-            v.tipo_pago
-        FROM venta v
-        INNER JOIN persona p ON v.idcliente=p.idpersona
-        INNER JOIN usuario u ON v.idusuario=u.idusuario
-        WHERE v.idventa = ?";
+        $sql = "SELECT
+                v.idventa,
+                DATE_FORMAT(
+                    v.fecha_hora,
+                    '%d/%m/%Y %H:%i:%s'
+                ) AS fecha,
 
-        return $this->conexion->getData($sql, [$idventa]);
+                v.idcliente,
+
+                COALESCE(
+                    p.nombre,
+                    'SIN CLIENTE'
+                ) AS cliente,
+
+                COALESCE(
+                    u.nombre,
+                    'SIN USUARIO'
+                ) AS usuario,
+
+                v.tipo_comprobante,
+                v.serie_comprobante,
+                v.num_comprobante,
+                v.total_venta,
+                v.impuesto,
+                v.estado,
+                v.tipo_pago,
+                v.idforma_pago,
+
+                COALESCE(
+                    fp.nombre,
+                    'No especificado'
+                ) AS forma_pago
+
+            FROM venta v
+
+            LEFT JOIN persona p
+                ON p.idpersona = v.idcliente
+
+            LEFT JOIN usuario u
+                ON u.idusuario = v.idusuario
+
+            LEFT JOIN forma_pago fp
+                ON fp.idforma_pago = v.idforma_pago
+
+            WHERE v.idventa = ?
+
+            LIMIT 1";
+
+        return $this->conexion->getData(
+            $sql,
+            [(int)$idventa]
+        );
     }
 
 
@@ -639,6 +672,54 @@ class Sell
                 WHERE vp.idventa = ?";
 
         return $this->conexion->getDataAll($sql, [$idventa]);
+    }
+
+    public function obtenerCuotasVenta($idventa)
+    {
+        $sql = "SELECT
+                vc.idventa_cuota,
+                vc.idventa,
+                vc.numero_cuota,
+                vc.codigo,
+                vc.monto,
+
+                DATE_FORMAT(
+                    vc.fecha_vencimiento,
+                    '%d/%m/%Y'
+                ) AS fecha_vencimiento,
+
+                vc.monto_pagado,
+
+                CASE
+                    WHEN vc.fecha_pago IS NULL
+                    THEN NULL
+                    ELSE DATE_FORMAT(
+                        vc.fecha_pago,
+                        '%d/%m/%Y %H:%i'
+                    )
+                END AS fecha_pago,
+
+                GREATEST(
+                    vc.monto - vc.monto_pagado,
+                    0
+                ) AS saldo,
+
+                vc.estado
+
+            FROM venta_cuota vc
+
+            WHERE vc.idventa = ?
+
+            ORDER BY vc.numero_cuota ASC";
+
+        $resultado = $this->conexion->getDataAll(
+            $sql,
+            [(int)$idventa]
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
     }
 
     public function buscarProductoPorCodigo($codigo)

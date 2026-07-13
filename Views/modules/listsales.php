@@ -71,7 +71,7 @@ if (!isset($_SESSION['nombre'])) {
                             <div class="form-group col-lg-8 col-md-8 col-xs-12">
                                 <label for="">Cliente(*):</label>
                                 <input class="form-control" type="hidden" name="idventam" id="idventam">
-                                <input class="form-control" type="text" name="cliente" id="cliente" maxlength="7" readonly>
+                                <input class="form-control"type="text"name="cliente"id="cliente"maxlength="180"readonly>
                             </div>
                             <div class="form-group col-lg-4 col-md-4 col-xs-6">
                                 <label>Fecha: </label>
@@ -140,6 +140,73 @@ if (!isset($_SESSION['nombre'])) {
                                             <tbody id="detallePagom"></tbody>
                                         </table>
                                     </div>
+                                </div>
+
+                                <!-- ==========================================
+     CRONOGRAMA DE CUOTAS
+=========================================== -->
+                                <div
+                                    class="row"
+                                    id="bloqueCuotas"
+                                    style="display:none;">
+
+                                    <div class="col-lg-12">
+
+                                        <div
+                                            class="d-flex justify-content-between align-items-center mb-2">
+
+                                            <label class="mb-0">
+                                                Cronograma de cuotas:
+                                            </label>
+
+                                            <span
+                                                id="resumenCuotasm"
+                                                class="badge badge-info">
+                                            </span>
+
+                                        </div>
+
+                                        <div class="table-responsive">
+
+                                            <table
+                                                class="table table-sm table-bordered table-hover">
+
+                                                <thead class="thead-light">
+                                                    <tr>
+                                                        <th>Cuota</th>
+                                                        <th class="text-right">Monto</th>
+                                                        <th>Vencimiento</th>
+                                                        <th class="text-right">Pagado</th>
+                                                        <th class="text-right">Saldo</th>
+                                                        <th class="text-center">Estado</th>
+                                                    </tr>
+                                                </thead>
+
+                                                <tbody id="detalleCuotasm">
+                                                </tbody>
+
+                                                <tfoot>
+                                                    <tr>
+                                                        <th colspan="4" class="text-right">
+                                                            Total pendiente:
+                                                        </th>
+
+                                                        <th
+                                                            id="totalPendienteCuotasm"
+                                                            class="text-right">
+                                                            S/ 0.00
+                                                        </th>
+
+                                                        <th></th>
+                                                    </tr>
+                                                </tfoot>
+
+                                            </table>
+
+                                        </div>
+
+                                    </div>
+
                                 </div>
 
                                 <table id="detallesm" class="table table-striped table-bordered table-condensed table-hover">
