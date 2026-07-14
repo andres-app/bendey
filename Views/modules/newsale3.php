@@ -81,7 +81,7 @@ if ($_SESSION['ventas'] == 1) {
 
                                             <div class="col-md-6">
 
-                                                <label for="num_documento">
+                                                <label for="num_documento" class="mb-1">
                                                     Cliente
                                                 </label>
 
@@ -95,25 +95,26 @@ if ($_SESSION['ventas'] == 1) {
                                                         maxlength="11"
                                                         inputmode="numeric"
                                                         autocomplete="off"
-                                                        placeholder="DNI o RUC"
-                                                        required>
+                                                        placeholder="DNI o RUC">
 
-                                                    <button
-                                                        type="button"
-                                                        class="btn btn-outline-secondary"
-                                                        id="btnConsultarCliente"
-                                                        onclick="consultarCliente()"
-                                                        title="Consultar cliente">
+                                                    <div class="input-group-append">
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-outline-secondary px-3"
+                                                            id="btnConsultarCliente"
+                                                            onclick="consultarCliente()"
+                                                            title="Consultar DNI o RUC">
 
-                                                        <i class="bi bi-arrow-repeat"></i>
-                                                    </button>
+                                                            <i class="bi bi-arrow-repeat"></i>
+                                                        </button>
+                                                    </div>
 
                                                 </div>
 
                                                 <small
                                                     id="nombre_cliente"
                                                     class="text-muted d-block mt-2">
-                                                    Ingrese un DNI de 8 dígitos o un RUC de 11 dígitos.
+                                                    Déjelo vacío para usar CLIENTE VARIOS.
                                                 </small>
 
                                                 <!-- =================================
@@ -124,6 +125,12 @@ if ($_SESSION['ventas'] == 1) {
                                                     id="idcliente"
                                                     name="idcliente"
                                                     value="">
+
+                                                <input
+                                                    type="hidden"
+                                                    id="cliente_generico"
+                                                    name="cliente_generico"
+                                                    value="0">
 
                                                 <input
                                                     type="hidden"

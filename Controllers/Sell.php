@@ -216,18 +216,41 @@ switch ($op) {
             // =================================================
             $idcliente = (int)($_POST['idcliente'] ?? 0);
 
+            $esFactura =
+                stripos($tipo_comprobante, 'factura') !== false;
+
+            $esBoleta =
+                stripos($tipo_comprobante, 'boleta') !== false;
+
+            $clienteGenericoSolicitado = in_array(
+                strtolower(
+                    trim(
+                        (string)(
+                            $_POST['cliente_generico']
+                            ?? '0'
+                        )
+                    )
+                ),
+                ['1', 'true', 'si', 'sí', 'on'],
+                true
+            );
+
             $tipo_documento = strtoupper(
                 trim((string)($_POST['tipo_documento'] ?? ''))
             );
 
             /*
              * num_doc_real conserva el DNI/RUC verdadero.
-             * num_documento puede ser el campo visible.
+             * Si está vacío, se toma el campo visible.
              */
+            $numDocReal = trim(
+                (string)($_POST['num_doc_real'] ?? '')
+            );
+
             $numeroDocumentoRecibido =
-                $_POST['num_doc_real']
-                ?? $_POST['num_documento']
-                ?? '';
+                $numDocReal !== ''
+                    ? $numDocReal
+                    : ($_POST['num_documento'] ?? '');
 
             $num_documento = preg_replace(
                 '/[^0-9A-Za-z\-]/',
@@ -251,6 +274,26 @@ switch ($op) {
                 (string)($_POST['email'] ?? '')
             );
 
+            /*
+             * Si el documento queda vacío y no es factura,
+             * la venta se registra automáticamente como:
+             * DNI 99999999 / CLIENTE VARIOS.
+             */
+            if (
+                !$esFactura
+                && (
+                    $clienteGenericoSolicitado
+                    || $num_documento === ''
+                )
+            ) {
+                $clienteGenericoSolicitado = true;
+                $tipo_documento = 'DNI';
+                $num_documento = '99999999';
+                $nombre_cli = 'CLIENTE VARIOS';
+                $direccion = '-';
+                $email = '';
+            }
+
             // Inferir DNI o RUC cuando el formulario no lo envía.
             if ($tipo_documento === '') {
                 if (preg_match('/^\d{8}$/', $num_documento)) {
@@ -262,7 +305,7 @@ switch ($op) {
 
             /*
              * Si el formulario envió un idcliente,
-             * se valida que realmente exista.
+             * se valida y se toman sus datos reales de la base.
              */
             if ($idcliente > 0) {
                 $clienteExistente = $conexionVenta->getData(
@@ -270,7 +313,10 @@ switch ($op) {
                         idpersona,
                         nombre,
                         tipo_documento,
-                        num_documento
+                        num_documento,
+                        direccion,
+                        telefono,
+                        email
                      FROM persona
                      WHERE idpersona = ?
                      LIMIT 1",
@@ -282,6 +328,69 @@ switch ($op) {
                         'El cliente seleccionado no existe.'
                     );
                 }
+
+                $tipo_documento = strtoupper(
+                    trim(
+                        (string)(
+                            $clienteExistente['tipo_documento']
+                            ?? ''
+                        )
+                    )
+                );
+
+                $num_documento = trim(
+                    (string)(
+                        $clienteExistente['num_documento']
+                        ?? ''
+                    )
+                );
+
+                $nombre_cli = trim(
+                    (string)(
+                        $clienteExistente['nombre']
+                        ?? ''
+                    )
+                );
+
+                $direccion = trim(
+                    (string)(
+                        $clienteExistente['direccion']
+                        ?? $direccion
+                    )
+                );
+
+                $telefono = trim(
+                    (string)(
+                        $clienteExistente['telefono']
+                        ?? $telefono
+                    )
+                );
+
+                $email = trim(
+                    (string)(
+                        $clienteExistente['email']
+                        ?? $email
+                    )
+                );
+
+                $clienteGenericoSolicitado =
+                    $num_documento === '99999999';
+            }
+
+            /*
+             * Factura: siempre debe tener un RUC real.
+             */
+            if (
+                $esFactura
+                && (
+                    $tipo_documento !== 'RUC'
+                    || !preg_match('/^\d{11}$/', $num_documento)
+                    || $num_documento === '99999999'
+                )
+            ) {
+                throw new Exception(
+                    'Para emitir una factura debe seleccionar un cliente con RUC válido.'
+                );
             }
 
             /*
@@ -290,7 +399,7 @@ switch ($op) {
             if ($idcliente <= 0) {
                 if ($num_documento === '') {
                     throw new Exception(
-                        'Debe ingresar el documento del cliente.'
+                        'No se pudo determinar el cliente de la venta.'
                     );
                 }
 
@@ -312,18 +421,16 @@ switch ($op) {
                     );
                 }
 
-                $esFactura =
-                    stripos($tipo_comprobante, 'factura') !== false;
-
                 if (
-                    $esFactura
-                    && (
-                        $tipo_documento !== 'RUC'
-                        || strlen($num_documento) !== 11
+                    !$clienteGenericoSolicitado
+                    && !in_array(
+                        $tipo_documento,
+                        ['DNI', 'RUC'],
+                        true
                     )
                 ) {
                     throw new Exception(
-                        'Para emitir una factura debe seleccionar un cliente con RUC válido.'
+                        'Ingrese un DNI de 8 dígitos o un RUC de 11 dígitos.'
                     );
                 }
 
@@ -345,7 +452,7 @@ switch ($op) {
                         $nombre_cli,
                         $tipo_documento,
                         $num_documento,
-                        $direccion,
+                        $direccion !== '' ? $direccion : '-',
                         $telefono,
                         $email
                     );
@@ -487,6 +594,35 @@ switch ($op) {
 
             if ($total_venta < 0) {
                 $total_venta = 0;
+            }
+
+            /*
+             * En una boleta, la identificación del adquirente
+             * es obligatoria cuando el total supera S/ 700.
+             */
+            if (
+                $esBoleta
+                && $total_venta > 700
+            ) {
+                $documentoValidoBoleta =
+                    (
+                        $tipo_documento === 'DNI'
+                        && preg_match('/^\d{8}$/', $num_documento)
+                        && $num_documento !== '99999999'
+                    )
+                    || (
+                        $tipo_documento === 'RUC'
+                        && preg_match('/^\d{11}$/', $num_documento)
+                    );
+
+                if (
+                    $clienteGenericoSolicitado
+                    || !$documentoValidoBoleta
+                ) {
+                    throw new Exception(
+                        'Las boletas mayores a S/ 700 deben incluir los nombres y un documento de identidad válido del cliente.'
+                    );
+                }
             }
 
             // =================================================

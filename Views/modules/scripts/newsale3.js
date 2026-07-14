@@ -1,7 +1,227 @@
 let productosCache = [];
 
+const CLIENTE_GENERICO = Object.freeze({
+    tipoDocumento: 'DNI',
+    numeroDocumento: '99999999',
+    nombre: 'CLIENTE VARIOS',
+    direccion: '-'
+});
+
+function asegurarCampoClienteGenerico() {
+    const formulario = document.getElementById('formularioVenta');
+
+    if (!formulario || document.getElementById('cliente_generico')) {
+        return;
+    }
+
+    const input = document.createElement('input');
+
+    input.type = 'hidden';
+    input.id = 'cliente_generico';
+    input.name = 'cliente_generico';
+    input.value = '0';
+
+    formulario.appendChild(input);
+}
+
+function textoNormalizado(valor) {
+    return String(valor || '')
+        .trim()
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function esFacturaSeleccionada() {
+    return textoNormalizado(
+        $('#tipo_comprobante option:selected').text()
+        || $('#tipo_comprobante').val()
+    ).includes('FACTURA');
+}
+
+function esBoletaSeleccionada() {
+    return textoNormalizado(
+        $('#tipo_comprobante option:selected').text()
+        || $('#tipo_comprobante').val()
+    ).includes('BOLETA');
+}
+
+function limpiarDatosCliente(mantenerDocumentoVisible = true) {
+    const documentoVisible = mantenerDocumentoVisible
+        ? String($('#num_documento').val() || '').replace(/\D/g, '')
+        : '';
+
+    $('#idcliente').val('');
+    $('#cliente_generico').val('0');
+    $('#tipo_documento').val('');
+    $('#num_doc_real').val('');
+    $('#nombre_cli').val('');
+    $('#direccion').val('');
+    $('#email').val('');
+
+    $('#num_documento')
+        .val(documentoVisible)
+        .removeClass('is-invalid');
+
+    $('#nombre_cliente')
+        .removeClass('text-primary text-success text-danger')
+        .addClass('text-muted')
+        .text(
+            esFacturaSeleccionada()
+                ? 'Ingrese un RUC válido de 11 dígitos.'
+                : 'Déjelo vacío para usar CLIENTE VARIOS.'
+        );
+}
+
+function usarClienteGenerico(mostrarMensaje = true) {
+    if (esFacturaSeleccionada()) {
+        if (mostrarMensaje) {
+            Swal.fire(
+                'Factura',
+                'Para emitir una factura debe ingresar un RUC válido.',
+                'warning'
+            );
+        }
+
+        return false;
+    }
+
+    $('#idcliente').val('');
+    $('#cliente_generico').val('1');
+    $('#tipo_documento').val(CLIENTE_GENERICO.tipoDocumento);
+    $('#num_doc_real').val(CLIENTE_GENERICO.numeroDocumento);
+    $('#nombre_cli').val(CLIENTE_GENERICO.nombre);
+    $('#direccion').val(CLIENTE_GENERICO.direccion);
+    $('#email').val('');
+
+    $('#num_documento')
+        .val('')
+        .removeClass('is-invalid');
+
+    return true;
+}
+
+function actualizarReglaCliente() {
+    const $documento = $('#num_documento');
+
+    if (esFacturaSeleccionada()) {
+        $documento
+            .attr('placeholder', 'RUC de 11 dígitos')
+            .attr('maxlength', '11')
+            .prop('required', true);
+
+        if ($('#cliente_generico').val() === '1') {
+            limpiarDatosCliente(false);
+        }
+
+        $('#nombre_cliente')
+            .removeClass('text-primary text-success text-danger')
+            .addClass('text-muted')
+            .text('Ingrese un RUC válido de 11 dígitos.');
+
+        return;
+    }
+
+    $documento
+        .attr('placeholder', 'DNI o RUC')
+        .attr('maxlength', '11')
+        .prop('required', false);
+
+    $('#nombre_cliente')
+        .removeClass('text-primary text-success text-danger')
+        .addClass('text-muted')
+        .text('Déjelo vacío para usar CLIENTE VARIOS.');
+}
+
+function validarClienteAntesDeVender(totalVenta) {
+    const documentoVisible = String(
+        $('#num_documento').val() || ''
+    ).replace(/\D/g, '');
+
+    const documentoReal = String(
+        $('#num_doc_real').val() || documentoVisible
+    ).replace(/\D/g, '');
+
+    const esGenerico =
+        $('#cliente_generico').val() === '1'
+        || documentoReal === CLIENTE_GENERICO.numeroDocumento;
+
+    if (esFacturaSeleccionada()) {
+        if (
+            esGenerico
+            || !/^\d{11}$/.test(documentoReal)
+        ) {
+            Swal.fire(
+                'RUC obligatorio',
+                'Para emitir una factura debe consultar o registrar un cliente con RUC válido.',
+                'warning'
+            );
+
+            $('#num_documento').focus();
+            return false;
+        }
+
+        return true;
+    }
+
+    /*
+     * Si el campo queda vacío, se prepara automáticamente
+     * CLIENTE VARIOS antes de enviar el formulario.
+     */
+    if (documentoVisible === '' && !$('#idcliente').val()) {
+        if (esBoletaSeleccionada() && Number(totalVenta) > 700) {
+            Swal.fire(
+                'Identificación obligatoria',
+                'Las boletas mayores a S/ 700 deben incluir los nombres y el documento del cliente.',
+                'warning'
+            );
+
+            $('#num_documento').focus();
+            return false;
+        }
+
+        return usarClienteGenerico(false);
+    }
+
+    if (
+        esBoletaSeleccionada()
+        && Number(totalVenta) > 700
+        && (
+            esGenerico
+            || !/^\d{8}$|^\d{11}$/.test(documentoReal)
+        )
+    ) {
+        Swal.fire(
+            'Identificación obligatoria',
+            'Las boletas mayores a S/ 700 deben incluir los nombres y el documento del cliente.',
+            'warning'
+        );
+
+        $('#num_documento').focus();
+        return false;
+    }
+
+    if (
+        documentoReal !== ''
+        && !esGenerico
+        && !/^\d{8}$|^\d{11}$/.test(documentoReal)
+    ) {
+        Swal.fire(
+            'Documento inválido',
+            'Ingrese un DNI de 8 dígitos o un RUC de 11 dígitos.',
+            'warning'
+        );
+
+        $('#num_documento').focus();
+        return false;
+    }
+
+    return true;
+}
+
 // newsale3.js
 $(document).ready(function () {
+    asegurarCampoClienteGenerico();
     cargarComprobantes();
     cargarFormaPago();
     inicializarEventos();
@@ -33,6 +253,7 @@ function cargarComprobantes() {
         $('#tipo_comprobante').html(data);
         // Opcional: selecciona por defecto el primero
         $('#tipo_comprobante').val($('#tipo_comprobante option:first').val());
+        $('#tipo_comprobante').trigger('change');
     });
 
     // Clientes
@@ -49,6 +270,25 @@ function inicializarEventos() {
     // Cuando cambia el comprobante, mostrar serie y número
     $('#tipo_comprobante').on('change', function () {
         mostrarSerieNumero();
+        actualizarReglaCliente();
+    });
+
+    $('#num_documento').on('input', function () {
+        const documento = String($(this).val() || '')
+            .replace(/\D/g, '')
+            .slice(0, 11);
+
+        $(this).val(documento);
+
+        limpiarDatosCliente(true);
+
+        if (/^\d{8}$/.test(documento)) {
+            $('#tipo_documento').val('DNI');
+            $('#num_doc_real').val(documento);
+        } else if (/^\d{11}$/.test(documento)) {
+            $('#tipo_documento').val('RUC');
+            $('#num_doc_real').val(documento);
+        }
     });
 
     // Cuando cambia el cliente, actualizar datos relacionados
@@ -357,6 +597,9 @@ function guardarVenta() {
 
                 form.reset();
 
+                limpiarDatosCliente(false);
+                actualizarReglaCliente();
+
                 $('#detallesCards').empty();
                 $('#totalGeneral').text('S/0.00');
                 $('#total_recibido').val('');
@@ -506,119 +749,200 @@ function recalcularCuotasCredito() {
 
 
 function consultarCliente() {
-    const tipo_documento = $('#tipo_documento').val();
-    const num_documento = $('#num_documento').val().trim();
+    const num_documento = String(
+        $('#num_documento').val() || ''
+    ).replace(/\D/g, '');
 
-    if (!num_documento) {
-        Swal.fire('Atención', 'Ingrese el número de documento', 'warning');
+    let tipo_documento = '';
+
+    if (/^\d{8}$/.test(num_documento)) {
+        tipo_documento = 'DNI';
+    } else if (/^\d{11}$/.test(num_documento)) {
+        tipo_documento = 'RUC';
+    } else {
+        Swal.fire(
+            'Documento inválido',
+            'Ingrese un DNI de 8 dígitos o un RUC de 11 dígitos.',
+            'warning'
+        );
+
         return;
     }
 
-    // Guardamos el documento REAL
+    limpiarDatosCliente(true);
+
+    $('#tipo_documento').val(tipo_documento);
     $('#num_doc_real').val(num_documento);
 
     $.ajax({
         url: 'Controllers/Person.php?op=getCustomerByDocument',
         type: 'POST',
-        data: { tipo_documento: tipo_documento, num_documento: num_documento },
-        success: function (response) {
+        data: {
+            tipo_documento: tipo_documento,
+            num_documento: num_documento
+        },
 
+        success: function (response) {
             let data;
+
             try {
-                data = JSON.parse(response);
-            } catch {
-                Swal.fire('Error', 'Respuesta inválida del servidor', 'error');
+                data = typeof response === 'object'
+                    ? response
+                    : JSON.parse(response);
+            } catch (error) {
+                Swal.fire(
+                    'Error',
+                    'Respuesta inválida del servidor.',
+                    'error'
+                );
+
                 return;
             }
 
             if (data.estado && data.resultado) {
+                const cliente = data.resultado;
 
-                // 🔹 VISUALMENTE mostramos el nombre en el MISMO input
-                $('#num_documento').val(data.resultado.nombre);
+                $('#num_documento').val(
+                    cliente.num_documento || num_documento
+                );
 
-                // 🔹 LÓGICA REAL (no visible)
-                $('#num_doc_real').val(data.resultado.num_documento);
-                $('#nombre_cli').val(data.resultado.nombre);
-                $('#idcliente').val(data.resultado.idpersona);
+                $('#num_doc_real').val(
+                    cliente.num_documento || num_documento
+                );
 
-            } else {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Cliente no registrado',
-                    text: '¿Deseas buscar en RENIEC / SUNAT?',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, buscar',
-                    cancelButtonText: 'No'
-                }).then((r) => {
-                    if (r.isConfirmed) {
-                        consultarClienteReniec(tipo_documento, num_documento);
-                    }
-                });
+                $('#tipo_documento').val(
+                    cliente.tipo_documento || tipo_documento
+                );
+
+                $('#nombre_cli').val(cliente.nombre || '');
+                $('#idcliente').val(cliente.idpersona || '');
+                $('#direccion').val(cliente.direccion || '');
+                $('#email').val(cliente.email || '');
+                $('#celular').val(
+                    cliente.celular
+                    || cliente.telefono
+                    || $('#celular').val()
+                    || ''
+                );
+
+                $('#nombre_cliente')
+                    .removeClass('text-muted text-primary text-danger')
+                    .addClass('text-success')
+                    .text(cliente.nombre || 'Cliente encontrado');
+
+                return;
             }
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Cliente no registrado',
+                text: '¿Desea buscarlo en RENIEC o SUNAT?',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, buscar',
+                cancelButtonText: 'Cancelar'
+            }).then(function (resultado) {
+                if (resultado.isConfirmed) {
+                    consultarClienteReniec(
+                        tipo_documento,
+                        num_documento
+                    );
+                }
+            });
         },
+
         error: function () {
-            Swal.fire('Error', 'No se pudo consultar el cliente', 'error');
+            Swal.fire(
+                'Error',
+                'No se pudo consultar el cliente.',
+                'error'
+            );
         }
     });
 }
 
-
-
-function consultarClienteReniec(tipo_documento, num_documento) {
-    if (!num_documento || num_documento.trim() === "") {
-        Swal.fire("Error", "Debe ingresar un número de documento válido", "error");
-        return;
-    }
-
-    // Detecta el tipo automáticamente
-    let tipo_detectado = "";
-    if (num_documento.length === 8) {
-        tipo_detectado = "DNI";
-    } else if (num_documento.length === 11) {
-        tipo_detectado = "RUC";
-    } else {
-        Swal.fire("Error", "El número de documento debe tener 8 (DNI) u 11 (RUC) dígitos.", "error");
-        return;
-    }
-
+function consultarClienteReniec(
+    tipo_documento,
+    num_documento
+) {
     $.ajax({
         url: 'Controllers/Person.php?op=getCustomerInfo',
         type: 'POST',
-        data: { tipo_documento: tipo_detectado, num_documento: num_documento },
+        data: {
+            tipo_documento: tipo_documento,
+            num_documento: num_documento
+        },
+
         success: function (response) {
-            var data;
+            let data;
+
             try {
-                data = JSON.parse(response);
-            } catch (e) {
-                Swal.fire('Error', 'Error al procesar la respuesta del servidor.', 'error');
+                data = typeof response === 'object'
+                    ? response
+                    : JSON.parse(response);
+            } catch (error) {
+                Swal.fire(
+                    'Error',
+                    'Error al procesar la respuesta del servidor.',
+                    'error'
+                );
+
                 return;
             }
 
-            if (data.estado) {
-                let nombre = data.resultado.nombre || data.resultado.razon_social || '';
-                if (nombre.trim() !== '') {
-                    // SOLO NOMBRE en el input
-                    $('#num_documento').val(nombre);
-                    $('#direccion').val(data.resultado.direccion || '');
-                } else {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Datos incompletos',
-                        text: data.mensaje || 'No se encontraron los datos completos del cliente.'
-                    });
-                    $('#num_documento').addClass('is-invalid');
-                }
-            } else {
+            if (!data.estado || !data.resultado) {
                 Swal.fire({
                     icon: 'error',
                     title: 'No encontrado',
-                    text: data.mensaje || 'No se encontró información del documento.'
+                    text:
+                        data.mensaje
+                        || 'No se encontró información del documento.'
                 });
+
                 $('#num_documento').addClass('is-invalid');
+                return;
             }
+
+            const resultado = data.resultado;
+
+            const nombre = String(
+                resultado.nombre
+                || resultado.razon_social
+                || ''
+            ).trim();
+
+            if (nombre === '') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Datos incompletos',
+                    text:
+                        data.mensaje
+                        || 'No se encontró el nombre del cliente.'
+                });
+
+                return;
+            }
+
+            $('#idcliente').val('');
+            $('#cliente_generico').val('0');
+            $('#tipo_documento').val(tipo_documento);
+            $('#num_documento').val(num_documento);
+            $('#num_doc_real').val(num_documento);
+            $('#nombre_cli').val(nombre);
+            $('#direccion').val(resultado.direccion || '-');
+            $('#email').val(resultado.email || '');
+
+            $('#nombre_cliente')
+                .removeClass('text-muted text-primary text-danger')
+                .addClass('text-success')
+                .text(nombre);
         },
+
         error: function () {
-            Swal.fire('Error', 'Error al consultar la RENIEC/SUNAT.', 'error');
+            Swal.fire(
+                'Error',
+                'Error al consultar RENIEC/SUNAT.',
+                'error'
+            );
         }
     });
 }
@@ -806,31 +1130,6 @@ $('#btnAbrirModal').on('click', function () {
 });
 
 
-function listarArticulosPorCategoria(idcategoria, tabElement) {
-
-    // UI: activar tab
-    $('#catList a.nav-link').removeClass('active');
-    if (tabElement) $(tabElement).addClass('active');
-
-    $.ajax({
-        url: 'Controllers/Sell.php?op=listarArticulosPorCategoria&idcategoria=' + idcategoria,
-        type: 'get',
-        dataType: 'json',
-        success: function (data) {
-
-            productosCache = data;   // 🔥 guardas productos de ESA categoría
-            renderProductos(data);   // 🔥 pintas usando el render central
-        },
-        error: function () {
-            productosCache = [];
-            renderProductos([]);
-        }
-    });
-}
-
-
-
-
 var cont = 0;
 
 function agregarDetalle(
@@ -975,11 +1274,6 @@ function agregarDetalle(
 
     $('#total_recibido').data('manual', false);
     sincronizarTotalRecibido();
-
-    cont++;
-
-
-    // 🔥 FUERZA ocultar overlay al agregar
 
     cont++;
 
@@ -1198,6 +1492,10 @@ $('#formularioVenta').on('submit', function (e) {
     let condicion = $('#condicion_pago').val();
     let nombreForma = getNombreFormaPago();
     let totalVenta = totalVentaActual();
+
+    if (!validarClienteAntesDeVender(totalVenta)) {
+        return false;
+    }
 
     // =========================
     // 🔹 VALIDACIÓN CRÉDITO
@@ -1429,77 +1727,6 @@ function cargarFormaPago() {
 
         $('#vuelto').val('0.00');
     });
-}
-
-function consultarEstadoSunat(idventa, intento = 1) {
-    const maxIntentos = 6;
-
-    setTimeout(function () {
-        $.ajax({
-            url: 'Controllers/ApiSunat.php',
-            type: 'GET',
-            dataType: 'json',
-            data: {
-                op: 'consultar',
-                idventa: idventa,
-                v: Date.now()
-            },
-
-            success: function (respuesta) {
-                const estado = String(
-                    respuesta.status || ''
-                ).toUpperCase();
-
-                if (estado === 'ACEPTADO') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Comprobante aceptado',
-                        text: 'SUNAT aceptó correctamente el comprobante.',
-                        timer: 3500,
-                        showConfirmButton: false
-                    });
-
-                    return;
-                }
-
-                if (
-                    estado === 'RECHAZADO'
-                    || estado === 'EXCEPCION'
-                ) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Comprobante no aceptado',
-                        text:
-                            respuesta.mensaje
-                            || 'SUNAT devolvió el estado ' + estado + '.'
-                    });
-
-                    return;
-                }
-
-                if (intento < maxIntentos) {
-                    consultarEstadoSunat(
-                        idventa,
-                        intento + 1
-                    );
-                }
-            },
-
-            error: function (xhr) {
-                console.error(
-                    'No se pudo consultar APISUNAT:',
-                    xhr.responseText
-                );
-
-                if (intento < maxIntentos) {
-                    consultarEstadoSunat(
-                        idventa,
-                        intento + 1
-                    );
-                }
-            }
-        });
-    }, intento === 1 ? 3000 : 5000);
 }
 
 function consultarEstadoSunat(idventa, intento = 1) {
