@@ -1,3 +1,4 @@
+// Views/modules/scripts/generaldata.js
 function init() {
   mostrar_datosgenerales();
 }

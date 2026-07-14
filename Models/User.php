@@ -1,4 +1,3 @@
-<!-- Models/User.php -->
 <?php 
 //incluir la conexion de base de datos
 require_once __DIR__ . '/../Config/Conexion.php';
