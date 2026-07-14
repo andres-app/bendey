@@ -838,44 +838,474 @@ if ($_SESSION['ventas'] == 1) {
 
                 </div>
 
-                <!-- Buscador -->
+                <!-- Buscador y creación rápida -->
                 <div class="px-4 py-3 bg-white">
 
                     <div
-                        class="input-group"
-                        style="max-width:540px;">
+                        class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center"
+                        style="gap:14px;">
 
-                        <div class="input-group-prepend">
+                        <div
+                            class="input-group flex-grow-1"
+                            style="max-width:620px;">
 
-                            <span
-                                class="input-group-text bg-white border-end-0">
+                            <div class="input-group-prepend">
 
-                                <i class="bi bi-search fs-4 text-secondary"></i>
-                            </span>
+                                <span
+                                    class="input-group-text bg-white border-end-0">
+
+                                    <i class="bi bi-search fs-4 text-secondary"></i>
+                                </span>
+
+                            </div>
+
+                            <input
+                                type="text"
+                                class="form-control border-start-0"
+                                id="buscarProducto"
+                                autocomplete="off"
+                                placeholder="Buscar por nombre o código..."
+                                style="font-size:1.1rem; min-height:48px;">
+
+                            <div class="input-group-append">
+
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary bg-white"
+                                    title="Escanear código">
+
+                                    <i class="bi bi-upc-scan fs-4"></i>
+                                </button>
+
+                            </div>
 
                         </div>
 
-                        <input
-                            type="text"
-                            class="form-control border-start-0"
-                            id="buscarProducto"
-                            autocomplete="off"
-                            placeholder="Buscar por nombre o código..."
-                            style="font-size:1.2rem;">
+                        <button
+                            type="button"
+                            class="btn btn-success d-flex align-items-center justify-content-center px-4"
+                            id="btnMostrarProductoRapido"
+                            style="min-height:48px; border-radius:12px; white-space:nowrap;">
 
-                        <div class="input-group-append">
-
-                            <button
-                                type="button"
-                                class="btn btn-outline-secondary bg-green"
-                                title="Escanear código">
-
-                                <i class="bi bi-upc-scan fs-4"></i>
-                            </button>
-
-                        </div>
+                            <i class="bi bi-plus-circle mr-2"></i>
+                            Registrar producto nuevo
+                        </button>
 
                     </div>
+
+                    <!-- Formulario rápido: está fuera del formulario de venta -->
+                    <style>
+                        #formProductoRapido .producto-rapido-panel {
+                            background:#f8faf9;
+                            border:1px solid #dce7e0;
+                            border-radius:16px;
+                            box-shadow:0 10px 28px rgba(16, 24, 40, .06);
+                            overflow:hidden;
+                        }
+
+                        #formProductoRapido .producto-rapido-cabecera {
+                            background:#ffffff;
+                            border-bottom:1px solid #e7ece9;
+                            padding:20px 22px;
+                        }
+
+                        #formProductoRapido .producto-rapido-contenido {
+                            padding:20px 22px 22px;
+                        }
+
+                        #formProductoRapido .producto-rapido-seccion {
+                            background:#ffffff;
+                            border:1px solid #e6ece8;
+                            border-radius:14px;
+                            padding:18px;
+                            margin-bottom:16px;
+                        }
+
+                        #formProductoRapido .producto-rapido-titulo-seccion {
+                            display:flex;
+                            align-items:center;
+                            gap:9px;
+                            color:#1f2937;
+                            font-size:.95rem;
+                            font-weight:700;
+                            margin-bottom:15px;
+                        }
+
+                        #formProductoRapido .producto-rapido-numero {
+                            width:25px;
+                            height:25px;
+                            border-radius:50%;
+                            background:#e8f7ec;
+                            color:#238a43;
+                            display:inline-flex;
+                            align-items:center;
+                            justify-content:center;
+                            font-size:.78rem;
+                            font-weight:800;
+                        }
+
+                        #formProductoRapido .producto-rapido-label {
+                            display:block;
+                            color:#344054 !important;
+                            font-size:.88rem;
+                            font-weight:700;
+                            line-height:1.25;
+                            margin-bottom:7px;
+                        }
+
+                        #formProductoRapido .producto-rapido-ayuda {
+                            display:block;
+                            color:#7a8895 !important;
+                            font-size:.76rem;
+                            line-height:1.35;
+                            margin-top:6px;
+                        }
+
+                        #formProductoRapido .form-control,
+                        #formProductoRapido .input-group-text {
+                            min-height:46px;
+                            border-color:#d7e0db;
+                        }
+
+                        #formProductoRapido .form-control:focus {
+                            border-color:#52b848;
+                            box-shadow:0 0 0 .18rem rgba(82, 184, 72, .13);
+                        }
+
+                        #formProductoRapido .producto-rapido-aviso {
+                            display:flex;
+                            align-items:flex-start;
+                            gap:10px;
+                            background:#eef8f1;
+                            border:1px solid #d8eddd;
+                            color:#365b40;
+                            border-radius:12px;
+                            padding:12px 14px;
+                            font-size:.83rem;
+                            line-height:1.45;
+                            margin-bottom:16px;
+                        }
+
+                        #formProductoRapido .producto-rapido-resultado {
+                            background:#f6f8f7;
+                            border:1px dashed #cad7cf;
+                            border-radius:12px;
+                            padding:12px 14px;
+                            min-height:52px;
+                        }
+
+                        #formProductoRapido .producto-rapido-resultado strong {
+                            color:#26332b;
+                        }
+
+                        #formProductoRapido .producto-rapido-obligatorio {
+                            color:#d14343;
+                        }
+
+                        @media (max-width: 767.98px) {
+                            #formProductoRapido .producto-rapido-cabecera,
+                            #formProductoRapido .producto-rapido-contenido {
+                                padding:16px;
+                            }
+                        }
+                    </style>
+
+                    <form
+                        id="formProductoRapido"
+                        class="mt-3"
+                        autocomplete="off"
+                        style="display:none;">
+
+                        <div class="producto-rapido-panel">
+
+                            <div class="producto-rapido-cabecera d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="d-flex align-items-center mb-1" style="gap:9px;">
+                                        <span class="badge badge-success px-3 py-2">
+                                            REGISTRO RÁPIDO
+                                        </span>
+
+                                        <span class="fw-bold text-dark" style="font-size:1.05rem;">
+                                            Producto nuevo
+                                        </span>
+                                    </div>
+
+                                    <div class="text-muted" style="font-size:.84rem;">
+                                        Regístralo sin salir de la venta y agrégalo inmediatamente al pedido.
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="btn btn-light btn-sm"
+                                    id="btnCerrarProductoRapido"
+                                    aria-label="Cerrar">
+
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+
+                            <div class="producto-rapido-contenido">
+
+                                <div class="producto-rapido-aviso">
+                                    <i class="bi bi-info-circle-fill mt-1"></i>
+                                    <div>
+                                        Los campos con <span class="producto-rapido-obligatorio">*</span> son obligatorios.
+                                        La <strong>cantidad disponible</strong> es todo el stock que tienes ahora;
+                                        al guardar se agregará solamente <strong>1 unidad</strong> a esta venta.
+                                    </div>
+                                </div>
+
+                                <div class="producto-rapido-seccion">
+                                    <div class="producto-rapido-titulo-seccion">
+                                        <span class="producto-rapido-numero">1</span>
+                                        Identifica el producto
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-lg-8 col-md-7 mb-3">
+                                            <label for="rapido_nombre" class="producto-rapido-label">
+                                                Nombre que verá en la venta
+                                                <span class="producto-rapido-obligatorio">*</span>
+                                            </label>
+
+                                            <input
+                                                type="text"
+                                                class="form-control"
+                                                id="rapido_nombre"
+                                                name="nombre"
+                                                maxlength="100"
+                                                required
+                                                placeholder="Ej.: Agua mineral 625 ml">
+
+                                            <small class="producto-rapido-ayuda">
+                                                Escribe un nombre fácil de reconocer en el buscador y en el comprobante.
+                                            </small>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-5 mb-3">
+                                            <label for="rapido_codigo" class="producto-rapido-label">
+                                                Código de barras o SKU
+                                                <span class="text-muted">(opcional)</span>
+                                            </label>
+
+                                            <input
+                                                type="text"
+                                                class="form-control"
+                                                id="rapido_codigo"
+                                                name="codigo"
+                                                maxlength="50"
+                                                placeholder="Ej.: AGUA-625">
+
+                                            <small class="producto-rapido-ayuda">
+                                                Déjalo vacío para generar un código automático.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="producto-rapido-seccion">
+                                    <div class="producto-rapido-titulo-seccion">
+                                        <span class="producto-rapido-numero">2</span>
+                                        Indica dónde y cómo se controlará
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-lg-3 col-md-6 mb-3">
+                                            <label for="rapido_idcategoria" class="producto-rapido-label">
+                                                Categoría <span class="producto-rapido-obligatorio">*</span>
+                                            </label>
+
+                                            <select
+                                                class="form-control form-select"
+                                                id="rapido_idcategoria"
+                                                name="idcategoria"
+                                                required>
+                                                <option value="">Cargando...</option>
+                                            </select>
+
+                                            <small class="producto-rapido-ayuda">
+                                                Grupo general, por ejemplo: Polos.
+                                            </small>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-6 mb-3">
+                                            <label for="rapido_idsubcategoria" class="producto-rapido-label">
+                                                Subcategoría
+                                            </label>
+
+                                            <select
+                                                class="form-control form-select"
+                                                id="rapido_idsubcategoria"
+                                                name="idsubcategoria">
+                                                <option value="">Selecciona primero la categoría</option>
+                                            </select>
+
+                                            <small class="producto-rapido-ayuda">
+                                                Clasificación más específica, por ejemplo: Con dibujo.
+                                            </small>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-6 mb-3">
+                                            <label for="rapido_idmedida" class="producto-rapido-label">
+                                                Unidad de venta <span class="producto-rapido-obligatorio">*</span>
+                                            </label>
+
+                                            <select
+                                                class="form-control form-select"
+                                                id="rapido_idmedida"
+                                                name="idmedida"
+                                                required>
+                                                <option value="">Cargando...</option>
+                                            </select>
+
+                                            <small class="producto-rapido-ayuda">
+                                                Para productos individuales usa Unidad (NIU).
+                                            </small>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-6 mb-3">
+                                            <label for="rapido_idalmacen" class="producto-rapido-label">
+                                                Almacén <span class="producto-rapido-obligatorio">*</span>
+                                            </label>
+
+                                            <select
+                                                class="form-control form-select"
+                                                id="rapido_idalmacen"
+                                                name="idalmacen"
+                                                required>
+                                                <option value="">Cargando...</option>
+                                            </select>
+
+                                            <small class="producto-rapido-ayuda">
+                                                Lugar donde quedará registrado el stock.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="producto-rapido-seccion mb-0">
+                                    <div class="producto-rapido-titulo-seccion">
+                                        <span class="producto-rapido-numero">3</span>
+                                        Registra el stock y los precios
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-lg-4 col-md-4 mb-3">
+                                            <label for="rapido_stock" class="producto-rapido-label">
+                                                ¿Cuántas unidades tienes ahora?
+                                                <span class="producto-rapido-obligatorio">*</span>
+                                            </label>
+
+                                            <input
+                                                type="number"
+                                                class="form-control"
+                                                id="rapido_stock"
+                                                name="stock"
+                                                min="1"
+                                                max="999999"
+                                                step="1"
+                                                value="1"
+                                                required
+                                                placeholder="Ej.: 10">
+
+                                            <small class="producto-rapido-ayuda">
+                                                Esta cantidad será el stock inicial del inventario.
+                                            </small>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 mb-3">
+                                            <label for="rapido_precio_compra" class="producto-rapido-label">
+                                                ¿Cuánto te costó cada unidad?
+                                                <span class="producto-rapido-obligatorio">*</span>
+                                            </label>
+
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text">S/</span>
+                                                </div>
+
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    id="rapido_precio_compra"
+                                                    name="precio_compra"
+                                                    min="0.01"
+                                                    max="99999999.99"
+                                                    step="0.01"
+                                                    required
+                                                    placeholder="Ej.: 10.00">
+                                            </div>
+
+                                            <small class="producto-rapido-ayuda">
+                                                Es el costo pagado al proveedor por una unidad.
+                                            </small>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 mb-3">
+                                            <label for="rapido_precio_venta" class="producto-rapido-label">
+                                                ¿A cuánto lo venderás?
+                                                <span class="producto-rapido-obligatorio">*</span>
+                                            </label>
+
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text">S/</span>
+                                                </div>
+
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    id="rapido_precio_venta"
+                                                    name="precio_venta"
+                                                    min="0.01"
+                                                    max="99999999.99"
+                                                    step="0.01"
+                                                    required
+                                                    placeholder="Ej.: 15.00">
+                                            </div>
+
+                                            <small class="producto-rapido-ayuda">
+                                                Este es el precio que se cobrará al cliente.
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-lg-6 mb-2 mb-lg-0">
+                                            <div class="producto-rapido-resultado" id="rapido_resumen_destino">
+                                                <span class="text-muted">Selecciona categoría, unidad y almacén.</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-6">
+                                            <div class="producto-rapido-resultado" id="rapido_ganancia">
+                                                <span class="text-muted">Ingresa el costo y el precio de venta para ver la ganancia.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex flex-column flex-sm-row justify-content-end mt-4" style="gap:10px;">
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary px-4"
+                                        id="btnCancelarProductoRapido">
+                                        Cancelar
+                                    </button>
+
+                                    <button
+                                        type="submit"
+                                        class="btn btn-success px-4"
+                                        id="btnGuardarProductoRapido">
+                                        <i class="bi bi-lightning-charge-fill mr-2"></i>
+                                        Guardar producto y agregar 1 al pedido
+                                    </button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
 
                 </div>
 

@@ -51,9 +51,22 @@ class Product
 				$total = $stock * $precioUnitario;
 
 				$sqlKardex = "INSERT INTO kardex 
-				(iddetalle, idarticulo, fecha, detalle, cantidadi, costoui, totali, cantidadex, costouex, totalex, tipo, estado) 
-				VALUES (?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, 'Ingreso', 'Activo')";
-				$arrKardex = [$idIngreso, $idarticulo, $detalle, $stock, $precioUnitario, $total, $stock, $precioUnitario, $total];
+				(iddetalle, idarticulo, fecha, detalle,
+				 cantidadi, costoui, totali,
+				 cantidads, costous, totals,
+				 cantidadex, costouex, totalex, tipo, estado) 
+				VALUES (?, ?, NOW(), ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, 'Ingreso', 'Activo')";
+				$arrKardex = [
+					$idIngreso,
+					$idarticulo,
+					$detalle,
+					$stock,
+					$precioUnitario,
+					$total,
+					$stock,
+					$precioUnitario,
+					$total
+				];
 				$this->conexion->setData($sqlKardex, $arrKardex);
 			}
 

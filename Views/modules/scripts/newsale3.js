@@ -1,4 +1,13 @@
 let productosCache = [];
+let categoriasCache = [];
+let datosProductoRapidoCache = {
+    categorias: [],
+    subcategorias: [],
+    medidas: [],
+    almacenes: []
+};
+let datosProductoRapidoCargados = false;
+let guardandoProductoRapido = false;
 
 const CLIENTE_GENERICO = Object.freeze({
     tipoDocumento: 'DNI',
@@ -952,24 +961,31 @@ function listarCategorias() {
         url: 'Controllers/Sell.php?op=listarCategorias',
         type: 'get',
         dataType: 'json',
+        cache: false,
+
         success: function (data) {
+            categoriasCache = Array.isArray(data) ? data : [];
 
             let html = '';
 
-            if (data.length === 0) {
+            if (categoriasCache.length === 0) {
                 html = `
                   <li class="nav-item">
                     <span class="nav-link text-muted">Sin categorías</span>
                   </li>`;
             } else {
+                categoriasCache.forEach(function (cat, idx) {
+                    const id = Number.parseInt(cat.idcategoria, 10) || 0;
+                    const nombre = escaparHtmlProducto(
+                        cat.nombre || 'Sin categoría'
+                    );
 
-                data.forEach((cat, idx) => {
                     html += `
                       <li class="nav-item">
                         <a href="#"
                            class="nav-link px-3 py-2 ${idx === 0 ? 'active fw-semibold text-success border-bottom border-2' : 'text-secondary'}"
-                           data-id="${cat.idcategoria}">
-                           ${cat.nombre}
+                           data-id="${id}">
+                           ${nombre}
                         </a>
                       </li>`;
                 });
@@ -977,9 +993,508 @@ function listarCategorias() {
 
             $('#catList').html(html);
 
-            if (data.length > 0) {
-                listarArticulosPorCategoria(data[0].idcategoria);
+            if (categoriasCache.length > 0) {
+                const primeraCategoria = Number.parseInt(
+                    categoriasCache[0].idcategoria,
+                    10
+                ) || 0;
+
+                listarArticulosPorCategoria(primeraCategoria);
             }
+        },
+
+        error: function () {
+            categoriasCache = [];
+            $('#catList').html(`
+                <li class="nav-item">
+                    <span class="nav-link text-danger">No se pudieron cargar las categorías</span>
+                </li>
+            `);
+        }
+    });
+}
+
+function escaparHtmlProducto(valor) {
+    return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function crearOpcionesProductoRapido(
+    registros,
+    campoValor,
+    campoTexto,
+    textoInicial
+) {
+    let html = `<option value="">${escaparHtmlProducto(textoInicial)}</option>`;
+
+    registros.forEach(function (registro) {
+        const valor = String(registro[campoValor] ?? '');
+        const texto = typeof campoTexto === 'function'
+            ? campoTexto(registro)
+            : registro[campoTexto];
+
+        html += `
+            <option value="${escaparHtmlProducto(valor)}">
+                ${escaparHtmlProducto(texto || '')}
+            </option>`;
+    });
+
+    return html;
+}
+
+function cargarDatosProductoRapido(forzar = false) {
+    if (datosProductoRapidoCargados && !forzar) {
+        poblarDatosProductoRapido();
+        return;
+    }
+
+    $('#rapido_idcategoria').html('<option value="">Cargando...</option>');
+    $('#rapido_idsubcategoria').html('<option value="">Cargando...</option>');
+    $('#rapido_idmedida').html('<option value="">Cargando...</option>');
+    $('#rapido_idalmacen').html('<option value="">Cargando...</option>');
+
+    $.ajax({
+        url: 'Controllers/Product.php?op=datosRapidos',
+        method: 'GET',
+        dataType: 'json',
+        cache: false,
+
+        success: function (respuesta) {
+            if (
+                !respuesta
+                || respuesta.success !== true
+                || !respuesta.datos
+            ) {
+                Swal.fire(
+                    'No se pudo preparar el formulario',
+                    String(
+                        respuesta && respuesta.mensaje
+                            ? respuesta.mensaje
+                            : 'No se recibieron categorías, unidades o almacenes.'
+                    ),
+                    'error'
+                );
+                return;
+            }
+
+            datosProductoRapidoCache = {
+                categorias: Array.isArray(respuesta.datos.categorias)
+                    ? respuesta.datos.categorias
+                    : [],
+                subcategorias: Array.isArray(respuesta.datos.subcategorias)
+                    ? respuesta.datos.subcategorias
+                    : [],
+                medidas: Array.isArray(respuesta.datos.medidas)
+                    ? respuesta.datos.medidas
+                    : [],
+                almacenes: Array.isArray(respuesta.datos.almacenes)
+                    ? respuesta.datos.almacenes
+                    : []
+            };
+
+            datosProductoRapidoCargados = true;
+            poblarDatosProductoRapido();
+        },
+
+        error: function (xhr) {
+            let mensaje = 'No se pudieron cargar los datos del producto.';
+
+            if (
+                xhr.responseJSON
+                && typeof xhr.responseJSON.mensaje === 'string'
+            ) {
+                mensaje = xhr.responseJSON.mensaje;
+            }
+
+            Swal.fire('Error', mensaje, 'error');
+        }
+    });
+}
+
+function poblarDatosProductoRapido() {
+    const datos = datosProductoRapidoCache;
+
+    $('#rapido_idcategoria').html(
+        crearOpcionesProductoRapido(
+            datos.categorias,
+            'idcategoria',
+            'nombre',
+            'Selecciona una categoría'
+        )
+    );
+
+    $('#rapido_idmedida').html(
+        crearOpcionesProductoRapido(
+            datos.medidas,
+            'idmedida',
+            function (medida) {
+                return `${medida.nombre || ''} (${medida.codigo || ''})`;
+            },
+            'Selecciona una unidad'
+        )
+    );
+
+    $('#rapido_idalmacen').html(
+        crearOpcionesProductoRapido(
+            datos.almacenes,
+            'idalmacen',
+            'nombre',
+            'Selecciona un almacén'
+        )
+    );
+
+    if (datos.categorias.length > 0) {
+        $('#rapido_idcategoria').val(
+            String(datos.categorias[0].idcategoria)
+        );
+    }
+
+    if (datos.medidas.length > 0) {
+        $('#rapido_idmedida').val(
+            String(datos.medidas[0].idmedida)
+        );
+    }
+
+    if (datos.almacenes.length > 0) {
+        $('#rapido_idalmacen').val(
+            String(datos.almacenes[0].idalmacen)
+        );
+    }
+
+    actualizarSubcategoriasRapidas();
+    actualizarResumenProductoRapido();
+    calcularGananciaProductoRapido();
+}
+
+function actualizarSubcategoriasRapidas() {
+    const idcategoria = Number.parseInt(
+        $('#rapido_idcategoria').val(),
+        10
+    ) || 0;
+
+    const subcategorias = datosProductoRapidoCache.subcategorias.filter(
+        function (subcategoria) {
+            return Number.parseInt(subcategoria.idcategoria, 10) === idcategoria;
+        }
+    );
+
+    if (subcategorias.length === 0) {
+        $('#rapido_idsubcategoria')
+            .html('<option value="">Sin subcategoría</option>')
+            .prop('disabled', true);
+    } else {
+        $('#rapido_idsubcategoria')
+            .html(
+                crearOpcionesProductoRapido(
+                    subcategorias,
+                    'idsubcategoria',
+                    'nombre',
+                    'Selecciona una subcategoría'
+                )
+            )
+            .prop('disabled', false)
+            .val(String(subcategorias[0].idsubcategoria));
+    }
+
+    actualizarResumenProductoRapido();
+}
+
+function actualizarResumenProductoRapido() {
+    const categoria = String(
+        $('#rapido_idcategoria option:selected').text() || ''
+    ).trim();
+    const subcategoria = String(
+        $('#rapido_idsubcategoria option:selected').text() || ''
+    ).trim();
+    const medida = String(
+        $('#rapido_idmedida option:selected').text() || ''
+    ).trim();
+    const almacen = String(
+        $('#rapido_idalmacen option:selected').text() || ''
+    ).trim();
+
+    const categoriaValida = $('#rapido_idcategoria').val();
+    const medidaValida = $('#rapido_idmedida').val();
+    const almacenValido = $('#rapido_idalmacen').val();
+
+    if (!categoriaValida || !medidaValida || !almacenValido) {
+        $('#rapido_resumen_destino').html(
+            '<span class="text-muted">Selecciona categoría, unidad y almacén.</span>'
+        );
+        return;
+    }
+
+    let clasificacion = categoria;
+
+    if (
+        subcategoria
+        && subcategoria !== 'Sin subcategoría'
+        && subcategoria !== 'Selecciona una subcategoría'
+    ) {
+        clasificacion += ' / ' + subcategoria;
+    }
+
+    $('#rapido_resumen_destino').html(
+        '<div class="small text-muted mb-1">Se registrará como</div>' +
+        '<strong>' + escaparHtmlProducto(clasificacion) + '</strong>' +
+        '<div class="small text-muted mt-1">' +
+        escaparHtmlProducto(medida) + ' · ' +
+        escaparHtmlProducto(almacen) +
+        '</div>'
+    );
+}
+
+function calcularGananciaProductoRapido() {
+    const compra = Number.parseFloat(
+        $('#rapido_precio_compra').val()
+    ) || 0;
+    const venta = Number.parseFloat(
+        $('#rapido_precio_venta').val()
+    ) || 0;
+
+    if (compra <= 0 || venta <= 0) {
+        $('#rapido_ganancia').html(
+            '<span class="text-muted">Ingresa el costo y el precio de venta para ver la ganancia.</span>'
+        );
+        return;
+    }
+
+    const ganancia = venta - compra;
+    const porcentaje = compra > 0
+        ? (ganancia / compra) * 100
+        : 0;
+    const clase = ganancia >= 0 ? 'text-success' : 'text-danger';
+
+    $('#rapido_ganancia').html(
+        '<div class="small text-muted mb-1">Ganancia estimada por unidad</div>' +
+        '<strong class="' + clase + '">S/ ' + ganancia.toFixed(2) + '</strong>' +
+        '<span class="small ' + clase + '"> (' + porcentaje.toFixed(1) + '%)</span>'
+    );
+}
+
+function abrirProductoRapido() {
+    const textoBusqueda = String(
+        $('#buscarProducto').val() || ''
+    ).trim();
+
+    cargarDatosProductoRapido();
+
+    $('#formProductoRapido').stop(true, true).slideDown(180);
+    $('#productosList').stop(true, true).slideUp(160);
+
+    $('#btnMostrarProductoRapido')
+        .prop('disabled', true)
+        .addClass('disabled');
+
+    if (
+        textoBusqueda !== ''
+        && String($('#rapido_nombre').val() || '').trim() === ''
+    ) {
+        $('#rapido_nombre').val(textoBusqueda);
+    }
+
+    window.setTimeout(function () {
+        $('#rapido_nombre').trigger('focus');
+    }, 220);
+}
+
+function cerrarProductoRapido(limpiar = false) {
+    $('#formProductoRapido').stop(true, true).slideUp(160);
+    $('#productosList').stop(true, true).slideDown(160);
+
+    $('#btnMostrarProductoRapido')
+        .prop('disabled', false)
+        .removeClass('disabled');
+
+    if (limpiar) {
+        const formulario = document.getElementById('formProductoRapido');
+
+        if (formulario) {
+            formulario.reset();
+        }
+
+        $('#rapido_stock').val('1');
+        $('#rapido_precio_compra').val('');
+        $('#rapido_precio_venta').val('');
+
+        if (datosProductoRapidoCargados) {
+            poblarDatosProductoRapido();
+        }
+    }
+}
+
+function guardarProductoRapido() {
+    if (guardandoProductoRapido) {
+        return;
+    }
+
+    const formulario = document.getElementById('formProductoRapido');
+
+    if (!formulario) {
+        return;
+    }
+
+    if (!formulario.checkValidity()) {
+        formulario.reportValidity();
+        return;
+    }
+
+    const idcategoria = Number.parseInt(
+        $('#rapido_idcategoria').val(),
+        10
+    ) || 0;
+    const idmedida = Number.parseInt(
+        $('#rapido_idmedida').val(),
+        10
+    ) || 0;
+    const idalmacen = Number.parseInt(
+        $('#rapido_idalmacen').val(),
+        10
+    ) || 0;
+    const stock = Number.parseInt($('#rapido_stock').val(), 10) || 0;
+    const precioCompra = Number.parseFloat(
+        $('#rapido_precio_compra').val()
+    ) || 0;
+    const precioVenta = Number.parseFloat(
+        $('#rapido_precio_venta').val()
+    ) || 0;
+
+    if (idcategoria <= 0 || idmedida <= 0 || idalmacen <= 0) {
+        Swal.fire(
+            'Faltan datos',
+            'Selecciona la categoría, la unidad de venta y el almacén.',
+            'warning'
+        );
+        return;
+    }
+
+    if (stock < 1) {
+        Swal.fire(
+            'Cantidad inválida',
+            'Indica cuántas unidades tienes actualmente. El mínimo es 1.',
+            'warning'
+        );
+        return;
+    }
+
+    if (precioCompra <= 0) {
+        Swal.fire(
+            'Costo inválido',
+            'Indica cuánto te costó cada unidad.',
+            'warning'
+        );
+        return;
+    }
+
+    if (precioVenta <= 0) {
+        Swal.fire(
+            'Precio inválido',
+            'Indica el precio que se cobrará al cliente.',
+            'warning'
+        );
+        return;
+    }
+
+    const datos = new FormData(formulario);
+
+    if ($('#rapido_idsubcategoria').prop('disabled')) {
+        datos.set('idsubcategoria', '');
+    }
+
+    const $boton = $('#btnGuardarProductoRapido');
+    const textoOriginal = $boton.html();
+
+    guardandoProductoRapido = true;
+
+    $boton
+        .prop('disabled', true)
+        .html(
+            '<span class="spinner-border spinner-border-sm mr-2"></span>' +
+            'Registrando...'
+        );
+
+    $.ajax({
+        url: 'Controllers/Product.php?op=guardarRapido',
+        method: 'POST',
+        data: datos,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        cache: false,
+
+        success: function (respuesta) {
+            if (
+                !respuesta
+                || respuesta.success !== true
+                || !respuesta.producto
+            ) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'No se creó el producto',
+                    text: String(
+                        respuesta && respuesta.mensaje
+                            ? respuesta.mensaje
+                            : 'El servidor no devolvió el producto creado.'
+                    )
+                });
+                return;
+            }
+
+            const producto = respuesta.producto;
+
+            cerrarProductoRapido(true);
+
+            agregarDetalle(
+                Number.parseInt(producto.idingreso, 10) || 0,
+                Number.parseInt(producto.idarticulo, 10) || 0,
+                String(producto.codigo || ''),
+                String(producto.nombre || ''),
+                Number.parseFloat(producto.precio_compra) || 0,
+                Number.parseFloat(producto.precio_venta) || 0,
+                Number.parseInt(producto.stock, 10) || 1,
+                1
+            );
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Producto listo para vender',
+                html:
+                    '<strong>' + escaparHtmlProducto(producto.nombre || '') + '</strong><br>' +
+                    'Se guardó en el inventario y se agregó 1 unidad al pedido.',
+                timer: 1900,
+                showConfirmButton: false
+            });
+        },
+
+        error: function (xhr) {
+            let mensaje = 'No se pudo registrar el producto.';
+
+            if (
+                xhr.responseJSON
+                && typeof xhr.responseJSON.mensaje === 'string'
+            ) {
+                mensaje = xhr.responseJSON.mensaje;
+            }
+
+            console.error(
+                'ERROR PRODUCTO RÁPIDO:',
+                xhr.status,
+                xhr.responseText
+            );
+
+            Swal.fire('Error', mensaje, 'error');
+        },
+
+        complete: function () {
+            guardandoProductoRapido = false;
+
+            $boton
+                .prop('disabled', false)
+                .html(textoOriginal);
         }
     });
 }
@@ -1011,8 +1526,8 @@ function listarArticulosPorCategoria(idcategoria) {
         dataType: 'json',
         success: function (data) {
 
-            productosCache = data;   // 🔥 cache
-            renderProductos(data);   // 🔥 render central
+            productosCache = Array.isArray(data) ? data : [];
+            renderProductos(productosCache);
         },
         error: function () {
             productosCache = [];
@@ -1022,75 +1537,100 @@ function listarArticulosPorCategoria(idcategoria) {
 }
 
 
-$(document).on('click', '#catList a.nav-link:not(.disabled)', function (e) {
-    e.preventDefault();
-
-    // 🔹 quitar active a todos
-    $('#catList a.nav-link').removeClass('active');
-
-    // 🔹 activar el seleccionado
-    $(this).addClass('active');
-
-    // 🔹 obtener id
-    let idcategoria = $(this).data('id');
-
-    // 🔹 cargar productos
-    listarArticulosPorCategoria(idcategoria);
-});
-
-
-
 function renderProductos(data) {
-
     let prodHtml = '';
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
         prodHtml = `
             <div class="col-12 text-center py-5 text-muted">
                 <i class="bi bi-search fs-1 mb-3"></i>
                 <div>No se encontraron productos</div>
             </div>`;
     } else {
-
         data.forEach(function (prod) {
+            const idingreso = Number.parseInt(
+                prod.idingreso || prod.iddetalle_ingreso || 0,
+                10
+            ) || 0;
+
+            const idarticulo = Number.parseInt(
+                prod.idarticulo,
+                10
+            ) || 0;
+
+            const codigo = String(prod.codigo || '');
+            const nombre = String(prod.nombre || '');
+            const imagen = String(prod.imagen || '');
+            const precioCompra = Number.parseFloat(
+                prod.precio_compra
+            ) || 0;
+            const precioVenta = Number.parseFloat(
+                prod.precio_venta
+            ) || 0;
+            const stock = Number.parseInt(
+                prod.stock,
+                10
+            ) || 0;
+
+            const codigoHtml = escaparHtmlProducto(codigo);
+            const nombreHtml = escaparHtmlProducto(nombre);
+            const imagenHtml = escaparHtmlProducto(imagen);
 
             prodHtml += `
                 <div class="col-12 col-md-6 col-lg-4 mb-4 producto-item"
-                     data-nombre="${prod.nombre.toLowerCase()}"
-                     data-codigo="${prod.codigo.toLowerCase()}">
+                     data-nombre="${nombreHtml.toLowerCase()}"
+                     data-codigo="${codigoHtml.toLowerCase()}">
 
-                    <div class="card border-0 shadow-sm h-100 producto-card"
+                    <div
+                        class="card border-0 shadow-sm h-100 producto-card"
+                        role="button"
+                        tabindex="0"
                         style="cursor:pointer;"
-                     onclick="agregarDetalle(
-                        ${prod.idingreso},
-                        ${prod.idarticulo},
-                        '${prod.codigo}',                     // ✅ SKU CORRECTO
-                        '${prod.nombre.replace(/'/g, "\\'")}',
-                        ${prod.precio_compra},
-                        ${prod.precio_venta},
-                        ${prod.stock},
-                        1
-                    )"
-                    >
+                        data-idingreso="${idingreso}"
+                        data-idarticulo="${idarticulo}"
+                        data-codigo="${codigoHtml}"
+                        data-nombre="${nombreHtml}"
+                        data-precio-compra="${precioCompra}"
+                        data-precio-venta="${precioVenta}"
+                        data-stock="${stock}">
 
                         <div class="card-body">
 
                             <div class="mb-2 fw-bold fs-5" style="color:#353535;">
-                                ${prod.nombre}
+                                ${nombreHtml}
                             </div>
 
                             <div class="d-flex align-items-center mb-3">
-                                <div style="width:90px;height:90px;background:#f2f2f2;border-radius:12px;
-                                            display:flex;align-items:center;justify-content:center;margin-right:24px;">
-                                    ${prod.imagen
-                    ? `<img src="Assets/img/products/${prod.imagen}" style="max-width:80px; max-height:80px; border-radius:10px;">`
-                    : `<i class="bi bi-image fs-1 text-secondary"></i>`}
+                                <div style="
+                                    width:90px;
+                                    height:90px;
+                                    background:#f2f2f2;
+                                    border-radius:12px;
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:center;
+                                    margin-right:24px;
+                                ">
+                                    ${imagen
+                                        ? `<img
+                                            src="Assets/img/products/${imagenHtml}"
+                                            alt="${nombreHtml}"
+                                            style="
+                                                max-width:80px;
+                                                max-height:80px;
+                                                border-radius:10px;
+                                            ">`
+                                        : `<i class="bi bi-image fs-1 text-secondary"></i>`
+                                    }
                                 </div>
 
                                 <div class="small">
-                                    <div><strong>SKU:</strong> ${prod.codigo}</div>
-                                    <div><strong>Stock:</strong> ${prod.stock}</div>
-                                    <div><strong>Precio:</strong> S/${Number(prod.precio_venta).toFixed(2)}</div>
+                                    <div><strong>SKU:</strong> ${codigoHtml}</div>
+                                    <div><strong>Stock:</strong> ${stock}</div>
+                                    <div>
+                                        <strong>Precio:</strong>
+                                        S/${precioVenta.toFixed(2)}
+                                    </div>
                                 </div>
                             </div>
 
@@ -1104,6 +1644,38 @@ function renderProductos(data) {
     $('#productosList').html(prodHtml);
 }
 
+$(document).on(
+    'click keydown',
+    '.producto-card',
+    function (evento) {
+        if (
+            evento.type === 'keydown'
+            && evento.key !== 'Enter'
+            && evento.key !== ' '
+        ) {
+            return;
+        }
+
+        evento.preventDefault();
+
+        const $producto = $(this);
+
+        agregarDetalle(
+            Number.parseInt($producto.attr('data-idingreso'), 10) || 0,
+            Number.parseInt($producto.attr('data-idarticulo'), 10) || 0,
+            String($producto.attr('data-codigo') || ''),
+            String($producto.attr('data-nombre') || ''),
+            Number.parseFloat(
+                $producto.attr('data-precio-compra')
+            ) || 0,
+            Number.parseFloat(
+                $producto.attr('data-precio-venta')
+            ) || 0,
+            Number.parseInt($producto.attr('data-stock'), 10) || 0,
+            1
+        );
+    }
+);
 
 
 $('#buscarProducto').on('input', function () {
@@ -1115,18 +1687,65 @@ $('#buscarProducto').on('input', function () {
         return;
     }
 
-    let filtrados = productosCache.filter(p =>
-        p.nombre.toLowerCase().includes(texto) ||
-        p.codigo.toLowerCase().includes(texto)
-    );
+    let filtrados = productosCache.filter(function (p) {
+        const nombre = String(p.nombre || '').toLowerCase();
+        const codigo = String(p.codigo || '').toLowerCase();
+
+        return nombre.includes(texto) || codigo.includes(texto);
+    });
 
     renderProductos(filtrados);
 });
 
 $('#btnAbrirModal').on('click', function () {
+    cerrarProductoRapido(true);
     $('#modalProductos').modal('show');
     $('#buscarProducto').val('');
     listarCategorias();
+    cargarDatosProductoRapido();
+});
+
+
+$(document).on('click', '#btnMostrarProductoRapido', function () {
+    abrirProductoRapido();
+});
+
+$(document).on(
+    'click',
+    '#btnCerrarProductoRapido, #btnCancelarProductoRapido',
+    function () {
+        cerrarProductoRapido(true);
+    }
+);
+
+$(document).on('submit', '#formProductoRapido', function (evento) {
+    evento.preventDefault();
+    evento.stopPropagation();
+    guardarProductoRapido();
+});
+
+$(document).on('change', '#rapido_idcategoria', function () {
+    actualizarSubcategoriasRapidas();
+});
+
+$(document).on(
+    'change',
+    '#rapido_idsubcategoria, #rapido_idmedida, #rapido_idalmacen',
+    function () {
+        actualizarResumenProductoRapido();
+    }
+);
+
+$(document).on(
+    'input',
+    '#rapido_precio_compra, #rapido_precio_venta',
+    function () {
+        calcularGananciaProductoRapido();
+    }
+);
+
+$('#modalProductos').on('hidden.bs.modal', function () {
+    cerrarProductoRapido(true);
 });
 
 
