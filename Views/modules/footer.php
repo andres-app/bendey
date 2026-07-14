@@ -100,7 +100,19 @@ if ($url === 'cajachica') {
 ?>
 
 <!-- ================= APERTURA GLOBAL ================= -->
-<script src="Views/modules/scripts/apertura_caja.js"></script>
+<?php
+$rutaAperturaJs =
+    __DIR__ . '/scripts/apertura_caja.js';
+
+$versionAperturaJs =
+    file_exists($rutaAperturaJs)
+        ? filemtime($rutaAperturaJs)
+        : time();
+?>
+
+<script
+    src="Views/modules/scripts/apertura_caja.js?v=<?= $versionAperturaJs ?>">
+</script>
 
 </body>
 
