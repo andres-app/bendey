@@ -12,6 +12,29 @@ $op = $_GET['op'] ?? '';
 $idventa = (int)($_POST['idventa'] ?? $_GET['idventa'] ?? 0);
 $idusuario = (int)($_SESSION['idusuario'] ?? 0);
 
+$modoCajaSesion = strtoupper(
+    trim(
+        (string)(
+            $_SESSION['modo_caja']
+            ?? 'LEGACY'
+        )
+    )
+);
+
+if (
+    !in_array(
+        $modoCajaSesion,
+        [
+            'LEGACY',
+            'CAJA_UNICA',
+            'MULTICAJA'
+        ],
+        true
+    )
+) {
+    $modoCajaSesion = 'LEGACY';
+}
+
 /**
  * Respuesta JSON uniforme.
  */
@@ -158,6 +181,10 @@ switch ($op) {
             ]);
         }
 
+        $idsucursalVenta = null;
+        $idcajaVenta = null;
+        $idaperturaVenta = null;
+
         $conexionVenta = $sell->getConexion();
 
         // Ambos modelos usan la misma conexión y transacción.
@@ -184,6 +211,105 @@ switch ($op) {
                 throw new Exception(
                     'Debe seleccionar un tipo de comprobante.'
                 );
+            }
+
+            /*
+|--------------------------------------------------------------------------
+| CONTEXTO DE SUCURSAL, CAJA Y APERTURA
+|--------------------------------------------------------------------------
+| LEGACY conserva los campos en NULL.
+| CAJA_UNICA y MULTICAJA requieren una apertura física activa.
+|--------------------------------------------------------------------------
+*/
+            $esCotizacion =
+                stripos(
+                    $tipo_comprobante,
+                    'cotizacion'
+                ) !== false;
+
+            if ($modoCajaSesion !== 'LEGACY') {
+                $idsucursalSesion = (int)(
+                    $_SESSION['idsucursal_activa']
+                    ?? 0
+                );
+
+                if ($idsucursalSesion <= 0) {
+                    throw new Exception(
+                        'No existe una sucursal activa en la sesión.'
+                    );
+                }
+
+                /*
+     * Las cotizaciones pertenecen a la sucursal,
+     * pero no generan ingreso en caja.
+     */
+                $idsucursalVenta = $idsucursalSesion;
+
+                if (!$esCotizacion) {
+                    $idcajaSesion = (int)(
+                        $_SESSION['idcaja_activa']
+                        ?? 0
+                    );
+
+                    $idaperturaSesion = (int)(
+                        $_SESSION['idapertura_activa']
+                        ?? 0
+                    );
+
+                    if ($idcajaSesion <= 0) {
+                        throw new Exception(
+                            'No existe una caja activa en la sesión.'
+                        );
+                    }
+
+                    if ($idaperturaSesion <= 0) {
+                        throw new Exception(
+                            'Debe abrir la caja antes de registrar una venta.'
+                        );
+                    }
+
+                    /*
+         * Verificar que la apertura continúa activa
+         * y corresponde a la sucursal y caja de la sesión.
+         */
+                    $aperturaVenta =
+                        $conexionVenta->getData(
+                            "SELECT
+                    idapertura,
+                    idsucursal,
+                    idcaja,
+                    estado
+
+                 FROM caja_apertura
+
+                 WHERE idapertura = ?
+                   AND idsucursal = ?
+                   AND idcaja = ?
+                   AND estado = 'ABIERTA'
+
+                 LIMIT 1
+                 FOR UPDATE",
+                            [
+                                $idaperturaSesion,
+                                $idsucursalSesion,
+                                $idcajaSesion
+                            ]
+                        );
+
+                    if (!is_array($aperturaVenta)) {
+                        $_SESSION['idapertura_activa'] = 0;
+
+                        throw new Exception(
+                            'La apertura de caja ya no se encuentra activa.'
+                        );
+                    }
+
+                    $idcajaVenta =
+                        (int)$aperturaVenta['idcaja'];
+
+                    $idaperturaVenta =
+                        (int)$aperturaVenta['idapertura'];
+                }
             }
 
             // =================================================
@@ -249,8 +375,8 @@ switch ($op) {
 
             $numeroDocumentoRecibido =
                 $numDocReal !== ''
-                    ? $numDocReal
-                    : ($_POST['num_documento'] ?? '');
+                ? $numDocReal
+                : ($_POST['num_documento'] ?? '');
 
             $num_documento = preg_replace(
                 '/[^0-9A-Za-z\-]/',
@@ -893,9 +1019,11 @@ switch ($op) {
                 $idarticulos,
                 $cantidades,
                 $preciosCompra,
-                $preciosVenta
+                $preciosVenta,
+                $idsucursalVenta,
+                $idcajaVenta,
+                $idaperturaVenta
             );
-
             if (!$idventa) {
                 throw new Exception(
                     'Error al registrar la venta.'
