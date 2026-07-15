@@ -8,6 +8,7 @@
 */
 function init() {
     cargarDatosEmpresa();
+    cargarConfiguracionCaja();
 
     $("#formulario").on(
         "submit",
@@ -198,6 +199,262 @@ function cargarDatosEmpresa() {
             );
         }
     });
+}
+
+/*
+|--------------------------------------------------------------------------
+| CARGAR CONFIGURACIÓN DE CAJA
+|--------------------------------------------------------------------------
+*/
+function cargarConfiguracionCaja() {
+    $.ajax({
+        url: "Controllers/ConfiguracionCaja.php",
+        type: "GET",
+        dataType: "json",
+        cache: false,
+
+        data: {
+            op: "obtener",
+            v: Date.now()
+        },
+
+        success: function (data) {
+            if (
+                !data ||
+                data.success !== true ||
+                !data.configuracion
+            ) {
+                mostrarErrorConfiguracionCaja(
+                    data && data.mensaje
+                        ? data.mensaje
+                        : "No se encontró la configuración de caja."
+                );
+
+                return;
+            }
+
+            const configuracion =
+                data.configuracion;
+
+            const cajas =
+                Array.isArray(data.cajas)
+                    ? data.cajas
+                    : [];
+
+            const modo = String(
+                configuracion.modo || ""
+            );
+
+            $("#idsucursalCaja").val(
+                configuracion.idsucursal || ""
+            );
+
+            $("#cajaSucursalNombre").text(
+                configuracion.nombre_sucursal || "—"
+            );
+
+            $("#cajaSucursalCodigo").text(
+                configuracion.codigo_sucursal || "—"
+            );
+
+            $("#cajaPrincipalNombre").text(
+                configuracion.nombre_caja_unica || "Sin asignar"
+            );
+
+            $("#cajaPrincipalCodigo").text(
+                configuracion.codigo_caja_unica || "—"
+            );
+
+            $("#totalCajasActivas").text(
+                Number(data.total_cajas || 0)
+            );
+
+            cargarOpcionesCajas(
+                cajas,
+                configuracion.idcaja_unica
+            );
+
+            $("#modoCajaUnica").prop(
+                "checked",
+                modo === "CAJA_UNICA"
+            );
+
+            $("#modoMulticaja").prop(
+                "checked",
+                modo === "MULTICAJA"
+            );
+
+            actualizarEstadoConfiguracionCaja(
+                modo
+            );
+        },
+
+        error: function (xhr) {
+            console.error(
+                "Error al cargar configuración de caja:",
+                xhr.status,
+                xhr.responseText
+            );
+
+            mostrarErrorConfiguracionCaja(
+                obtenerMensajeError(
+                    xhr,
+                    "No se pudo cargar la configuración de caja."
+                )
+            );
+        }
+    });
+}
+
+/*
+|--------------------------------------------------------------------------
+| CARGAR CAJAS EN EL SELECT
+|--------------------------------------------------------------------------
+*/
+function cargarOpcionesCajas(
+    cajas,
+    idcajaSeleccionada
+) {
+    const $select =
+        $("#idcajaUnica");
+
+    $select.empty();
+
+    if (cajas.length === 0) {
+        $select.append(
+            $("<option>", {
+                value: "",
+                text: "No existen cajas activas"
+            })
+        );
+
+        return;
+    }
+
+    cajas.forEach(function (caja) {
+        const nombre =
+            String(caja.nombre || "");
+
+        const codigo =
+            String(caja.codigo || "");
+
+        $select.append(
+            $("<option>", {
+                value: caja.idcaja,
+                text:
+                    nombre +
+                    (
+                        codigo !== ""
+                            ? " (" + codigo + ")"
+                            : ""
+                    )
+            })
+        );
+    });
+
+    if (idcajaSeleccionada) {
+        $select.val(
+            String(idcajaSeleccionada)
+        );
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| ESTADO VISUAL DE CONFIGURACIÓN DE CAJA
+|--------------------------------------------------------------------------
+*/
+function actualizarEstadoConfiguracionCaja(
+    modo
+) {
+    const $estado =
+        $("#estadoConfiguracionCaja");
+
+    const $titulo =
+        $("#configuracionCajaTitulo");
+
+    const $mensaje =
+        $("#configuracionCajaMensaje");
+
+    $estado.removeClass(
+        "badge-secondary badge-warning badge-success badge-primary badge-danger"
+    );
+
+    if (modo === "CAJA_UNICA") {
+        $estado
+            .text("Caja única activa")
+            .addClass("badge-success");
+
+        $titulo.text(
+            "La sucursal trabaja con Caja única."
+        );
+
+        $mensaje.text(
+            "Todos los usuarios autorizados utilizan la misma apertura y caja física."
+        );
+
+        return;
+    }
+
+    if (modo === "MULTICAJA") {
+        $estado
+            .text("Multicaja activo")
+            .addClass("badge-primary");
+
+        $titulo.text(
+            "La sucursal trabaja con varias cajas."
+        );
+
+        $mensaje.text(
+            "Cada caja física administra su propia apertura, cierre y efectivo."
+        );
+
+        return;
+    }
+
+    $estado
+        .text("Pendiente de activación")
+        .addClass("badge-warning");
+
+    $titulo.text(
+        "La nueva modalidad de caja aún no está activa."
+    );
+
+    $mensaje.text(
+        "El sistema conserva temporalmente el funcionamiento actual mientras se completa la adaptación segura de todos los módulos."
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ERROR VISUAL DE CONFIGURACIÓN DE CAJA
+|--------------------------------------------------------------------------
+*/
+function mostrarErrorConfiguracionCaja(
+    mensaje
+) {
+    $("#estadoConfiguracionCaja")
+        .text("Error")
+        .removeClass(
+            "badge-secondary badge-warning badge-success badge-primary"
+        )
+        .addClass(
+            "badge-danger"
+        );
+
+    $("#configuracionCajaTitulo").text(
+        "No se pudo cargar la configuración."
+    );
+
+    $("#configuracionCajaMensaje").text(
+        String(mensaje || "")
+    );
+
+    $("#cajaSucursalNombre").text("—");
+    $("#cajaSucursalCodigo").text("—");
+    $("#cajaPrincipalNombre").text("—");
+    $("#cajaPrincipalCodigo").text("—");
+    $("#totalCajasActivas").text("0");
 }
 
 /*
