@@ -201,7 +201,11 @@ class Cobranza
         int $idusuario,
         array $aplicaciones,
         array $pagos,
-        string $observacion = ''
+        string $observacion = '',
+        string $modoCaja = 'LEGACY',
+        ?int $idsucursalSesion = null,
+        ?int $idcajaSesion = null,
+        ?int $idaperturaSesion = null
     ): array {
         if ($idventa <= 0) {
             throw new InvalidArgumentException('La venta no es válida.');
@@ -218,6 +222,39 @@ class Cobranza
         if (empty($pagos)) {
             throw new RuntimeException('Debe registrar al menos una forma de pago.');
         }
+
+        $modoCaja = strtoupper(
+            trim($modoCaja)
+        );
+
+        if (
+            !in_array(
+                $modoCaja,
+                [
+                    'LEGACY',
+                    'CAJA_UNICA',
+                    'MULTICAJA'
+                ],
+                true
+            )
+        ) {
+            $modoCaja = 'LEGACY';
+        }
+
+        $idsucursalSesion = (int)(
+            $idsucursalSesion
+            ?? 0
+        );
+
+        $idcajaSesion = (int)(
+            $idcajaSesion
+            ?? 0
+        );
+
+        $idaperturaSesion = (int)(
+            $idaperturaSesion
+            ?? 0
+        );
 
         $transaccionActiva = false;
 
@@ -311,8 +348,8 @@ class Cobranza
                 if ($montoAplicado - $saldo > 0.009) {
                     throw new RuntimeException(
                         'El monto aplicado a ' . $cuota['codigo']
-                        . ' supera su saldo de S/ '
-                        . number_format($saldo, 2, '.', '') . '.'
+                            . ' supera su saldo de S/ '
+                            . number_format($saldo, 2, '.', '') . '.'
                     );
                 }
 
@@ -381,38 +418,122 @@ class Cobranza
 
                 $idApertura = null;
 
-                if ((int)$forma['requiere_caja_abierta'] === 1) {
-                    $cajas = $this->conexion->getDataAll(
-                        "SELECT idapertura
-                         FROM caja_apertura
-                         WHERE idusuario = ?
-                           AND estado = 'ABIERTA'
-                         ORDER BY idapertura DESC
-                         FOR UPDATE",
-                        [$idusuario]
-                    );
+                if (
+                    (int)$forma['requiere_caja_abierta']
+                    === 1
+                ) {
+                    /*
+    |--------------------------------------------------------------------------
+    | LEGACY
+    |--------------------------------------------------------------------------
+    | Conserva la búsqueda de apertura por usuario.
+    |--------------------------------------------------------------------------
+    */
+                    if ($modoCaja === 'LEGACY') {
+                        $cajas =
+                            $this->conexion->getDataAll(
+                                "SELECT idapertura
+                 FROM caja_apertura
+                 WHERE idusuario = ?
+                   AND estado = 'ABIERTA'
+                 ORDER BY idapertura DESC
+                 FOR UPDATE",
+                                [$idusuario]
+                            );
 
-                    $cantidadCajas = is_array($cajas) ? count($cajas) : 0;
+                        $cantidadCajas = is_array($cajas)
+                            ? count($cajas)
+                            : 0;
 
-                    if ($cantidadCajas === 0) {
-                        throw new RuntimeException(
-                            'Debe abrir caja antes de registrar una cobranza en efectivo.'
+                        if ($cantidadCajas === 0) {
+                            throw new RuntimeException(
+                                'Debe abrir caja antes de registrar una cobranza en efectivo.'
+                            );
+                        }
+
+                        if ($cantidadCajas > 1) {
+                            throw new RuntimeException(
+                                'Se encontraron varias cajas abiertas para el usuario.'
+                            );
+                        }
+
+                        $idApertura = (int)(
+                            $cajas[0]['idapertura']
+                            ?? 0
                         );
-                    }
+                    } else {
+                        /*
+        |--------------------------------------------------------------------------
+        | CAJA ÚNICA Y MULTICAJA
+        |--------------------------------------------------------------------------
+        | La cobranza utiliza la apertura física activa de la sesión.
+        |--------------------------------------------------------------------------
+        */
+                        if ($idsucursalSesion <= 0) {
+                            throw new RuntimeException(
+                                'No existe una sucursal activa para registrar la cobranza.'
+                            );
+                        }
 
-                    if ($cantidadCajas > 1) {
-                        throw new RuntimeException(
-                            'Se encontraron varias cajas abiertas para el usuario.'
+                        if ($idcajaSesion <= 0) {
+                            throw new RuntimeException(
+                                'No existe una caja física seleccionada.'
+                            );
+                        }
+
+                        if ($idaperturaSesion <= 0) {
+                            throw new RuntimeException(
+                                'Debe abrir la caja antes de registrar una cobranza en efectivo.'
+                            );
+                        }
+
+                        $aperturaFisica =
+                            $this->conexion->getData(
+                                "SELECT
+                    idapertura,
+                    idsucursal,
+                    idcaja,
+                    estado
+
+                 FROM caja_apertura
+
+                 WHERE idapertura = ?
+                   AND idsucursal = ?
+                   AND idcaja = ?
+                   AND estado = 'ABIERTA'
+
+                 LIMIT 1
+                 FOR UPDATE",
+                                [
+                                    $idaperturaSesion,
+                                    $idsucursalSesion,
+                                    $idcajaSesion
+                                ]
+                            );
+
+                        if (!is_array($aperturaFisica)) {
+                            throw new RuntimeException(
+                                'La apertura física seleccionada ya no se encuentra activa.'
+                            );
+                        }
+
+                        $idApertura = (int)(
+                            $aperturaFisica['idapertura']
+                            ?? 0
                         );
-                    }
 
-                    $idApertura = (int)$cajas[0]['idapertura'];
+                        if ($idApertura <= 0) {
+                            throw new RuntimeException(
+                                'La apertura física de la cobranza no es válida.'
+                            );
+                        }
+                    }
                 }
 
                 if ((int)($forma['idcuenta_financiera'] ?? 0) <= 0) {
                     throw new RuntimeException(
                         'La forma de pago ' . $forma['nombre']
-                        . ' no tiene una cuenta financiera configurada.'
+                            . ' no tiene una cuenta financiera configurada.'
                     );
                 }
 

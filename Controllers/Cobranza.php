@@ -15,13 +15,51 @@ function responderCobranza(array $data): void
     echo json_encode(
         $data,
         JSON_UNESCAPED_UNICODE |
-        JSON_UNESCAPED_SLASHES
+            JSON_UNESCAPED_SLASHES
     );
     exit;
 }
 
 $idusuario = (int)($_SESSION['idusuario'] ?? 0);
 $permisoVentas = (int)($_SESSION['ventas'] ?? 0);
+
+$modoCajaSesion = strtoupper(
+    trim(
+        (string)(
+            $_SESSION['modo_caja']
+            ?? 'LEGACY'
+        )
+    )
+);
+
+if (
+    !in_array(
+        $modoCajaSesion,
+        [
+            'LEGACY',
+            'CAJA_UNICA',
+            'MULTICAJA'
+        ],
+        true
+    )
+) {
+    $modoCajaSesion = 'LEGACY';
+}
+
+$idsucursalSesion = (int)(
+    $_SESSION['idsucursal_activa']
+    ?? 0
+);
+
+$idcajaSesion = (int)(
+    $_SESSION['idcaja_activa']
+    ?? 0
+);
+
+$idaperturaSesion = (int)(
+    $_SESSION['idapertura_activa']
+    ?? 0
+);
 
 if ($idusuario <= 0 || $permisoVentas !== 1) {
     responderCobranza([
@@ -61,8 +99,8 @@ try {
 
                 $boton = $saldo > 0
                     ? '<button class="btn btn-success btn-sm" onclick="abrirCobranza('
-                        . $idventa
-                        . ')" title="Registrar pago"><i class="fas fa-hand-holding-usd"></i></button>'
+                    . $idventa
+                    . ')" title="Registrar pago"><i class="fas fa-hand-holding-usd"></i></button>'
                     : '<button class="btn btn-secondary btn-sm" disabled title="Sin saldo"><i class="fas fa-check"></i></button>';
 
                 $data[] = [
@@ -71,8 +109,8 @@ try {
                     '2' => htmlspecialchars((string)$registro['cliente'], ENT_QUOTES, 'UTF-8'),
                     '3' => htmlspecialchars(
                         (string)$registro['serie_comprobante']
-                        . '-'
-                        . (string)$registro['num_comprobante'],
+                            . '-'
+                            . (string)$registro['num_comprobante'],
                         ENT_QUOTES,
                         'UTF-8'
                     ),
@@ -126,13 +164,41 @@ try {
             $resultado = $cobranza->registrar(
                 (int)($payload['idventa'] ?? 0),
                 $idusuario,
-                is_array($payload['aplicaciones'] ?? null)
+
+                is_array(
+                    $payload['aplicaciones']
+                        ?? null
+                )
                     ? $payload['aplicaciones']
                     : [],
-                is_array($payload['pagos'] ?? null)
+
+                is_array(
+                    $payload['pagos']
+                        ?? null
+                )
                     ? $payload['pagos']
                     : [],
-                trim((string)($payload['observacion'] ?? ''))
+
+                trim(
+                    (string)(
+                        $payload['observacion']
+                        ?? ''
+                    )
+                ),
+
+                $modoCajaSesion,
+
+                $idsucursalSesion > 0
+                    ? $idsucursalSesion
+                    : null,
+
+                $idcajaSesion > 0
+                    ? $idcajaSesion
+                    : null,
+
+                $idaperturaSesion > 0
+                    ? $idaperturaSesion
+                    : null
             );
 
             responderCobranza($resultado);
