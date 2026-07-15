@@ -1904,92 +1904,252 @@ function agregarDetalle(
 }
 
 // ===============================
-// 📦 SCANNER DE CÓDIGO DE BARRAS
+// SCANNER GLOBAL DE CÓDIGO DE BARRAS
 // ===============================
+// Detecta lecturas rápidas del escáner incluso cuando el foco está
+// dentro de un input. La búsqueda se realiza en toda la base de datos,
+// sin depender de la categoría seleccionada en el modal.
 
 let bufferScan = '';
+let scanInicio = 0;
+let scanUltimaTecla = 0;
 let scanTimeout = null;
+let scanTarget = null;
+let scanValorOriginal = null;
+let scannerAjaxActual = null;
 
-$(document).on('keypress', function (e) {
+const SCAN_MIN_CARACTERES = 3;
+const SCAN_MAX_INTERVALO = 80;
+const SCAN_MAX_DURACION = 1800;
 
-    // Ignorar inputs normales
-    if ($(e.target).is('input, textarea')) return;
+function limpiarCodigoEscaneado(codigo) {
+    return String(codigo || '')
+        .replace(/[\u0000-\u001F\u007F]/g, '')
+        .trim();
+}
 
-    // ENTER → fin de escaneo
-    if (e.which === 13) {
+function reiniciarBufferScanner() {
+    bufferScan = '';
+    scanInicio = 0;
+    scanUltimaTecla = 0;
+    scanTarget = null;
+    scanValorOriginal = null;
 
-        if (bufferScan.length >= 3) {
-            console.log('ESCANEADO:', bufferScan);
-            buscarProductoPorCodigo(bufferScan);
-        }
+    if (scanTimeout) {
+        clearTimeout(scanTimeout);
+        scanTimeout = null;
+    }
+}
 
-        bufferScan = '';
+function restaurarCampoTrasEscaneo() {
+    if (
+        scanTarget
+        && scanValorOriginal !== null
+        && (
+            scanTarget.tagName === 'INPUT'
+            || scanTarget.tagName === 'TEXTAREA'
+        )
+    ) {
+        scanTarget.value = scanValorOriginal;
+        $(scanTarget).trigger('input').trigger('change');
+    }
+}
+
+function procesarBufferScanner(evento) {
+    const codigo = limpiarCodigoEscaneado(bufferScan);
+    const ahora = Date.now();
+    const duracion = scanInicio > 0
+        ? ahora - scanInicio
+        : 0;
+    const promedio = codigo.length > 0
+        ? duracion / codigo.length
+        : 9999;
+
+    const pareceEscaneo =
+        codigo.length >= SCAN_MIN_CARACTERES
+        && duracion <= SCAN_MAX_DURACION
+        && promedio <= SCAN_MAX_INTERVALO;
+
+    if (!pareceEscaneo) {
+        reiniciarBufferScanner();
+        return false;
+    }
+
+    evento.preventDefault();
+    evento.stopPropagation();
+
+    restaurarCampoTrasEscaneo();
+    reiniciarBufferScanner();
+    buscarProductoPorCodigo(codigo);
+
+    return true;
+}
+
+document.addEventListener('keydown', function (evento) {
+    if (
+        evento.ctrlKey
+        || evento.altKey
+        || evento.metaKey
+    ) {
         return;
     }
 
-    // Solo caracteres visibles
-    if (e.which >= 32 && e.which <= 126) {
-        bufferScan += String.fromCharCode(e.which);
+    const ahora = Date.now();
 
-        clearTimeout(scanTimeout);
-        scanTimeout = setTimeout(() => {
-            bufferScan = '';
-        }, 1000); // ⏱️ más tolerante para scanner
+    if (evento.key === 'Enter' || evento.key === 'Tab') {
+        if (bufferScan !== '') {
+            procesarBufferScanner(evento);
+        }
+
+        return;
     }
+
+    if (evento.key.length !== 1) {
+        return;
+    }
+
+    if (
+        scanUltimaTecla > 0
+        && ahora - scanUltimaTecla > SCAN_MAX_INTERVALO
+    ) {
+        reiniciarBufferScanner();
+    }
+
+    if (bufferScan === '') {
+        scanInicio = ahora;
+        scanTarget = evento.target;
+
+        if (
+            scanTarget
+            && (
+                scanTarget.tagName === 'INPUT'
+                || scanTarget.tagName === 'TEXTAREA'
+            )
+        ) {
+            scanValorOriginal = scanTarget.value;
+        }
+    }
+
+    bufferScan += evento.key;
+    scanUltimaTecla = ahora;
+
+    if (scanTimeout) {
+        clearTimeout(scanTimeout);
+    }
+
+    scanTimeout = setTimeout(function () {
+        reiniciarBufferScanner();
+    }, 350);
+}, true);
+
+// Si el escáner escribe directamente en el buscador del modal,
+// ENTER obliga a consultar el producto globalmente en el servidor.
+$(document).on('keydown', '#buscarProducto', function (evento) {
+    if (evento.key !== 'Enter') {
+        return;
+    }
+
+    const codigo = limpiarCodigoEscaneado($(this).val());
+
+    const pareceCodigo = /^[A-Za-z0-9._-]+$/.test(codigo);
+
+    if (
+        codigo.length < SCAN_MIN_CARACTERES
+        || !pareceCodigo
+    ) {
+        return;
+    }
+
+    evento.preventDefault();
+    evento.stopPropagation();
+
+    $(this).val('');
+    buscarProductoPorCodigo(codigo);
 });
 
-
-
-
-setInterval(() => {
-    const input = document.getElementById('scannerInput');
-    if (input && document.activeElement !== input) {
-        input.focus();
-    }
-}, 500);
-
-
 function buscarProductoPorCodigo(codigo) {
+    const codigoLimpio = limpiarCodigoEscaneado(codigo);
+
+    if (codigoLimpio === '') {
+        return;
+    }
 
     $('#pedidoVacio').addClass('opacity-25');
 
-    $.ajax({
-        url: "Controllers/Sell.php?op=buscarProductoPorCodigo",
-        type: "POST",
-        data: { codigo },
-        dataType: "json", // ✅ CLAVE
-        success: function (p) {
+    if (scannerAjaxActual) {
+        scannerAjaxActual.abort();
+    }
 
-            console.log("PRODUCTO ESCANEADO:", p);
+    scannerAjaxActual = $.ajax({
+        url: 'Controllers/Sell.php?op=buscarProductoPorCodigo',
+        type: 'POST',
+        data: {
+            codigo: codigoLimpio
+        },
+        dataType: 'json',
+        cache: false,
 
-            if (!p || !p.idarticulo) {
-                Swal.fire(
-                    'No encontrado',
-                    'Producto no existe o sin stock',
-                    'warning'
-                );
+        success: function (producto) {
+            console.log('PRODUCTO ESCANEADO:', producto);
+
+            const idarticulo = Number.parseInt(
+                producto && producto.idarticulo,
+                10
+            ) || 0;
+
+            const stock = Number.parseInt(
+                producto && producto.stock,
+                10
+            ) || 0;
+
+            if (idarticulo <= 0 || stock <= 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Producto no encontrado',
+                    html:
+                        'No existe un producto disponible con el código:<br>' +
+                        '<strong>' + escaparHtmlProducto(codigoLimpio) + '</strong>'
+                });
+
                 return;
             }
 
             agregarDetalle(
-                p.idingreso,
-                p.idarticulo,
-                p.codigo,
-                p.nombre,
-                parseFloat(p.precio_compra),
-                parseFloat(p.precio_venta),
-                parseInt(p.stock),
+                Number.parseInt(producto.idingreso, 10) || 0,
+                idarticulo,
+                String(producto.codigo || codigoLimpio),
+                String(producto.nombre || ''),
+                Number.parseFloat(producto.precio_compra) || 0,
+                Number.parseFloat(producto.precio_venta) || 0,
+                stock,
                 1
             );
-
         },
-        error: function (xhr) {
-            console.error("ERROR AJAX:", xhr.responseText);
-            Swal.fire('Error', 'Respuesta inválida del servidor', 'error');
+
+        error: function (xhr, estado) {
+            if (estado === 'abort') {
+                return;
+            }
+
+            console.error(
+                'ERROR AL BUSCAR PRODUCTO ESCANEADO:',
+                xhr.status,
+                xhr.responseText
+            );
+
+            Swal.fire(
+                'Error',
+                'No se pudo consultar el producto escaneado.',
+                'error'
+            );
+        },
+
+        complete: function () {
+            scannerAjaxActual = null;
+            $('#pedidoVacio').removeClass('opacity-25');
         }
     });
 }
-
 
 
 function incrementarCantidad(indice, stock) {

@@ -724,26 +724,47 @@ class Sell
 
     public function buscarProductoPorCodigo($codigo)
     {
-        $codigo = strtoupper(trim($codigo));
+        $codigo = preg_replace(
+            '/[\x00-\x1F\x7F]/u',
+            '',
+            trim((string)$codigo)
+        );
 
-        $sql = "SELECT 
+        if ($codigo === '') {
+            return null;
+        }
+
+        /*
+         * La búsqueda es global: no depende de la categoría activa.
+         * TRIM/UPPER evita fallos por espacios o diferencias de mayúsculas.
+         * Se toma el primer lote con stock disponible (FIFO).
+         */
+        $sql = "SELECT
                     di.iddetalle_ingreso AS idingreso,
                     a.idarticulo,
-                    a.codigo,               -- ✅ AQUÍ
+                    TRIM(CAST(a.codigo AS CHAR)) AS codigo,
                     a.nombre,
                     di.precio_compra,
                     di.precio_venta,
                     di.stock_venta AS stock
                 FROM articulo a
-                INNER JOIN detalle_ingreso di 
-                    ON a.idarticulo = di.idarticulo
-                WHERE a.codigo = ?
-                  AND di.stock_venta > 0
-                  AND di.stock_estado = '1'
-                ORDER BY di.iddetalle_ingreso ASC
+                INNER JOIN detalle_ingreso di
+                    ON di.idarticulo = a.idarticulo
+                WHERE a.condicion = 1
+                  AND UPPER(TRIM(CAST(a.codigo AS CHAR))) = UPPER(TRIM(?))
+                  AND COALESCE(di.stock_venta, 0) > 0
+                ORDER BY
+                    CASE
+                        WHEN di.stock_estado = '1' THEN 0
+                        ELSE 1
+                    END,
+                    di.iddetalle_ingreso ASC
                 LIMIT 1";
 
-        return $this->conexion->getData($sql, [$codigo]);
+        return $this->conexion->getData(
+            $sql,
+            [$codigo]
+        );
     }
 
 

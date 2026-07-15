@@ -2305,8 +2305,12 @@ switch ($op) {
     // =========================================================
     case 'buscarProductoPorCodigo':
 
-        $codigo = trim(
-            (string)($_POST['codigo'] ?? '')
+        $codigo = preg_replace(
+            '/[\x00-\x1F\x7F]/u',
+            '',
+            trim(
+                (string)($_POST['codigo'] ?? '')
+            )
         );
 
         if ($codigo === '') {
