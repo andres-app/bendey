@@ -62,7 +62,7 @@ try {
 
         /*
         |--------------------------------------------------------------------------
-        | OBTENER CONTEXTO OPERATIVO
+        | OBTENER CONTEXTO
         |--------------------------------------------------------------------------
         */
         case 'obtener':
@@ -101,16 +101,16 @@ try {
 
                 'usuario' => [
                     'idusuario' => $idusuario,
-                    'nombre' =>
-                        (string)(
-                            $_SESSION['nombre']
-                            ?? ''
-                        ),
-                    'login' =>
-                        (string)(
-                            $_SESSION['login']
-                            ?? ''
-                        )
+
+                    'nombre' => (string)(
+                        $_SESSION['nombre']
+                        ?? ''
+                    ),
+
+                    'login' => (string)(
+                        $_SESSION['login']
+                        ?? ''
+                    )
                 ],
 
                 'contexto' => [
@@ -155,6 +155,14 @@ try {
                             ?? 0
                         ),
 
+                    'idcaja_preparada' =>
+                        (int)(
+                            $_SESSION[
+                                'idcaja_preparada'
+                            ]
+                            ?? 0
+                        ),
+
                     'idapertura_activa' =>
                         (int)(
                             $_SESSION[
@@ -169,6 +177,177 @@ try {
 
                 'cajas' =>
                     $cajas
+            ]);
+
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
+        | SELECCIONAR CAJA
+        |--------------------------------------------------------------------------
+        */
+        case 'seleccionar':
+
+            if (
+                ($_SERVER['REQUEST_METHOD'] ?? '')
+                !== 'POST'
+            ) {
+                responderContextoCaja([
+                    'success' => false,
+                    'mensaje' =>
+                        'La selección requiere una petición POST.'
+                ], 405);
+            }
+
+            if ($idsucursal <= 0) {
+                responderContextoCaja([
+                    'success' => false,
+                    'mensaje' =>
+                        'No existe una sucursal activa.'
+                ], 422);
+            }
+
+            $idcaja = (int)(
+                $_POST['idcaja']
+                ?? 0
+            );
+
+            if ($idcaja <= 0) {
+                responderContextoCaja([
+                    'success' => false,
+                    'mensaje' =>
+                        'Seleccione una caja válida.'
+                ], 422);
+            }
+
+            $configuracion =
+                $configuracionCaja
+                    ->obtenerPorSucursal(
+                        $idsucursal
+                    );
+
+            if (!$configuracion) {
+                responderContextoCaja([
+                    'success' => false,
+                    'mensaje' =>
+                        'No existe configuración para la sucursal.'
+                ], 404);
+            }
+
+            $modoReal = strtoupper(
+                trim(
+                    (string)(
+                        $configuracion['modo']
+                        ?? 'LEGACY'
+                    )
+                )
+            );
+
+            $modoObjetivo = strtoupper(
+                trim(
+                    (string)(
+                        $configuracion[
+                            'modo_objetivo'
+                        ]
+                        ?? ''
+                    )
+                )
+            );
+
+            $esMulticajaOperativo =
+                $modoReal === 'MULTICAJA';
+
+            $esPreparacionMulticaja =
+                $modoReal === 'LEGACY'
+                && $modoObjetivo === 'MULTICAJA';
+
+            if (
+                !$esMulticajaOperativo
+                && !$esPreparacionMulticaja
+            ) {
+                responderContextoCaja([
+                    'success' => false,
+                    'mensaje' =>
+                        'La selección manual de caja solo está disponible para Multicaja.'
+                ], 422);
+            }
+
+            $cajaAutorizada =
+                $configuracionCaja
+                    ->obtenerCajaAutorizadaUsuario(
+                        $idusuario,
+                        $idsucursal,
+                        $idcaja
+                    );
+
+            if (!$cajaAutorizada) {
+                responderContextoCaja([
+                    'success' => false,
+                    'mensaje' =>
+                        'No está autorizado para operar la caja seleccionada.'
+                ], 403);
+            }
+
+            if ($esMulticajaOperativo) {
+                $cajaAnterior = (int)(
+                    $_SESSION[
+                        'idcaja_activa'
+                    ]
+                    ?? 0
+                );
+
+                $_SESSION['idcaja_activa'] =
+                    $idcaja;
+
+                $_SESSION['idcaja_preparada'] =
+                    0;
+
+                /*
+                 * Si cambia la caja, todavía no debe
+                 * conservar una apertura de otra caja.
+                 */
+                if ($cajaAnterior !== $idcaja) {
+                    $_SESSION['idapertura_activa'] =
+                        0;
+                }
+
+                responderContextoCaja([
+                    'success' => true,
+                    'operativa' => true,
+                    'mensaje' =>
+                        'Caja seleccionada correctamente.',
+                    'caja' =>
+                        $cajaAutorizada,
+                    'idcaja_activa' =>
+                        $idcaja,
+                    'idcaja_preparada' =>
+                        0
+                ]);
+            }
+
+            /*
+             * En LEGACY solo se guarda para probar
+             * la selección. No tiene efecto operativo.
+             */
+            $_SESSION['idcaja_preparada'] =
+                $idcaja;
+
+            responderContextoCaja([
+                'success' => true,
+                'operativa' => false,
+                'mensaje' =>
+                    'Caja seleccionada para preparación. El sistema continúa operando en modo LEGACY.',
+                'caja' =>
+                    $cajaAutorizada,
+                'idcaja_activa' =>
+                    (int)(
+                        $_SESSION[
+                            'idcaja_activa'
+                        ]
+                        ?? 0
+                    ),
+                'idcaja_preparada' =>
+                    $idcaja
             ]);
 
             break;
@@ -194,6 +373,6 @@ try {
     responderContextoCaja([
         'success' => false,
         'mensaje' =>
-            'No se pudo obtener el contexto de caja.'
+            'No se pudo procesar el contexto de caja.'
     ], 500);
 }

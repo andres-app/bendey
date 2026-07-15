@@ -97,8 +97,8 @@ switch ($op) {
                 move_uploaded_file(
                     $_FILES['imagen']['tmp_name'],
                     __DIR__
-                    . '/../Assets/img/users/'
-                    . $imagen
+                        . '/../Assets/img/users/'
+                        . $imagen
                 );
             }
         }
@@ -110,8 +110,8 @@ switch ($op) {
 
         $permisos = isset($_POST['permiso'])
             && is_array($_POST['permiso'])
-                ? $_POST['permiso']
-                : [];
+            ? $_POST['permiso']
+            : [];
 
         if (empty($idusuario)) {
             $rspta = $user->insertar(
@@ -282,14 +282,14 @@ switch ($op) {
                 '6' => $reg['login'],
 
                 '7' =>
-                    "<img alt='image' src='Assets/img/users/"
+                "<img alt='image' src='Assets/img/users/"
                     . $reg['imagen']
                     . "' height='50px' width='50px'>",
 
                 '8' =>
-                    (int)$reg['condicion'] === 1
-                        ? '<div class="badge badge-success">Activo</div>'
-                        : '<div class="badge badge-danger">Inactivo</div>'
+                (int)$reg['condicion'] === 1
+                    ? '<div class="badge badge-success">Activo</div>'
+                    : '<div class="badge badge-danger">Inactivo</div>'
             ];
         }
 
@@ -342,7 +342,7 @@ switch ($op) {
                 : '';
 
             echo
-                '<li>'
+            '<li>'
                 . '<input type="checkbox" '
                 . $checked
                 . ' name="permiso[]" value="'
@@ -440,43 +440,43 @@ switch ($op) {
 
         $_SESSION['dashboard'] =
             in_array(1, $valores, true)
-                ? 1
-                : 0;
+            ? 1
+            : 0;
 
         $_SESSION['almacen'] =
             in_array(2, $valores, true)
-                ? 1
-                : 0;
+            ? 1
+            : 0;
 
         $_SESSION['compras'] =
             in_array(3, $valores, true)
-                ? 1
-                : 0;
+            ? 1
+            : 0;
 
         $_SESSION['ventas'] =
             in_array(4, $valores, true)
-                ? 1
-                : 0;
+            ? 1
+            : 0;
 
         $_SESSION['users'] =
             in_array(5, $valores, true)
-                ? 1
-                : 0;
+            ? 1
+            : 0;
 
         $_SESSION['datebuy'] =
             in_array(6, $valores, true)
-                ? 1
-                : 0;
+            ? 1
+            : 0;
 
         $_SESSION['clientdatesales'] =
             in_array(7, $valores, true)
-                ? 1
-                : 0;
+            ? 1
+            : 0;
 
         $_SESSION['settings'] =
             in_array(8, $valores, true)
-                ? 1
-                : 0;
+            ? 1
+            : 0;
 
         /*
         |--------------------------------------------------------------------------
@@ -489,6 +489,7 @@ switch ($op) {
         $_SESSION['modo_caja'] = 'LEGACY';
         $_SESSION['modo_caja_objetivo'] = '';
         $_SESSION['idcaja_activa'] = 0;
+        $_SESSION['idcaja_preparada'] = 0;
         $_SESSION['idapertura_activa'] = 0;
 
         /*
@@ -529,7 +530,7 @@ switch ($op) {
         } catch (Throwable $e) {
             error_log(
                 '[LOGIN EMPRESA] '
-                . $e->getMessage()
+                    . $e->getMessage()
             );
         }
 
@@ -547,7 +548,7 @@ switch ($op) {
 
             $configuracion =
                 $configuracionCaja
-                    ->obtenerSucursalPrincipal();
+                ->obtenerSucursalPrincipal();
 
             if (is_array($configuracion)) {
                 $idsucursalActiva =
@@ -616,7 +617,7 @@ switch ($op) {
              */
             error_log(
                 '[LOGIN CONTEXTO CAJA] '
-                . $e->getMessage()
+                    . $e->getMessage()
             );
         }
 

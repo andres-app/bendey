@@ -386,4 +386,78 @@ class ConfiguracionCaja
             ? $resultado
             : [];
     }
+
+    /*
+|--------------------------------------------------------------------------
+| OBTENER CAJA AUTORIZADA DEL USUARIO
+|--------------------------------------------------------------------------
+*/
+    public function obtenerCajaAutorizadaUsuario(
+        int $idusuario,
+        int $idsucursal,
+        int $idcaja
+    ): ?array {
+        if (
+            $idusuario <= 0
+            || $idsucursal <= 0
+            || $idcaja <= 0
+        ) {
+            return null;
+        }
+
+        $sql = "SELECT
+                cf.idcaja,
+                cf.idsucursal,
+                cf.codigo,
+                cf.nombre,
+                cf.descripcion,
+                cf.permite_efectivo,
+                cf.activo,
+
+                uc.rol,
+                uc.puede_operar,
+                uc.puede_abrir,
+                uc.puede_cerrar,
+
+                us.puede_vender,
+                us.puede_cobrar,
+                us.puede_abrir_caja,
+                us.puede_cerrar_caja
+
+            FROM usuario_caja AS uc
+
+            INNER JOIN caja_fisica AS cf
+                ON cf.idcaja = uc.idcaja
+
+            INNER JOIN usuario AS u
+                ON u.idusuario = uc.idusuario
+
+            INNER JOIN usuario_sucursal AS us
+                ON us.idusuario = uc.idusuario
+               AND us.idsucursal = cf.idsucursal
+
+            WHERE uc.idusuario = ?
+              AND cf.idsucursal = ?
+              AND cf.idcaja = ?
+              AND u.condicion = 1
+              AND cf.activo = 1
+              AND uc.activo = 1
+              AND us.activo = 1
+              AND uc.puede_operar = 1
+
+            LIMIT 1";
+
+        $resultado = $this->conexion->getData(
+            $sql,
+            [
+                $idusuario,
+                $idsucursal,
+                $idcaja
+            ]
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : null;
+    }
 }

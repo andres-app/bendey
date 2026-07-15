@@ -496,6 +496,305 @@ class Cajachica
     }
 
     /*
+|--------------------------------------------------------------------------
+| OBTENER APERTURA ACTIVA POR CAJA FÍSICA
+|--------------------------------------------------------------------------
+*/
+public function obtenerCajaAbiertaFisica(
+    int $idcaja,
+    bool $bloquear = false
+): ?array {
+    if ($idcaja <= 0) {
+        return null;
+    }
+
+    $sql = "
+        SELECT
+            ca.*,
+            cf.codigo AS codigo_caja,
+            cf.nombre AS nombre_caja,
+            s.codigo AS codigo_sucursal,
+            s.nombre AS nombre_sucursal
+
+        FROM caja_apertura AS ca
+
+        INNER JOIN caja_fisica AS cf
+            ON cf.idcaja = ca.idcaja
+
+        INNER JOIN sucursal AS s
+            ON s.idsucursal = ca.idsucursal
+
+        WHERE ca.idcaja = ?
+          AND ca.estado = 'ABIERTA'
+
+        ORDER BY ca.idapertura DESC
+        LIMIT 1
+    ";
+
+    if ($bloquear) {
+        $sql .= " FOR UPDATE";
+    }
+
+    $resultado = $this->conexion->getData(
+        $sql,
+        [$idcaja]
+    );
+
+    return is_array($resultado)
+        ? $resultado
+        : null;
+}
+
+/*
+|--------------------------------------------------------------------------
+| CONTAR APERTURAS ACTIVAS DE UNA CAJA FÍSICA
+|--------------------------------------------------------------------------
+*/
+public function contarCajasAbiertasFisica(
+    int $idcaja
+): int {
+    if ($idcaja <= 0) {
+        return 0;
+    }
+
+    $resultado = $this->conexion->getData(
+        "SELECT
+            COUNT(*) AS cantidad
+         FROM caja_apertura
+         WHERE idcaja = ?
+           AND estado = 'ABIERTA'",
+        [$idcaja]
+    );
+
+    return is_array($resultado)
+        ? (int)($resultado['cantidad'] ?? 0)
+        : 0;
+}
+
+/*
+|--------------------------------------------------------------------------
+| REGISTRAR APERTURA POR CAJA FÍSICA
+|--------------------------------------------------------------------------
+| Este método pertenece al modelo nuevo.
+| No modifica ni reemplaza registrarApertura(), usado por LEGACY.
+|--------------------------------------------------------------------------
+*/
+public function registrarAperturaFisica(
+    float $monto,
+    int $idsucursal,
+    int $idcaja,
+    int $idusuarioApertura,
+    int $idusuarioResponsable
+): array {
+    if ($idsucursal <= 0) {
+        return [
+            'status' => 'error',
+            'message' =>
+                'La sucursal de la apertura no es válida.'
+        ];
+    }
+
+    if ($idcaja <= 0) {
+        return [
+            'status' => 'error',
+            'message' =>
+                'La caja física seleccionada no es válida.'
+        ];
+    }
+
+    if ($idusuarioApertura <= 0) {
+        return [
+            'status' => 'error',
+            'message' =>
+                'El usuario que realiza la apertura no es válido.'
+        ];
+    }
+
+    if ($idusuarioResponsable <= 0) {
+        return [
+            'status' => 'error',
+            'message' =>
+                'El responsable de caja no es válido.'
+        ];
+    }
+
+    if ($monto < 0) {
+        return [
+            'status' => 'error',
+            'message' =>
+                'El monto de apertura no puede ser negativo.'
+        ];
+    }
+
+    $transaccionActiva = false;
+
+    try {
+        $this->conexion->beginTransaction();
+        $transaccionActiva = true;
+
+        /*
+         * Bloqueamos la caja física para impedir
+         * aperturas simultáneas desde dos peticiones.
+         */
+        $cajaFisica = $this->conexion->getData(
+            "SELECT
+                cf.idcaja,
+                cf.idsucursal,
+                cf.codigo,
+                cf.nombre,
+                cf.permite_efectivo,
+                cf.activo,
+                s.activo AS sucursal_activa
+
+             FROM caja_fisica AS cf
+
+             INNER JOIN sucursal AS s
+                ON s.idsucursal = cf.idsucursal
+
+             WHERE cf.idcaja = ?
+               AND cf.idsucursal = ?
+             LIMIT 1
+             FOR UPDATE",
+            [
+                $idcaja,
+                $idsucursal
+            ]
+        );
+
+        if (!is_array($cajaFisica)) {
+            throw new RuntimeException(
+                'La caja no pertenece a la sucursal seleccionada.'
+            );
+        }
+
+        if (
+            (int)($cajaFisica['activo'] ?? 0) !== 1
+            || (int)($cajaFisica['sucursal_activa'] ?? 0) !== 1
+        ) {
+            throw new RuntimeException(
+                'La caja o la sucursal se encuentran inactivas.'
+            );
+        }
+
+        if (
+            (int)($cajaFisica['permite_efectivo'] ?? 0)
+            !== 1
+        ) {
+            throw new RuntimeException(
+                'La caja seleccionada no admite operaciones en efectivo.'
+            );
+        }
+
+        $aperturasActivas =
+            $this->conexion->getDataAll(
+                "SELECT
+                    idapertura
+                 FROM caja_apertura
+                 WHERE idcaja = ?
+                   AND estado = 'ABIERTA'
+                 FOR UPDATE",
+                [$idcaja]
+            );
+
+        if (
+            is_array($aperturasActivas)
+            && count($aperturasActivas) > 0
+        ) {
+            throw new RuntimeException(
+                'La caja física seleccionada ya tiene una apertura activa.'
+            );
+        }
+
+        $fecha = date('Y-m-d');
+        $createdAt = date('Y-m-d H:i:s');
+
+        $idapertura =
+            $this->conexion->setDataReturnId(
+                "INSERT INTO caja_apertura (
+                    fecha,
+                    monto_apertura,
+                    idusuario,
+                    idsucursal,
+                    idcaja,
+                    idusuario_apertura,
+                    idusuario_responsable,
+                    estado,
+                    created_at
+                ) VALUES (
+                    ?,
+                    ?,
+                    NULL,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    'ABIERTA',
+                    ?
+                )",
+                [
+                    $fecha,
+                    round($monto, 2),
+                    $idsucursal,
+                    $idcaja,
+                    $idusuarioApertura,
+                    $idusuarioResponsable,
+                    $createdAt
+                ]
+            );
+
+        if (!$idapertura) {
+            throw new RuntimeException(
+                'No se pudo registrar la apertura de la caja física.'
+            );
+        }
+
+        $this->conexion->commit();
+        $transaccionActiva = false;
+
+        return [
+            'status' => 'ok',
+            'message' =>
+                'Caja física abierta correctamente.',
+            'idapertura' =>
+                (int)$idapertura,
+            'idsucursal' =>
+                $idsucursal,
+            'idcaja' =>
+                $idcaja,
+            'codigo_caja' =>
+                (string)($cajaFisica['codigo'] ?? ''),
+            'nombre_caja' =>
+                (string)($cajaFisica['nombre'] ?? ''),
+            'idusuario_apertura' =>
+                $idusuarioApertura,
+            'idusuario_responsable' =>
+                $idusuarioResponsable
+        ];
+    } catch (Throwable $e) {
+        if ($transaccionActiva) {
+            try {
+                $this->conexion->rollBack();
+            } catch (Throwable $rollbackError) {
+                error_log(
+                    '[APERTURA FÍSICA ROLLBACK] '
+                    . $rollbackError->getMessage()
+                );
+            }
+        }
+
+        error_log(
+            '[APERTURA CAJA FÍSICA] '
+            . $e->getMessage()
+        );
+
+        return [
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ];
+    }
+}
+
+    /*
     |--------------------------------------------------------------------------
     | APERTURA MÁS RECIENTE DE HOY
     |--------------------------------------------------------------------------
