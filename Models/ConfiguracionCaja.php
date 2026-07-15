@@ -315,4 +315,75 @@ class ConfiguracionCaja
             ]
         );
     }
+
+    /*
+|--------------------------------------------------------------------------
+| LISTAR CAJAS AUTORIZADAS DEL USUARIO
+|--------------------------------------------------------------------------
+*/
+    public function listarCajasAutorizadasUsuario(
+        int $idusuario,
+        int $idsucursal
+    ): array {
+        if (
+            $idusuario <= 0
+            || $idsucursal <= 0
+        ) {
+            return [];
+        }
+
+        $sql = "SELECT
+                cf.idcaja,
+                cf.idsucursal,
+                cf.codigo,
+                cf.nombre,
+                cf.descripcion,
+                cf.permite_efectivo,
+                cf.activo,
+
+                uc.rol,
+                uc.puede_operar,
+                uc.puede_abrir,
+                uc.puede_cerrar,
+
+                us.puede_vender,
+                us.puede_cobrar,
+                us.puede_abrir_caja,
+                us.puede_cerrar_caja
+
+            FROM usuario_caja AS uc
+
+            INNER JOIN caja_fisica AS cf
+                ON cf.idcaja = uc.idcaja
+
+            INNER JOIN usuario AS u
+                ON u.idusuario = uc.idusuario
+
+            INNER JOIN usuario_sucursal AS us
+                ON us.idusuario = uc.idusuario
+               AND us.idsucursal = cf.idsucursal
+
+            WHERE uc.idusuario = ?
+              AND cf.idsucursal = ?
+              AND u.condicion = 1
+              AND cf.activo = 1
+              AND uc.activo = 1
+              AND us.activo = 1
+              AND uc.puede_operar = 1
+
+            ORDER BY
+                cf.idcaja ASC";
+
+        $resultado = $this->conexion->getDataAll(
+            $sql,
+            [
+                $idusuario,
+                $idsucursal
+            ]
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
+    }
 }
