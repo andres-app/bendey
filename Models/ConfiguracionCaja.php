@@ -15,7 +15,7 @@ class ConfiguracionCaja
 
     /*
     |--------------------------------------------------------------------------
-    | OBTENER SUCURSAL PRINCIPAL Y CONFIGURACIÓN ACTUAL
+    | OBTENER SUCURSAL PRINCIPAL Y CONFIGURACIÓN
     |--------------------------------------------------------------------------
     */
     public function obtenerSucursalPrincipal(): ?array
@@ -34,6 +34,7 @@ class ConfiguracionCaja
                         'LEGACY'
                     ) AS modo,
 
+                    cc.modo_objetivo,
                     cc.idcaja_unica,
 
                     cf.codigo AS codigo_caja_unica,
@@ -94,6 +95,7 @@ class ConfiguracionCaja
                         'LEGACY'
                     ) AS modo,
 
+                    cc.modo_objetivo,
                     cc.idcaja_unica,
 
                     cf.codigo AS codigo_caja_unica,
@@ -189,7 +191,7 @@ class ConfiguracionCaja
 
     /*
     |--------------------------------------------------------------------------
-    | VALIDAR CAJA EN SUCURSAL
+    | VALIDAR CAJA ACTIVA EN LA SUCURSAL
     |--------------------------------------------------------------------------
     */
     public function cajaActivaPerteneceSucursal(
@@ -217,5 +219,100 @@ class ConfiguracionCaja
         );
 
         return is_array($resultado);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GUARDAR MODALIDAD OBJETIVO
+    |--------------------------------------------------------------------------
+    | Guarda la elección administrativa, pero no modifica el modo real.
+    | El campo modo seguirá siendo LEGACY.
+    */
+    public function guardarPreferencia(
+        int $idsucursal,
+        string $modoObjetivo,
+        int $idcajaUnica
+    ): bool {
+        if ($idsucursal <= 0) {
+            throw new RuntimeException(
+                'La sucursal seleccionada no es válida.'
+            );
+        }
+
+        $modoObjetivo = strtoupper(
+            trim($modoObjetivo)
+        );
+
+        $modosPermitidos = [
+            'CAJA_UNICA',
+            'MULTICAJA'
+        ];
+
+        if (!in_array(
+            $modoObjetivo,
+            $modosPermitidos,
+            true
+        )) {
+            throw new RuntimeException(
+                'La modalidad de caja seleccionada no es válida.'
+            );
+        }
+
+        if (
+            !$this->cajaActivaPerteneceSucursal(
+                $idcajaUnica,
+                $idsucursal
+            )
+        ) {
+            throw new RuntimeException(
+                'La caja seleccionada no pertenece a la sucursal o está inactiva.'
+            );
+        }
+
+        $configuracionActual =
+            $this->conexion->getData(
+                "SELECT
+                    idsucursal,
+                    modo
+                 FROM configuracion_caja
+                 WHERE idsucursal = ?
+                 LIMIT 1",
+                [$idsucursal]
+            );
+
+        if (!is_array($configuracionActual)) {
+            throw new RuntimeException(
+                'No existe una configuración de caja para la sucursal.'
+            );
+        }
+
+        $modoReal = strtoupper(
+            trim(
+                (string)(
+                    $configuracionActual['modo']
+                    ?? ''
+                )
+            )
+        );
+
+        if ($modoReal !== 'LEGACY') {
+            throw new RuntimeException(
+                'La modalidad real ya fue activada y no puede modificarse desde esta etapa.'
+            );
+        }
+
+        return (bool)$this->conexion->setData(
+            "UPDATE configuracion_caja
+             SET
+                modo_objetivo = ?,
+                idcaja_unica = ?
+             WHERE idsucursal = ?
+               AND modo = 'LEGACY'",
+            [
+                $modoObjetivo,
+                $idcajaUnica,
+                $idsucursal
+            ]
+        );
     }
 }

@@ -549,7 +549,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                         <label
                                             for="modoCajaUnica"
                                             class="border rounded p-3 d-block h-100"
-                                            style="cursor:not-allowed;">
+                                            style="cursor:pointer;">
                                             <div class="custom-control custom-radio">
 
                                                 <input
@@ -557,8 +557,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                     class="custom-control-input"
                                                     name="modo_caja"
                                                     id="modoCajaUnica"
-                                                    value="CAJA_UNICA"
-                                                    disabled>
+                                                    value="CAJA_UNICA">
 
                                                 <span class="custom-control-label">
                                                     <strong>
@@ -581,7 +580,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                         <label
                                             for="modoMulticaja"
                                             class="border rounded p-3 d-block h-100"
-                                            style="cursor:not-allowed;">
+                                            style="cursor:pointer;">
                                             <div class="custom-control custom-radio">
 
                                                 <input
@@ -589,8 +588,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                     class="custom-control-input"
                                                     name="modo_caja"
                                                     id="modoMulticaja"
-                                                    value="MULTICAJA"
-                                                    disabled>
+                                                    value="MULTICAJA">
 
                                                 <span class="custom-control-label">
                                                     <strong>
@@ -617,8 +615,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                         <select
                                             class="form-control"
                                             id="idcajaUnica"
-                                            name="idcaja_unica"
-                                            disabled>
+                                            name="idcaja_unica">
                                             <option value="">
                                                 Cargando cajas...
                                             </option>
@@ -649,10 +646,9 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                     <div class="form-group col-12 text-right">
 
                                         <button
-                                            type="button"
+                                            type="submit"
                                             class="btn btn-primary"
-                                            id="btnGuardarConfiguracionCaja"
-                                            disabled>
+                                            id="btnGuardarConfiguracionCaja">
                                             <i class="fa fa-save"></i>
                                             Guardar modalidad
                                         </button>

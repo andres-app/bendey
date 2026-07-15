@@ -118,6 +118,103 @@ try {
 
         /*
         |--------------------------------------------------------------------------
+        | GUARDAR PREFERENCIA ADMINISTRATIVA
+        |--------------------------------------------------------------------------
+        | Solo modifica modo_objetivo e idcaja_unica.
+        | No modifica el campo modo, que seguirá en LEGACY.
+        |--------------------------------------------------------------------------
+        */
+        case 'guardar_preferencia':
+
+            if (
+                ($_SERVER['REQUEST_METHOD'] ?? '')
+                !== 'POST'
+            ) {
+                responderConfiguracionCajaJson([
+                    'success' => false,
+                    'mensaje' =>
+                        'La operación requiere una petición POST.'
+                ], 405);
+            }
+
+            $idsucursal = (int)(
+                $_POST['idsucursal']
+                ?? 0
+            );
+
+            $modoObjetivo = strtoupper(
+                trim(
+                    (string)(
+                        $_POST['modo_objetivo']
+                        ?? ''
+                    )
+                )
+            );
+
+            $idcajaUnica = (int)(
+                $_POST['idcaja_unica']
+                ?? 0
+            );
+
+            if ($idsucursal <= 0) {
+                throw new RuntimeException(
+                    'La sucursal seleccionada no es válida.'
+                );
+            }
+
+            if (
+                !in_array(
+                    $modoObjetivo,
+                    [
+                        'CAJA_UNICA',
+                        'MULTICAJA'
+                    ],
+                    true
+                )
+            ) {
+                throw new RuntimeException(
+                    'Seleccione Caja única o Multicaja.'
+                );
+            }
+
+            if ($idcajaUnica <= 0) {
+                throw new RuntimeException(
+                    'Seleccione una caja principal válida.'
+                );
+            }
+
+            $resultado =
+                $configuracionCaja
+                    ->guardarPreferencia(
+                        $idsucursal,
+                        $modoObjetivo,
+                        $idcajaUnica
+                    );
+
+            if (!$resultado) {
+                throw new RuntimeException(
+                    'No se pudo guardar la preferencia de caja.'
+                );
+            }
+
+            $configuracionActualizada =
+                $configuracionCaja
+                    ->obtenerPorSucursal(
+                        $idsucursal
+                    );
+
+            responderConfiguracionCajaJson([
+                'success' => true,
+                'mensaje' =>
+                    'Preferencia de caja guardada correctamente.',
+                'configuracion' =>
+                    $configuracionActualizada
+            ]);
+
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
         | OPERACIÓN INVÁLIDA
         |--------------------------------------------------------------------------
         */
@@ -129,6 +226,11 @@ try {
                     'Operación no válida.'
             ], 404);
     }
+} catch (RuntimeException $e) {
+    responderConfiguracionCajaJson([
+        'success' => false,
+        'mensaje' => $e->getMessage()
+    ], 422);
 } catch (Throwable $e) {
     error_log(
         '[CONFIGURACION CAJA CONTROLLER] '
@@ -141,6 +243,7 @@ try {
 
     responderConfiguracionCajaJson([
         'success' => false,
-        'mensaje' => $e->getMessage()
+        'mensaje' =>
+            'Ocurrió un error interno al procesar la configuración de caja.'
     ], 500);
 }
