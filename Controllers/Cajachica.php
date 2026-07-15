@@ -581,16 +581,204 @@ try {
         */
         case 'datos_cierre':
 
-            $cantidad =
-                $caja->contarCajasAbiertasUsuario(
-                    $idusuarioSesion
-                );
+            /*
+    |--------------------------------------------------------------------------
+    | MODO LEGACY
+    |--------------------------------------------------------------------------
+    | Conserva el cierre actual por usuario.
+    |--------------------------------------------------------------------------
+    */
+            if ($modoCajaSesion === 'LEGACY') {
+                $cantidad =
+                    $caja->contarCajasAbiertasUsuario(
+                        $idusuarioSesion
+                    );
 
-            if ($cantidad === 0) {
+                if ($cantidad === 0) {
+                    responderCaja([
+                        'status' => false,
+                        'message' =>
+                        'No existe una caja abierta.'
+                    ]);
+                }
+
+                if ($cantidad > 1) {
+                    responderCaja([
+                        'status' => false,
+                        'message' =>
+                        'Se encontraron varias cajas abiertas.'
+                    ]);
+                }
+
+                $apertura =
+                    $caja->obtenerCajaAbiertaUsuario(
+                        $idusuarioSesion
+                    );
+
+                if (!$apertura) {
+                    responderCaja([
+                        'status' => false,
+                        'message' =>
+                        'No existe una caja abierta.'
+                    ]);
+                }
+
+                $totales =
+                    $caja->calcularTotalesApertura(
+                        (int)$apertura['idapertura']
+                    );
+
+                responderCaja([
+                    'status' => true,
+                    'modo' => 'LEGACY',
+                    'apertura' => $apertura,
+
+                    'monto_apertura' =>
+                    $totales['monto_apertura'],
+
+                    'ventas_efectivo' =>
+                    $totales['ventas_efectivo'],
+
+                    'otros_ingresos_efectivo' =>
+                    $totales['otros_ingresos_efectivo'],
+
+                    'egresos_efectivo' =>
+                    $totales['egresos_efectivo'],
+
+                    'total_sistema' =>
+                    $totales['total_sistema']
+                ]);
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | VALIDAR SUCURSAL PARA MODOS NUEVOS
+    |--------------------------------------------------------------------------
+    */
+            if ($idsucursalSesion <= 0) {
                 responderCaja([
                     'status' => false,
                     'message' =>
-                    'No existe una caja abierta.'
+                    'No existe una sucursal activa en la sesión.'
+                ]);
+            }
+
+            $configuracion =
+                $configuracionCaja
+                ->obtenerPorSucursal(
+                    $idsucursalSesion
+                );
+
+            if (!$configuracion) {
+                responderCaja([
+                    'status' => false,
+                    'message' =>
+                    'No existe configuración para la sucursal activa.'
+                ]);
+            }
+
+            $idcajaOperacion = 0;
+
+            /*
+    |--------------------------------------------------------------------------
+    | CAJA ÚNICA
+    |--------------------------------------------------------------------------
+    */
+            if ($modoCajaSesion === 'CAJA_UNICA') {
+                $idcajaOperacion = (int)(
+                    $configuracion['idcaja_unica']
+                    ?? 0
+                );
+
+                if ($idcajaOperacion <= 0) {
+                    responderCaja([
+                        'status' => false,
+                        'message' =>
+                        'No existe una caja única configurada.'
+                    ]);
+                }
+
+                $_SESSION['idcaja_activa'] =
+                    $idcajaOperacion;
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | MULTICAJA
+    |--------------------------------------------------------------------------
+    */
+            if ($modoCajaSesion === 'MULTICAJA') {
+                $idcajaOperacion = (int)(
+                    $_SESSION['idcaja_activa']
+                    ?? 0
+                );
+
+                if ($idcajaOperacion <= 0) {
+                    responderCaja([
+                        'status' => false,
+                        'message' =>
+                        'Seleccione primero la caja que operará.'
+                    ]);
+                }
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | VALIDAR AUTORIZACIÓN Y PERMISO DE CIERRE
+    |--------------------------------------------------------------------------
+    */
+            $cajaAutorizada =
+                $configuracionCaja
+                ->obtenerCajaAutorizadaUsuario(
+                    $idusuarioSesion,
+                    $idsucursalSesion,
+                    $idcajaOperacion
+                );
+
+            if (!$cajaAutorizada) {
+                responderCaja([
+                    'status' => false,
+                    'message' =>
+                    'No está autorizado para operar la caja seleccionada.'
+                ]);
+            }
+
+            $puedeCerrar =
+                (int)(
+                    $cajaAutorizada['puede_cerrar']
+                    ?? 0
+                ) === 1
+                &&
+                (int)(
+                    $cajaAutorizada['puede_cerrar_caja']
+                    ?? 0
+                ) === 1;
+
+            if (!$puedeCerrar) {
+                responderCaja([
+                    'status' => false,
+                    'message' =>
+                    'Puede operar esta caja, pero no tiene permiso para cerrarla.'
+                ]);
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | BUSCAR APERTURA ACTIVA DE LA CAJA FÍSICA
+    |--------------------------------------------------------------------------
+    */
+            $cantidad =
+                $caja->contarCajasAbiertasFisica(
+                    $idcajaOperacion
+                );
+
+            if ($cantidad === 0) {
+                $_SESSION['idapertura_activa'] = 0;
+
+                responderCaja([
+                    'status' => false,
+                    'message' =>
+                    'No existe una apertura activa para la caja seleccionada.'
                 ]);
             }
 
@@ -598,39 +786,72 @@ try {
                 responderCaja([
                     'status' => false,
                     'message' =>
-                    'Se encontraron varias cajas abiertas.'
+                    'Se encontraron varias aperturas activas para la misma caja física.'
                 ]);
             }
 
             $apertura =
-                $caja->obtenerCajaAbiertaUsuario(
-                    $idusuarioSesion
+                $caja->obtenerCajaAbiertaFisica(
+                    $idcajaOperacion
                 );
 
             if (!$apertura) {
+                $_SESSION['idapertura_activa'] = 0;
+
                 responderCaja([
                     'status' => false,
                     'message' =>
-                    'No existe una caja abierta.'
+                    'No se encontró la apertura activa de la caja física.'
                 ]);
             }
 
+            $idapertura = (int)(
+                $apertura['idapertura']
+                ?? 0
+            );
+
+            if ($idapertura <= 0) {
+                responderCaja([
+                    'status' => false,
+                    'message' =>
+                    'La apertura activa no es válida.'
+                ]);
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | CALCULAR ARQUEO POR IDAPERTURA
+    |--------------------------------------------------------------------------
+    */
             $totales =
-                $caja->calcularTotalesApertura(
-                    (int)$apertura['idapertura']
+                $caja->calcularTotalesAperturaFisica(
+                    $idapertura
                 );
+
+            $_SESSION['idcaja_activa'] =
+                $idcajaOperacion;
+
+            $_SESSION['idapertura_activa'] =
+                $idapertura;
 
             responderCaja([
                 'status' => true,
+                'modo' => $modoCajaSesion,
+                'caja' => $cajaAutorizada,
                 'apertura' => $apertura,
+
                 'monto_apertura' =>
                 $totales['monto_apertura'],
+
                 'ventas_efectivo' =>
                 $totales['ventas_efectivo'],
+
                 'otros_ingresos_efectivo' =>
                 $totales['otros_ingresos_efectivo'],
+
                 'egresos_efectivo' =>
                 $totales['egresos_efectivo'],
+
                 'total_sistema' =>
                 $totales['total_sistema']
             ]);
@@ -644,19 +865,209 @@ try {
         */
         case 'cerrar_caja':
 
+            /*
+    |--------------------------------------------------------------------------
+    | MONTO CONTADO
+    |--------------------------------------------------------------------------
+    | Se aceptan ambos nombres para mantener compatibilidad con el JS actual.
+    |--------------------------------------------------------------------------
+    */
+            $montoContadoEntrada =
+                $_POST['monto_contado']
+                ?? $_POST['monto']
+                ?? null;
+
+            if (
+                $montoContadoEntrada === null
+                || $montoContadoEntrada === ''
+                || !is_numeric($montoContadoEntrada)
+            ) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                    'Ingrese un monto contado válido.'
+                ]);
+            }
+
             $montoContado = round(
-                (float)(
-                    $_POST['monto_contado']
-                    ?? 0
-                ),
+                (float)$montoContadoEntrada,
                 2
             );
 
+            if ($montoContado < 0) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                    'El monto contado no puede ser negativo.'
+                ]);
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | MODO LEGACY
+    |--------------------------------------------------------------------------
+    | Mantiene exactamente el cierre actual por usuario.
+    |--------------------------------------------------------------------------
+    */
+            if ($modoCajaSesion === 'LEGACY') {
+                $resultado =
+                    $caja->cerrarCaja(
+                        $montoContado,
+                        $idusuarioSesion
+                    );
+
+                responderCaja($resultado);
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | VALIDAR SUCURSAL
+    |--------------------------------------------------------------------------
+    */
+            if ($idsucursalSesion <= 0) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                    'No existe una sucursal activa en la sesión.'
+                ]);
+            }
+
+            $configuracion =
+                $configuracionCaja
+                ->obtenerPorSucursal(
+                    $idsucursalSesion
+                );
+
+            if (!$configuracion) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                    'No existe configuración para la sucursal activa.'
+                ]);
+            }
+
+            $idcajaOperacion = 0;
+
+            /*
+    |--------------------------------------------------------------------------
+    | CAJA ÚNICA
+    |--------------------------------------------------------------------------
+    */
+            if ($modoCajaSesion === 'CAJA_UNICA') {
+                $idcajaOperacion = (int)(
+                    $configuracion['idcaja_unica']
+                    ?? 0
+                );
+
+                if ($idcajaOperacion <= 0) {
+                    responderCaja([
+                        'status' => 'error',
+                        'message' =>
+                        'No existe una caja única configurada.'
+                    ]);
+                }
+
+                $_SESSION['idcaja_activa'] =
+                    $idcajaOperacion;
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | MULTICAJA
+    |--------------------------------------------------------------------------
+    */
+            if ($modoCajaSesion === 'MULTICAJA') {
+                $idcajaOperacion = (int)(
+                    $_SESSION['idcaja_activa']
+                    ?? 0
+                );
+
+                if ($idcajaOperacion <= 0) {
+                    responderCaja([
+                        'status' => 'error',
+                        'message' =>
+                        'Seleccione primero la caja que operará.'
+                    ]);
+                }
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | VALIDAR AUTORIZACIÓN
+    |--------------------------------------------------------------------------
+    */
+            $cajaAutorizada =
+                $configuracionCaja
+                ->obtenerCajaAutorizadaUsuario(
+                    $idusuarioSesion,
+                    $idsucursalSesion,
+                    $idcajaOperacion
+                );
+
+            if (!$cajaAutorizada) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                    'No está autorizado para operar la caja seleccionada.'
+                ]);
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | VALIDAR PERMISO DE CIERRE
+    |--------------------------------------------------------------------------
+    */
+            $puedeCerrar =
+                (int)(
+                    $cajaAutorizada['puede_cerrar']
+                    ?? 0
+                ) === 1
+                &&
+                (int)(
+                    $cajaAutorizada['puede_cerrar_caja']
+                    ?? 0
+                ) === 1;
+
+            if (!$puedeCerrar) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                    'Puede operar esta caja, pero no tiene permiso para cerrarla.'
+                ]);
+            }
+
+            /*
+    |--------------------------------------------------------------------------
+    | CERRAR APERTURA FÍSICA
+    |--------------------------------------------------------------------------
+    | El modelo bloquea y localiza la apertura activa por sucursal y caja.
+    |--------------------------------------------------------------------------
+    */
             $resultado =
-                $caja->cerrarCaja(
+                $caja->cerrarCajaFisica(
                     $montoContado,
+                    $idsucursalSesion,
+                    $idcajaOperacion,
                     $idusuarioSesion
                 );
+
+            if (
+                ($resultado['status'] ?? '')
+                === 'ok'
+            ) {
+                $_SESSION['idapertura_activa'] = 0;
+                $_SESSION['idcaja_preparada'] = 0;
+
+                /*
+         * Conservamos idcaja_activa para que el usuario
+         * continúe visualizando la caja seleccionada.
+         */
+                $_SESSION['idcaja_activa'] =
+                    $idcajaOperacion;
+
+                $resultado['modo'] =
+                    $modoCajaSesion;
+            }
 
             responderCaja($resultado);
 

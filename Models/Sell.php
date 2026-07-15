@@ -34,33 +34,53 @@ class Sell
         $cantidad,
         $precio_compra,
         $precio_venta,
+        $idsucursal = null,
+        $idcaja = null,
+        $idapertura = null
     ) {
         date_default_timezone_set('America/Lima');
         $fecha_hora = date('Y-m-d H:i:s');
+        $idsucursal = (int)$idsucursal > 0
+            ? (int)$idsucursal
+            : null;
+
+        $idcaja = (int)$idcaja > 0
+            ? (int)$idcaja
+            : null;
+
+        $idapertura = (int)$idapertura > 0
+            ? (int)$idapertura
+            : null;
 
         // ===============================
         // INSERT VENTA (CABECERA)
         // ===============================
         $sql = "INSERT INTO $this->tableName (
-            idcliente,
-            idusuario,
-            tipo_comprobante,
-            serie_comprobante,
-            num_comprobante,
-            fecha_hora,
-            impuesto,
-            total_venta,
-            descuento_total,
-            descuento_porcentaje,
-            tipo_pago,
-            num_transac,
-            estado,
-            idforma_pago
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        idcliente,
+        idusuario,
+        idsucursal,
+        idcaja,
+        idapertura,
+        tipo_comprobante,
+        serie_comprobante,
+        num_comprobante,
+        fecha_hora,
+        impuesto,
+        total_venta,
+        descuento_total,
+        descuento_porcentaje,
+        tipo_pago,
+        num_transac,
+        estado,
+        idforma_pago
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $arrData = [
             $idcliente,
             $idusuario,
+            $idsucursal,
+            $idcaja,
+            $idapertura,
             $tipo_comprobante,
             $serie_comprobante,
             $num_comprobante,
