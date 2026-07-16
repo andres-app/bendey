@@ -677,7 +677,8 @@ if ($_SESSION['ventas'] == 1) {
                                                 height:52px;
                                                 border-radius:18px;
                                             "
-                                            title="Escanear">
+                                            id="btnActivarEscaner"
+                                            title="Activar lector de código de barras">
 
                                             <i
                                                 class="bi bi-qr-code-scan"
@@ -727,6 +728,449 @@ if ($_SESSION['ventas'] == 1) {
         </section>
     </div>
 
+
+    <input
+        type="text"
+        id="scannerInput"
+        class="scanner-capture-input"
+        inputmode="none"
+        autocomplete="off"
+        tabindex="-1"
+        aria-hidden="true">
+
+
+    <style>
+        /* =========================================================
+           MODAL DE PRODUCTOS: ALTURA CONTROLADA Y DISEÑO COMPACTO
+        ========================================================== */
+        #modalProductos {
+            padding-right: 0 !important;
+        }
+
+        #modalProductos .modal-productos-dialog {
+            width: calc(100% - 28px);
+            max-width: 1240px;
+            margin: 14px auto;
+        }
+
+        #modalProductos .modal-productos-content {
+            height: calc(100vh - 28px);
+            max-height: 880px;
+            min-height: 560px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 20px;
+            background: #f7f9f8;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+        }
+
+        #modalProductos .modal-productos-header {
+            flex: 0 0 auto;
+            min-height: 72px;
+            padding: 16px 22px;
+            background: #ffffff;
+            border-bottom: 1px solid #e7ece9;
+        }
+
+        #modalProductos .modal-productos-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #26352d;
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: .01em;
+        }
+
+        #modalProductos .modal-productos-title-icon {
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 13px;
+            color: #278c46;
+            background: #eaf7ee;
+            font-size: 1.25rem;
+        }
+
+        #modalProductos .modal-productos-subtitle {
+            margin-top: 2px;
+            color: #7b8a82;
+            font-size: .82rem;
+            font-weight: 500;
+        }
+
+        #modalProductos .modal-productos-close {
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            border-radius: 12px;
+            color: #66756d;
+            background: #f2f5f3;
+            font-size: 1.5rem;
+            opacity: 1;
+        }
+
+        #modalProductos .modal-productos-close:hover {
+            color: #26352d;
+            background: #e8eeea;
+        }
+
+        #modalProductos .modal-productos-tools {
+            flex: 0 0 auto;
+            background: #ffffff;
+            border-bottom: 1px solid #e4eae6;
+        }
+
+        #modalProductos .modal-productos-categorias {
+            display: grid;
+            grid-template-columns: 38px minmax(0, 1fr) 38px;
+            align-items: center;
+            gap: 8px;
+            padding: 13px 18px 10px;
+        }
+
+        #modalProductos .categoria-nav-btn {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 1px solid #dfe7e2;
+            border-radius: 11px;
+            color: #65756c;
+            background: #f7f9f8;
+        }
+
+        #modalProductos .categoria-nav-btn:hover {
+            color: #278c46;
+            border-color: #bcd9c5;
+            background: #edf8f0;
+        }
+
+        #modalProductos .categorias-viewport {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        #modalProductos #catList {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 8px;
+            width: 100%;
+            margin: 0;
+            padding: 1px 0 7px;
+            list-style: none;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd8d0 transparent;
+        }
+
+        #modalProductos #catList::-webkit-scrollbar {
+            height: 5px;
+        }
+
+        #modalProductos #catList::-webkit-scrollbar-thumb {
+            border-radius: 99px;
+            background: #cbd8d0;
+        }
+
+        #modalProductos .categoria-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 38px;
+            padding: 8px 15px;
+            border: 1px solid #dfe7e2;
+            border-radius: 999px;
+            color: #526259;
+            background: #f8faf9;
+            font-size: .86rem;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+            text-decoration: none !important;
+            transition: .16s ease;
+        }
+
+        #modalProductos .categoria-chip:hover {
+            color: #257d40;
+            border-color: #b9d9c3;
+            background: #eff8f2;
+        }
+
+        #modalProductos .categoria-chip.active {
+            color: #ffffff;
+            border-color: #389c56;
+            background: #389c56;
+            box-shadow: 0 6px 14px rgba(56, 156, 86, .18);
+        }
+
+        #modalProductos .modal-productos-buscador {
+            padding: 8px 22px 16px;
+        }
+
+        #modalProductos .buscador-productos-box {
+            flex: 1 1 520px;
+            max-width: 720px;
+        }
+
+        #modalProductos .buscador-productos-box .input-group-text,
+        #modalProductos .buscador-productos-box .form-control,
+        #modalProductos .buscador-productos-box .btn {
+            min-height: 48px;
+            border-color: #d8e1dc;
+        }
+
+        #modalProductos .buscador-productos-box .input-group-text {
+            border-radius: 13px 0 0 13px;
+        }
+
+        #modalProductos .buscador-productos-box .form-control:focus {
+            border-color: #70b985;
+            box-shadow: none;
+        }
+
+        #modalProductos .buscador-productos-box .btn {
+            border-radius: 0 13px 13px 0;
+        }
+
+        #modalProductos .busqueda-ayuda {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 20px;
+            margin-top: 7px;
+            color: #7c8b83;
+            font-size: .78rem;
+        }
+
+        #modalProductos .productos-modal-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 18px 20px 8px;
+            background: #f7f9f8;
+        }
+
+        #modalProductos #productosList {
+            margin-left: -8px;
+            margin-right: -8px;
+        }
+
+        #modalProductos .producto-item {
+            padding-left: 8px;
+            padding-right: 8px;
+            margin-bottom: 16px !important;
+        }
+
+        #modalProductos .producto-card {
+            border: 1px solid #e3e9e5 !important;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(15, 23, 42, .055) !important;
+            transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+        }
+
+        #modalProductos .producto-card:hover,
+        #modalProductos .producto-card:focus {
+            transform: translateY(-2px);
+            border-color: #aed4ba !important;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, .09) !important;
+            outline: none;
+        }
+
+        #modalProductos .producto-card .card-body {
+            padding: 16px;
+        }
+
+        #modalProductos .producto-imagen {
+            width: 72px;
+            height: 72px;
+            flex: 0 0 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 13px;
+            overflow: hidden;
+            background: #f0f4f1;
+        }
+
+        #modalProductos .producto-imagen img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        #modalProductos .producto-nombre {
+            min-height: 42px;
+            color: #25342c;
+            font-size: .98rem;
+            font-weight: 800;
+            line-height: 1.35;
+        }
+
+        #modalProductos .producto-codigo {
+            max-width: 100%;
+            overflow: hidden;
+            color: #77867e;
+            font-size: .77rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #modalProductos .producto-precio {
+            color: #237b3e;
+            font-size: 1.08rem;
+            font-weight: 800;
+        }
+
+        #modalProductos .producto-stock {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 9px;
+            border-radius: 999px;
+            color: #496158;
+            background: #eef3f0;
+            font-size: .73rem;
+            font-weight: 700;
+        }
+
+        #modalProductos .modal-productos-footer {
+            flex: 0 0 auto;
+            min-height: 70px;
+            padding: 11px 20px;
+            border-top: 1px solid #e1e8e3;
+            background: #ffffff;
+        }
+
+        #modalProductos .lector-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7b72;
+            font-size: .82rem;
+        }
+
+        #modalProductos .lector-status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #52b848;
+            box-shadow: 0 0 0 4px rgba(82, 184, 72, .13);
+        }
+
+        #modalProductos #formProductoRapido {
+            max-height: min(54vh, 560px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding-right: 4px;
+        }
+
+        #modalProductos #formProductoRapido::-webkit-scrollbar,
+        #modalProductos .productos-modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #modalProductos #formProductoRapido::-webkit-scrollbar-thumb,
+        #modalProductos .productos-modal-body::-webkit-scrollbar-thumb {
+            border-radius: 99px;
+            background: #cbd7d0;
+        }
+
+        .scanner-feedback {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 11px 15px;
+            border: 1px solid #cce4d3;
+            border-radius: 13px;
+            color: #2d6540;
+            background: #f0faf3;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, .16);
+            font-size: .84rem;
+            font-weight: 700;
+        }
+
+        .scanner-feedback i {
+            font-size: 1.05rem;
+        }
+
+        .scanner-capture-input {
+            position: fixed !important;
+            left: -9999px !important;
+            top: -9999px !important;
+            width: 1px !important;
+            height: 1px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        @media (max-width: 767.98px) {
+            #modalProductos .modal-productos-dialog {
+                width: 100%;
+                max-width: none;
+                height: 100%;
+                margin: 0;
+            }
+
+            #modalProductos .modal-productos-content {
+                height: 100vh;
+                max-height: none;
+                min-height: 0;
+                border-radius: 0;
+            }
+
+            #modalProductos .modal-productos-header {
+                min-height: 64px;
+                padding: 12px 15px;
+            }
+
+            #modalProductos .modal-productos-subtitle {
+                display: none;
+            }
+
+            #modalProductos .modal-productos-categorias {
+                grid-template-columns: 32px minmax(0, 1fr) 32px;
+                gap: 5px;
+                padding: 10px 10px 7px;
+            }
+
+            #modalProductos .categoria-nav-btn {
+                width: 32px;
+                height: 32px;
+            }
+
+            #modalProductos .modal-productos-buscador {
+                padding: 7px 12px 12px;
+            }
+
+            #modalProductos .productos-modal-body {
+                padding: 12px 12px 4px;
+            }
+
+            #modalProductos .modal-productos-footer {
+                padding: 10px 12px;
+            }
+
+            #modalProductos .lector-status {
+                display: none;
+            }
+        }
+    </style>
+
     <!-- =========================================================
          MODAL DE PRODUCTOS
     ========================================================== -->
@@ -739,159 +1183,103 @@ if ($_SESSION['ventas'] == 1) {
         aria-hidden="true">
 
         <div
-            class="modal-dialog modal-xl modal-dialog-centered"
+            class="modal-dialog modal-xl modal-dialog-centered modal-productos-dialog"
             role="document">
 
-            <div
-                class="modal-content rounded-4 border-0"
-                style="
-                    min-height:85vh;
-                    background:#fff;
-                ">
+            <div class="modal-content border-0 modal-productos-content">
 
-                <div class="modal-header border-0 pb-0 align-items-center">
+                <div class="modal-header modal-productos-header align-items-center">
+                    <div class="d-flex align-items-center">
+                        <span class="modal-productos-title-icon">
+                            <i class="bi bi-box-seam"></i>
+                        </span>
 
-                    <span
-                        class="fw-bold fs-3 ps-2"
-                        id="modalProductosLabel"
-                        style="color:#353535;">
-                        PRODUCTOS
-                    </span>
+                        <div class="ml-3">
+                            <div class="modal-productos-title" id="modalProductosLabel">
+                                Seleccionar productos
+                            </div>
+                            <div class="modal-productos-subtitle">
+                                Busca por nombre o escanea el código desde cualquier categoría.
+                            </div>
+                        </div>
+                    </div>
 
                     <button
                         type="button"
-                        class="close fs-2"
+                        class="close modal-productos-close"
                         data-dismiss="modal"
-                        aria-label="Cerrar"
-                        style="outline:none;">
-
+                        aria-label="Cerrar">
                         <span aria-hidden="true">&times;</span>
                     </button>
-
                 </div>
 
-                <!-- Categorías -->
-                <div
-                    class="px-4 pt-3 pb-0 bg-white"
-                    style="
-                        border-bottom:1px solid #eee;
-                        position:relative;
-                    ">
+                <div class="modal-productos-tools">
+                    <div class="modal-productos-categorias">
+                        <button
+                            type="button"
+                            id="catPrev"
+                            class="btn categoria-nav-btn"
+                            aria-label="Categorías anteriores">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
 
-                    <button
-                        type="button"
-                        id="catPrev"
-                        class="btn btn-link p-0 m-0"
-                        style="
-                            position:absolute;
-                            left:0;
-                            top:60%;
-                            transform:translateY(-50%);
-                            z-index:2;
-                        ">
-
-                        <i
-                            class="bi bi-chevron-left"
-                            style="
-                                font-size:1rem;
-                                color:#aaa;
-                            ">
-                        </i>
-
-                    </button>
-
-                    <button
-                        type="button"
-                        id="catNext"
-                        class="btn btn-link p-0 m-0"
-                        style="
-                            position:absolute;
-                            right:0;
-                            top:60%;
-                            transform:translateY(-50%);
-                            z-index:2;
-                        ">
-
-                        <i
-                            class="bi bi-chevron-right"
-                            style="
-                                font-size:1rem;
-                                color:#aaa;
-                            ">
-                        </i>
-
-                    </button>
-
-                    <nav class="mx-5">
-
-                        <ul
-                            class="nav flex-nowrap"
-                            id="catList"
-                            style="
-                                white-space:nowrap;
-                                overflow-x:auto;
-                                scroll-behavior:smooth;
-                            ">
-                        </ul>
-
-                    </nav>
-
-                </div>
-
-                <!-- Buscador y creación rápida -->
-                <div class="px-4 py-3 bg-white">
-
-                    <div
-                        class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center"
-                        style="gap:14px;">
-
-                        <div
-                            class="input-group flex-grow-1"
-                            style="max-width:620px;">
-
-                            <div class="input-group-prepend">
-
-                                <span
-                                    class="input-group-text bg-white border-end-0">
-
-                                    <i class="bi bi-search fs-4 text-secondary"></i>
-                                </span>
-
-                            </div>
-
-                            <input
-                                type="text"
-                                class="form-control border-start-0"
-                                id="buscarProducto"
-                                autocomplete="off"
-                                placeholder="Buscar por nombre o código..."
-                                style="font-size:1.1rem; min-height:48px;">
-
-                            <div class="input-group-append">
-
-                                <button
-                                    type="button"
-                                    class="btn btn-outline-secondary bg-white"
-                                    title="Escanear código">
-
-                                    <i class="bi bi-upc-scan fs-4"></i>
-                                </button>
-
-                            </div>
-
+                        <div class="categorias-viewport">
+                            <ul class="nav flex-nowrap" id="catList"></ul>
                         </div>
 
                         <button
                             type="button"
-                            class="btn btn-success d-flex align-items-center justify-content-center px-4"
-                            id="btnMostrarProductoRapido"
-                            style="min-height:48px; border-radius:12px; white-space:nowrap;">
-
-                            <i class="bi bi-plus-circle mr-2"></i>
-                            Registrar producto nuevo
+                            id="catNext"
+                            class="btn categoria-nav-btn"
+                            aria-label="Categorías siguientes">
+                            <i class="bi bi-chevron-right"></i>
                         </button>
-
                     </div>
+
+                    <div class="modal-productos-buscador">
+                        <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-start" style="gap:12px;">
+                            <div class="buscador-productos-box">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text bg-white border-right-0">
+                                            <i class="bi bi-search text-secondary"></i>
+                                        </span>
+                                    </div>
+
+                                    <input
+                                        type="text"
+                                        class="form-control border-left-0 border-right-0"
+                                        id="buscarProducto"
+                                        autocomplete="off"
+                                        placeholder="Nombre, SKU o código de barras..."
+                                        aria-label="Buscar producto">
+
+                                    <div class="input-group-append">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary bg-white"
+                                            id="btnEscanearDesdeModal"
+                                            title="Activar lector de código">
+                                            <i class="bi bi-upc-scan"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="busqueda-ayuda" id="resultadoBusquedaProducto" aria-live="polite">
+                                    <i class="bi bi-info-circle"></i>
+                                    La búsqueda por código de barras es global. Presiona Enter para agregar el producto exacto.
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="btn btn-success d-flex align-items-center justify-content-center px-4"
+                                id="btnMostrarProductoRapido"
+                                style="min-height:48px; border-radius:12px; white-space:nowrap;">
+                                <i class="bi bi-plus-circle mr-2"></i>
+                                Registrar producto nuevo
+                            </button>
+                        </div>
 
                     <!-- Formulario rápido: está fuera del formulario de venta -->
                     <style>
@@ -1309,45 +1697,26 @@ if ($_SESSION['ventas'] == 1) {
 
                 </div>
 
-                <!-- Productos -->
-                <div class="modal-body pt-0">
+                </div>
 
-                    <div
-                        class="row px-3"
-                        id="productosList">
+                <div class="modal-body productos-modal-body">
+                    <div class="row" id="productosList"></div>
+                </div>
+
+                <div class="modal-footer modal-productos-footer justify-content-between">
+                    <div class="lector-status">
+                        <span class="lector-status-dot"></span>
+                        Lector disponible en toda la pantalla de venta
                     </div>
 
-                    <div
-                        class="
-                            modal-footer
-                            border-0
-                            bg-white
-                            px-4
-                            pb-4
-                            pt-2
-                            justify-content-end
-                        ">
-
-                        <button
-                            type="button"
-                            class="
-                                btn
-                                btn-success
-                                btn-lg
-                                d-flex
-                                align-items-center
-                                gap-2
-                                px-4
-                            "
-                            style="min-width:300px;">
-
-                            Escanear con la cámara
-
-                            <i class="bi bi-upc-scan fs-4"></i>
-                        </button>
-
-                    </div>
-
+                    <button
+                        type="button"
+                        class="btn btn-success d-flex align-items-center justify-content-center px-4"
+                        id="btnEscanearModalFooter"
+                        style="min-height:46px; border-radius:12px;">
+                        <i class="bi bi-upc-scan mr-2"></i>
+                        Activar lector
+                    </button>
                 </div>
 
             </div>
