@@ -1,5 +1,13 @@
 let productosCache = [];
 let categoriasCache = [];
+let datosProductoRapidoCache = {
+    categorias: [],
+    subcategorias: [],
+    medidas: [],
+    almacenes: []
+};
+let datosProductoRapidoCargados = false;
+let cargandoDatosProductoRapido = false;
 let guardandoProductoRapido = false;
 let categoriaActiva = 0;
 let buscandoCodigoProducto = false;
@@ -1067,10 +1075,339 @@ function escaparHtmlProducto(valor) {
         .replace(/'/g, '&#039;');
 }
 
+function crearOpcionesProductoRapido(
+    registros,
+    campoValor,
+    campoTexto,
+    textoInicial
+) {
+    let html = `<option value="">${escaparHtmlProducto(textoInicial)}</option>`;
+
+    (Array.isArray(registros) ? registros : []).forEach(function (registro) {
+        const valor = String(registro[campoValor] ?? '');
+        const texto = typeof campoTexto === 'function'
+            ? campoTexto(registro)
+            : registro[campoTexto];
+
+        html += `
+            <option value="${escaparHtmlProducto(valor)}">
+                ${escaparHtmlProducto(texto || '')}
+            </option>`;
+    });
+
+    return html;
+}
+
+function mostrarEstadoCargaProductoRapido() {
+    $('#rapido_idcategoria')
+        .prop('disabled', true)
+        .html('<option value="">Cargando categorías...</option>');
+
+    $('#rapido_idsubcategoria')
+        .prop('disabled', true)
+        .html('<option value="">Cargando subcategorías...</option>');
+
+    $('#rapido_idmedida')
+        .prop('disabled', true)
+        .html('<option value="">Cargando unidades...</option>');
+
+    $('#rapido_idalmacen')
+        .prop('disabled', true)
+        .html('<option value="">Cargando almacenes...</option>');
+
+    $('#rapido_resumen_destino').html(
+        '<span class="text-muted">Cargando clasificación, unidad y almacén...</span>'
+    );
+}
+
+function cargarDatosProductoRapido(forzar = false) {
+    if (datosProductoRapidoCargados && !forzar) {
+        poblarDatosProductoRapido();
+        return;
+    }
+
+    if (cargandoDatosProductoRapido) {
+        return;
+    }
+
+    cargandoDatosProductoRapido = true;
+    mostrarEstadoCargaProductoRapido();
+
+    $.ajax({
+        url: 'Controllers/Product.php?op=datosRapidos',
+        method: 'GET',
+        dataType: 'json',
+        cache: false,
+        data: {
+            v: Date.now()
+        },
+
+        success: function (respuesta) {
+            if (
+                !respuesta
+                || respuesta.success !== true
+                || !respuesta.datos
+            ) {
+                const mensaje = String(
+                    respuesta && respuesta.mensaje
+                        ? respuesta.mensaje
+                        : 'No se recibieron categorías, unidades o almacenes.'
+                );
+
+                $('#rapido_idcategoria, #rapido_idmedida, #rapido_idalmacen')
+                    .prop('disabled', false)
+                    .html('<option value="">No disponible</option>');
+
+                $('#rapido_idsubcategoria')
+                    .prop('disabled', true)
+                    .html('<option value="">Sin datos</option>');
+
+                Swal.fire(
+                    'No se pudo preparar el formulario',
+                    mensaje,
+                    'error'
+                );
+                return;
+            }
+
+            datosProductoRapidoCache = {
+                categorias: Array.isArray(respuesta.datos.categorias)
+                    ? respuesta.datos.categorias
+                    : [],
+                subcategorias: Array.isArray(respuesta.datos.subcategorias)
+                    ? respuesta.datos.subcategorias
+                    : [],
+                medidas: Array.isArray(respuesta.datos.medidas)
+                    ? respuesta.datos.medidas
+                    : [],
+                almacenes: Array.isArray(respuesta.datos.almacenes)
+                    ? respuesta.datos.almacenes
+                    : []
+            };
+
+            datosProductoRapidoCargados = true;
+            poblarDatosProductoRapido();
+        },
+
+        error: function (xhr) {
+            console.error(
+                'ERROR DATOS PRODUCTO RÁPIDO:',
+                xhr.status,
+                xhr.responseText
+            );
+
+            let mensaje = 'No se pudieron cargar las categorías, unidades y almacenes.';
+
+            if (
+                xhr.responseJSON
+                && typeof xhr.responseJSON.mensaje === 'string'
+            ) {
+                mensaje = xhr.responseJSON.mensaje;
+            }
+
+            $('#rapido_idcategoria, #rapido_idmedida, #rapido_idalmacen')
+                .prop('disabled', false)
+                .html('<option value="">No disponible</option>');
+
+            $('#rapido_idsubcategoria')
+                .prop('disabled', true)
+                .html('<option value="">Sin datos</option>');
+
+            Swal.fire('Error', mensaje, 'error');
+        },
+
+        complete: function () {
+            cargandoDatosProductoRapido = false;
+        }
+    });
+}
+
+function poblarDatosProductoRapido() {
+    const datos = datosProductoRapidoCache;
+
+    $('#rapido_idcategoria')
+        .prop('disabled', false)
+        .html(
+            crearOpcionesProductoRapido(
+                datos.categorias,
+                'idcategoria',
+                'nombre',
+                'Selecciona una categoría'
+            )
+        );
+
+    $('#rapido_idmedida')
+        .prop('disabled', false)
+        .html(
+            crearOpcionesProductoRapido(
+                datos.medidas,
+                'idmedida',
+                function (medida) {
+                    const nombre = String(medida.nombre || '').trim();
+                    const codigo = String(medida.codigo || '').trim();
+
+                    return codigo !== ''
+                        ? `${nombre} (${codigo})`
+                        : nombre;
+                },
+                'Selecciona una unidad'
+            )
+        );
+
+    $('#rapido_idalmacen')
+        .prop('disabled', false)
+        .html(
+            crearOpcionesProductoRapido(
+                datos.almacenes,
+                'idalmacen',
+                'nombre',
+                'Selecciona un almacén'
+            )
+        );
+
+    if (datos.categorias.length > 0) {
+        $('#rapido_idcategoria').val(
+            String(datos.categorias[0].idcategoria)
+        );
+    }
+
+    if (datos.medidas.length > 0) {
+        $('#rapido_idmedida').val(
+            String(datos.medidas[0].idmedida)
+        );
+    }
+
+    if (datos.almacenes.length > 0) {
+        $('#rapido_idalmacen').val(
+            String(datos.almacenes[0].idalmacen)
+        );
+    }
+
+    actualizarSubcategoriasRapidas();
+    actualizarResumenProductoRapido();
+    calcularGananciaProductoRapido();
+}
+
+function actualizarSubcategoriasRapidas() {
+    const idcategoria = Number.parseInt(
+        $('#rapido_idcategoria').val(),
+        10
+    ) || 0;
+
+    const subcategorias = datosProductoRapidoCache.subcategorias.filter(
+        function (subcategoria) {
+            return Number.parseInt(
+                subcategoria.idcategoria,
+                10
+            ) === idcategoria;
+        }
+    );
+
+    if (idcategoria <= 0) {
+        $('#rapido_idsubcategoria')
+            .prop('disabled', true)
+            .html('<option value="">Selecciona primero la categoría</option>');
+    } else if (subcategorias.length === 0) {
+        $('#rapido_idsubcategoria')
+            .prop('disabled', true)
+            .html('<option value="">Sin subcategoría</option>');
+    } else {
+        $('#rapido_idsubcategoria')
+            .prop('disabled', false)
+            .html(
+                crearOpcionesProductoRapido(
+                    subcategorias,
+                    'idsubcategoria',
+                    'nombre',
+                    'Selecciona una subcategoría'
+                )
+            )
+            .val(String(subcategorias[0].idsubcategoria));
+    }
+
+    actualizarResumenProductoRapido();
+}
+
+function actualizarResumenProductoRapido() {
+    const categoria = String(
+        $('#rapido_idcategoria option:selected').text() || ''
+    ).trim();
+    const subcategoria = String(
+        $('#rapido_idsubcategoria option:selected').text() || ''
+    ).trim();
+    const medida = String(
+        $('#rapido_idmedida option:selected').text() || ''
+    ).trim();
+    const almacen = String(
+        $('#rapido_idalmacen option:selected').text() || ''
+    ).trim();
+
+    const categoriaValida = $('#rapido_idcategoria').val();
+    const medidaValida = $('#rapido_idmedida').val();
+    const almacenValido = $('#rapido_idalmacen').val();
+
+    if (!categoriaValida || !medidaValida || !almacenValido) {
+        $('#rapido_resumen_destino').html(
+            '<span class="text-muted">Selecciona categoría, unidad y almacén.</span>'
+        );
+        return;
+    }
+
+    let clasificacion = categoria;
+
+    if (
+        subcategoria
+        && subcategoria !== 'Sin subcategoría'
+        && subcategoria !== 'Selecciona una subcategoría'
+        && subcategoria !== 'Selecciona primero la categoría'
+    ) {
+        clasificacion += ' / ' + subcategoria;
+    }
+
+    $('#rapido_resumen_destino').html(
+        '<div class="small text-muted mb-1">Se registrará como</div>' +
+        '<strong>' + escaparHtmlProducto(clasificacion) + '</strong>' +
+        '<div class="small text-muted mt-1">' +
+        escaparHtmlProducto(medida) + ' · ' +
+        escaparHtmlProducto(almacen) +
+        '</div>'
+    );
+}
+
+function calcularGananciaProductoRapido() {
+    const compra = Number.parseFloat(
+        $('#rapido_precio_compra').val()
+    ) || 0;
+    const venta = Number.parseFloat(
+        $('#rapido_precio_venta').val()
+    ) || 0;
+
+    if (compra <= 0 || venta <= 0) {
+        $('#rapido_ganancia').html(
+            '<span class="text-muted">Ingresa el costo y el precio de venta para ver la ganancia.</span>'
+        );
+        return;
+    }
+
+    const ganancia = venta - compra;
+    const porcentaje = compra > 0
+        ? (ganancia / compra) * 100
+        : 0;
+    const clase = ganancia >= 0 ? 'text-success' : 'text-danger';
+
+    $('#rapido_ganancia').html(
+        '<div class="small text-muted mb-1">Ganancia estimada por unidad</div>' +
+        '<strong class="' + clase + '">S/ ' + ganancia.toFixed(2) + '</strong>' +
+        '<span class="small ' + clase + '"> (' + porcentaje.toFixed(1) + '%)</span>'
+    );
+}
+
 function abrirProductoRapido() {
     const textoBusqueda = String(
         $('#buscarProducto').val() || ''
     ).trim();
+
+    cargarDatosProductoRapido();
 
     $('#formProductoRapido').stop(true, true).slideDown(180);
 
@@ -1079,12 +1416,6 @@ function abrirProductoRapido() {
         && String($('#rapido_nombre').val() || '').trim() === ''
     ) {
         $('#rapido_nombre').val(textoBusqueda);
-    }
-
-    if (!$('#rapido_idcategoria').val() && categoriasCache.length > 0) {
-        $('#rapido_idcategoria').val(
-            String(categoriasCache[0].idcategoria)
-        );
     }
 
     window.setTimeout(function () {
@@ -1104,11 +1435,14 @@ function cerrarProductoRapido(limpiar = false) {
 
         $('#rapido_stock').val('1');
         $('#rapido_precio_compra').val('');
+        $('#rapido_precio_venta').val('');
 
-        if (categoriasCache.length > 0) {
-            $('#rapido_idcategoria').val(
-                String(categoriasCache[0].idcategoria)
-            );
+        if (datosProductoRapidoCargados) {
+            poblarDatosProductoRapido();
+        } else {
+            $('#rapido_idsubcategoria')
+                .prop('disabled', true)
+                .html('<option value="">Selecciona primero la categoría</option>');
         }
     }
 }
@@ -1124,11 +1458,18 @@ function guardarProductoRapido() {
         return;
     }
 
-    if (!formulario.checkValidity()) {
-        formulario.reportValidity();
-        return;
-    }
-
+    const idcategoria = Number.parseInt(
+        $('#rapido_idcategoria').val(),
+        10
+    ) || 0;
+    const idmedida = Number.parseInt(
+        $('#rapido_idmedida').val(),
+        10
+    ) || 0;
+    const idalmacen = Number.parseInt(
+        $('#rapido_idalmacen').val(),
+        10
+    ) || 0;
     const stock = Number.parseInt($('#rapido_stock').val(), 10) || 0;
     const precioCompra = Number.parseFloat(
         $('#rapido_precio_compra').val()
@@ -1136,6 +1477,20 @@ function guardarProductoRapido() {
     const precioVenta = Number.parseFloat(
         $('#rapido_precio_venta').val()
     ) || 0;
+
+    if (idcategoria <= 0 || idmedida <= 0 || idalmacen <= 0) {
+        Swal.fire(
+            'Faltan datos',
+            'Selecciona la categoría, la unidad de venta y el almacén.',
+            'warning'
+        );
+        return;
+    }
+
+    if (!formulario.checkValidity()) {
+        formulario.reportValidity();
+        return;
+    }
 
     if (stock < 1) {
         Swal.fire(
@@ -1156,6 +1511,11 @@ function guardarProductoRapido() {
     }
 
     const datos = new FormData(formulario);
+
+    if ($('#rapido_idsubcategoria').prop('disabled')) {
+        datos.set('idsubcategoria', '');
+    }
+
     const $boton = $('#btnGuardarProductoRapido');
     const textoOriginal = $boton.html();
 
@@ -1164,7 +1524,7 @@ function guardarProductoRapido() {
     $boton
         .prop('disabled', true)
         .html(
-            '<span class="spinner-border spinner-border-sm me-2"></span>' +
+            '<span class="spinner-border spinner-border-sm mr-2"></span>' +
             'Guardando...'
         );
 
@@ -1252,6 +1612,25 @@ function guardarProductoRapido() {
     });
 }
 
+$(document).on('change', '#rapido_idcategoria', function () {
+    actualizarSubcategoriasRapidas();
+});
+
+$(document).on(
+    'change',
+    '#rapido_idsubcategoria, #rapido_idmedida, #rapido_idalmacen',
+    function () {
+        actualizarResumenProductoRapido();
+    }
+);
+
+$(document).on(
+    'input change',
+    '#rapido_precio_compra, #rapido_precio_venta',
+    function () {
+        calcularGananciaProductoRapido();
+    }
+);
 
 $(document).on('click', '#catList .categoria-chip[data-id]', function (e) {
     e.preventDefault();
