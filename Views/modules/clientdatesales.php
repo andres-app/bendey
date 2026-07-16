@@ -73,12 +73,16 @@ if (!isset($_SESSION['nombre'])) {
                       <thead>
                         <tr>
                           <th>Fecha</th>
-                          <th>Usuario</th>
+                          <th>Usuario vendedor</th>
                           <th>Cliente</th>
                           <th>Comprobante</th>
                           <th>Número</th>
-                          <th>Total Ventas</th>
+                          <th>Total</th>
                           <th>Impuesto</th>
+                          <th>Sucursal</th>
+                          <th>Caja</th>
+                          <th>Apertura</th>
+                          <th>Modo</th>
                           <th>Estado</th>
                         </tr>
                       </thead>

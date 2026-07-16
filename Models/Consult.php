@@ -18,32 +18,122 @@ class Consult{
       return  $this->conexion->getDataAll($sql); 
   }
 
-  public function ventasfecha($fecha_inicio, $fecha_fin){
-    // rango index-friendly: [inicio 00:00:00, fin+1día 00:00:00)
-    $ini = $fecha_inicio . " 00:00:00";
-    $fin = date("Y-m-d", strtotime($fecha_fin . " +1 day")) . " 00:00:00";
-  
+  public function ventasfecha(
+    $fecha_inicio,
+    $fecha_fin
+) {
+    /*
+    |--------------------------------------------------------------------------
+    | RANGO DE FECHAS
+    |--------------------------------------------------------------------------
+    | Desde la fecha inicial a las 00:00:00 hasta el día siguiente
+    | de la fecha final, sin utilizar DATE() sobre fecha_hora.
+    |--------------------------------------------------------------------------
+    */
+    $ini = $fecha_inicio . ' 00:00:00';
+
+    $fin = date(
+        'Y-m-d',
+        strtotime($fecha_fin . ' +1 day')
+    ) . ' 00:00:00';
+
     $sql = "
-      SELECT
-        DATE(v.fecha_hora) as fecha,
-        u.nombre as usuario,
-        p.nombre as cliente,
-        v.tipo_comprobante,
-        v.serie_comprobante,
-        v.num_comprobante,
-        v.total_venta,
-        v.impuesto,
-        v.estado
-      FROM venta v
-      INNER JOIN persona p ON v.idcliente = p.idpersona
-      INNER JOIN usuario u ON v.idusuario = u.idusuario
-      WHERE v.fecha_hora >= '$ini'
-        AND v.fecha_hora <  '$fin'
-      ORDER BY v.fecha_hora DESC
+        SELECT
+            v.idventa,
+
+            DATE_FORMAT(
+                v.fecha_hora,
+                '%d/%m/%Y %H:%i'
+            ) AS fecha,
+
+            COALESCE(
+                u.nombre,
+                'SIN USUARIO'
+            ) AS usuario,
+
+            COALESCE(
+                p.nombre,
+                'SIN CLIENTE'
+            ) AS cliente,
+
+            v.tipo_comprobante,
+            v.serie_comprobante,
+            v.num_comprobante,
+            v.total_venta,
+            v.impuesto,
+            v.estado,
+
+            v.idsucursal,
+            v.idcaja,
+            v.idapertura,
+
+            COALESCE(
+                s.nombre,
+                'LEGACY'
+            ) AS sucursal,
+
+            CASE
+                WHEN v.idcaja IS NULL
+                THEN 'LEGACY'
+
+                ELSE CONCAT(
+                    COALESCE(cf.codigo, 'SIN CÓDIGO'),
+                    ' - ',
+                    COALESCE(cf.nombre, 'CAJA NO ENCONTRADA')
+                )
+            END AS caja,
+
+            CASE
+                WHEN v.idapertura IS NULL
+                THEN 'SIN VÍNCULO FÍSICO'
+
+                ELSE CAST(
+                    v.idapertura AS CHAR
+                )
+            END AS apertura,
+
+            CASE
+                WHEN v.idcaja IS NULL
+                 AND v.idapertura IS NULL
+                THEN 'LEGACY'
+
+                ELSE 'CAJA_FISICA'
+            END AS modo_caja
+
+        FROM venta AS v
+
+        LEFT JOIN persona AS p
+            ON p.idpersona = v.idcliente
+
+        LEFT JOIN usuario AS u
+            ON u.idusuario = v.idusuario
+
+        LEFT JOIN sucursal AS s
+            ON s.idsucursal = v.idsucursal
+
+        LEFT JOIN caja_fisica AS cf
+            ON cf.idcaja = v.idcaja
+
+        WHERE v.fecha_hora >= ?
+          AND v.fecha_hora < ?
+
+        ORDER BY
+            v.fecha_hora DESC,
+            v.idventa DESC
     ";
-  
-    return $this->conexion->getDataAll($sql);
-  }
+
+    $resultado = $this->conexion->getDataAll(
+        $sql,
+        [
+            $ini,
+            $fin
+        ]
+    );
+
+    return is_array($resultado)
+        ? $resultado
+        : [];
+}
 
   public function ventasfechacliente($fecha_inicio,$fecha_fin,$idcliente){
     $sql="SELECT DATE(v.fecha_hora) as fecha, u.nombre as usuario, p.nombre as cliente, v.tipo_comprobante,v.serie_comprobante, v.num_comprobante , v.total_venta, v.impuesto, v.estado FROM venta v INNER JOIN persona p ON v.idcliente=p.idpersona INNER JOIN usuario u ON v.idusuario=u.idusuario WHERE DATE(v.fecha_hora)>='$fecha_inicio' AND DATE(v.fecha_hora)<='$fecha_fin' AND v.idcliente='$idcliente'";

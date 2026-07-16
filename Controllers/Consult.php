@@ -35,37 +35,171 @@ switch ($_GET["op"]) {
     break;
 
   case 'ventasfecha':
-    $fecha_inicio = $_REQUEST["fecha_inicio"];
-    $fecha_fin    = $_REQUEST["fecha_fin"];
+    header('Content-Type: application/json; charset=utf-8');
 
-    $rspta = $consult->ventasfecha($fecha_inicio, $fecha_fin);
-    $data = array();
-
-    foreach ($rspta as $reg) {
-      $data[] = array(
-        "0" => $reg['fecha'],
-        "1" => $reg['usuario'],
-        "2" => $reg['cliente'],
-        "3" => $reg['tipo_comprobante'],
-        "4" => $reg['serie_comprobante'] . ' ' . $reg['num_comprobante'],
-        "5" => $reg['total_venta'],
-        "6" => $reg['impuesto'],
-        "7" => ($reg['estado'] == 'Aceptado')
-          ? '<div class="badge badge-success">Aceptado</div>'
-          : '<div class="badge badge-danger">Anulado</div>'
-      );
-    }
-
-    $results = array(
-      "sEcho" => 1,
-      "iTotalRecords" => count($data),
-      "iTotalDisplayRecords" => count($data),
-      "aaData" => $data
+    $fecha_inicio = trim(
+      (string)($_REQUEST['fecha_inicio'] ?? '')
     );
 
-    echo json_encode($results);
-    break;
+    $fecha_fin = trim(
+      (string)($_REQUEST['fecha_fin'] ?? '')
+    );
 
+    /*
+      |--------------------------------------------------------------------------
+      | VALIDAR FECHAS
+      |--------------------------------------------------------------------------
+      */
+    if (
+      !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)
+      || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)
+    ) {
+      echo json_encode(
+        [
+          'sEcho' => 1,
+          'iTotalRecords' => 0,
+          'iTotalDisplayRecords' => 0,
+          'aaData' => [],
+          'success' => false,
+          'mensaje' => 'El rango de fechas no es válido.'
+        ],
+        JSON_UNESCAPED_UNICODE
+      );
+
+      break;
+    }
+
+    if ($fecha_fin < $fecha_inicio) {
+      echo json_encode(
+        [
+          'sEcho' => 1,
+          'iTotalRecords' => 0,
+          'iTotalDisplayRecords' => 0,
+          'aaData' => [],
+          'success' => false,
+          'mensaje' => 'La fecha final no puede ser menor que la fecha inicial.'
+        ],
+        JSON_UNESCAPED_UNICODE
+      );
+
+      break;
+    }
+
+    $rspta = $consult->ventasfecha(
+      $fecha_inicio,
+      $fecha_fin
+    );
+
+    $data = [];
+
+    foreach ($rspta as $reg) {
+      $estado = strtoupper(
+        trim(
+          (string)($reg['estado'] ?? '')
+        )
+      );
+
+      $badgeEstado = $estado === 'ACEPTADO'
+        ? '<span class="badge badge-success">Aceptado</span>'
+        : '<span class="badge badge-danger">Anulado</span>';
+
+      $modoCaja = strtoupper(
+        trim(
+          (string)($reg['modo_caja'] ?? 'LEGACY')
+        )
+      );
+
+      $badgeModo = $modoCaja === 'CAJA_FISICA'
+        ? '<span class="badge badge-primary">Caja física</span>'
+        : '<span class="badge badge-secondary">Legacy</span>';
+
+      $data[] = [
+        '0' => htmlspecialchars(
+          (string)($reg['fecha'] ?? ''),
+          ENT_QUOTES,
+          'UTF-8'
+        ),
+
+        '1' => htmlspecialchars(
+          (string)($reg['usuario'] ?? 'SIN USUARIO'),
+          ENT_QUOTES,
+          'UTF-8'
+        ),
+
+        '2' => htmlspecialchars(
+          (string)($reg['cliente'] ?? 'SIN CLIENTE'),
+          ENT_QUOTES,
+          'UTF-8'
+        ),
+
+        '3' => htmlspecialchars(
+          (string)($reg['tipo_comprobante'] ?? ''),
+          ENT_QUOTES,
+          'UTF-8'
+        ),
+
+        '4' => htmlspecialchars(
+          trim(
+            (string)($reg['serie_comprobante'] ?? '')
+              . '-'
+              . (string)($reg['num_comprobante'] ?? '')
+          ),
+          ENT_QUOTES,
+          'UTF-8'
+        ),
+
+        '5' => number_format(
+          (float)($reg['total_venta'] ?? 0),
+          2,
+          '.',
+          ''
+        ),
+
+        '6' => number_format(
+          (float)($reg['impuesto'] ?? 0),
+          2,
+          '.',
+          ''
+        ),
+
+        '7' => htmlspecialchars(
+          (string)($reg['sucursal'] ?? 'LEGACY'),
+          ENT_QUOTES,
+          'UTF-8'
+        ),
+
+        '8' => htmlspecialchars(
+          (string)($reg['caja'] ?? 'LEGACY'),
+          ENT_QUOTES,
+          'UTF-8'
+        ),
+
+        '9' => htmlspecialchars(
+          (string)($reg['apertura'] ?? 'SIN VÍNCULO FÍSICO'),
+          ENT_QUOTES,
+          'UTF-8'
+        ),
+
+        '10' => $badgeModo,
+        '11' => $badgeEstado
+      ];
+    }
+
+    $results = [
+      'sEcho' => 1,
+      'iTotalRecords' => count($data),
+      'iTotalDisplayRecords' => count($data),
+      'aaData' => $data
+    ];
+
+    echo json_encode(
+      $results,
+      JSON_UNESCAPED_UNICODE |
+        JSON_UNESCAPED_SLASHES
+    );
+
+    break;
+    
   case 'ventasfechacliente':
     $fecha_inicio = $_REQUEST["fecha_inicio"];
     $fecha_fin = $_REQUEST["fecha_fin"];
