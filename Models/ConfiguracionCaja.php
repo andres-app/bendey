@@ -460,4 +460,60 @@ class ConfiguracionCaja
             ? $resultado
             : null;
     }
+
+    /*
+|--------------------------------------------------------------------------
+| OBTENER PERMISOS DEL USUARIO EN LA SUCURSAL
+|--------------------------------------------------------------------------
+*/
+    public function obtenerPermisoSucursalUsuario(
+        int $idusuario,
+        int $idsucursal
+    ): ?array {
+        if (
+            $idusuario <= 0
+            || $idsucursal <= 0
+        ) {
+            return null;
+        }
+
+        $resultado = $this->conexion->getData(
+            "SELECT
+            us.idusuario_sucursal,
+            us.idusuario,
+            us.idsucursal,
+            us.puede_vender,
+            us.puede_cobrar,
+            us.puede_abrir_caja,
+            us.puede_cerrar_caja,
+            us.activo,
+
+            u.condicion AS usuario_activo,
+            s.activo AS sucursal_activa
+
+         FROM usuario_sucursal AS us
+
+         INNER JOIN usuario AS u
+            ON u.idusuario = us.idusuario
+
+         INNER JOIN sucursal AS s
+            ON s.idsucursal = us.idsucursal
+
+         WHERE us.idusuario = ?
+           AND us.idsucursal = ?
+           AND us.activo = 1
+           AND u.condicion = 1
+           AND s.activo = 1
+
+         LIMIT 1",
+            [
+                $idusuario,
+                $idsucursal
+            ]
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : null;
+    }
 }

@@ -1,12 +1,15 @@
 <?php
 //Controllers/Sell.php
 require_once __DIR__ . '/../Models/Sell.php';
+require_once __DIR__ . '/../Models/ConfiguracionCaja.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
 $sell = new Sell();
+$configuracionCaja = new ConfiguracionCaja();
+
 $op = $_GET['op'] ?? '';
 
 $idventa = (int)($_POST['idventa'] ?? $_GET['idventa'] ?? 0);
@@ -240,9 +243,37 @@ switch ($op) {
                 }
 
                 /*
-     * Las cotizaciones pertenecen a la sucursal,
-     * pero no generan ingreso en caja.
-     */
+                |--------------------------------------------------------------------------
+                | VALIDAR PERMISO DEL USUARIO EN LA SUCURSAL
+                |--------------------------------------------------------------------------
+                */
+                $permisoSucursal =
+                    $configuracionCaja->obtenerPermisoSucursalUsuario(
+                        $idusuario,
+                        $idsucursalSesion
+                    );
+
+                if (!is_array($permisoSucursal)) {
+                    throw new Exception(
+                        'El usuario no está autorizado para operar en la sucursal activa.'
+                    );
+                }
+
+                if (
+                    (int)(
+                        $permisoSucursal['puede_vender']
+                        ?? 0
+                    ) !== 1
+                ) {
+                    throw new Exception(
+                        'El usuario no tiene permiso para registrar ventas en esta sucursal.'
+                    );
+                }
+
+                /*
+                 * Las cotizaciones pertenecen a la sucursal,
+                 * pero no generan ingreso en caja.
+                 */
                 $idsucursalVenta = $idsucursalSesion;
 
                 if (!$esCotizacion) {
@@ -269,9 +300,38 @@ switch ($op) {
                     }
 
                     /*
-         * Verificar que la apertura continúa activa
-         * y corresponde a la sucursal y caja de la sesión.
-         */
+                    |--------------------------------------------------------------------------
+                    | VALIDAR CAJA AUTORIZADA PARA EL USUARIO
+                    |--------------------------------------------------------------------------
+                    */
+                    $autorizacionCaja =
+                        $configuracionCaja->obtenerCajaAutorizadaUsuario(
+                            $idusuario,
+                            $idsucursalSesion,
+                            $idcajaSesion
+                        );
+
+                    if (!is_array($autorizacionCaja)) {
+                        throw new Exception(
+                            'El usuario no está autorizado para operar la caja seleccionada.'
+                        );
+                    }
+
+                    if (
+                        (int)(
+                            $autorizacionCaja['puede_operar']
+                            ?? 0
+                        ) !== 1
+                    ) {
+                        throw new Exception(
+                            'El usuario no tiene permiso para operar esta caja.'
+                        );
+                    }
+
+                    /*
+                     * Verificar que la apertura continúa activa
+                     * y corresponde a la sucursal y caja de la sesión.
+                     */
                     $aperturaVenta =
                         $conexionVenta->getData(
                             "SELECT
