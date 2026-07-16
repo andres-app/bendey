@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../Models/Cobranza.php';
+require_once __DIR__ . '/../Models/ConfiguracionCaja.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -69,6 +70,8 @@ if ($idusuario <= 0 || $permisoVentas !== 1) {
 }
 
 $cobranza = new Cobranza();
+$configuracionCaja = new ConfiguracionCaja();
+
 $op = $_GET['op'] ?? '';
 
 try {
@@ -158,7 +161,65 @@ try {
             $payload = json_decode($contenido ?: '{}', true);
 
             if (!is_array($payload)) {
-                throw new RuntimeException('El contenido enviado no es válido.');
+                throw new RuntimeException(
+                    'El contenido enviado no es válido.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | VALIDACIÓN DE PERMISOS PARA CAJA ÚNICA Y MULTICAJA
+            |--------------------------------------------------------------------------
+            | LEGACY conserva exactamente su comportamiento anterior.
+            |--------------------------------------------------------------------------
+            */
+            if ($modoCajaSesion !== 'LEGACY') {
+                if ($idsucursalSesion <= 0) {
+                    throw new RuntimeException(
+                        'No existe una sucursal activa para registrar la cobranza.'
+                    );
+                }
+
+                if ($idcajaSesion <= 0) {
+                    throw new RuntimeException(
+                        'Debe seleccionar una caja autorizada antes de registrar la cobranza.'
+                    );
+                }
+
+                $autorizacionCaja =
+                    $configuracionCaja->obtenerCajaAutorizadaUsuario(
+                        $idusuario,
+                        $idsucursalSesion,
+                        $idcajaSesion
+                    );
+
+                if (!is_array($autorizacionCaja)) {
+                    throw new RuntimeException(
+                        'El usuario no está autorizado para operar la caja seleccionada.'
+                    );
+                }
+
+                if (
+                    (int)(
+                        $autorizacionCaja['puede_operar']
+                        ?? 0
+                    ) !== 1
+                ) {
+                    throw new RuntimeException(
+                        'El usuario no tiene permiso para operar esta caja.'
+                    );
+                }
+
+                if (
+                    (int)(
+                        $autorizacionCaja['puede_cobrar']
+                        ?? 0
+                    ) !== 1
+                ) {
+                    throw new RuntimeException(
+                        'El usuario no tiene permiso para registrar cobranzas en esta sucursal.'
+                    );
+                }
             }
 
             $resultado = $cobranza->registrar(
