@@ -28,6 +28,40 @@ function responderCaja(array $respuesta): void
     exit;
 }
 
+/*
+|--------------------------------------------------------------------------
+| DESTRUIR SESIÓN DESPUÉS DEL CIERRE
+|--------------------------------------------------------------------------
+*/
+function destruirSesionDespuesDeCerrarCaja(): void
+{
+    $_SESSION = [];
+
+    if (
+        ini_get('session.use_cookies')
+    ) {
+        $parametrosCookie =
+            session_get_cookie_params();
+
+        setcookie(
+            session_name(),
+            '',
+            time() - 42000,
+            $parametrosCookie['path'],
+            $parametrosCookie['domain'],
+            $parametrosCookie['secure'],
+            $parametrosCookie['httponly']
+        );
+    }
+
+    if (
+        session_status()
+        === PHP_SESSION_ACTIVE
+    ) {
+        session_destroy();
+    }
+}
+
 $idusuarioSesion = (int)(
     $_SESSION['idusuario']
     ?? 0
@@ -1105,6 +1139,16 @@ try {
                         $idusuarioSesion
                     );
 
+                if (
+                    ($resultado['status'] ?? '')
+                    === 'ok'
+                ) {
+                    $resultado['cerrar_sesion'] = true;
+                    $resultado['redirect'] = 'login';
+
+                    destruirSesionDespuesDeCerrarCaja();
+                }
+
                 responderCaja($resultado);
             }
 
@@ -1244,18 +1288,20 @@ try {
                 ($resultado['status'] ?? '')
                 === 'ok'
             ) {
-                $_SESSION['idapertura_activa'] = 0;
-                $_SESSION['idcaja_preparada'] = 0;
-
-                /*
-         * Conservamos idcaja_activa para que el usuario
-         * continúe visualizando la caja seleccionada.
-         */
-                $_SESSION['idcaja_activa'] =
-                    $idcajaOperacion;
-
                 $resultado['modo'] =
                     $modoCajaSesion;
+
+                $resultado['cerrar_sesion'] =
+                    true;
+
+                $resultado['redirect'] =
+                    'login';
+
+                /*
+                     * Al cerrar la caja también termina
+                     * la sesión operativa del usuario.
+                     */
+                destruirSesionDespuesDeCerrarCaja();
             }
 
             responderCaja($resultado);

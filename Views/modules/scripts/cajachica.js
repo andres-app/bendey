@@ -796,15 +796,21 @@ function registrarCierreCaja(
           formatearMonto(
             resp.diferencia
           );
-
-        Swal.fire({
-          icon: "success",
-          title:
-            "Caja cerrada correctamente",
-          text: mensaje,
-        }).then(function () {
-          window.location.reload();
-        });
+          Swal.fire({
+            icon: "success",
+            title:
+              "Caja cerrada correctamente",
+            text:
+              mensaje +
+              "\n\nLa sesión será cerrada.",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            confirmButtonText:
+              "Ir al inicio de sesión",
+          }).then(function () {
+            window.location.href =
+              resp.redirect || "login";
+          });
 
         return;
       }
