@@ -23,7 +23,8 @@ class Cajachica
     public function resumen(
         string $fechaInicio,
         string $fechaFin,
-        ?int $idusuario = null
+        ?int $idusuario = null,
+        ?int $idapertura = null
     ): array {
         $sql = "
             SELECT
@@ -48,7 +49,10 @@ class Cajachica
             $fechaFin
         ];
 
-        if ($idusuario !== null && $idusuario > 0) {
+        if ($idapertura !== null && $idapertura > 0) {
+            $sql .= " AND v.idapertura = ?";
+            $parametros[] = $idapertura;
+        } elseif ($idusuario !== null && $idusuario > 0) {
             $sql .= " AND v.idusuario = ?";
             $parametros[] = $idusuario;
         }
@@ -105,7 +109,10 @@ class Cajachica
                 $fechaFin
             ];
 
-            if ($idusuario !== null && $idusuario > 0) {
+            if ($idapertura !== null && $idapertura > 0) {
+                $sqlCobranzas .= " AND mf.idapertura = ?";
+                $parametrosCobranzas[] = $idapertura;
+            } elseif ($idusuario !== null && $idusuario > 0) {
                 $sqlCobranzas .= " AND mf.idusuario = ?";
                 $parametrosCobranzas[] = $idusuario;
             }
@@ -139,7 +146,8 @@ class Cajachica
     public function totales(
         string $fechaInicio,
         string $fechaFin,
-        ?int $idusuario = null
+        ?int $idusuario = null,
+        ?int $idapertura = null
     ): array {
         $sql = "
             SELECT
@@ -187,7 +195,10 @@ class Cajachica
             $fechaFin
         ];
 
-        if ($idusuario !== null && $idusuario > 0) {
+        if ($idapertura !== null && $idapertura > 0) {
+            $sql .= " AND v.idapertura = ?";
+            $parametros[] = $idapertura;
+        } elseif ($idusuario !== null && $idusuario > 0) {
             $sql .= " AND v.idusuario = ?";
             $parametros[] = $idusuario;
         }
@@ -281,7 +292,10 @@ class Cajachica
                 $fechaFin
             ];
 
-            if ($idusuario !== null && $idusuario > 0) {
+            if ($idapertura !== null && $idapertura > 0) {
+                $sqlMovimientos .= " AND mf.idapertura = ?";
+                $parametrosMovimientos[] = $idapertura;
+            } elseif ($idusuario !== null && $idusuario > 0) {
                 $sqlMovimientos .= " AND mf.idusuario = ?";
                 $parametrosMovimientos[] = $idusuario;
             }
