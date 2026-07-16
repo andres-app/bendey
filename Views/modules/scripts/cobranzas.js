@@ -109,7 +109,8 @@ function abrirCobranza(idventa) {
       renderizarCuotasCobranza(venta.cuotas || []);
       renderizarHistorialCobranza(venta.historial || []);
       agregarLineaPagoCobranza();
-
+      recalcularCobranza();
+      
       $("#modalCobranza").modal("show");
     },
     error: function (xhr) {
@@ -414,7 +415,7 @@ function actualizarLineaPago(linea) {
         <br>
         <small>
           <i class="fas fa-cash-register mr-1"></i>
-          Se registrará en la caja abierta del usuario
+          Se registrará en la apertura de caja activa
         </small>
       `;
     }
