@@ -217,3 +217,136 @@ input.form-control.total-display:focus {
 .modal-backdrop.show {
     opacity: 0.85;
 }
+
+/* =========================================================
+   CAJA ACTUAL DEL USUARIO
+   ========================================================= */
+
+.caja-sesion-navbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    max-width: 340px;
+    padding: 6px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.caja-sesion-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.18);
+    font-size: 14px;
+}
+
+.caja-sesion-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.15;
+}
+
+.caja-sesion-content small {
+    margin-bottom: 2px;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.caja-sesion-content strong {
+    display: block;
+    max-width: 260px;
+    overflow: hidden;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.caja-sesion-content strong.caja-inactiva {
+    color: #ffe2e2;
+}
+
+/* Caja dentro del menú del usuario */
+
+.usuario-caja-dropdown {
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+    text-align: left !important;
+}
+
+.usuario-caja-dropdown .usuario-nombre {
+    margin-bottom: 5px;
+    overflow: hidden;
+    color: #34395e;
+    font-size: 13px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.usuario-caja-dropdown .usuario-caja {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #6777ef;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.usuario-caja-dropdown .usuario-caja span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Adaptación móvil */
+
+@media (max-width: 575.98px) {
+    .caja-sesion-navbar {
+        max-width: 145px;
+        min-height: 36px;
+        padding: 4px 8px;
+        gap: 7px;
+        border-radius: 9px;
+    }
+
+    .caja-sesion-icon {
+        flex-basis: 26px;
+        width: 26px;
+        height: 26px;
+        font-size: 12px;
+    }
+
+    .caja-sesion-content small {
+        display: none;
+    }
+
+    .caja-sesion-content strong {
+        max-width: 95px;
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 390px) {
+    .caja-sesion-navbar {
+        max-width: 115px;
+    }
+
+    .caja-sesion-content strong {
+        max-width: 68px;
+    }
+}

@@ -72,6 +72,18 @@ function cargarContextoCaja() {
 function renderizarContextoCaja() {
   ocultarBloquesContexto();
 
+  const cajaActual = contextoCajaActual.cajas.find(function (registro) {
+    return Number(registro.idcaja) === Number(
+      contextoCajaActual.idcajaActiva ||
+      contextoCajaActual.idcajaPreparada ||
+      0
+    );
+  });
+
+  if (cajaActual) {
+    actualizarIndicadorCajaSesion(cajaActual);
+  }
+
   if (contextoCajaActual.modo === "CAJA_UNICA") {
     renderizarCajaUnica();
     verificarAperturaCaja();
@@ -117,6 +129,7 @@ function renderizarCajaUnica() {
   });
 
   contextoCajaActual.idcajaActiva = contextoCajaActual.idcajaUnica;
+  actualizarIndicadorCajaSesion(caja || null);
 
   $("#bloqueContextoCaja").removeClass("d-none");
   $("#tituloContextoCaja").text("Caja única");
@@ -237,9 +250,32 @@ function seleccionarCajaOperacion(idcaja) {
       contextoCajaActual.idcajaActiva = Number(
         resp.idcaja_activa || idcaja
       );
-      contextoCajaActual.idaperturaActiva = 0;
 
-      actualizarPermisoCajaSeleccionada(resp.caja || null);
+      contextoCajaActual.idcajaPreparada = Number(
+        resp.idcaja_preparada ||
+        resp.idcaja_activa ||
+        idcaja
+      );
+
+      contextoCajaActual.idaperturaActiva = Number(
+        resp.idapertura_activa || 0
+      );
+
+      const cajaSeleccionada =
+        resp.caja ||
+        contextoCajaActual.cajas.find(function (registro) {
+          return Number(registro.idcaja) === Number(
+            contextoCajaActual.idcajaActiva
+          );
+        }) ||
+        null;
+
+      /*
+       * Actualiza el encabezado sin recargar la página.
+       */
+      actualizarIndicadorCajaSesion(cajaSeleccionada);
+
+      actualizarPermisoCajaSeleccionada(cajaSeleccionada);
       verificarAperturaCaja();
     },
 
@@ -280,6 +316,45 @@ function obtenerCajaSeleccionada() {
       return Number(registro.idcaja) === Number(idcaja);
     }) || null
   );
+}
+
+function actualizarIndicadorCajaSesion(caja) {
+  const $header = $("#textoCajaSesionHeader");
+  const $dropdown = $("#textoCajaSesionDropdown");
+
+  if (!caja || Number(caja.idcaja || 0) <= 0) {
+    $header
+      .text("Sin caja seleccionada")
+      .removeClass("caja-activa")
+      .addClass("caja-inactiva");
+
+    $dropdown.text("Sin caja seleccionada");
+
+    return;
+  }
+
+  const idcaja = Number(caja.idcaja || 0);
+  const codigo = String(caja.codigo || "").trim();
+  const nombre = String(caja.nombre || "").trim();
+
+  let textoCaja = "";
+
+  if (codigo !== "" && nombre !== "") {
+    textoCaja = codigo + " - " + nombre;
+  } else if (nombre !== "") {
+    textoCaja = nombre;
+  } else if (codigo !== "") {
+    textoCaja = codigo;
+  } else {
+    textoCaja = "Caja #" + idcaja;
+  }
+
+  $header
+    .text(textoCaja)
+    .removeClass("caja-inactiva")
+    .addClass("caja-activa");
+
+  $dropdown.text(textoCaja);
 }
 
 function usuarioPuedeAbrirCaja(caja) {
@@ -383,10 +458,22 @@ function verificarAperturaCaja() {
       }
 
       if (resp.estado === "SIN_CAJA_SELECCIONADA") {
-        contextoCajaActual.idcajaActiva = 0;
-        contextoCajaActual.idaperturaActiva = 0;
-        configurarCajaSinSeleccionar();
-        mostrarModalCaja();
+        /*
+         * Solo limpiar si realmente no existe una caja seleccionada
+         * en el contexto actual.
+         */
+        if (
+          contextoCajaActual.idcajaActiva <= 0 &&
+          contextoCajaActual.idcajaPreparada <= 0
+        ) {
+          contextoCajaActual.idcajaActiva = 0;
+          contextoCajaActual.idaperturaActiva = 0;
+
+          actualizarIndicadorCajaSesion(null);
+          configurarCajaSinSeleccionar();
+          mostrarModalCaja();
+        }
+
         return;
       }
 
@@ -501,8 +588,8 @@ function abrirCaja() {
       if (resp && resp.status === "ok") {
         contextoCajaActual.idaperturaActiva = Number(
           resp.idapertura ||
-            (resp.apertura && resp.apertura.idapertura) ||
-            0
+          (resp.apertura && resp.apertura.idapertura) ||
+          0
         );
 
         $("#modalCajaChica").modal("hide");

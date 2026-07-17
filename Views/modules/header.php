@@ -48,7 +48,42 @@
 </head>
 
 <?php
-$class = ($_GET["url"] == "newsale3" || $_GET["url"] == "editsale") ? 'sidebar-mini' : '';
+$urlActual = $_GET['url'] ?? '';
+
+$class = in_array(
+    $urlActual,
+    ['newsale3', 'editsale'],
+    true
+) ? 'sidebar-mini' : '';
+
+$modoCajaSesion = strtoupper(
+    trim((string)($_SESSION['modo_caja'] ?? 'LEGACY'))
+);
+
+$idCajaActivaSesion = (int)(
+    $_SESSION['idcaja_activa']
+    ?? 0
+);
+
+$idCajaPreparadaSesion = (int)(
+    $_SESSION['idcaja_preparada']
+    ?? 0
+);
+
+$idAperturaActivaSesion = (int)(
+    $_SESSION['idapertura_activa']
+    ?? 0
+);
+
+$idCajaMostrar = $idCajaActivaSesion > 0
+    ? $idCajaActivaSesion
+    : $idCajaPreparadaSesion;
+
+$tieneCajaSesion = $idCajaMostrar > 0;
+
+$textoCajaSesion = $tieneCajaSesion
+    ? 'Caja #' . $idCajaMostrar
+    : 'Sin caja seleccionada';
 ?>
 
 <body class="<?php echo $class; ?>">
@@ -70,6 +105,21 @@ $class = ($_GET["url"] == "newsale3" || $_GET["url"] == "editsale") ? 'sidebar-m
                             </a>
                         </li>
                     </ul>
+                    <div class="caja-sesion-navbar" id="indicadorCajaSesion">
+                        <span class="caja-sesion-icon">
+                            <i class="fas fa-cash-register"></i>
+                        </span>
+
+                        <span class="caja-sesion-content">
+                            <small>Caja de trabajo</small>
+
+                            <strong
+                                id="textoCajaSesionHeader"
+                                class="<?= $tieneCajaSesion ? 'caja-activa' : 'caja-inactiva' ?>">
+                                <?= htmlspecialchars($textoCajaSesion, ENT_QUOTES, 'UTF-8') ?>
+                            </strong>
+                        </span>
+                    </div>
                 </div>
                 <ul class="navbar-nav navbar-right">
                     <li class="dropdown">
@@ -78,7 +128,11 @@ $class = ($_GET["url"] == "newsale3" || $_GET["url"] == "editsale") ? 'sidebar-m
                                 class="user-img-radious-style">
                         </a>
                         <div class="dropdown-menu dropdown-menu-right pullDown">
-                            <div class="dropdown-title"><?php echo $_SESSION['nombre']; ?></div>
+                            <div class="dropdown-title usuario-caja-dropdown">
+                                <div class="usuario-nombre">
+                                    <?= htmlspecialchars($_SESSION['nombre'] ?? 'Usuario', ENT_QUOTES, 'UTF-8') ?>
+                                </div>
+                            </div>
                             <a href="#" class="dropdown-item has-icon">
                                 <i class="far fa-user"></i> Perfil
                             </a>
