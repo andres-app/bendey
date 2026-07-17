@@ -248,6 +248,7 @@ $(document).ready(function () {
     cargarCarrito();
     actualizarMensajePedido();
     inicializarEscanerProductos();
+    cargarFormasPagoMixto();
 
 });
 
@@ -696,7 +697,7 @@ function sincronizarTotalRecibido() {
     let nombreForma = getNombreFormaPago();
 
     // ❌ NO tocar en mixto ni crédito
-    if (nombreForma === 'Mixto') return;
+    if (esPagoCombinadoSeleccionado()) return;
     if (textoNormalizado($('#condicion_pago').val()) === 'CREDITO') return;
 
     let totalVenta = totalVentaActual();
@@ -1775,9 +1776,9 @@ function renderProductos(data) {
                             <div class="d-flex align-items-start" style="gap:13px;">
                                 <div class="producto-imagen">
                                     ${imagen
-                                        ? `<img src="Assets/img/products/${imagenHtml}" alt="${nombreHtml}">`
-                                        : '<i class="bi bi-box-seam text-secondary" style="font-size:1.75rem;"></i>'
-                                    }
+                    ? `<img src="Assets/img/products/${imagenHtml}" alt="${nombreHtml}">`
+                    : '<i class="bi bi-box-seam text-secondary" style="font-size:1.75rem;"></i>'
+                }
                                 </div>
 
                                 <div class="flex-grow-1 min-width-0" style="min-width:0;">
@@ -2741,7 +2742,7 @@ function calcularVuelto() {
     let nombreForma = getNombreFormaPago();
 
     // 🔴 si es Mixto, este cálculo NO aplica
-    if (nombreForma === 'Mixto') {
+    if (esPagoCombinadoSeleccionado()) {
         return;
     }
 
@@ -2766,73 +2767,162 @@ $('#total_recibido').on('input', function () {
 
 
 $('#formularioVenta').on('submit', function (e) {
+    e.preventDefault();
 
-    e.preventDefault(); // ⛔ siempre primero
+    const condicion = $('#condicion_pago').val();
 
-    let condicion = $('#condicion_pago').val();
-    let nombreForma = getNombreFormaPago();
-    let totalVenta = totalVentaActual();
+    const totalVenta = Number(
+        totalVentaActual().toFixed(2)
+    );
+
+    if (totalVenta <= 0) {
+        Swal.fire(
+            'Venta vacía',
+            'Debe agregar al menos un producto.',
+            'warning'
+        );
+
+        return false;
+    }
 
     if (!validarClienteAntesDeVender(totalVenta)) {
         return false;
     }
 
-    // =========================
-    // 🔹 VALIDACIÓN CRÉDITO
-    // =========================
-    if (textoNormalizado(condicion) === 'CREDITO') {
+    /*
+     * PAGO AL CRÉDITO
+     */
+    if (
+        textoNormalizado(condicion) === 'CREDITO'
+    ) {
+        const cuotas = Number.parseInt(
+            $('#numero_cuotas').val(),
+            10
+        ) || 0;
 
-        let cuotas = parseInt($('#numero_cuotas').val());
-
-        if (!cuotas || cuotas < 1) {
+        if (cuotas < 1) {
             Swal.fire(
                 'Crédito',
-                'Debe ingresar el número de cuotas',
+                'Debe ingresar el número de cuotas.',
                 'warning'
             );
-            return false; // ⛔ NO guarda
-        }
 
-        // 👉 en crédito NO validamos monto recibido
-        guardarVenta();
-        return;
-    }
-
-    // =========================
-    // 🔹 VALIDACIÓN CONTADO / NORMAL
-    // =========================
-    if (nombreForma !== 'Mixto') {
-
-        let recibido = parseFloat($('#total_recibido').val()) || 0;
-
-        if (recibido < totalVenta) {
-            Swal.fire(
-                'Pago incompleto',
-                'El monto recibido no cubre el total de la venta',
-                'warning'
-            );
             return false;
         }
 
         guardarVenta();
-        return;
+        return false;
     }
 
-    // =========================
-    // 🔹 VALIDACIÓN PAGO MIXTO
-    // =========================
-    let totalPagado = parseFloat($('#total_recibido').val()) || 0;
+    /*
+     * PAGO NORMAL
+     */
+    if (!esPagoCombinadoSeleccionado()) {
+        const recibido = Number.parseFloat(
+            $('#total_recibido').val()
+        ) || 0;
 
-    if (totalPagado < totalVenta) {
+        if (recibido < totalVenta) {
+            Swal.fire(
+                'Pago incompleto',
+                'El monto recibido no cubre el total de la venta.',
+                'warning'
+            );
+
+            return false;
+        }
+
+        guardarVenta();
+        return false;
+    }
+
+    /*
+     * PAGO MIXTO
+     */
+    const $filas = $(
+        '#pagosMixtosContainer .pago-mixto-fila'
+    );
+
+    if ($filas.length < 2) {
         Swal.fire(
-            'Pago incompleto',
-            'La suma de los métodos de pago no cubre el total de la venta',
+            'Pago mixto',
+            'Debe registrar al menos dos formas de pago.',
             'warning'
         );
+
+        return false;
+    }
+
+    let totalPagado = 0;
+    let filaIncompleta = false;
+
+    const formasSeleccionadas = new Set();
+
+    $filas.each(function () {
+        const idformaPago = Number(
+            $(this).find('.pago-metodo').val()
+        ) || 0;
+
+        const monto = Number.parseFloat(
+            $(this).find('.pago-monto').val()
+        ) || 0;
+
+        if (idformaPago <= 0 || monto <= 0) {
+            filaIncompleta = true;
+            return false;
+        }
+
+        formasSeleccionadas.add(
+            idformaPago
+        );
+
+        totalPagado += monto;
+    });
+
+    if (filaIncompleta) {
+        Swal.fire(
+            'Pago mixto incompleto',
+            'Seleccione una forma de pago e ingrese un monto mayor que cero en cada fila.',
+            'warning'
+        );
+
+        return false;
+    }
+
+    if (formasSeleccionadas.size < 2) {
+        Swal.fire(
+            'Pago mixto inválido',
+            'Debe utilizar al menos dos formas de pago diferentes.',
+            'warning'
+        );
+
+        return false;
+    }
+
+    totalPagado = Number(
+        totalPagado.toFixed(2)
+    );
+
+    const diferencia = Math.abs(
+        totalPagado - totalVenta
+    );
+
+    if (diferencia > 0.01) {
+        Swal.fire(
+            'Total de pagos incorrecto',
+            'La suma de los pagos debe ser exactamente S/ ' +
+                totalVenta.toFixed(2) +
+                '. Actualmente ingresó S/ ' +
+                totalPagado.toFixed(2) +
+                '.',
+            'warning'
+        );
+
         return false;
     }
 
     guardarVenta();
+    return false;
 });
 
 function getNombreFormaPago() {
@@ -2852,7 +2942,7 @@ $('#forma_pago').on('change', function () {
     $('#pagosMixtosContainer').html('');
     $('#vuelto').val('0.00');
 
-    if (nombreForma === 'Mixto') {
+    if (esPagoCombinadoSeleccionado()) {
         $('#bloque_pago_mixto').slideDown();
         $('#total_recibido')
             .val('0.00')
@@ -2871,40 +2961,160 @@ $('#forma_pago').on('change', function () {
 });
 
 
-
-
+let formasPagoMixto = [];
 let pagoMixtoIndex = 0;
+let solicitudFormasPagoMixto = null;
+
+function escaparHtml(valor) {
+    return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function esPagoCombinadoSeleccionado() {
+    const valor = Number(
+        $('#forma_pago option:selected')
+            .attr('data-combinado') || 0
+    );
+
+    return valor === 1;
+}
+
+function cargarFormasPagoMixto() {
+
+    if (solicitudFormasPagoMixto) {
+        return solicitudFormasPagoMixto;
+    }
+
+    solicitudFormasPagoMixto = $.ajax({
+        url: 'Controllers/Paymentformat.php?op=selectFormaPagoMixto',
+        type: 'GET',
+        dataType: 'json',
+        cache: false
+    }).done(function (respuesta) {
+
+        if (
+            respuesta &&
+            respuesta.success === true &&
+            Array.isArray(respuesta.data)
+        ) {
+            formasPagoMixto = respuesta.data;
+        } else {
+            formasPagoMixto = [];
+        }
+
+    }).fail(function (xhr) {
+
+        console.error(
+            'No se cargaron las formas de pago:',
+            xhr.responseText
+        );
+
+        formasPagoMixto = [];
+
+    }).always(function () {
+        solicitudFormasPagoMixto = null;
+    });
+
+    return solicitudFormasPagoMixto;
+}
+
+function construirOpcionesPagoMixto() {
+
+    let opciones = '<option value="">Seleccione</option>';
+
+    formasPagoMixto.forEach(function (formaPago) {
+
+        const idformaPago = Number(
+            formaPago.idforma_pago
+        ) || 0;
+
+        if (idformaPago <= 0) {
+            return;
+        }
+
+        const nombre = escaparHtml(
+            formaPago.nombre
+        );
+
+        const esEfectivo = Number(
+            formaPago.es_efectivo
+        ) || 0;
+
+        opciones += `
+            <option
+                value="${idformaPago}"
+                data-efectivo="${esEfectivo}">
+                ${nombre}
+            </option>
+        `;
+    });
+
+    return opciones;
+}
 
 function agregarPagoMixtoFila() {
-    let i = pagoMixtoIndex++;
 
-    let fila = `
-      <div class="row g-2 align-items-center mb-2 pago-mixto-fila" data-i="${i}">
-        <div class="col-md-6">
-          <select class="form-control form-select pago-metodo"
-                  name="pagos[${i}][metodo]">
-            <option value="">Seleccione</option>
-            <option value="Efectivo">Efectivo</option>
-            <option value="Yape">Yape</option>
-            <option value="Plin">Plin</option>
-            <option value="Tarjeta debito">Tarjeta debito</option>
-            <option value="Tarjeta credito">Tarjeta credito</option>
-          </select>
-        </div>
+    if (formasPagoMixto.length === 0) {
 
-        <div class="col-md-4">
-          <input type="number" step="0.01" min="0"
-                 class="form-control pago-monto"
-                 name="pagos[${i}][monto]"
-                 placeholder="Monto">
-        </div>
+        cargarFormasPagoMixto().done(function () {
 
-        <div class="col-md-2 text-end">
-          <button type="button" class="btn btn-outline-danger btn-sm btnQuitarPago">
-            <i class="bi bi-trash"></i>
-          </button>
+            if (formasPagoMixto.length === 0) {
+                Swal.fire(
+                    'Formas de pago',
+                    'No existen formas de pago activas disponibles.',
+                    'warning'
+                );
+
+                return;
+            }
+
+            agregarPagoMixtoFila();
+        });
+
+        return;
+    }
+
+    const i = pagoMixtoIndex++;
+    const opciones = construirOpcionesPagoMixto();
+
+    const fila = `
+        <div
+            class="row g-2 align-items-center mb-2 pago-mixto-fila"
+            data-i="${i}">
+
+            <div class="col-md-6">
+                <select
+                    class="form-control form-select pago-metodo"
+                    name="pagos[${i}][idforma_pago]">
+
+                    ${opciones}
+
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    class="form-control pago-monto"
+                    name="pagos[${i}][monto]"
+                    placeholder="Monto">
+            </div>
+
+            <div class="col-md-2 text-end">
+                <button
+                    type="button"
+                    class="btn btn-outline-danger btn-sm btnQuitarPago">
+
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
         </div>
-      </div>
     `;
 
     $('#pagosMixtosContainer').append(fila);
@@ -2956,41 +3166,74 @@ function totalVentaActual() {
 
 
 function calcularPagoMixtoForma() {
-
-    let totalVenta = totalVentaActual();
+    const totalVenta = Number(
+        totalVentaActual().toFixed(2)
+    );
 
     let totalPagado = 0;
     let efectivo = 0;
     let noEfectivo = 0;
 
     $('#pagosMixtosContainer .pago-mixto-fila').each(function () {
+        const $select = $(this).find('.pago-metodo');
 
-        let metodo = $(this).find('.pago-metodo').val();
-        let monto = parseFloat($(this).find('.pago-monto').val()) || 0;
+        const idformaPago = Number(
+            $select.val()
+        ) || 0;
+
+        const monto = Number.parseFloat(
+            $(this).find('.pago-monto').val()
+        ) || 0;
+
+        /*
+         * No sumar filas incompletas.
+         */
+        if (idformaPago <= 0 || monto <= 0) {
+            return;
+        }
+
+        const esEfectivo =
+            Number(
+                $select
+                    .find('option:selected')
+                    .attr('data-efectivo') || 0
+            ) === 1;
 
         totalPagado += monto;
 
-        if (metodo === 'Efectivo') {
+        if (esEfectivo) {
             efectivo += monto;
         } else {
             noEfectivo += monto;
         }
     });
 
-    // Total recibido (solo informativo)
-    $('#total_recibido').val(totalPagado.toFixed(2));
+    totalPagado = Number(
+        totalPagado.toFixed(2)
+    );
 
-    // 🔥 LÓGICA CORRECTA DE VUELTO
-    let faltante = totalVenta - noEfectivo;
-    if (faltante < 0) faltante = 0;
+    $('#total_recibido').val(
+        totalPagado.toFixed(2)
+    );
 
-    let vuelto = efectivo - faltante;
-    if (vuelto < 0) vuelto = 0;
+    /*
+     * El vuelto solamente puede proceder
+     * del importe entregado en efectivo.
+     */
+    const importePendienteEfectivo = Math.max(
+        totalVenta - noEfectivo,
+        0
+    );
 
-    $('#vuelto').val(vuelto.toFixed(2));
+    const vuelto = Math.max(
+        efectivo - importePendienteEfectivo,
+        0
+    );
+
+    $('#vuelto').val(
+        vuelto.toFixed(2)
+    );
 }
-
-
 
 function cargarFormaPago() {
     $.post("Controllers/Sell.php?op=selectFormaPago", function (r) {

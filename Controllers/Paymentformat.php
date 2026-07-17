@@ -78,14 +78,14 @@ switch ($_GET["op"]) {
                 "0" => $botones,
                 "1" => $reg['nombre'],
                 "2" => ($reg['es_efectivo'] == 1)
-                        ? '<span class="badge badge-success">Efectivo</span>'
-                        : '<span class="badge badge-info">No efectivo</span>',
+                    ? '<span class="badge badge-success">Efectivo</span>'
+                    : '<span class="badge badge-info">No efectivo</span>',
                 "3" => ($reg['condicion'] == 1)
-                        ? '<span class="badge badge-primary">Contado</span>'
-                        : '<span class="badge badge-warning">Crédito</span>',
+                    ? '<span class="badge badge-primary">Contado</span>'
+                    : '<span class="badge badge-warning">Crédito</span>',
                 "4" => ($reg['activo'])
-                        ? '<span class="badge badge-success">Activo</span>'
-                        : '<span class="badge badge-danger">Inactivo</span>'
+                    ? '<span class="badge badge-success">Activo</span>'
+                    : '<span class="badge badge-danger">Inactivo</span>'
             ];
         }
 
@@ -101,16 +101,49 @@ switch ($_GET["op"]) {
        SELECT PARA VENTAS
     =============================== */
     case 'selectFormaPago':
+
         $rspta = $paymentformat->select();
 
         echo '<option value="">Seleccione...</option>';
+
         foreach ($rspta as $reg) {
-            echo '<option 
-                    value="' . $reg['idforma_pago'] . '" 
-                    data-efectivo="' . $reg['es_efectivo'] . '" 
-                    data-condicion="' . $reg['condicion'] . '">
-                    ' . $reg['nombre'] . '
-                  </option>';
+
+            $idformaPago = (int)$reg['idforma_pago'];
+            $esEfectivo = (int)$reg['es_efectivo'];
+            $esCombinado = (int)$reg['es_combinado'];
+            $condicionPago = (int)$reg['condicion'];
+
+            $nombreFormaPago = htmlspecialchars(
+                (string)$reg['nombre'],
+                ENT_QUOTES,
+                'UTF-8'
+            );
+
+            echo '<option
+                value="' . $idformaPago . '"
+                data-efectivo="' . $esEfectivo . '"
+                data-combinado="' . $esCombinado . '"
+                data-condicion="' . $condicionPago . '">
+                ' . $nombreFormaPago . '
+              </option>';
         }
+
+        break;
+
+    case 'selectFormaPagoMixto':
+
+        header('Content-Type: application/json; charset=utf-8');
+
+        $rspta = $paymentformat->selectParaPagoMixto();
+
+        echo json_encode(
+            [
+                'success' => true,
+                'data' => $rspta
+            ],
+            JSON_UNESCAPED_UNICODE |
+                JSON_UNESCAPED_SLASHES
+        );
+
         break;
 }

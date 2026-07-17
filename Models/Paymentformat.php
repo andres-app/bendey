@@ -73,13 +73,38 @@ class Paymentformat
     =============================== */
     public function select()
     {
-        $sql = "SELECT 
-                    idforma_pago,
-                    nombre,
-                    es_efectivo,
-                    condicion
-                FROM {$this->tableName}
-                WHERE activo = 1";
+        $sql = "SELECT
+                idforma_pago,
+                nombre,
+                es_efectivo,
+                es_combinado,
+                condicion
+            FROM {$this->tableName}
+            WHERE activo = 1
+            ORDER BY es_combinado ASC,
+                     es_efectivo DESC,
+                     nombre ASC";
+
+        return $this->conexion->getDataAll($sql);
+    }
+
+    /* ===============================
+    FORMAS DISPONIBLES PARA PAGO MIXTO
+    =============================== */
+    public function selectParaPagoMixto()
+    {
+        $sql = "SELECT
+                idforma_pago,
+                nombre,
+                es_efectivo,
+                condicion
+            FROM {$this->tableName}
+            WHERE activo = 1
+              AND condicion = 1
+              AND es_combinado = 0
+            ORDER BY es_efectivo DESC,
+                     nombre ASC";
+
         return $this->conexion->getDataAll($sql);
     }
 }
