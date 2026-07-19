@@ -210,14 +210,69 @@ function listar() {
 
 function guardaryeditar(e) {
   e.preventDefault();
+  const usaAtributos = $("#activar_atributos").is(":checked");
+
+if (!usaAtributos) {
+  const precioVenta = parseFloat($("#precio_venta").val());
+
+  if (
+    $("#precio_venta").val().trim() === "" ||
+    isNaN(precioVenta) ||
+    precioVenta <= 0
+  ) {
+    Swal.fire(
+      "Precio obligatorio",
+      "Ingresa un precio de venta mayor que cero.",
+      "warning"
+    );
+
+    $("#precio_venta").focus();
+    return;
+  }
+}
 
   // 🚨 Validación obligatoria si está activado el modo atributos
-  if ($("#activar_atributos").is(":checked")) {
-    if ($("#variaciones-lista tr").length === 0) {
-      Swal.fire("Aviso", "Debes generar al menos una combinación antes de guardar.", "warning");
-      return; // No sigue con el guardado
-    }
+if ($("#activar_atributos").is(":checked")) {
+  if ($("#variaciones-lista tr").length === 0) {
+    Swal.fire(
+      "Aviso",
+      "Debes generar al menos una combinación antes de guardar.",
+      "warning"
+    );
+    return;
   }
+
+  let precioInvalido = false;
+  let inputInvalido = null;
+
+  $("#variaciones-lista input[name*='[precio_venta]']").each(function () {
+    const precio = parseFloat($(this).val());
+
+    if (
+      $(this).val().trim() === "" ||
+      isNaN(precio) ||
+      precio <= 0
+    ) {
+      precioInvalido = true;
+      inputInvalido = this;
+      return false;
+    }
+  });
+
+  if (precioInvalido) {
+    Swal.fire(
+      "Precio obligatorio",
+      "Todas las variaciones deben tener un precio de venta mayor que cero.",
+      "warning"
+    );
+
+    if (inputInvalido) {
+      inputInvalido.focus();
+    }
+
+    return;
+  }
+}
 
   $("#btnGuardar").prop("disabled", true);
   var formData = new FormData($("#formulario")[0]);
@@ -403,7 +458,7 @@ function generarVariaciones() {
         <td><input type="text" name="variaciones[${index}][sku]" class="form-control" placeholder="SKU"></td>
         <td><input type="number" name="variaciones[${index}][stock]" class="form-control" placeholder="Stock"></td>
         <td><input type="number" name="variaciones[${index}][precio_compra]" class="form-control" placeholder="Precio Compra" step="0.01"></td>
-        <td><input type="number" name="variaciones[${index}][precio_venta]" class="form-control" placeholder="Precio Venta" step="0.01"></td>
+        <td> <input type="number" name="variaciones[${index}][precio_venta]" class="form-control" placeholder="Precio Venta *" step="0.01" min="0.01" required > </td>
       </tr>
     `;
   });
@@ -528,16 +583,25 @@ function cargarAtributosDinamicos() {
 function toggleAtributos() {
   const activo = document.getElementById("activar_atributos").checked;
 
-  // Mostrar u ocultar la sección de atributos
   $("#atributos_section").toggle(activo);
 
-  // Ocultar o mostrar los campos principales según el estado
   $("#grupo_sku_principal").toggle(!activo);
   $("#grupo_stock_principal").toggle(!activo);
   $("#grupo_precio_compra_principal").toggle(!activo);
   $("#grupo_precio_venta_principal").toggle(!activo);
 
-  // Si se activa, cargar atributos dinámicos
+  /*
+   * Producto normal:
+   * el precio de venta principal es obligatorio.
+   *
+   * Producto con atributos:
+   * el precio principal se oculta y son obligatorios
+   * los precios de venta de cada variación.
+   */
+  $("#precio_venta")
+    .prop("required", !activo)
+    .prop("disabled", activo);
+
   if (activo) {
     const seleccionados = $("#atributos_seleccionados").val() || [];
     cargarAtributosDinamicosSeleccionados(seleccionados);
