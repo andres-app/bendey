@@ -1376,6 +1376,10 @@ function actualizarResumenProductoRapido() {
 }
 
 function calcularGananciaProductoRapido() {
+    const costoIngresado = String(
+        $('#rapido_precio_compra').val() || ''
+    ).trim() !== '';
+
     const compra = Number.parseFloat(
         $('#rapido_precio_compra').val()
     ) || 0;
@@ -1383,17 +1387,23 @@ function calcularGananciaProductoRapido() {
         $('#rapido_precio_venta').val()
     ) || 0;
 
-    if (compra <= 0 || venta <= 0) {
+    if (venta <= 0) {
         $('#rapido_ganancia').html(
-            '<span class="text-muted">Ingresa el costo y el precio de venta para ver la ganancia.</span>'
+            '<span class="text-muted">Ingresa el precio de venta para continuar.</span>'
+        );
+        return;
+    }
+
+    if (!costoIngresado || compra === 0) {
+        $('#rapido_ganancia').html(
+            '<div class="small text-muted mb-1">Costo de compra opcional</div>' +
+            '<strong class="text-muted">No se calculará el margen porcentual.</strong>'
         );
         return;
     }
 
     const ganancia = venta - compra;
-    const porcentaje = compra > 0
-        ? (ganancia / compra) * 100
-        : 0;
+    const porcentaje = (ganancia / compra) * 100;
     const clase = ganancia >= 0 ? 'text-success' : 'text-danger';
 
     $('#rapido_ganancia').html(
@@ -1502,16 +1512,31 @@ function guardarProductoRapido() {
         return;
     }
 
-    if (precioCompra <= 0 || precioVenta <= 0) {
+    if (precioCompra < 0) {
         Swal.fire(
-            'Precio inválido',
-            'Los precios de compra y venta deben ser mayores que cero.',
+            'Costo inválido',
+            'El costo de compra no puede ser negativo.',
+            'warning'
+        );
+        return;
+    }
+
+    if (precioVenta <= 0) {
+        Swal.fire(
+            'Precio de venta inválido',
+            'El precio de venta debe ser mayor que cero.',
             'warning'
         );
         return;
     }
 
     const datos = new FormData(formulario);
+
+    /*
+     * El costo de compra es opcional. Si queda vacío,
+     * se envía explícitamente como 0.00 al backend.
+     */
+    datos.set('precio_compra', precioCompra.toFixed(2));
 
     if ($('#rapido_idsubcategoria').prop('disabled')) {
         datos.set('idsubcategoria', '');

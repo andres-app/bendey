@@ -240,9 +240,9 @@ switch ($_GET['op'] ?? '') {
                 );
             }
 
-            if ($precioCompraRapido <= 0) {
+            if ($precioCompraRapido < 0) {
                 throw new RuntimeException(
-                    'El costo por unidad debe ser mayor que cero.'
+                    'El costo por unidad no puede ser negativo.'
                 );
             }
 
@@ -433,7 +433,7 @@ switch ($_GET['op'] ?? '') {
                     'subcategoria' => (string)($subcategoriaRapida['nombre'] ?? ''),
                     'medida' => trim(
                         (string)($medidaRapida['nombre'] ?? '') .
-                        ' (' . (string)($medidaRapida['codigo'] ?? '') . ')'
+                            ' (' . (string)($medidaRapida['codigo'] ?? '') . ')'
                     ),
                     'almacen' => (string)($almacenRapido['nombre'] ?? ''),
                     'imagen' => 'default.png'
@@ -715,8 +715,8 @@ switch ($_GET['op'] ?? '') {
                 '5' => $stockcolor,
                 '6' => !empty($reg['imagen'])
                     ? "<img src='Assets/img/products/"
-                        . $reg['imagen']
-                        . "' height='50px'>"
+                    . $reg['imagen']
+                    . "' height='50px'>"
                     : 'Sin imagen',
                 '7' => $reg['precio_compra']
                     ? $reg['precio_compra']
@@ -729,17 +729,17 @@ switch ($_GET['op'] ?? '') {
                     : '<div class="badge badge-danger">Desactivado</div>',
                 '10' => $reg['condicion']
                     ? '<button class="btn btn-warning btn-sm" onclick="mostrar('
-                        . $reg['idarticulo']
-                        . ')"><i class="fas fa-pencil-alt"></i></button> '
-                        . '<button class="btn btn-danger btn-sm" onclick="desactivar('
-                        . $reg['idarticulo']
-                        . ')"><i class="fas fa-times"></i></button>'
+                    . $reg['idarticulo']
+                    . ')"><i class="fas fa-pencil-alt"></i></button> '
+                    . '<button class="btn btn-danger btn-sm" onclick="desactivar('
+                    . $reg['idarticulo']
+                    . ')"><i class="fas fa-times"></i></button>'
                     : '<button class="btn btn-warning btn-sm" onclick="mostrar('
-                        . $reg['idarticulo']
-                        . ')"><i class="fas fa-pencil-alt"></i></button> '
-                        . '<button class="btn btn-primary btn-sm" onclick="activar('
-                        . $reg['idarticulo']
-                        . ')"><i class="fas fa-check"></i></button>'
+                    . $reg['idarticulo']
+                    . ')"><i class="fas fa-pencil-alt"></i></button> '
+                    . '<button class="btn btn-primary btn-sm" onclick="activar('
+                    . $reg['idarticulo']
+                    . ')"><i class="fas fa-check"></i></button>'
             ];
         }
 

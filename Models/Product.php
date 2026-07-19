@@ -24,9 +24,9 @@ class Product
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
 			$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
 			$idarticulo = $this->conexion->setDataReturnId($sql, $arrData);
-
-			// Si hay stock inicial, registrar en ingreso, detalle_ingreso y kardex
-			if ($stock > 0 && $precio_compra > 0 && $precio_venta > 0) {
+			// Si hay stock inicial, registrar en ingreso, detalle_ingreso y kardex.
+			// El costo de compra puede ser 0.00.
+			if ($stock > 0 && $precio_venta > 0) {
 				$idusuario = $_SESSION['idusuario'] ?? 1;
 				$idproveedor = 1; // Proveedor genérico para stock inicial
 				$num = str_pad(rand(1, 9999999), 7, '0', STR_PAD_LEFT);
@@ -414,6 +414,4 @@ class Product
 	{
 		return $this->conexion->setDataReturnId($sql, $params);
 	}
-
-
 }

@@ -1605,7 +1605,7 @@ if ($_SESSION['ventas'] == 1) {
                                         <div class="col-lg-4 col-md-4 mb-3">
                                             <label for="rapido_precio_compra" class="producto-rapido-label">
                                                 ¿Cuánto te costó cada unidad?
-                                                <span class="producto-rapido-obligatorio">*</span>
+                                                <span class="text-muted">(opcional)</span>
                                             </label>
 
                                             <div class="input-group">
@@ -1618,15 +1618,14 @@ if ($_SESSION['ventas'] == 1) {
                                                     class="form-control"
                                                     id="rapido_precio_compra"
                                                     name="precio_compra"
-                                                    min="0.01"
+                                                    min="0"
                                                     max="99999999.99"
                                                     step="0.01"
-                                                    required
                                                     placeholder="Ej.: 10.00">
                                             </div>
 
                                             <small class="producto-rapido-ayuda">
-                                                Es el costo pagado al proveedor por una unidad.
+                                                Puedes dejarlo vacío. Se registrará como S/ 0.00.
                                             </small>
                                         </div>
 
