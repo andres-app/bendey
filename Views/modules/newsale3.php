@@ -593,6 +593,59 @@ if ($_SESSION['ventas'] == 1) {
 
                                 <div class="card-body bg-white">
 
+                                    <!-- =====================================
+                                         BUSCADOR RÁPIDO DE PRODUCTOS
+                                    ====================================== -->
+                                    <div
+                                        class="buscador-pedido-wrap mb-4"
+                                        id="buscadorPedidoWrap">
+
+                                        <div class="input-group buscador-pedido-input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text bg-white border-right-0">
+                                                    <i class="bi bi-search"></i>
+                                                </span>
+                                            </div>
+
+                                            <input
+                                                type="search"
+                                                class="form-control border-left-0 border-right-0"
+                                                id="buscarProductoPedido"
+                                                autocomplete="off"
+                                                placeholder="Buscar por SKU o nombre del producto..."
+                                                aria-label="Buscar producto por SKU o nombre"
+                                                aria-controls="resultadosBusquedaPedido"
+                                                aria-autocomplete="list">
+
+                                            <div class="input-group-append">
+                                                <button
+                                                    type="button"
+                                                    class="btn"
+                                                    id="btnLimpiarBusquedaPedido"
+                                                    title="Limpiar búsqueda"
+                                                    aria-label="Limpiar búsqueda">
+                                                    <span aria-hidden="true">&times;</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <small
+                                            class="buscador-pedido-ayuda"
+                                            id="estadoBusquedaPedido"
+                                            aria-live="polite">
+                                            Escribe al menos 2 caracteres para buscar en tus productos existentes.
+                                        </small>
+
+                                        <div
+                                            class="resultados-busqueda-pedido"
+                                            id="resultadosBusquedaPedido"
+                                            role="listbox"
+                                            aria-label="Productos encontrados"
+                                            style="display:none;">
+                                        </div>
+
+                                    </div>
+
                                     <div
                                         class="position-relative"
                                         id="contenedorPedido"
@@ -740,6 +793,203 @@ if ($_SESSION['ventas'] == 1) {
 
 
     <style>
+        /* =========================================================
+           BUSCADOR RÁPIDO DENTRO DE PEDIDO ACTUAL
+        ========================================================== */
+        .buscador-pedido-wrap {
+            position: relative;
+            z-index: 60;
+        }
+
+        .buscador-pedido-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #26352d;
+            font-size: .9rem;
+            font-weight: 800;
+        }
+
+        .buscador-pedido-input-group {
+            border-radius: 13px;
+            box-shadow: 0 5px 16px rgba(15, 23, 42, .055);
+        }
+
+        .buscador-pedido-input-group .input-group-text,
+        .buscador-pedido-input-group .form-control,
+        .buscador-pedido-input-group .btn {
+            min-height: 48px;
+            border-color: #d8e1dc;
+        }
+
+        .buscador-pedido-input-group .input-group-text {
+            border-radius: 13px 0 0 13px;
+            color: #52a763;
+        }
+
+        .buscador-pedido-input-group .form-control:focus {
+            border-color: #70b985;
+            box-shadow: none;
+        }
+
+        .buscador-pedido-input-group .btn {
+            border-radius: 0 13px 13px 0;
+        }
+
+        #btnLimpiarBusquedaPedido {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px;
+            padding: 0 14px;
+            color: #34443b !important;
+            background: #eef3f0 !important;
+            border-color: #d8e1dc !important;
+            font-size: 1.55rem;
+            font-weight: 700;
+            line-height: 1;
+            opacity: 1;
+        }
+
+        #btnLimpiarBusquedaPedido span {
+            display: block;
+            color: inherit !important;
+            line-height: 1;
+            transform: translateY(-1px);
+        }
+
+        #btnLimpiarBusquedaPedido:hover,
+        #btnLimpiarBusquedaPedido:focus {
+            color: #ffffff !important;
+            background: #3f8f52 !important;
+            border-color: #3f8f52 !important;
+            box-shadow: 0 0 0 .18rem rgba(63, 143, 82, .16);
+        }
+
+        #btnLimpiarBusquedaPedido:active {
+            color: #ffffff !important;
+            background: #327442 !important;
+            border-color: #327442 !important;
+        }
+
+        .buscador-pedido-ayuda {
+            display: block;
+            min-height: 19px;
+            margin-top: 7px;
+            color: #7c8b83;
+            font-size: .78rem;
+        }
+
+        .resultados-busqueda-pedido {
+            position: absolute;
+            top: calc(100% - 18px);
+            left: 0;
+            right: 0;
+            z-index: 100;
+            max-height: 360px;
+            overflow-y: auto;
+            border: 1px solid #dfe7e2;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow: 0 18px 42px rgba(15, 23, 42, .16);
+        }
+
+        .resultado-producto-pedido {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border: 0;
+            border-bottom: 1px solid #edf1ee;
+            color: inherit;
+            background: #ffffff;
+            text-align: left;
+            cursor: pointer;
+            transition: background .15s ease;
+        }
+
+        .resultado-producto-pedido:last-child {
+            border-bottom: 0;
+        }
+
+        .resultado-producto-pedido:hover,
+        .resultado-producto-pedido:focus,
+        .resultado-producto-pedido.active {
+            outline: none;
+            background: #f1faf4;
+        }
+
+        .resultado-producto-icono {
+            width: 42px;
+            height: 42px;
+            flex: 0 0 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            color: #2c914a;
+            background: #eaf7ee;
+            font-size: 1.15rem;
+        }
+
+        .resultado-producto-info {
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .resultado-producto-nombre {
+            overflow: hidden;
+            color: #26352d;
+            font-size: .9rem;
+            font-weight: 800;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .resultado-producto-meta {
+            overflow: hidden;
+            margin-top: 3px;
+            color: #7b8a82;
+            font-size: .75rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .resultado-producto-precio {
+            flex: 0 0 auto;
+            color: #237b3e;
+            font-size: .93rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .resultado-producto-agotado {
+            color: #a64444;
+            background: #fff7f7;
+        }
+
+        .resultado-producto-vacio {
+            padding: 22px 16px;
+            color: #7b8a82;
+            font-size: .84rem;
+            text-align: center;
+        }
+
+        @media (max-width: 575.98px) {
+            .resultado-producto-icono {
+                display: none;
+            }
+
+            .resultado-producto-pedido {
+                gap: 8px;
+                padding: 11px 12px;
+            }
+
+            .resultado-producto-precio {
+                font-size: .84rem;
+            }
+        }
+
         /* =========================================================
            MODAL DE PRODUCTOS: ALTURA CONTROLADA Y DISEÑO COMPACTO
         ========================================================== */
