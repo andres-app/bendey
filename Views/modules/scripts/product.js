@@ -1,9 +1,93 @@
 var tabla;
+var secuenciaCargaAlmacen = 0;
 
 $(document).ready(function () {
   init();
   cargarOpcionesAtributos();
 });
+
+function cargarSelectAlmacen(idSeleccionado = "", nombreAlmacen = "") {
+  const valorSeleccionado = String(idSeleccionado ?? "").trim();
+  const numeroSolicitud = ++secuenciaCargaAlmacen;
+
+  return $.ajax({
+    url: "Controllers/Almacen.php?op=selectAlmacen",
+    type: "POST",
+    data: {
+      idseleccionado: valorSeleccionado
+    },
+    dataType: "html",
+    cache: false
+  }).done(function (respuesta) {
+    /*
+     * Evita que una carga anterior, iniciada desde init(),
+     * sobrescriba el almacén del producto que se está editando.
+     */
+    if (numeroSolicitud !== secuenciaCargaAlmacen) {
+      return;
+    }
+
+    const $almacen = $("#idalmacen");
+    $almacen.html(respuesta);
+
+    if (valorSeleccionado === "" || valorSeleccionado === "0") {
+      $almacen.val("").trigger("change");
+      return;
+    }
+
+    let $opcionActual = $almacen.find("option").filter(function () {
+      return String($(this).val()).trim() === valorSeleccionado;
+    });
+
+    /*
+     * Respaldo: si el almacén no llegó en la respuesta,
+     * se agrega temporalmente para conservar el valor registrado.
+     */
+    if ($opcionActual.length === 0) {
+      const textoAlmacen =
+        String(nombreAlmacen ?? "").trim() !== ""
+          ? String(nombreAlmacen).trim() + " (actual)"
+          : "Almacén actual — ID " + valorSeleccionado;
+
+      $almacen.append(
+        new Option(
+          textoAlmacen,
+          valorSeleccionado,
+          true,
+          true
+        )
+      );
+
+      $opcionActual = $almacen.find("option").filter(function () {
+        return String($(this).val()).trim() === valorSeleccionado;
+      });
+    }
+
+    $almacen.find("option").prop("selected", false);
+    $opcionActual.prop("selected", true);
+
+    $almacen
+      .val(valorSeleccionado)
+      .trigger("change");
+
+    /*
+     * Último respaldo para navegadores o plugins que
+     * reconstruyan visualmente el select.
+     */
+    if (String($almacen.val() ?? "") !== valorSeleccionado) {
+      $almacen[0].value = valorSeleccionado;
+      $almacen.trigger("change");
+    }
+  }).fail(function (xhr) {
+    if (xhr.statusText !== "abort") {
+      console.error(
+        "No se pudieron cargar los almacenes:",
+        xhr.status,
+        xhr.responseText
+      );
+    }
+  });
+}
 
 function init() {
   mostrarform(false);
@@ -14,7 +98,7 @@ function init() {
   });
 
   // Cargar selects principales
-  $.post("Controllers/Almacen.php?op=selectAlmacen", r => $("#idalmacen").html(r));
+  cargarSelectAlmacen();
   $.post("Controllers/Category.php?op=selectCategoria", r => $("#idcategoria").html(r));
   $.post("Controllers/Medida.php?op=selectMedida", r => $("#idmedida").html(r));
 
@@ -212,67 +296,67 @@ function guardaryeditar(e) {
   e.preventDefault();
   const usaAtributos = $("#activar_atributos").is(":checked");
 
-if (!usaAtributos) {
-  const precioVenta = parseFloat($("#precio_venta").val());
-
-  if (
-    $("#precio_venta").val().trim() === "" ||
-    isNaN(precioVenta) ||
-    precioVenta <= 0
-  ) {
-    Swal.fire(
-      "Precio obligatorio",
-      "Ingresa un precio de venta mayor que cero.",
-      "warning"
-    );
-
-    $("#precio_venta").focus();
-    return;
-  }
-}
-
-  // 🚨 Validación obligatoria si está activado el modo atributos
-if ($("#activar_atributos").is(":checked")) {
-  if ($("#variaciones-lista tr").length === 0) {
-    Swal.fire(
-      "Aviso",
-      "Debes generar al menos una combinación antes de guardar.",
-      "warning"
-    );
-    return;
-  }
-
-  let precioInvalido = false;
-  let inputInvalido = null;
-
-  $("#variaciones-lista input[name*='[precio_venta]']").each(function () {
-    const precio = parseFloat($(this).val());
+  if (!usaAtributos) {
+    const precioVenta = parseFloat($("#precio_venta").val());
 
     if (
-      $(this).val().trim() === "" ||
-      isNaN(precio) ||
-      precio <= 0
+      $("#precio_venta").val().trim() === "" ||
+      isNaN(precioVenta) ||
+      precioVenta <= 0
     ) {
-      precioInvalido = true;
-      inputInvalido = this;
-      return false;
+      Swal.fire(
+        "Precio obligatorio",
+        "Ingresa un precio de venta mayor que cero.",
+        "warning"
+      );
+
+      $("#precio_venta").focus();
+      return;
     }
-  });
-
-  if (precioInvalido) {
-    Swal.fire(
-      "Precio obligatorio",
-      "Todas las variaciones deben tener un precio de venta mayor que cero.",
-      "warning"
-    );
-
-    if (inputInvalido) {
-      inputInvalido.focus();
-    }
-
-    return;
   }
-}
+
+  // 🚨 Validación obligatoria si está activado el modo atributos
+  if ($("#activar_atributos").is(":checked")) {
+    if ($("#variaciones-lista tr").length === 0) {
+      Swal.fire(
+        "Aviso",
+        "Debes generar al menos una combinación antes de guardar.",
+        "warning"
+      );
+      return;
+    }
+
+    let precioInvalido = false;
+    let inputInvalido = null;
+
+    $("#variaciones-lista input[name*='[precio_venta]']").each(function () {
+      const precio = parseFloat($(this).val());
+
+      if (
+        $(this).val().trim() === "" ||
+        isNaN(precio) ||
+        precio <= 0
+      ) {
+        precioInvalido = true;
+        inputInvalido = this;
+        return false;
+      }
+    });
+
+    if (precioInvalido) {
+      Swal.fire(
+        "Precio obligatorio",
+        "Todas las variaciones deben tener un precio de venta mayor que cero.",
+        "warning"
+      );
+
+      if (inputInvalido) {
+        inputInvalido.focus();
+      }
+
+      return;
+    }
+  }
 
   $("#btnGuardar").prop("disabled", true);
   var formData = new FormData($("#formulario")[0]);
@@ -304,53 +388,168 @@ if ($("#activar_atributos").is(":checked")) {
     data: formData,
     contentType: false,
     processData: false,
+
     success: function (datos) {
-      swal({
-        title: "Registro",
-        text: datos,
-        icon: "info",
-        buttons: { confirm: "OK" }
+      const respuesta = String(datos || "").trim();
+      const exitoso =
+        respuesta.includes("correctamente") ||
+        respuesta.includes("actualizado");
+
+      Swal.fire({
+        title: exitoso ? "Operación completada" : "No se pudo guardar",
+        text: respuesta || "El servidor no devolvió una respuesta.",
+        icon: exitoso ? "success" : "warning"
       });
-      mostrarform(false);
-      tabla.ajax.reload();
+
+      if (exitoso) {
+        mostrarform(false);
+        tabla.ajax.reload(null, false);
+      }
+    },
+
+    error: function (xhr) {
+      console.error(
+        "Error al guardar producto:",
+        xhr.status,
+        xhr.responseText
+      );
+
+      Swal.fire(
+        "Error",
+        "No se pudo comunicar con el servidor.",
+        "error"
+      );
+    },
+
+    complete: function () {
+      $("#btnGuardar").prop("disabled", false);
     }
   });
-
-  limpiar();
 }
 
 function mostrar(idarticulo) {
-  $.post("Controllers/Product.php?op=mostrar", { idarticulo }, function (data) {
-    data = JSON.parse(data);
-    mostrarform(true);
+  $.ajax({
+    url: "Controllers/Product.php?op=mostrar",
+    type: "POST",
+    data: {
+      idarticulo: idarticulo
+    },
+    dataType: "json",
 
-    $("#idcategoria").val(data.idcategoria).trigger("change");
-
-    $.post(
-      "Controllers/Subcategoria.php?op=selectSubcategoria",
-      { categoria_id: data.idcategoria },
-      function (r) {
-        if (r.trim() !== "" && data.idsubcategoria) {
-          $("#idsubcategoria")
-            .prop("disabled", false)
-            .html(r)
-            .val(data.idsubcategoria);
-        }
+    success: function (data) {
+      if (!data || !data.idarticulo) {
+        Swal.fire(
+          "Error",
+          "No se encontraron los datos del producto.",
+          "error"
+        );
+        return;
       }
-    );
-    
 
-    $("#idmedida").val(data.idmedida);
-    $("#codigo").val(data.codigo);
-    $("#nombre").val(data.nombre);
-    $("#stock").val(data.stock);
-    $("#precio_compra").val(data.precio_compra ?? "");
-    $("#precio_venta").val(data.precio_venta ?? "");
-    $("#descripcion").val(data.descripcion);
-    $("#imagenmuestra").show().attr("src", "Assets/img/products/" + data.imagen);
-    $("#imagenactual").val(data.imagen);
-    $("#idarticulo").val(data.idarticulo);
-    generarbarcode();
+      mostrarform(true);
+
+      $("#idarticulo").val(data.idarticulo);
+      $("#codigo").val(data.codigo ?? "");
+      $("#nombre").val(data.nombre ?? "");
+      $("#stock").val(data.stock ?? 0);
+      $("#precio_compra").val(data.precio_compra ?? "");
+      $("#precio_venta").val(data.precio_venta ?? "");
+      $("#descripcion").val(data.descripcion ?? "");
+
+      /*
+       * Categoría y subcategoría
+       */
+      $("#idcategoria")
+        .val(String(data.idcategoria ?? ""))
+        .trigger("change");
+
+      $.ajax({
+        url: "Controllers/Subcategoria.php?op=selectSubcategoria",
+        type: "POST",
+        data: {
+          categoria_id: data.idcategoria
+        },
+        dataType: "html",
+
+        success: function (respuesta) {
+          const $subcategoria = $("#idsubcategoria");
+
+          $subcategoria.html(respuesta);
+
+          const idsubcategoria =
+            String(data.idsubcategoria ?? "").trim();
+
+          const existeSubcategoria = $subcategoria
+            .find("option")
+            .filter(function () {
+              return String($(this).val()) === idsubcategoria;
+            })
+            .length > 0;
+
+          if (
+            idsubcategoria !== "" &&
+            idsubcategoria !== "0" &&
+            existeSubcategoria
+          ) {
+            $subcategoria
+              .prop("disabled", false)
+              .val(idsubcategoria);
+          } else {
+            $subcategoria
+              .prop("disabled", true)
+              .val("");
+          }
+        }
+      });
+
+      /*
+       * Medida
+       */
+      $("#idmedida")
+        .val(String(data.idmedida ?? ""))
+        .trigger("change");
+
+      /*
+       * Almacén:
+       * primero carga las opciones y después selecciona el valor.
+       */
+      cargarSelectAlmacen(
+        data.idalmacen,
+        data.almacen_nombre || data.almacen || ""
+      );
+
+      /*
+       * Imagen
+       */
+      const imagen = data.imagen || "default.png";
+
+      $("#imagenactual").val(imagen);
+
+      $("#imagenmuestra")
+        .attr(
+          "src",
+          "Assets/img/products/" + imagen
+        )
+        .show();
+
+      if (data.codigo) {
+        generarbarcode();
+      }
+    },
+
+    error: function (xhr) {
+      console.error(
+        "Error al cargar producto:",
+        xhr.status,
+        xhr.responseText
+      );
+
+      Swal.fire(
+        "Error",
+        "No se pudo cargar la información del producto.",
+        "error"
+      );
+    }
   });
 }
 

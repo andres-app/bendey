@@ -251,7 +251,7 @@ if (!isset($_SESSION['nombre'])) {
     ?>
 <script src="Assets/js/JsBarcode.all.min.js"></script>
 <script src="Assets/js/jquery.PrintArea.js"></script>
-<script src="Views/modules/scripts/product.js"></script>
+<script src="Views/modules/scripts/product.js?v=20260722-03"></script>
 <?php
 }
 ob_end_flush();

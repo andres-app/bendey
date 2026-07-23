@@ -107,9 +107,19 @@ class Product
 	//metodo para mostrar registros
 	public function mostrar(string $idarticulo)
 	{
-		$sql = "SELECT * FROM $this->tableName WHERE idarticulo=?";
-		$arrData = array($idarticulo);
-		return $this->conexion->getData($sql, $arrData);
+		$sql = "SELECT
+					a.*,
+					al.nombre AS almacen_nombre
+				FROM articulo a
+				LEFT JOIN almacen al
+					ON al.idalmacen = a.idalmacen
+				WHERE a.idarticulo = ?
+				LIMIT 1";
+	
+		return $this->conexion->getData(
+			$sql,
+			[$idarticulo]
+		);
 	}
 
 

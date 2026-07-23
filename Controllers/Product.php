@@ -454,211 +454,163 @@ switch ($_GET['op'] ?? '') {
 
     case 'guardaryeditar':
 
-        /* Generar código antes de verificar duplicados. */
-        if (empty($codigo)) {
+        $idarticulo = (int)($_POST['idarticulo'] ?? 0);
+        $idcategoria = (int)($_POST['idcategoria'] ?? 0);
+        $idsubcategoria = (int)($_POST['idsubcategoria'] ?? 0);
+        $idmedida = (int)($_POST['idmedida'] ?? 0);
+        $idalmacen = (int)($_POST['idalmacen'] ?? 0);
+
+        $codigo = trim((string)($_POST['codigo'] ?? ''));
+        $nombre = trim((string)($_POST['nombre'] ?? ''));
+        $stock = max(0, (int)($_POST['stock'] ?? 0));
+        $precio_compra = max(0, (float)($_POST['precio_compra'] ?? 0));
+        $precio_venta = max(0, (float)($_POST['precio_venta'] ?? 0));
+        $descripcion = trim((string)($_POST['descripcion'] ?? ''));
+
+        if ($idcategoria <= 0) {
+            echo 'Debe seleccionar una categoría';
+            break;
+        }
+
+        if ($idmedida <= 0) {
+            echo 'Debe seleccionar una unidad de medida';
+            break;
+        }
+
+        if ($idalmacen <= 0) {
+            echo 'Debe seleccionar un almacén';
+            break;
+        }
+
+        if ($nombre === '') {
+            echo 'Debe ingresar el nombre del producto';
+            break;
+        }
+
+        if ($codigo === '') {
             $codigo = 'VAR-' . uniqid();
         }
 
-        $rspta = $product->verificarCodigo($codigo);
+        /*
+             * Permitir el mismo código cuando pertenece
+             * al producto que estamos editando.
+             */
+        $productoConCodigo = $product->verificarCodigo($codigo);
 
-        if (empty($idarticulo)) {
-            if (empty($rspta['codigo'])) {
+        if (
+            !empty($productoConCodigo)
+            && (int)($productoConCodigo['idarticulo'] ?? 0) !== $idarticulo
+        ) {
+            echo 'No se puede guardar. El código del producto ya existe';
+            break;
+        }
 
-                $archivoImagen = $_FILES['imagen'] ?? null;
+        $imagenActual = basename(
+            trim((string)($_POST['imagenactual'] ?? 'default.png'))
+        );
 
-                if (
-                    !$archivoImagen
-                    || !isset($archivoImagen['tmp_name'])
-                    || !file_exists($archivoImagen['tmp_name'])
-                    || !is_uploaded_file($archivoImagen['tmp_name'])
-                ) {
-                    $imagen = empty($_POST['imagenactual'])
-                        ? 'default.png'
-                        : $_POST['imagenactual'];
-                } else {
-                    if (
-                        !empty($_POST['imagenactual'])
-                        && $_POST['imagenactual'] !== 'default.png'
-                    ) {
-                        $rutaImagenAnterior =
-                            '../Assets/img/products/' . $_POST['imagenactual'];
+        if ($imagenActual === '') {
+            $imagenActual = 'default.png';
+        }
 
-                        if (is_file($rutaImagenAnterior)) {
-                            unlink($rutaImagenAnterior);
-                        }
-                    }
+        $imagen = $imagenActual;
+        $archivoImagen = $_FILES['imagen'] ?? null;
 
-                    $ext = explode('.', $archivoImagen['name']);
+        if (
+            $archivoImagen
+            && isset($archivoImagen['error'])
+            && $archivoImagen['error'] === UPLOAD_ERR_OK
+            && isset($archivoImagen['tmp_name'])
+            && is_uploaded_file($archivoImagen['tmp_name'])
+        ) {
+            $tiposPermitidos = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png'
+            ];
 
-                    if (
-                        in_array(
-                            $archivoImagen['type'],
-                            ['image/jpg', 'image/jpeg', 'image/png'],
-                            true
-                        )
-                    ) {
-                        $imagen = round(microtime(true)) . '.' . end($ext);
+            $tipoReal = mime_content_type($archivoImagen['tmp_name']);
 
-                        move_uploaded_file(
-                            $archivoImagen['tmp_name'],
-                            '../Assets/img/products/' . $imagen
-                        );
-                    }
-                }
-
-                $idproducto = $product->insertar(
-                    $idcategoria,
-                    $idsubcategoria,
-                    $idmedida,
-                    $idalmacen,
-                    $codigo,
-                    $nombre,
-                    $stock,
-                    $precio_compra,
-                    $precio_venta,
-                    $descripcion,
-                    $imagen
-                );
-
-                if (isset($_POST['variaciones_json'])) {
-                    $variaciones = json_decode(
-                        $_POST['variaciones_json'],
-                        true
-                    );
-
-                    if (!is_array($variaciones)) {
-                        $variaciones = [];
-                    }
-
-                    $variacionesValidas = array_filter(
-                        $variaciones,
-                        function ($v) {
-                            return ($v['stock'] ?? 0) > 0
-                                && ($v['precio_compra'] ?? 0) > 0
-                                && ($v['precio_venta'] ?? 0) > 0;
-                        }
-                    );
-
-                    if (count($variacionesValidas) > 0) {
-                        $idusuario = $_SESSION['idusuario'] ?? 1;
-                        $idproveedor = 1;
-                        $num = str_pad(
-                            (string)rand(1, 9999999),
-                            7,
-                            '0',
-                            STR_PAD_LEFT
-                        );
-
-                        $totalCompra = array_sum(
-                            array_map(
-                                function ($v) {
-                                    return $v['stock']
-                                        * $v['precio_compra'];
-                                },
-                                $variacionesValidas
-                            )
-                        );
-
-                        $sqlIngreso = "INSERT INTO ingreso
-                            (idproveedor, idusuario, tipo_comprobante,
-                             serie_comprobante, num_comprobante, fecha_hora,
-                             impuesto, total_compra, estado)
-                            VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(),
-                                    0, ?, 'Aceptado')";
-
-                        $idIngreso = $product->ejecutarSQLReturnId(
-                            $sqlIngreso,
-                            [
-                                $idproveedor,
-                                $idusuario,
-                                $num,
-                                $totalCompra
-                            ]
-                        );
-                    }
-
-                    foreach ($variaciones as $var) {
-                        $combinacion = $var['combinacion'] ?? '';
-                        $sku = $var['sku'] ?? '';
-                        $stock_var = $var['stock'] ?? 0;
-                        $precio_compra_var = $var['precio_compra'] ?? 0;
-                        $precio_venta_var = $var['precio_venta'] ?? 0;
-
-                        $product->insertarVariacion(
-                            $idproducto,
-                            $combinacion,
-                            $sku,
-                            $stock_var,
-                            $precio_compra_var,
-                            $precio_venta_var
-                        );
-
-                        if (
-                            isset($idIngreso)
-                            && $stock_var > 0
-                            && $precio_compra_var > 0
-                            && $precio_venta_var > 0
-                        ) {
-                            $sqlDetalle = "INSERT INTO detalle_ingreso
-                                (idarticulo, idingreso, cantidad, stock_venta,
-                                 precio_compra, precio_venta, estado,
-                                 stock_estado)
-                                VALUES (?, ?, ?, ?, ?, ?, 1, 1)";
-
-                            $product->ejecutarSQL(
-                                $sqlDetalle,
-                                [
-                                    $idproducto,
-                                    $idIngreso,
-                                    $stock_var,
-                                    $stock_var,
-                                    $precio_compra_var,
-                                    $precio_venta_var
-                                ]
-                            );
-
-                            $sqlKardex = "INSERT INTO kardex
-                                (iddetalle, idarticulo, fecha, detalle,
-                                 cantidadi, costoui, totali,
-                                 cantidads, costous, totals,
-                                 cantidadex, costouex, totalex,
-                                 tipo, estado)
-                                VALUES (?, ?, NOW(), ?, ?, ?, ?,
-                                        0, 0, 0, ?, ?, ?,
-                                        'Ingreso', 'Activo')";
-
-                            $detalle = 'Stock Inicial INI-'
-                                . $num
-                                . ' ('
-                                . $combinacion
-                                . ')';
-
-                            $total = $stock_var * $precio_compra_var;
-
-                            $product->ejecutarSQL(
-                                $sqlKardex,
-                                [
-                                    $idIngreso,
-                                    $idproducto,
-                                    $detalle,
-                                    $stock_var,
-                                    $precio_compra_var,
-                                    $total,
-                                    $stock_var,
-                                    $precio_compra_var,
-                                    $total
-                                ]
-                            );
-                        }
-                    }
-                }
-
-                echo $idproducto
-                    ? 'Datos registrados correctamente'
-                    : 'No se pudo registrar los datos';
-            } else {
-                echo "No se puede registrar...! \n código de producto duplicado";
+            if (!isset($tiposPermitidos[$tipoReal])) {
+                echo 'La imagen debe ser JPG o PNG';
+                break;
             }
+
+            $nombreImagenNueva =
+                round(microtime(true))
+                . '-'
+                . random_int(100, 999)
+                . '.'
+                . $tiposPermitidos[$tipoReal];
+
+            $rutaDestino =
+                '../Assets/img/products/'
+                . $nombreImagenNueva;
+
+            if (!move_uploaded_file($archivoImagen['tmp_name'], $rutaDestino)) {
+                echo 'No se pudo guardar la imagen';
+                break;
+            }
+
+            $imagen = $nombreImagenNueva;
+
+            if (
+                $imagenActual !== 'default.png'
+                && $imagenActual !== $imagen
+            ) {
+                $rutaAnterior =
+                    '../Assets/img/products/'
+                    . $imagenActual;
+
+                if (is_file($rutaAnterior)) {
+                    unlink($rutaAnterior);
+                }
+            }
+        }
+
+        $idsubcategoriaFinal =
+            $idsubcategoria > 0
+            ? $idsubcategoria
+            : null;
+
+        if ($idarticulo <= 0) {
+
+            $resultado = $product->insertar(
+                $idcategoria,
+                $idsubcategoriaFinal,
+                $idmedida,
+                $idalmacen,
+                $codigo,
+                $nombre,
+                $stock,
+                $precio_compra,
+                $precio_venta,
+                $descripcion,
+                $imagen
+            );
+
+            echo $resultado
+                ? 'Producto registrado correctamente'
+                : 'No se pudo registrar el producto';
+        } else {
+
+            $resultado = $product->editar(
+                $idarticulo,
+                $idcategoria,
+                $idsubcategoriaFinal,
+                $idmedida,
+                $idalmacen,
+                $codigo,
+                $nombre,
+                $stock,
+                $precio_compra,
+                $precio_venta,
+                $descripcion,
+                $imagen
+            );
+
+            echo $resultado
+                ? 'Producto actualizado correctamente'
+                : 'No se pudo actualizar el producto';
         }
 
         break;

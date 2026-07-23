@@ -1,112 +1,138 @@
 <?php
-require_once "../Models/Almacen.php";
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../Models/Almacen.php';
 
 $almacen = new Almacen();
 
-$idalmacen   = isset($_POST["idalmacen"]) ? $_POST["idalmacen"] : "";
-$nombre      = isset($_POST["nombre"]) ? $_POST["nombre"] : "";
-$ubicacion   = isset($_POST["ubicacion"]) ? $_POST["ubicacion"] : "";
-$descripcion = isset($_POST["descripcion"]) ? $_POST["descripcion"] : "";
+$idalmacen = isset($_POST['idalmacen']) ? (int)$_POST['idalmacen'] : 0;
+$nombre = trim((string)($_POST['nombre'] ?? ''));
+$ubicacion = trim((string)($_POST['ubicacion'] ?? ''));
+$descripcion = trim((string)($_POST['descripcion'] ?? ''));
 
-switch ($_GET["op"]) {
+switch ($_GET['op'] ?? '') {
 
-    // ==============================
-    // GUARDAR / EDITAR
-    // ==============================
     case 'guardaryeditar':
-        if (empty($idalmacen)) {
+        if ($idalmacen <= 0) {
             $rspta = $almacen->insertar($nombre, $ubicacion, $descripcion);
+
             echo $rspta
-                ? "✅ Almacén registrado correctamente"
-                : "❌ No se pudo registrar el almacén";
+                ? '✅ Almacén registrado correctamente'
+                : '❌ No se pudo registrar el almacén';
         } else {
-            $rspta = $almacen->editar($idalmacen, $nombre, $ubicacion, $descripcion);
+            $rspta = $almacen->editar(
+                $idalmacen,
+                $nombre,
+                $ubicacion,
+                $descripcion
+            );
+
             echo $rspta
-                ? "✅ Almacén actualizado correctamente"
-                : "❌ No se pudo actualizar el almacén";
+                ? '✅ Almacén actualizado correctamente'
+                : '❌ No se pudo actualizar el almacén';
         }
         break;
 
-    // ==============================
-    // DESACTIVAR
-    // ==============================
     case 'desactivar':
         $rspta = $almacen->desactivar($idalmacen);
+
         echo $rspta
-            ? "🔴 Almacén desactivado correctamente"
-            : "❌ No se pudo desactivar";
+            ? '🔴 Almacén desactivado correctamente'
+            : '❌ No se pudo desactivar';
         break;
 
-    // ==============================
-    // ACTIVAR
-    // ==============================
     case 'activar':
         $rspta = $almacen->activar($idalmacen);
+
         echo $rspta
-            ? "🟢 Almacén activado correctamente"
-            : "❌ No se pudo activar";
+            ? '🟢 Almacén activado correctamente'
+            : '❌ No se pudo activar';
         break;
 
-    // ==============================
-    // MOSTRAR (EDITAR)
-    // ==============================
     case 'mostrar':
-        $rspta = $almacen->mostrar($idalmacen);
-        echo json_encode($rspta);
+        header('Content-Type: application/json; charset=utf-8');
+
+        $rspta = $almacen->mostrar((string)$idalmacen);
+
+        echo json_encode(
+            $rspta,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
         break;
 
-    // ==============================
-    // LISTAR (DATATABLE)
-    // ==============================
     case 'listar':
+        header('Content-Type: application/json; charset=utf-8');
+
         $rspta = $almacen->listar();
         $data = [];
 
         foreach ($rspta as $reg) {
+            $id = (int)$reg['idalmacen'];
+            $activo = (int)$reg['estado'] === 1;
+
             $data[] = [
-                "0" => $reg['idalmacen'],
-                "1" => $reg['nombre'],
-                "2" => $reg['ubicacion'],
-                "3" => $reg['descripcion'],
-                "4" => ($reg['estado'])
+                '0' => $id,
+                '1' => $reg['nombre'],
+                '2' => $reg['ubicacion'],
+                '3' => $reg['descripcion'],
+                '4' => $activo
                     ? '<span class="badge badge-success">Activo</span>'
                     : '<span class="badge badge-danger">Inactivo</span>',
-
-                // 👉 MISMA FORMA QUE ATRIBUTOS
-                "5" => ($reg['estado'])
-                    ? '<button class="btn btn-warning btn-sm" onclick="mostrar(' . $reg['idalmacen'] . ')">
-                            <i class="fas fa-pencil-alt"></i>
-                       </button>
-                       <button class="btn btn-danger btn-sm" onclick="desactivar(' . $reg['idalmacen'] . ')">
-                            <i class="fas fa-times"></i>
-                       </button>'
-                    : '<button class="btn btn-warning btn-sm" onclick="mostrar(' . $reg['idalmacen'] . ')">
-                            <i class="fas fa-pencil-alt"></i>
-                       </button>
-                       <button class="btn btn-primary btn-sm" onclick="activar(' . $reg['idalmacen'] . ')">
-                            <i class="fas fa-check"></i>
-                       </button>'
+                '5' => $activo
+                    ? '<button class="btn btn-warning btn-sm" onclick="mostrar(' . $id . ')">'
+                        . '<i class="fas fa-pencil-alt"></i>'
+                        . '</button> '
+                        . '<button class="btn btn-danger btn-sm" onclick="desactivar(' . $id . ')">'
+                        . '<i class="fas fa-times"></i>'
+                        . '</button>'
+                    : '<button class="btn btn-warning btn-sm" onclick="mostrar(' . $id . ')">'
+                        . '<i class="fas fa-pencil-alt"></i>'
+                        . '</button> '
+                        . '<button class="btn btn-primary btn-sm" onclick="activar(' . $id . ')">'
+                        . '<i class="fas fa-check"></i>'
+                        . '</button>'
             ];
         }
 
-        echo json_encode([
-            "sEcho" => 1,
-            "iTotalRecords" => count($data),
-            "iTotalDisplayRecords" => count($data),
-            "aaData" => $data
-        ]);
+        echo json_encode(
+            [
+                'sEcho' => 1,
+                'iTotalRecords' => count($data),
+                'iTotalDisplayRecords' => count($data),
+                'aaData' => $data
+            ],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
         break;
 
-    // ==============================
-    // SELECT (COMBOS)
-    // ==============================
     case 'selectAlmacen':
-        $rspta = $almacen->listar();
+        $idSeleccionado = isset($_POST['idseleccionado'])
+            ? (int)$_POST['idseleccionado']
+            : 0;
+
+        $rspta = $almacen->select();
+
         echo '<option value="">Seleccione un almacén</option>';
+
         foreach ($rspta as $reg) {
-            echo '<option value="' . $reg['idalmacen'] . '">' .
-                htmlspecialchars($reg['nombre']) .
-                '</option>';
+            $id = (int)$reg['idalmacen'];
+            $selected = $id === $idSeleccionado
+                ? ' selected'
+                : '';
+
+            echo '<option value="' . $id . '"' . $selected . '>'
+                . htmlspecialchars(
+                    (string)$reg['nombre'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                )
+                . '</option>';
         }
+        break;
+
+    default:
+        http_response_code(400);
+        echo 'Operación no válida';
         break;
 }
