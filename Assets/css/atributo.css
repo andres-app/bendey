@@ -497,16 +497,34 @@
     font-size: 13px;
   }
 
-    /* Iconos a la derecha solamente en Crear/Editar atributo */
-    #formulario .atributo-input-icon>i {
-      left: auto;
-      right: 14px;
-    }
-  
-    #formulario .atributo-input-icon .form-control {
-      padding-left: 14px;
-      padding-right: 40px;
-    }
+/* ==================================================
+   ICONOS A LA DERECHA
+   Crear/Editar atributo y Nuevo valor
+   ================================================== */
+
+#formulario .atributo-input-icon>i,
+#formValor .atributo-input-icon>i {
+  left: auto;
+  right: 14px;
+}
+
+#formulario .atributo-input-icon .form-control,
+#formValor .atributo-input-icon .form-control {
+  padding-left: 14px;
+  padding-right: 40px;
+}
+
+/* Buscar valor: icono a la derecha */
+#modalValores .atributo-search-wrap>i {
+  left: auto;
+  right: 42px;
+}
+
+/* Espacio para el icono de búsqueda y el botón X */
+#modalValores .atributo-search-wrap .form-control {
+  padding-left: 14px;
+  padding-right: 72px;
+}
   
   .atributo-counter {
     margin-top: 5px;
