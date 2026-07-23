@@ -1,191 +1,264 @@
-<?php 
-require_once "../Models/Buy.php";
-if (strlen(session_id())<1) 
-	session_start();
+<?php
 
-$buy=new Buy();
+declare(strict_types=1);
 
-$idingreso=isset($_POST["idingreso"])? $_POST["idingreso"]:"";
-$idproveedor=isset($_POST["idproveedor"])? $_POST["idproveedor"]:"";
-$idusuario=$_SESSION["idusuario"];
-$tipo_comprobante=isset($_POST["tipo_comprobante"])? $_POST["tipo_comprobante"]:"";
-$serie_comprobante=isset($_POST["serie_comprobante"])? $_POST["serie_comprobante"]:"";
-$num_comprobante=isset($_POST["num_comprobante"])? $_POST["num_comprobante"]:"";
-$fecha_hora=isset($_POST["fecha_hora"])? $_POST["fecha_hora"]:"";
-$impuesto=isset($_POST["impuesto"])? $_POST["impuesto"]:"";
-$total_compra=isset($_POST["total_compra"])? $_POST["total_compra"]:"";
-
-
-switch ($_GET["op"]) {
-	case 'guardaryeditar':
-        if (empty($idingreso)) {
-            $rspta=$buy->insertar($idproveedor,$idusuario,$tipo_comprobante,$serie_comprobante,$num_comprobante,$fecha_hora,$impuesto,$total_compra,$_POST["idarticulo"],$_POST["cantidad"],$_POST["precio_compra"],$_POST["precio_venta"]);
-            echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
-		}else{
-			$rspta=$buy->editar($idingreso,$idproveedor,$tipo_comprobante,$serie_comprobante,$num_comprobante,$impuesto,$total_compra,$_POST["idarticulo"],$_POST["nuevostock"],$_POST["cantidad"],$_POST["precio_compra"],$_POST["precio_venta"]);
-			echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
-		}
-		break;
-	
-	case 'anular':
-		$rspta=$buy->anular($idingreso);
-		echo $rspta ? "Ingreso anulado correctamente" : "No se pudo anular el buy";
-		break; 
-	
-	case 'mostrar':
-		$rspta=$buy->mostrar($idingreso);
-		echo json_encode($rspta);
-		break;
-
-	case 'listarDetalle':
-		require_once "../Models/Company.php";
-        $company = new Company();
-        $rsptan = $company->listar();
-        //$regn=$rsptan->fetch_object();
-        if (empty($rsptan)) {
-            $smoneda='Simbolo de moneda';
-        }else{
-            $smoneda=$rsptan[0]['simbolo'];
-            $nom_imp=$rsptan[0]['nombre_impuesto'];
-        };
-		//recibimos el idingreso
-		$id=$_GET['id'];
-
-		$rspta=$buy->listarDetalle($id);
-		$total=0;
-		echo ' <thead style="background-color:#A9D0F5">
-        <th>Opciones</th>
-        <th>Articulo</th>
-        <th>Cantidad</th>
-        <th>Precio Compra</th>
-        <th>Precio Venta Unitario</th>
-        <th>Importe</th>
-       </thead>';
-		foreach ($rspta as $reg) {
-			echo '<tr class="filas">
-			<td></td>
-			<td>'.$reg['nombre'].'</td>
-			<td>'.$reg['cantidad'].'</td>
-			<td>'.$reg['precio_compra'].'</td>
-			<td>'.$reg['precio_venta'].'</td>
-			<td>'.$reg['precio_compra']*$reg['cantidad'].'</td>
-			</tr>';
-			//$total=$total+($reg['precio_compra']*$reg['cantidad']);
-			$t_compra=$reg['total_compra'];
-			$subtotal=round(($t_compra/1.18),1,PHP_ROUND_HALF_UP);
-			//$imp=$reg['impuesto'];
-			$igv=$t_compra-$subtotal;
-			//$most_igv=$t_compra-$total;
-		}
-		echo '<tfoot>
-        <th><span>SubTotal</span><br><span id="valor_impuestoc">'.$nom_imp.' '.$imp.' %</span><br><span>TOTAL</span></th>
-         <th></th>
-         <th></th>
-         <th></th> 
-         <th></th>
-         <th>
-		 <span class="pull-right" id="total">'.$smoneda.' '.number_format((float)$subtotal,2,'.','').'</span><br>
-		 <span class="pull-right" id="most_imp">'.$smoneda.' '.number_format((float)$igv,2,'.','').'</span><br>
-		 <span class="pull-right" id="most_total" maxlength="4">'.$smoneda.' '.$t_compra.'</span>
-		 </th>
-       </tfoot>';
-		break;
-
-	case 'listarDetalle_editar':
-		require_once "../Models/Company.php";
-		  $cnegocio = new Company();
-		  $rsptan = $cnegocio->listar();
-		  $regn=$rsptan[0];
-		  if (empty($regn)) {
-		    $smoneda='Simbolo de moneda';
-		  }else{
-		    $smoneda=$regn['simbolo'];
-		    $nom_imp=$regn['nombre_impuesto'];
-		  };
-		//recibimos el idventa
-		$id=$_GET['id'];
-
-		$rspta=$buy->listarDetalle($id);
-		$total=0;
-		$data=Array();
-
-		foreach ($rspta as $reg) {
-			$data[]=array(
-			"Idarticulo"=>$reg['idarticulo'],
-            "Articulo"=>$reg['nombre'],
-            "Pcompra"=>$reg['precio_compra'],
-			"Pventa"=>$reg['precio_venta'],
-			"Cantidad"=>$reg['cantidad'],
-			"Stock"=>$reg['stock'],
-			"Total"=>$reg['total_compra']
-              );
-		}
-		$results=array(
-    		"Datos"=>$data);
-		echo json_encode($data);
-		break;
-
-    case 'listar':
-		$rspta=$buy->listar();
-		$data=Array();
-
-		foreach ($rspta as $reg) {
-			$data[]=array(
-            "0"=>($reg['estado']=='Aceptado')?'<button class="btn btn-info btn-sm" onclick="mostrar('.$reg['idingreso'].')"><i class="fas fa-eye"></i></button>'.' '.' </a>'.' '.'<button class="btn btn-danger btn-sm" onclick="anular('.$reg['idingreso'].')"><i class="fas fa-times"></i></button>':'<button class="btn btn-info btn-sm" onclick="mostrar('.$reg['idingreso'].')"><i class="fas fa-eye"></i></button>',
-            "1"=>$reg['fecha'],
-            "2"=>$reg['proveedor'],
-            "3"=>$reg['usuario'],
-            "4"=>$reg['tipo_comprobante'],
-            "5"=>$reg['serie_comprobante']. '-' .$reg['num_comprobante'],
-            "6"=>$reg['total_compra'],
-            "7"=>($reg['estado']=='Aceptado')?'<div class="badge badge-success">Aceptado</div>':'<div class="badge badge-danger">Anulado</div>'
-              );
-		}
-		$results=array(
-             "sEcho"=>1,//info para datatables
-             "iTotalRecords"=>count($data),//enviamos el total de registros al datatable
-             "iTotalDisplayRecords"=>count($data),//enviamos el total de registros a visualizar
-             "aaData"=>$data); 
-		echo json_encode($results);
-		break;
-
-		case 'selectProveedor':
-			require_once "../Models/Person.php";
-			$person = new Person();
-
-			$rspta = $person->listarp();
-			echo '<option value="0">seleccione...</option>';
-
-			foreach ($rspta as $reg) {
-				echo '<option value='.$reg['idpersona'].'>'.$reg['nombre'].'</option>';
-			}
-			break;
-
-			case 'listarArticulos':
-			require_once "../Models/Product.php";
-			$product=new Product();
-
-				$rspta=$product->listarActivos();
-		$data=Array();
-
-		foreach ($rspta as $reg) {
-			$data[]=array(
-            "0"=>'<button class="btn btn-warning btn-sm" id="addetalle" name="'.$reg['idarticulo'].'" onclick="agregarDetalle('.$reg['idarticulo'].',\''.$reg['nombre'].'\')"><span class="fa fa-plus"></span></button>',
-            "1"=>$reg['nombre'],
-            "2"=>$reg['categoria'],
-            "3"=>$reg['codigo'],
-            "4"=>$reg['stock'],
-            "5"=>"<img src='Assets/img/products/".$reg['imagen']."' height='50px' width='50px'>"
-          
-              );
-		}
-		$results=array(
-             "sEcho"=>1,//info para datatables
-             "iTotalRecords"=>count($data),//enviamos el total de registros al datatable
-             "iTotalDisplayRecords"=>count($data),//enviamos el total de registros a visualizar
-             "aaData"=>$data); 
-		echo json_encode($results);
-
-				break;
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
 }
- ?>
+
+date_default_timezone_set('America/Lima');
+
+require_once __DIR__ . '/../Models/Buy.php';
+
+$buy = new Buy();
+
+function responderJson(
+    bool $success,
+    string $mensaje,
+    array $extra = [],
+    int $codigoHttp = 200
+): void {
+    http_response_code($codigoHttp);
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+
+    echo json_encode(
+        array_merge(
+            [
+                'success' => $success,
+                'mensaje' => $mensaje
+            ],
+            $extra
+        ),
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+    );
+
+    exit;
+}
+
+function exigirSesionCompras(): void
+{
+    $idusuario = (int)($_SESSION['idusuario'] ?? 0);
+    $permisoCompras = (int)($_SESSION['compras'] ?? 0);
+
+    if ($idusuario <= 0 || $permisoCompras !== 1) {
+        responderJson(
+            false,
+            'La sesión no es válida o no tiene permiso para registrar compras.',
+            [],
+            403
+        );
+    }
+}
+
+$op = (string)($_GET['op'] ?? '');
+
+try {
+    switch ($op) {
+        case 'guardaryeditar':
+            exigirSesionCompras();
+
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responderJson(false, 'Método no permitido.', [], 405);
+            }
+
+            $idingreso = (int)($_POST['idingreso'] ?? 0);
+
+            if ($idingreso > 0) {
+                responderJson(
+                    false,
+                    'La edición de compras antiguas no está habilitada en esta etapa. Anule y registre nuevamente si corresponde.',
+                    [],
+                    409
+                );
+            }
+
+            $detallesJson = (string)($_POST['detalles_json'] ?? '');
+            $detalles = json_decode($detallesJson, true);
+
+            if (!is_array($detalles)) {
+                responderJson(
+                    false,
+                    'El detalle de la compra no tiene un formato válido.',
+                    [],
+                    422
+                );
+            }
+
+            $cabecera = [
+                'idproveedor' => (int)($_POST['idproveedor'] ?? 0),
+                'idusuario' => (int)($_SESSION['idusuario'] ?? 0),
+                'idsucursal' => (int)($_SESSION['idsucursal'] ?? 0),
+                'tipo_comprobante' => (string)($_POST['tipo_comprobante'] ?? ''),
+                'serie_comprobante' => (string)($_POST['serie_comprobante'] ?? ''),
+                'num_comprobante' => (string)($_POST['num_comprobante'] ?? ''),
+                'fecha_hora' => (string)($_POST['fecha_hora'] ?? ''),
+                'impuesto' => (float)($_POST['impuesto'] ?? 0),
+                'observacion' => (string)($_POST['observacion'] ?? '')
+            ];
+
+            $resultado = $buy->insertar($cabecera, $detalles);
+
+            responderJson(
+                true,
+                'Compra registrada correctamente.',
+                [
+                    'idingreso' => (int)$resultado['idingreso'],
+                    'tipo_compra' => (string)$resultado['tipo_compra'],
+                    'total_compra' => (float)$resultado['total_compra']
+                ]
+            );
+            break;
+
+        case 'anular':
+            exigirSesionCompras();
+
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responderJson(false, 'Método no permitido.', [], 405);
+            }
+
+            $idingreso = (int)($_POST['idingreso'] ?? 0);
+            $resultado = $buy->anular($idingreso);
+
+            responderJson(
+                true,
+                (string)($resultado['mensaje'] ?? 'Compra anulada correctamente.')
+            );
+            break;
+
+        case 'mostrar':
+            exigirSesionCompras();
+
+            $idingreso = (int)($_POST['idingreso'] ?? $_GET['idingreso'] ?? 0);
+            $compra = $buy->mostrar($idingreso);
+
+            if (!$compra) {
+                responderJson(false, 'La compra no existe.', [], 404);
+            }
+
+            responderJson(true, 'Compra encontrada.', ['compra' => $compra]);
+            break;
+
+        case 'listarDetalle':
+            exigirSesionCompras();
+
+            $idingreso = (int)($_GET['id'] ?? $_POST['idingreso'] ?? 0);
+            $detalles = $buy->listarDetalle($idingreso);
+
+            responderJson(true, 'Detalle cargado.', ['detalles' => $detalles]);
+            break;
+
+        case 'listar':
+            exigirSesionCompras();
+
+            $registros = $buy->listar();
+            $data = [];
+
+            foreach ($registros as $reg) {
+                $idingreso = (int)$reg['idingreso'];
+                $estado = (string)$reg['estado'];
+                $tipoCompra = (string)$reg['tipo_compra'];
+
+                $badgeTipo = match ($tipoCompra) {
+                    'MIXTA' => '<span class="badge badge-info">Mixta</span>',
+                    'NO_INVENTARIO' => '<span class="badge badge-secondary">Gasto / servicio</span>',
+                    default => '<span class="badge badge-primary">Inventario</span>'
+                };
+
+                $opciones = '<button type="button" class="btn btn-info btn-sm" '
+                    . 'onclick="mostrarCompra(' . $idingreso . ')" title="Ver compra">'
+                    . '<i class="fas fa-eye"></i></button>';
+
+                if ($estado === 'Aceptado') {
+                    $opciones .= ' <button type="button" class="btn btn-danger btn-sm" '
+                        . 'onclick="anularCompra(' . $idingreso . ')" title="Anular compra">'
+                        . '<i class="fas fa-times"></i></button>';
+                }
+
+                $documento = trim(
+                    (string)$reg['serie_comprobante']
+                    . '-'
+                    . (string)$reg['num_comprobante'],
+                    '-'
+                );
+
+                $data[] = [
+                    '0' => $opciones,
+                    '1' => htmlspecialchars((string)$reg['fecha'], ENT_QUOTES, 'UTF-8'),
+                    '2' => htmlspecialchars((string)$reg['proveedor'], ENT_QUOTES, 'UTF-8'),
+                    '3' => htmlspecialchars((string)$reg['usuario'], ENT_QUOTES, 'UTF-8'),
+                    '4' => htmlspecialchars((string)$reg['tipo_comprobante'], ENT_QUOTES, 'UTF-8'),
+                    '5' => htmlspecialchars($documento, ENT_QUOTES, 'UTF-8'),
+                    '6' => $badgeTipo,
+                    '7' => 'S/ ' . number_format((float)$reg['total_compra'], 2, '.', ','),
+                    '8' => $estado === 'Aceptado'
+                        ? '<span class="badge badge-success">Aceptado</span>'
+                        : '<span class="badge badge-danger">Anulado</span>'
+                ];
+            }
+
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(
+                [
+                    'sEcho' => 1,
+                    'iTotalRecords' => count($data),
+                    'iTotalDisplayRecords' => count($data),
+                    'aaData' => $data
+                ],
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            );
+            exit;
+
+        case 'datosFormulario':
+            exigirSesionCompras();
+
+            responderJson(
+                true,
+                'Datos del formulario cargados.',
+                ['datos' => $buy->datosFormulario()]
+            );
+            break;
+
+        case 'listarArticulos':
+        case 'productosCompra':
+            exigirSesionCompras();
+
+            responderJson(
+                true,
+                'Productos cargados.',
+                ['productos' => $buy->listarProductosCompra()]
+            );
+            break;
+
+        case 'selectProveedor':
+            exigirSesionCompras();
+
+            require_once __DIR__ . '/../Models/Person.php';
+            $person = new Person();
+            $proveedores = $person->listarp();
+
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<option value="">Seleccione un proveedor...</option>';
+
+            foreach ($proveedores as $reg) {
+                echo '<option value="'
+                    . (int)$reg['idpersona']
+                    . '">'
+                    . htmlspecialchars((string)$reg['nombre'], ENT_QUOTES, 'UTF-8')
+                    . '</option>';
+            }
+            exit;
+
+        default:
+            responderJson(false, 'Operación no válida.', [], 404);
+    }
+} catch (Throwable $error) {
+    error_log('[COMPRAS] ' . $error->getMessage());
+
+    responderJson(
+        false,
+        $error->getMessage(),
+        [],
+        400
+    );
+}
