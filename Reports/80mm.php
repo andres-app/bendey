@@ -638,21 +638,66 @@ $pdf->Cell(
     'R'
 );
 
+
+
+// Obtener nombres únicos de las formas de pago
+$nombresFormasPago = [];
+
+foreach ($pagos as $pago) {
+    $nombreFormaPago = trim(
+        (string) ($pago['nombre'] ?? '')
+    );
+
+    if (
+        $nombreFormaPago !== '' &&
+        !in_array(
+            $nombreFormaPago,
+            $nombresFormasPago,
+            true
+        )
+    ) {
+        $nombresFormasPago[] = $nombreFormaPago;
+    }
+}
+
 // ===============================
-// FORMA DE PAGO
+// DETERMINAR FORMA DE PAGO
+// ===============================
+if (count($nombresFormasPago) > 1) {
+    $formaPagoTexto = 'Mixto';
+} elseif (count($nombresFormasPago) === 1) {
+    $formaPagoTexto = $nombresFormasPago[0];
+} else {
+    /*
+     * Respaldo para ventas antiguas.
+     * Primero intenta usar un nombre obtenido desde
+     * la cabecera de la venta.
+     */
+    $formaPagoTexto = trim(
+        (string) (
+            $reg['nombre_forma_pago'] ??
+            $reg['forma_pago'] ??
+            ''
+        )
+    );
+
+    if ($formaPagoTexto === '') {
+        $formaPagoTexto = 'No especificado';
+    }
+}
+
+// ===============================
+// MOSTRAR FORMA DE PAGO
 // ===============================
 $pdf->Ln(1);
-
 $pdf->SetFont('Helvetica', '', 8);
-
-$tipoPago = $reg['tipo_pago'] ?? '';
 
 $pdf->MultiCell(
     0,
     5,
     utf8_decode(
         'Forma de pago: ' .
-        $tipoPago
+        $formaPagoTexto
     ),
     0,
     'L'
@@ -688,12 +733,8 @@ $pdf->MultiCell(
 // ===============================
 // DETALLE DE PAGOS MIXTOS
 // ===============================
-$pagos = $venta->obtenerPagosVenta($idVenta);
+if (count($pagos) > 1) {
 
-if (
-    is_array($pagos) &&
-    count($pagos) > 1
-) {
     $pdf->Ln(1);
 
     $pdf->Cell(
@@ -705,7 +746,11 @@ if (
 
     $pdf->Ln(2);
 
-    $pdf->SetFont('Helvetica', 'B', 8);
+    $pdf->SetFont(
+        'Helvetica',
+        'B',
+        8
+    );
 
     $pdf->Cell(
         0,
@@ -718,12 +763,25 @@ if (
 
     $pdf->Ln(1);
 
-    $pdf->SetFont('Helvetica', '', 8);
+    $pdf->SetFont(
+        'Helvetica',
+        '',
+        8
+    );
 
-    foreach ($pagos as $p) {
+    foreach ($pagos as $pago) {
 
-        $nombreFormaPago = $p['nombre'] ?? 'Pago';
-        $montoPago = (float) ($p['monto'] ?? 0);
+        $nombreFormaPago = trim(
+            (string) (
+                $pago['nombre'] ??
+                'Pago'
+            )
+        );
+
+        $montoPago = (float) (
+            $pago['monto'] ??
+            0
+        );
 
         $pdf->Cell(
             40,
@@ -737,7 +795,9 @@ if (
         $pdf->Cell(
             36,
             5,
-            $simbolo . ' ' . number_format($montoPago, 2),
+            $simbolo .
+            ' ' .
+            number_format($montoPago, 2),
             0,
             1,
             'R'
