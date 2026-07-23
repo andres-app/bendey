@@ -15,7 +15,7 @@ require 'sidebar.php';
 
 if ((int)($_SESSION['almacen'] ?? 0) === 1) {
 ?>
-    <link rel="stylesheet" href="Assets/css/atributo.css?v=3.0.0">
+    <link rel="stylesheet" href="Assets/css/atributo.css?v=3.0.1">
 
     <div class="main-content atributo-page">
         <section class="section">

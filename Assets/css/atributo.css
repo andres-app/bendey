@@ -496,6 +496,17 @@
     background: #fbfcfe;
     font-size: 13px;
   }
+
+    /* Iconos a la derecha solamente en Crear/Editar atributo */
+    #formulario .atributo-input-icon>i {
+      left: auto;
+      right: 14px;
+    }
+  
+    #formulario .atributo-input-icon .form-control {
+      padding-left: 14px;
+      padding-right: 40px;
+    }
   
   .atributo-counter {
     margin-top: 5px;
