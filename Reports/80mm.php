@@ -1,5 +1,23 @@
 <?php
 
+// ======================================================
+// CONVERTIR TEXTO UTF-8 PARA LAS FUENTES BÁSICAS DE FPDF
+// ======================================================
+function textoPdf($texto)
+{
+    $texto = (string) $texto;
+
+    $convertido = iconv(
+        'UTF-8',
+        'windows-1252//TRANSLIT',
+        $texto
+    );
+
+    return $convertido !== false
+        ? $convertido
+        : $texto;
+}
+
 // ===============================
 // CONVERTIR NÚMERO A LETRAS
 // ===============================
@@ -12,7 +30,27 @@ function convertirNumeroALetras($numero)
     return $formatter->toWords($numero);
 }
 
-// Evita errores de FPDF si se genera alguna salida previa
+// ===============================
+// FORMATEAR CANTIDAD
+// ===============================
+function formatearCantidad($cantidad)
+{
+    $cantidad = (float) $cantidad;
+
+    if (floor($cantidad) == $cantidad) {
+        return number_format($cantidad, 0);
+    }
+
+    return rtrim(
+        rtrim(
+            number_format($cantidad, 2, '.', ''),
+            '0'
+        ),
+        '.'
+    );
+}
+
+// Evitar que warnings o espacios previos dañen el PDF
 ob_start();
 
 // ===============================
@@ -27,7 +65,10 @@ if (!isset($_SESSION['nombre'])) {
     exit;
 }
 
-if (!isset($_SESSION['ventas']) || (int) $_SESSION['ventas'] !== 1) {
+if (
+    !isset($_SESSION['ventas']) ||
+    (int) $_SESSION['ventas'] !== 1
+) {
     echo "No tiene permiso";
     exit;
 }
@@ -35,7 +76,9 @@ if (!isset($_SESSION['ventas']) || (int) $_SESSION['ventas'] !== 1) {
 // ===============================
 // VALIDAR ID DE VENTA
 // ===============================
-$idVenta = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$idVenta = isset($_GET['id'])
+    ? (int) $_GET['id']
+    : 0;
 
 if ($idVenta <= 0) {
     echo "Venta inválida";
@@ -49,7 +92,11 @@ require_once "../Models/Sell.php";
 require_once "../Models/Company.php";
 
 $venta = new Sell();
+$company = new Company();
 
+// ===============================
+// OBTENER CABECERA DE VENTA
+// ===============================
 $cabeceraVenta = $venta->ventacabecera($idVenta);
 
 if (
@@ -63,7 +110,9 @@ if (
 
 $reg = $cabeceraVenta[0];
 
-$company = new Company();
+// ===============================
+// OBTENER DATOS DE EMPRESA
+// ===============================
 $listadoEmpresa = $company->listar();
 
 if (
@@ -80,46 +129,106 @@ $empresaData = $listadoEmpresa[0];
 // ===============================
 // DATOS DE LA EMPRESA
 // ===============================
-$empresa = $empresaData['nombre'] ?? '';
-$documento = $empresaData['documento'] ?? '';
-$direccion = $empresaData['direccion'] ?? '';
-$telefono = $empresaData['telefono'] ?? '';
-$ciudad = $empresaData['ciudad'] ?? '';
+$empresa = trim(
+    (string) ($empresaData['nombre'] ?? '')
+);
 
-$impuesto = $empresaData['nombre_impuesto'] ?? 'IGV';
-$porcIgv = (float) ($empresaData['monto_impuesto'] ?? 0);
+$documento = trim(
+    (string) ($empresaData['documento'] ?? '')
+);
 
-$simbolo = $empresaData['simbolo'] ?? 'S/.';
-$moneda = $empresaData['moneda'] ?? 'SOLES';
+$direccion = trim(
+    (string) ($empresaData['direccion'] ?? '')
+);
+
+$telefono = trim(
+    (string) ($empresaData['telefono'] ?? '')
+);
+
+$ciudad = trim(
+    (string) ($empresaData['ciudad'] ?? '')
+);
+
+$impuesto = trim(
+    (string) ($empresaData['nombre_impuesto'] ?? 'IGV')
+);
+
+$porcIgv = (float) (
+    $empresaData['monto_impuesto'] ?? 0
+);
+
+$simbolo = trim(
+    (string) ($empresaData['simbolo'] ?? 'S/.')
+);
+
+$moneda = trim(
+    (string) ($empresaData['moneda'] ?? 'SOLES')
+);
 
 // ===============================
 // DATOS DEL COMPROBANTE
 // ===============================
-$tipoComprobante = $reg['tipo_comprobante'] ?? 'COMPROBANTE';
-$serieComprobante = $reg['serie_comprobante'] ?? '';
-$numeroComprobante = $reg['num_comprobante'] ?? '';
+$tipoComprobante = trim(
+    (string) (
+        $reg['tipo_comprobante'] ??
+        'COMPROBANTE'
+    )
+);
 
-$nombreArchivoComprobante =
-    $tipoComprobante . '_' .
-    $serieComprobante . '_' .
-    $numeroComprobante . '.pdf';
+$serieComprobante = trim(
+    (string) (
+        $reg['serie_comprobante'] ??
+        ''
+    )
+);
+
+$numeroComprobante = trim(
+    (string) (
+        $reg['num_comprobante'] ??
+        ''
+    )
+);
+
+// ===============================
+// NOMBRE DEL ARCHIVO PDF
+// ===============================
+$nombreArchivoPdf = preg_replace(
+    '/[^A-Za-z0-9_\-.]/',
+    '_',
+    $tipoComprobante .
+    '_' .
+    $serieComprobante .
+    '_' .
+    $numeroComprobante .
+    '.pdf'
+);
 
 // ===============================
 // GENERAR QR
 // ===============================
-include_once '../Libraries/phpqrcode/qrlib.php';
+require_once '../Libraries/phpqrcode/qrlib.php';
 
 $nombreQrSeguro = preg_replace(
     '/[^A-Za-z0-9_\-]/',
     '_',
+    $serieComprobante .
+    '_' .
     $numeroComprobante
 );
 
-$filename = '../Assets/qr_' . $nombreQrSeguro . '.png';
+$rutaQr = '../Assets/qr_' .
+    $nombreQrSeguro .
+    '.png';
 
+$contenidoQr = $numeroComprobante;
+
+/*
+ * Actualmente se conserva el mismo contenido del QR
+ * utilizado por el sistema: número de comprobante.
+ */
 QRcode::png(
-    $numeroComprobante,
-    $filename,
+    $contenidoQr,
+    $rutaQr,
     QR_ECLEVEL_L,
     3
 );
@@ -127,7 +236,7 @@ QRcode::png(
 // ===============================
 // CREAR PDF DE 80 MM
 // ===============================
-include_once '../Libraries/fpdf182/fpdf.php';
+require_once '../Libraries/fpdf182/fpdf.php';
 
 $pdf = new FPDF(
     'P',
@@ -136,47 +245,36 @@ $pdf = new FPDF(
 );
 
 $pdf->SetMargins(2, 4, 2);
-$pdf->SetAutoPageBreak(true, 4);
+$pdf->SetAutoPageBreak(true, 5);
 $pdf->AddPage();
 
 // ===============================
-// CABECERA CENTRADA
+// CABECERA DE EMPRESA
 // ===============================
-$pdf->SetFont('Helvetica', 'B', 12);
+$pdf->SetFont(
+    'Helvetica',
+    'B',
+    12
+);
 
-$pdf->Cell(
+$pdf->MultiCell(
     0,
     5,
-    utf8_decode($empresa),
+    textoPdf($empresa),
     0,
-    1,
     'C'
 );
 
-$pdf->SetFont('Helvetica', '', 9);
-
-$pdf->Cell(
-    0,
-    5,
-    utf8_decode('RUC: ' . $documento),
-    0,
-    1,
-    'C'
-);
-
-$pdf->Cell(
-    0,
-    5,
-    utf8_decode('Direc: ' . $direccion),
-    0,
-    1,
-    'C'
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    9
 );
 
 $pdf->Cell(
     0,
     5,
-    utf8_decode('Telf: ' . $telefono),
+    textoPdf('RUC: ' . $documento),
     0,
     1,
     'C'
@@ -185,7 +283,24 @@ $pdf->Cell(
 $pdf->MultiCell(
     0,
     5,
-    utf8_decode($ciudad),
+    textoPdf('Direc: ' . $direccion),
+    0,
+    'C'
+);
+
+$pdf->Cell(
+    0,
+    5,
+    textoPdf('Telf: ' . $telefono),
+    0,
+    1,
+    'C'
+);
+
+$pdf->MultiCell(
+    0,
+    5,
+    textoPdf($ciudad),
     0,
     'C'
 );
@@ -195,30 +310,46 @@ $pdf->MultiCell(
 // ===============================
 $pdf->Ln(2);
 
-$pdf->SetFont('Helvetica', '', 8);
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    8
+);
 
 $fechaVenta = $reg['fecha'] ?? date('Y-m-d');
+
+$fechaFormateada = date(
+    'd/m/Y',
+    strtotime($fechaVenta)
+);
 
 $pdf->Cell(
     0,
     5,
-    'Fecha: ' . date('d/m/Y', strtotime($fechaVenta)),
+    textoPdf(
+        'Fecha: ' .
+        $fechaFormateada
+    ),
     0,
     1,
     'C'
 );
 
 // ===============================
-// COMPROBANTE
+// TIPO DE COMPROBANTE
 // ===============================
 $pdf->Ln(2);
 
-$pdf->SetFont('Helvetica', 'B', 9);
+$pdf->SetFont(
+    'Helvetica',
+    'B',
+    9
+);
 
 $pdf->Cell(
     0,
     5,
-    utf8_decode(
+    textoPdf(
         mb_strtoupper(
             $tipoComprobante,
             'UTF-8'
@@ -229,12 +360,19 @@ $pdf->Cell(
     'C'
 );
 
-$pdf->SetFont('Helvetica', 'B', 8);
+// ===============================
+// SERIE Y NÚMERO
+// ===============================
+$pdf->SetFont(
+    'Helvetica',
+    'B',
+    8
+);
 
 $pdf->Cell(
     0,
     5,
-    utf8_decode(
+    textoPdf(
         $serieComprobante .
         ' - ' .
         $numeroComprobante
@@ -245,13 +383,22 @@ $pdf->Cell(
 );
 
 // ===============================
-// CLIENTE Y USUARIO
+// CLIENTE
 // ===============================
 $pdf->Ln(2);
 
-$pdf->SetFont('Helvetica', '', 8);
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    8
+);
 
-$cliente = trim((string) ($reg['cliente'] ?? ''));
+$cliente = trim(
+    (string) (
+        $reg['cliente'] ??
+        ''
+    )
+);
 
 if ($cliente === '') {
     $cliente = 'CLIENTE VARIOS';
@@ -260,24 +407,37 @@ if ($cliente === '') {
 $pdf->MultiCell(
     0,
     5,
-    utf8_decode('Cliente: ' . $cliente),
-    0,
-    'L'
-);
-
-$pdf->MultiCell(
-    0,
-    5,
-    utf8_decode(
-        'Atendió: ' .
-        ($_SESSION['nombre'] ?? '')
+    textoPdf(
+        'Cliente: ' .
+        $cliente
     ),
     0,
     'L'
 );
 
 // ===============================
-// LÍNEA SUPERIOR
+// USUARIO QUE ATENDIÓ
+// ===============================
+$usuarioAtendio = trim(
+    (string) (
+        $_SESSION['nombre'] ??
+        ''
+    )
+);
+
+$pdf->MultiCell(
+    0,
+    5,
+    textoPdf(
+        'Atendió: ' .
+        $usuarioAtendio
+    ),
+    0,
+    'L'
+);
+
+// ===============================
+// LÍNEA SUPERIOR DEL DETALLE
 // ===============================
 $pdf->Ln(1);
 
@@ -293,14 +453,21 @@ $pdf->Ln(2);
 // ===============================
 // CABECERA DE COLUMNAS
 // ===============================
-$pdf->SetFont('Helvetica', 'B', 7);
+$pdf->SetFont(
+    'Helvetica',
+    'B',
+    7
+);
 
-// Ancho total disponible:
-// 80 mm - 2 mm izquierda - 2 mm derecha = 76 mm
+/*
+ * Ancho disponible:
+ * 80 mm - 2 mm margen izquierdo - 2 mm margen derecho
+ * Total: 76 mm.
+ */
 $pdf->Cell(
     38,
     4,
-    utf8_decode('ARTÍCULO'),
+    textoPdf('ARTÍCULO'),
     0,
     0,
     'L'
@@ -345,9 +512,13 @@ $pdf->Ln(2);
 // ===============================
 // DETALLE DE PRODUCTOS
 // ===============================
-$pdf->SetFont('Helvetica', '', 7);
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    7
+);
 
-$cantidad = 0;
+$cantidadTotalArticulos = 0;
 
 $detallesVenta = $venta->ventadetalles($idVenta);
 
@@ -355,13 +526,26 @@ if (!is_array($detallesVenta)) {
     $detallesVenta = [];
 }
 
-foreach ($detallesVenta as $d) {
+foreach ($detallesVenta as $detalle) {
 
-    // Construir nombre del producto
+    // ===============================
+    // CONSTRUIR NOMBRE DEL ARTÍCULO
+    // ===============================
+    $sku = trim(
+        (string) (
+            $detalle['sku'] ??
+            ''
+        )
+    );
+
+    $articulo = trim(
+        (string) (
+            $detalle['articulo'] ??
+            ''
+        )
+    );
+
     $partesNombre = [];
-
-    $sku = trim((string) ($d['sku'] ?? ''));
-    $articulo = trim((string) ($d['articulo'] ?? ''));
 
     if ($sku !== '') {
         $partesNombre[] = $sku;
@@ -380,19 +564,33 @@ foreach ($detallesVenta as $d) {
         $nombreArticulo = 'SIN NOMBRE';
     }
 
-    $cantidadProducto = (float) ($d['cantidad'] ?? 0);
-    $precioVenta = (float) ($d['precio_venta'] ?? 0);
-    $subtotalProducto = (float) ($d['subtotal'] ?? 0);
+    // ===============================
+    // DATOS NUMÉRICOS DEL PRODUCTO
+    // ===============================
+    $cantidadProducto = (float) (
+        $detalle['cantidad'] ??
+        0
+    );
 
-    /*
-     * Guardamos la posición inicial de toda la fila.
-     */
+    $precioVenta = (float) (
+        $detalle['precio_venta'] ??
+        0
+    );
+
+    $subtotalProducto = (float) (
+        $detalle['subtotal'] ??
+        0
+    );
+
+    // ===============================
+    // POSICIÓN INICIAL DE LA FILA
+    // ===============================
     $xInicio = $pdf->GetX();
     $yInicio = $pdf->GetY();
 
     /*
-     * El nombre ocupa 38 mm.
-     * MultiCell permite que baje a dos o más líneas.
+     * El nombre del artículo puede ocupar varias líneas.
+     * MultiCell calcula automáticamente su altura.
      */
     $pdf->SetXY(
         $xInicio,
@@ -402,36 +600,29 @@ foreach ($detallesVenta as $d) {
     $pdf->MultiCell(
         38,
         4,
-        utf8_decode($nombreArticulo),
+        textoPdf($nombreArticulo),
         0,
         'L'
     );
 
     /*
-     * Guardamos la posición vertical alcanzada por
-     * el nombre del artículo.
+     * Se obtiene la posición final del nombre para evitar
+     * que el siguiente producto o el subtotal se superpongan.
      */
     $yFinalNombre = $pdf->GetY();
 
-    /*
-     * Colocamos cantidad, precio y total en la primera
-     * línea de la fila.
-     */
+    // ===============================
+    // CANTIDAD, PRECIO Y TOTAL
+    // ===============================
     $pdf->SetXY(
         $xInicio + 38,
         $yInicio
     );
 
-    $cantidadMostrada = (
-        floor($cantidadProducto) == $cantidadProducto
-    )
-        ? number_format($cantidadProducto, 0)
-        : number_format($cantidadProducto, 2);
-
     $pdf->Cell(
         8,
         4,
-        $cantidadMostrada,
+        formatearCantidad($cantidadProducto),
         0,
         0,
         'R'
@@ -440,7 +631,10 @@ foreach ($detallesVenta as $d) {
     $pdf->Cell(
         14,
         4,
-        number_format($precioVenta, 2),
+        number_format(
+            $precioVenta,
+            2
+        ),
         0,
         0,
         'R'
@@ -449,16 +643,18 @@ foreach ($detallesVenta as $d) {
     $pdf->Cell(
         16,
         4,
-        number_format($subtotalProducto, 2),
+        number_format(
+            $subtotalProducto,
+            2
+        ),
         0,
         0,
         'R'
     );
 
-    /*
-     * La fila debe terminar después de la última línea
-     * ocupada por el nombre.
-     */
+    // ===============================
+    // FINAL REAL DE LA FILA
+    // ===============================
     $alturaMinimaFila = 4;
 
     $yFinalFila = max(
@@ -466,37 +662,37 @@ foreach ($detallesVenta as $d) {
         $yInicio + $alturaMinimaFila
     );
 
-    /*
-     * Movemos el cursor debajo de toda la fila.
-     * Esto evita que el siguiente producto o los totales
-     * se superpongan con nombres largos.
-     */
     $pdf->SetY($yFinalFila);
     $pdf->Ln(0.8);
 
-    $cantidad += $cantidadProducto;
+    $cantidadTotalArticulos += $cantidadProducto;
 }
 
 // ===============================
-// CALCULAR TOTALES
+// TOTALES DE LA VENTA
 // ===============================
-$total = (float) ($reg['total_venta'] ?? 0);
+$total = (float) (
+    $reg['total_venta'] ??
+    0
+);
 
 $descuentoTotal = (float) (
-    $reg['descuento_total'] ?? 0
+    $reg['descuento_total'] ??
+    0
 );
 
 $descuentoPorcentaje = (float) (
-    $reg['descuento_porcentaje'] ?? 0
+    $reg['descuento_porcentaje'] ??
+    0
 );
 
-// Subtotal antes de aplicar el descuento
+// Subtotal antes del descuento
 $subtotal = round(
     $total + $descuentoTotal,
     2
 );
 
-// IGV calculado según la configuración del sistema
+// Conserva el cálculo usado actualmente por el sistema
 $igv = round(
     $total * $porcIgv / 100,
     2
@@ -519,12 +715,16 @@ $pdf->Ln(2);
 // ===============================
 // SUBTOTAL
 // ===============================
-$pdf->SetFont('Helvetica', '', 8);
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    8
+);
 
 $pdf->Cell(
     40,
     5,
-    utf8_decode('SUBTOTAL'),
+    textoPdf('SUBTOTAL'),
     0,
     0,
     'L'
@@ -533,7 +733,14 @@ $pdf->Cell(
 $pdf->Cell(
     36,
     5,
-    $simbolo . ' ' . number_format($subtotal, 2),
+    textoPdf(
+        $simbolo .
+        ' ' .
+        number_format(
+            $subtotal,
+            2
+        )
+    ),
     0,
     1,
     'R'
@@ -544,7 +751,7 @@ $pdf->Cell(
 // ===============================
 if ($descuentoTotal > 0) {
 
-    $porcentajeFormateado = rtrim(
+    $porcentajeDescuentoTexto = rtrim(
         rtrim(
             number_format(
                 $descuentoPorcentaje,
@@ -558,9 +765,9 @@ if ($descuentoTotal > 0) {
     $pdf->Cell(
         40,
         5,
-        utf8_decode(
+        textoPdf(
             'DESCUENTO ' .
-            $porcentajeFormateado .
+            $porcentajeDescuentoTexto .
             '%'
         ),
         0,
@@ -571,10 +778,15 @@ if ($descuentoTotal > 0) {
     $pdf->Cell(
         36,
         5,
-        '- ' .
-        $simbolo .
-        ' ' .
-        number_format($descuentoTotal, 2),
+        textoPdf(
+            '- ' .
+            $simbolo .
+            ' ' .
+            number_format(
+                $descuentoTotal,
+                2
+            )
+        ),
         0,
         1,
         'R'
@@ -584,9 +796,12 @@ if ($descuentoTotal > 0) {
 // ===============================
 // IGV
 // ===============================
-$porcentajeIgvFormateado = rtrim(
+$porcentajeIgvTexto = rtrim(
     rtrim(
-        number_format($porcIgv, 2),
+        number_format(
+            $porcIgv,
+            2
+        ),
         '0'
     ),
     '.'
@@ -595,10 +810,10 @@ $porcentajeIgvFormateado = rtrim(
 $pdf->Cell(
     40,
     5,
-    utf8_decode(
+    textoPdf(
         $impuesto .
         ' ' .
-        $porcentajeIgvFormateado .
+        $porcentajeIgvTexto .
         '%'
     ),
     0,
@@ -609,7 +824,14 @@ $pdf->Cell(
 $pdf->Cell(
     36,
     5,
-    $simbolo . ' ' . number_format($igv, 2),
+    textoPdf(
+        $simbolo .
+        ' ' .
+        number_format(
+            $igv,
+            2
+        )
+    ),
     0,
     1,
     'R'
@@ -618,12 +840,16 @@ $pdf->Cell(
 // ===============================
 // TOTAL
 // ===============================
-$pdf->SetFont('Helvetica', 'B', 8);
+$pdf->SetFont(
+    'Helvetica',
+    'B',
+    8
+);
 
 $pdf->Cell(
     40,
     6,
-    utf8_decode('TOTAL'),
+    textoPdf('TOTAL'),
     0,
     0,
     'L'
@@ -632,57 +858,116 @@ $pdf->Cell(
 $pdf->Cell(
     36,
     6,
-    $simbolo . ' ' . number_format($total, 2),
+    textoPdf(
+        $simbolo .
+        ' ' .
+        number_format(
+            $total,
+            2
+        )
+    ),
     0,
     1,
     'R'
 );
 
+// ======================================================
+// OBTENER LOS PAGOS REGISTRADOS PARA LA VENTA
+// ======================================================
+$pagos = $venta->obtenerPagosVenta($idVenta);
 
-
-// Obtener nombres únicos de las formas de pago
-$nombresFormasPago = [];
-
-foreach ($pagos as $pago) {
-    $nombreFormaPago = trim(
-        (string) ($pago['nombre'] ?? '')
-    );
-
-    if (
-        $nombreFormaPago !== '' &&
-        !in_array(
-            $nombreFormaPago,
-            $nombresFormasPago,
-            true
-        )
-    ) {
-        $nombresFormasPago[] = $nombreFormaPago;
-    }
+if (!is_array($pagos)) {
+    $pagos = [];
 }
 
 // ===============================
-// DETERMINAR FORMA DE PAGO
+// EXTRAER NOMBRES DE PAGO
 // ===============================
-if (count($nombresFormasPago) > 1) {
-    $formaPagoTexto = 'Mixto';
-} elseif (count($nombresFormasPago) === 1) {
-    $formaPagoTexto = $nombresFormasPago[0];
-} else {
+$nombresFormasPago = [];
+
+foreach ($pagos as $pago) {
+
     /*
-     * Respaldo para ventas antiguas.
-     * Primero intenta usar un nombre obtenido desde
-     * la cabecera de la venta.
+     * Admite distintas denominaciones de columna
+     * para evitar que aparezca solamente el ID.
      */
-    $formaPagoTexto = trim(
+    $nombrePago = trim(
         (string) (
-            $reg['nombre_forma_pago'] ??
-            $reg['forma_pago'] ??
+            $pago['nombre'] ??
+            $pago['nombre_forma_pago'] ??
+            $pago['forma_pago'] ??
             ''
         )
     );
 
-    if ($formaPagoTexto === '') {
-        $formaPagoTexto = 'No especificado';
+    if (
+        $nombrePago !== '' &&
+        !in_array(
+            $nombrePago,
+            $nombresFormasPago,
+            true
+        )
+    ) {
+        $nombresFormasPago[] = $nombrePago;
+    }
+}
+
+// ===============================
+// DETERMINAR TEXTO DE FORMA DE PAGO
+// ===============================
+if (count($nombresFormasPago) > 1) {
+
+    $formaPagoTexto = 'Mixto';
+
+} elseif (count($nombresFormasPago) === 1) {
+
+    $formaPagoTexto = $nombresFormasPago[0];
+
+} else {
+
+    /*
+     * Respaldo para ventas antiguas donde todavía no
+     * exista información en el detalle de pagos.
+     */
+    $valorFormaPagoCabecera = trim(
+        (string) (
+            $reg['nombre_forma_pago'] ??
+            $reg['forma_pago'] ??
+            $reg['tipo_pago'] ??
+            ''
+        )
+    );
+
+    /*
+     * Si la cabecera ya contiene un texto, se muestra.
+     */
+    if (
+        $valorFormaPagoCabecera !== '' &&
+        !ctype_digit($valorFormaPagoCabecera)
+    ) {
+        $formaPagoTexto = $valorFormaPagoCabecera;
+
+    } else {
+
+        /*
+         * Respaldo según los IDs actuales de forma_pago.
+         * La información principal sigue obteniéndose de
+         * obtenerPagosVenta().
+         */
+        $formasPagoRespaldo = [
+            1 => 'Efectivo',
+            2 => 'Yape | BCP',
+            3 => 'Plin',
+            4 => 'Tarjeta | Izipay',
+            5 => 'Izipay',
+            6 => 'Mixto'
+        ];
+
+        $idFormaPagoCabecera = (int) $valorFormaPagoCabecera;
+
+        $formaPagoTexto =
+            $formasPagoRespaldo[$idFormaPagoCabecera] ??
+            'No especificado';
     }
 }
 
@@ -690,12 +975,17 @@ if (count($nombresFormasPago) > 1) {
 // MOSTRAR FORMA DE PAGO
 // ===============================
 $pdf->Ln(1);
-$pdf->SetFont('Helvetica', '', 8);
+
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    8
+);
 
 $pdf->MultiCell(
     0,
     5,
-    utf8_decode(
+    textoPdf(
         'Forma de pago: ' .
         $formaPagoTexto
     ),
@@ -706,24 +996,24 @@ $pdf->MultiCell(
 // ===============================
 // CONDICIÓN DE PAGO
 // ===============================
-$condicion = trim(
+$condicionPago = trim(
     (string) (
         $reg['condicion_pago'] ??
         'CONTADO'
     )
 );
 
-if ($condicion === '') {
-    $condicion = 'CONTADO';
+if ($condicionPago === '') {
+    $condicionPago = 'CONTADO';
 }
 
 $pdf->MultiCell(
     0,
     5,
-    utf8_decode(
+    textoPdf(
         'Condición: ' .
         ucfirst(
-            strtolower($condicion)
+            strtolower($condicionPago)
         )
     ),
     0,
@@ -731,7 +1021,7 @@ $pdf->MultiCell(
 );
 
 // ===============================
-// DETALLE DE PAGOS MIXTOS
+// DETALLE DEL PAGO MIXTO
 // ===============================
 if (count($pagos) > 1) {
 
@@ -755,7 +1045,7 @@ if (count($pagos) > 1) {
     $pdf->Cell(
         0,
         5,
-        utf8_decode('Detalle del pago'),
+        textoPdf('Detalle del pago'),
         0,
         1,
         'C'
@@ -771,12 +1061,18 @@ if (count($pagos) > 1) {
 
     foreach ($pagos as $pago) {
 
-        $nombreFormaPago = trim(
+        $nombrePago = trim(
             (string) (
                 $pago['nombre'] ??
+                $pago['nombre_forma_pago'] ??
+                $pago['forma_pago'] ??
                 'Pago'
             )
         );
+
+        if ($nombrePago === '') {
+            $nombrePago = 'Pago';
+        }
 
         $montoPago = (float) (
             $pago['monto'] ??
@@ -786,7 +1082,7 @@ if (count($pagos) > 1) {
         $pdf->Cell(
             40,
             5,
-            utf8_decode($nombreFormaPago),
+            textoPdf($nombrePago),
             0,
             0,
             'L'
@@ -795,9 +1091,14 @@ if (count($pagos) > 1) {
         $pdf->Cell(
             36,
             5,
-            $simbolo .
-            ' ' .
-            number_format($montoPago, 2),
+            textoPdf(
+                $simbolo .
+                ' ' .
+                number_format(
+                    $montoPago,
+                    2
+                )
+            ),
             0,
             1,
             'R'
@@ -810,18 +1111,22 @@ if (count($pagos) > 1) {
 // ===============================
 $pdf->Ln(2);
 
-$pdf->SetFont('Helvetica', '', 7);
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    7
+);
 
-$montoLetras = strtoupper(
+$montoEnLetras = strtoupper(
     convertirNumeroALetras($total)
 );
 
 $pdf->MultiCell(
     0,
     4,
-    utf8_decode(
+    textoPdf(
         'SON: ' .
-        $montoLetras .
+        $montoEnLetras .
         ' ' .
         $moneda
     ),
@@ -830,20 +1135,16 @@ $pdf->MultiCell(
 );
 
 // ===============================
-// CANTIDAD DE ARTÍCULOS
+// CANTIDAD TOTAL DE ARTÍCULOS
 // ===============================
-$cantidadMostrada = (
-    floor($cantidad) == $cantidad
-)
-    ? number_format($cantidad, 0)
-    : number_format($cantidad, 2);
-
 $pdf->Cell(
     0,
     5,
-    utf8_decode(
+    textoPdf(
         'CANT. ARTÍCULOS: ' .
-        $cantidadMostrada
+        formatearCantidad(
+            $cantidadTotalArticulos
+        )
     ),
     0,
     1,
@@ -860,9 +1161,9 @@ $pdf->Ln(2);
 
 $yQr = $pdf->GetY();
 
-if (file_exists($filename)) {
+if (file_exists($rutaQr)) {
     $pdf->Image(
-        $filename,
+        $rutaQr,
         $xQr,
         $yQr,
         $qrSize,
@@ -871,18 +1172,22 @@ if (file_exists($filename)) {
 }
 
 // ===============================
-// TEXTO LEGAL
+// TEXTO LEGAL DEBAJO DEL QR
 // ===============================
 $pdf->SetY(
     $yQr + $qrSize + 2
 );
 
-$pdf->SetFont('Helvetica', '', 8);
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    8
+);
 
 $pdf->MultiCell(
     0,
     3,
-    utf8_decode(
+    textoPdf(
         "Este comprobante es una representación impresa\n" .
         "del Comprobante Electrónico"
     ),
@@ -892,46 +1197,54 @@ $pdf->MultiCell(
 
 $pdf->Ln(1);
 
-$pdf->SetFont('Helvetica', 'B', 8);
+$pdf->SetFont(
+    'Helvetica',
+    'B',
+    8
+);
 
 $pdf->Cell(
     0,
     4,
-    utf8_decode('TIQUEPOS S.A.C'),
+    textoPdf('TIQUEPOS S.A.C'),
     0,
     1,
     'C'
 );
 
-$pdf->SetFont('Helvetica', '', 8);
+$pdf->SetFont(
+    'Helvetica',
+    '',
+    8
+);
 
 $pdf->Cell(
     0,
     4,
-    utf8_decode('www.tiquepos.com'),
+    textoPdf('www.tiquepos.com'),
     0,
     1,
     'C'
 );
 
 // ===============================
-// LIMPIAR SALIDA PREVIA
+// LIMPIAR CUALQUIER SALIDA PREVIA
 // ===============================
 if (ob_get_length()) {
     ob_end_clean();
 }
 
 // ===============================
-// MOSTRAR PDF
+// MOSTRAR PDF EN EL NAVEGADOR
 // ===============================
 $pdf->Output(
-    $nombreArchivoComprobante,
-    'I'
+    'I',
+    $nombreArchivoPdf
 );
 
 // ===============================
 // ELIMINAR QR TEMPORAL
 // ===============================
-if (file_exists($filename)) {
-    unlink($filename);
+if (file_exists($rutaQr)) {
+    unlink($rutaQr);
 }
