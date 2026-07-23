@@ -1,5 +1,5 @@
 <?php
-require_once "../Config/Conexion.php";
+require_once __DIR__ . '/../Config/Conexion.php';
 
 class VariacionAtributoValor
 {
@@ -11,28 +11,59 @@ class VariacionAtributoValor
         $this->conexion = new Conexion();
     }
 
-    // Insertar relación entre variación y valor
     public function insertar($idvariacion, $idvalor)
     {
-        $sql = "INSERT INTO $this->table (idvariacion, idvalor) VALUES (?, ?)";
-        return $this->conexion->setData($sql, array($idvariacion, $idvalor));
+        if ($this->existeRelacion($idvariacion, $idvalor)) {
+            return true;
+        }
+
+        $sql = "INSERT INTO {$this->table} (idvariacion, idvalor)
+                VALUES (?, ?)";
+
+        return $this->conexion->setData($sql, [$idvariacion, $idvalor]);
     }
 
-    // Listar atributos de una variación
+    public function existeRelacion($idvariacion, $idvalor)
+    {
+        $sql = "SELECT idvariacion
+                FROM {$this->table}
+                WHERE idvariacion = ? AND idvalor = ?
+                LIMIT 1";
+
+        $registro = $this->conexion->getData($sql, [$idvariacion, $idvalor]);
+        return !empty($registro);
+    }
+
     public function listarPorVariacion($idvariacion)
     {
-        $sql = "SELECT av.idvalor, v.valor, a.nombre AS atributo
-                FROM variacion_atributo_valor av
-                INNER JOIN atributo_valor v ON av.idvalor = v.idvalor
-                INNER JOIN atributo a ON v.idatributo = a.idatributo
-                WHERE av.idvariacion = ?";
-        return $this->conexion->getData($sql, array($idvariacion));
+        $sql = "SELECT
+                    vav.idvariacion,
+                    av.idvalor,
+                    av.valor,
+                    av.estado AS estado_valor,
+                    a.idatributo,
+                    a.nombre AS atributo,
+                    a.estado AS estado_atributo
+                FROM {$this->table} vav
+                INNER JOIN atributo_valor av ON av.idvalor = vav.idvalor
+                INNER JOIN atributo a ON a.idatributo = av.idatributo
+                WHERE vav.idvariacion = ?
+                ORDER BY a.nombre ASC, av.valor ASC";
+
+        return $this->conexion->getDataAll($sql, [$idvariacion]);
     }
 
-    // Eliminar todos los valores de una variación
     public function eliminarPorVariacion($idvariacion)
     {
-        $sql = "DELETE FROM $this->table WHERE idvariacion = ?";
-        return $this->conexion->setData($sql, array($idvariacion));
+        $sql = "DELETE FROM {$this->table} WHERE idvariacion = ?";
+        return $this->conexion->setData($sql, [$idvariacion]);
+    }
+
+    public function eliminarRelacion($idvariacion, $idvalor)
+    {
+        $sql = "DELETE FROM {$this->table}
+                WHERE idvariacion = ? AND idvalor = ?";
+
+        return $this->conexion->setData($sql, [$idvariacion, $idvalor]);
     }
 }

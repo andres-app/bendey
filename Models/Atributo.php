@@ -1,5 +1,4 @@
 <?php
-// Incluir la conexión de base de datos
 require_once __DIR__ . '/../Config/Conexion.php';
 
 class Atributo
@@ -12,66 +11,88 @@ class Atributo
         $this->conexion = new Conexion();
     }
 
-    // Insertar nuevo atributo
     public function insertar($nombre, $descripcion)
     {
-        $sql = "INSERT INTO $this->tableName (nombre, descripcion, estado) VALUES (?, ?, ?)";
-        $arrData = array($nombre, $descripcion, 1);
-        return $this->conexion->setData($sql, $arrData);
+        $sql = "INSERT INTO {$this->tableName} (nombre, descripcion, estado) VALUES (?, ?, 1)";
+        return $this->conexion->setData($sql, [$nombre, $descripcion]);
     }
 
-    // Editar atributo existente
     public function editar($idatributo, $nombre, $descripcion)
     {
-        $sql = "UPDATE $this->tableName SET nombre = ?, descripcion = ? WHERE idatributo = ?";
-        $arrData = array($nombre, $descripcion, $idatributo);
-        return $this->conexion->setData($sql, $arrData);
+        $sql = "UPDATE {$this->tableName}
+                SET nombre = ?, descripcion = ?
+                WHERE idatributo = ?";
+
+        return $this->conexion->setData($sql, [$nombre, $descripcion, $idatributo]);
     }
 
-    // Desactivar atributo
     public function desactivar($idatributo)
     {
-        $sql = "UPDATE $this->tableName SET estado = 0 WHERE idatributo = ?";
-        $arrData = array($idatributo);
-        return $this->conexion->setData($sql, $arrData);
+        $sql = "UPDATE {$this->tableName} SET estado = 0 WHERE idatributo = ?";
+        return $this->conexion->setData($sql, [$idatributo]);
     }
 
-    // Activar atributo
     public function activar($idatributo)
     {
-        $sql = "UPDATE $this->tableName SET estado = 1 WHERE idatributo = ?";
-        $arrData = array($idatributo);
-        return $this->conexion->setData($sql, $arrData);
+        $sql = "UPDATE {$this->tableName} SET estado = 1 WHERE idatributo = ?";
+        return $this->conexion->setData($sql, [$idatributo]);
     }
 
-    // Mostrar un solo atributo por ID
     public function mostrar($idatributo)
     {
-        $sql = "SELECT * FROM $this->tableName WHERE idatributo = ?";
-        $arrData = array($idatributo);
-        return $this->conexion->getData($sql, $arrData);
+        $sql = "SELECT idatributo, nombre, descripcion, estado
+                FROM {$this->tableName}
+                WHERE idatributo = ?
+                LIMIT 1";
+
+        return $this->conexion->getData($sql, [$idatributo]);
     }
 
-    // Listar todos los atributos
     public function listar()
     {
-        $sql = "SELECT * FROM $this->tableName";
+        $sql = "SELECT idatributo, nombre, descripcion, estado
+                FROM {$this->tableName}
+                ORDER BY idatributo DESC";
+
         return $this->conexion->getDataAll($sql);
     }
 
-    // Listar para select (solo activos)
     public function select()
     {
-        $sql = "SELECT * FROM $this->tableName WHERE estado = 1";
+        $sql = "SELECT idatributo, nombre
+                FROM {$this->tableName}
+                WHERE estado = 1
+                ORDER BY nombre ASC";
+
         return $this->conexion->getDataAll($sql);
     }
 
-    // Listar valores activos de un atributo (por ejemplo: todos los colores)
-    public function listarValores($idatributo)
+    public function existeNombre($nombre, $idatributoExcluir = 0)
     {
-        $sql = "SELECT idatributo_valor AS id, nombre AS text FROM atributo_valor WHERE idatributo = ? AND estado = 1";
-        $arrData = array($idatributo);
-        return $this->conexion->getData($sql, $arrData);
+        $sql = "SELECT idatributo
+                FROM {$this->tableName}
+                WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?))
+                  AND idatributo <> ?
+                LIMIT 1";
+
+        $registro = $this->conexion->getData($sql, [$nombre, $idatributoExcluir]);
+        return !empty($registro);
     }
 
+    /**
+     * Formato para Select2 u otros selectores:
+     * [{"id": 1, "text": "Rojo"}, ...]
+     */
+    public function listarValores($idatributo)
+    {
+        $sql = "SELECT av.idvalor AS id, av.valor AS text
+                FROM atributo_valor av
+                INNER JOIN {$this->tableName} a ON a.idatributo = av.idatributo
+                WHERE av.idatributo = ?
+                  AND av.estado = 1
+                  AND a.estado = 1
+                ORDER BY av.valor ASC";
+
+        return $this->conexion->getDataAll($sql, [$idatributo]);
+    }
 }

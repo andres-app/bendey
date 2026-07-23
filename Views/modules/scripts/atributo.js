@@ -1,4 +1,4 @@
-var tabla;
+let tabla;
 
 function init() {
   mostrarform(false);
@@ -9,35 +9,29 @@ function init() {
   });
 
   $("#formValor").on("submit", function (e) {
-    e.preventDefault();
-    const formData = new FormData($("#formValor")[0]);
+    guardarEditarValor(e);
+  });
 
-    $.ajax({
-      url: "Controllers/AtributoValor.php?op=guardaryeditar",
-      type: "POST",
-      data: formData,
-      contentType: false,
-      processData: false,
-      success: function (response) {
-        Swal.fire("Éxito", response, "success");
-        $("#formValor")[0].reset();
-        listarValores($("#idatributo_valor").val());
-      },
-      error: function (e) {
-        Swal.fire("Error", "No se pudo guardar el valor", "error");
-        console.error("Error al guardar valor:", e.responseText);
-      },
-    });
+  $("#btnCancelarValor").on("click", function () {
+    limpiarFormularioValor(true);
+  });
+
+  $("#modalValores").on("hidden.bs.modal", function () {
+    limpiarFormularioValor(false);
+    $("#titulo-atributo").text("");
+    $("#tblvalores tbody").html("");
   });
 }
 
 function mostrarform(flag) {
   limpiar();
+
   if (flag) {
     $("#listadoregistros").hide();
     $("#formularioregistros").show();
     $("#btnGuardar").prop("disabled", false);
     $("#btnagregar").hide();
+    $("#nombre").trigger("focus");
   } else {
     $("#listadoregistros").show();
     $("#formularioregistros").hide();
@@ -52,168 +46,353 @@ function limpiar() {
 }
 
 function cancelarform() {
-  limpiar();
   mostrarform(false);
 }
 
 function listar() {
-  tabla = $("#tbllistado")
-    .dataTable({
-      aProcessing: true,
-      aServerSide: true,
-      dom: "Bfrtip",
-      buttons: ["excelHtml5", "pdf"],
-      ajax: {
-        url: "Controllers/Atributo.php?op=listar",
-        type: "get",
-        dataType: "json",
-        error: function (e) {
-          console.log(e.responseText);
-        },
+  tabla = $("#tbllistado").DataTable({
+    processing: true,
+    serverSide: false,
+    dom: "Bfrtip",
+    buttons: ["excelHtml5", "pdfHtml5"],
+    ajax: {
+      url: "Controllers/Atributo.php?op=listar",
+      type: "GET",
+      dataType: "json",
+      dataSrc: function (json) {
+        if (!json.ok) {
+          Swal.fire("Error", json.mensaje || "No se pudieron listar los atributos.", "error");
+          return [];
+        }
+
+        return json.aaData || [];
       },
-      columnDefs: [
-        {
-          targets: [0],
-          visible: false,
-          searchable: false,
-        },
-      ],
-      bDestroy: true,
-      iDisplayLength: 10,
-      order: [[0, "desc"]],
-    })
-    .DataTable();
+      error: function (xhr) {
+        mostrarErrorAjax(xhr, "No se pudieron listar los atributos.");
+      },
+    },
+    columnDefs: [
+      {
+        targets: [0],
+        visible: false,
+        searchable: false,
+      },
+      {
+        targets: [4, 5],
+        orderable: false,
+        searchable: false,
+      },
+    ],
+    destroy: true,
+    pageLength: 10,
+    order: [[0, "desc"]],
+  });
 }
 
 function guardaryeditar(e) {
   e.preventDefault();
-  $("#btnGuardar").prop("disabled", true);
-  var formData = new FormData($("#formulario")[0]);
+
+  const $boton = $("#btnGuardar");
+  $boton.prop("disabled", true);
 
   $.ajax({
     url: "Controllers/Atributo.php?op=guardaryeditar",
     type: "POST",
-    data: formData,
+    data: new FormData($("#formulario")[0]),
     contentType: false,
     processData: false,
-    success: function (datos) {
-      Swal.fire("Registro", datos, "success");
+    dataType: "json",
+    success: function (respuesta) {
+      if (!respuesta.ok) {
+        Swal.fire("Atención", respuesta.mensaje, "warning");
+        return;
+      }
+
+      Swal.fire("Registro", respuesta.mensaje, "success");
       mostrarform(false);
-      tabla.ajax.reload();
+      tabla.ajax.reload(null, false);
+    },
+    error: function (xhr) {
+      mostrarErrorAjax(xhr, "No se pudo guardar el atributo.");
+    },
+    complete: function () {
+      $boton.prop("disabled", false);
     },
   });
-
-  limpiar();
 }
 
 function mostrar(idatributo) {
-  $.post("Controllers/Atributo.php?op=mostrar", { idatributo }, function (data) {
-    data = JSON.parse(data);
-    mostrarform(true);
-    $("#idatributo").val(data.idatributo);
-    $("#nombre").val(data.nombre);
-    $("#descripcion").val(data.descripcion);
+  $.ajax({
+    url: "Controllers/Atributo.php?op=mostrar",
+    type: "POST",
+    data: { idatributo: idatributo },
+    dataType: "json",
+    success: function (respuesta) {
+      if (!respuesta.ok || !respuesta.data) {
+        Swal.fire("Error", respuesta.mensaje || "No se encontró el atributo.", "error");
+        return;
+      }
+
+      mostrarform(true);
+      $("#idatributo").val(respuesta.data.idatributo);
+      $("#nombre").val(respuesta.data.nombre);
+      $("#descripcion").val(respuesta.data.descripcion || "");
+    },
+    error: function (xhr) {
+      mostrarErrorAjax(xhr, "No se pudo cargar el atributo.");
+    },
   });
 }
 
 function desactivar(idatributo) {
-  Swal.fire({
-    title: "¿Estás seguro?",
-    text: "¡El atributo será desactivado!",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#3085d6",
-    cancelButtonColor: "#d33",
-    confirmButtonText: "Sí, desactivar!",
-  }).then((result) => {
-    if (result.isConfirmed) {
-      $.post("Controllers/Atributo.php?op=desactivar", { idatributo }, function (e) {
-        Swal.fire("Desactivado!", e, "success");
-        tabla.ajax.reload();
-      });
-    }
-  });
+  cambiarEstadoAtributo(idatributo, "desactivar");
 }
 
 function activar(idatributo) {
+  cambiarEstadoAtributo(idatributo, "activar");
+}
+
+function cambiarEstadoAtributo(idatributo, accion) {
+  const esDesactivar = accion === "desactivar";
+
   Swal.fire({
-    title: "¿Estás seguro?",
-    text: "¡El atributo será activado!",
+    title: "¿Está seguro?",
+    text: esDesactivar
+      ? "El atributo dejará de estar disponible para nuevas selecciones."
+      : "El atributo volverá a estar disponible.",
     icon: "warning",
     showCancelButton: true,
     confirmButtonColor: "#3085d6",
     cancelButtonColor: "#d33",
-    confirmButtonText: "Sí, activar!",
-  }).then((result) => {
-    if (result.isConfirmed) {
-      $.post("Controllers/Atributo.php?op=activar", { idatributo }, function (e) {
-        Swal.fire("Activado!", e, "success");
-        tabla.ajax.reload();
-      });
+    confirmButtonText: esDesactivar ? "Sí, desactivar" : "Sí, activar",
+    cancelButtonText: "Cancelar",
+  }).then(function (resultado) {
+    if (!resultado.isConfirmed) {
+      return;
     }
+
+    $.ajax({
+      url: "Controllers/Atributo.php?op=" + accion,
+      type: "POST",
+      data: { idatributo: idatributo },
+      dataType: "json",
+      success: function (respuesta) {
+        if (!respuesta.ok) {
+          Swal.fire("Error", respuesta.mensaje, "error");
+          return;
+        }
+
+        Swal.fire("Actualizado", respuesta.mensaje, "success");
+        tabla.ajax.reload(null, false);
+      },
+      error: function (xhr) {
+        mostrarErrorAjax(xhr, "No se pudo cambiar el estado del atributo.");
+      },
+    });
   });
 }
 
 function gestionarValores(idatributo, nombre) {
+  limpiarFormularioValor(false);
   $("#idatributo_valor").val(idatributo);
   $("#titulo-atributo").text(nombre);
-  $("#formValor")[0].reset();
-  $("#idvalor").val("");
   listarValores(idatributo);
   $("#modalValores").modal("show");
 }
 
+function guardarEditarValor(e) {
+  e.preventDefault();
+
+  const idatributo = $("#idatributo_valor").val();
+  const $boton = $("#btnGuardarValor");
+  $boton.prop("disabled", true);
+
+  $.ajax({
+    url: "Controllers/AtributoValor.php?op=guardaryeditar",
+    type: "POST",
+    data: new FormData($("#formValor")[0]),
+    contentType: false,
+    processData: false,
+    dataType: "json",
+    success: function (respuesta) {
+      if (!respuesta.ok) {
+        Swal.fire("Atención", respuesta.mensaje, "warning");
+        return;
+      }
+
+      Swal.fire("Éxito", respuesta.mensaje, "success");
+      limpiarFormularioValor(true);
+      $("#idatributo_valor").val(idatributo);
+      listarValores(idatributo);
+    },
+    error: function (xhr) {
+      mostrarErrorAjax(xhr, "No se pudo guardar el valor.");
+    },
+    complete: function () {
+      $boton.prop("disabled", false);
+    },
+  });
+}
+
 function listarValores(idatributo) {
+  if (!idatributo) {
+    $("#tblvalores tbody").html(
+      '<tr><td colspan="3" class="text-center">Atributo no válido</td></tr>'
+    );
+    return;
+  }
+
   $.ajax({
     url: "Controllers/AtributoValor.php?op=listar",
     type: "GET",
-    data: { idatributo },
+    data: { idatributo: idatributo },
     dataType: "json",
-    success: function (data) {
-      let html = "";
-      if (data.aaData && data.aaData.length > 0) {
-        data.aaData.forEach(function (item) {
-          html += `
-            <tr>
-              <td>${item[0]}</td>
-              <td>${item[1]}</td>
-              <td>
-                <button class="btn btn-warning btn-sm" onclick="editarValor(${item[3]}, '${item[0]}')"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-danger btn-sm" onclick="desactivarValor(${item[3]})"><i class="fas fa-times"></i></button>
-              </td>
-            </tr>`;
-        });
-      } else {
-        html = `<tr><td colspan="3" class="text-center">No se encontraron valores</td></tr>`;
+    success: function (respuesta) {
+      if (!respuesta.ok) {
+        $("#tblvalores tbody").html(
+          '<tr><td colspan="3" class="text-center text-danger">' +
+            escaparHtml(respuesta.mensaje || "No se pudieron listar los valores.") +
+            "</td></tr>"
+        );
+        return;
       }
+
+      const filas = respuesta.aaData || [];
+
+      if (filas.length === 0) {
+        $("#tblvalores tbody").html(
+          '<tr><td colspan="3" class="text-center">No se encontraron valores</td></tr>'
+        );
+        return;
+      }
+
+      let html = "";
+      filas.forEach(function (item) {
+        html +=
+          "<tr>" +
+          "<td>" + item[0] + "</td>" +
+          "<td>" + item[1] + "</td>" +
+          "<td>" + item[2] + "</td>" +
+          "</tr>";
+      });
+
       $("#tblvalores tbody").html(html);
     },
-    error: function (e) {
-      console.error("Error al listar valores:", e.responseText);
+    error: function (xhr) {
+      mostrarErrorAjax(xhr, "No se pudieron listar los valores.");
     },
   });
 }
 
-function editarValor(idvalor, valor) {
-  $("#idvalor").val(idvalor); // coloca el ID para que el backend lo reconozca
-  $("#valor").val(valor);     // muestra el valor actual para editar
+function editarValor(idvalor) {
+  $.ajax({
+    url: "Controllers/AtributoValor.php?op=mostrar",
+    type: "POST",
+    data: { idvalor: idvalor },
+    dataType: "json",
+    success: function (respuesta) {
+      if (!respuesta.ok || !respuesta.data) {
+        Swal.fire("Error", respuesta.mensaje || "No se encontró el valor.", "error");
+        return;
+      }
+
+      $("#idvalor").val(respuesta.data.idvalor);
+      $("#idatributo_valor").val(respuesta.data.idatributo);
+      $("#valor").val(respuesta.data.valor).trigger("focus");
+      $("#labelValor").text("Editar valor");
+      $("#btnGuardarValor").html('<i class="fa fa-save"></i> Actualizar valor');
+      $("#btnCancelarValor").show();
+    },
+    error: function (xhr) {
+      mostrarErrorAjax(xhr, "No se pudo cargar el valor.");
+    },
+  });
 }
 
 function desactivarValor(idvalor) {
+  cambiarEstadoValor(idvalor, "desactivar");
+}
+
+function activarValor(idvalor) {
+  cambiarEstadoValor(idvalor, "activar");
+}
+
+function cambiarEstadoValor(idvalor, accion) {
+  const esDesactivar = accion === "desactivar";
+
   Swal.fire({
-    title: "¿Seguro de desactivar este valor?",
+    title: "¿Está seguro?",
+    text: esDesactivar
+      ? "El valor dejará de estar disponible para nuevas selecciones."
+      : "El valor volverá a estar disponible.",
     icon: "warning",
     showCancelButton: true,
-    confirmButtonText: "Sí",
-    cancelButtonText: "No",
-  }).then((result) => {
-    if (result.isConfirmed) {
-      $.post("Controllers/AtributoValor.php?op=desactivar", { id: idvalor }, function (resp) {
-        Swal.fire("Actualizado", resp, "success");
-        listarValores($("#idatributo_valor").val());
-      });
+    confirmButtonText: esDesactivar ? "Sí, desactivar" : "Sí, activar",
+    cancelButtonText: "Cancelar",
+  }).then(function (resultado) {
+    if (!resultado.isConfirmed) {
+      return;
     }
+
+    $.ajax({
+      url: "Controllers/AtributoValor.php?op=" + accion,
+      type: "POST",
+      data: { idvalor: idvalor },
+      dataType: "json",
+      success: function (respuesta) {
+        if (!respuesta.ok) {
+          Swal.fire("Error", respuesta.mensaje, "error");
+          return;
+        }
+
+        Swal.fire("Actualizado", respuesta.mensaje, "success");
+        limpiarFormularioValor(true);
+        listarValores($("#idatributo_valor").val());
+      },
+      error: function (xhr) {
+        mostrarErrorAjax(xhr, "No se pudo cambiar el estado del valor.");
+      },
+    });
   });
 }
 
-init();
+function limpiarFormularioValor(mantenerAtributo) {
+  const idatributo = mantenerAtributo ? $("#idatributo_valor").val() : "";
+
+  if ($("#formValor").length) {
+    $("#formValor")[0].reset();
+  }
+
+  $("#idvalor").val("");
+  $("#idatributo_valor").val(idatributo);
+  $("#labelValor").text("Nuevo valor");
+  $("#btnGuardarValor").html('<i class="fa fa-save"></i> Guardar valor');
+  $("#btnCancelarValor").hide();
+}
+
+function mostrarErrorAjax(xhr, mensajePorDefecto) {
+  let mensaje = mensajePorDefecto;
+
+  if (xhr.responseJSON && xhr.responseJSON.mensaje) {
+    mensaje = xhr.responseJSON.mensaje;
+  } else if (xhr.responseText) {
+    try {
+      const respuesta = JSON.parse(xhr.responseText);
+      if (respuesta.mensaje) {
+        mensaje = respuesta.mensaje;
+      }
+    } catch (error) {
+      console.error(xhr.responseText);
+    }
+  }
+
+  Swal.fire("Error", mensaje, "error");
+}
+
+function escaparHtml(texto) {
+  return $("<div>").text(texto == null ? "" : String(texto)).html();
+}
+
+$(document).ready(function () {
+  init();
+});
