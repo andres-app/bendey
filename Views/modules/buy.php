@@ -46,6 +46,25 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
         box-shadow: 0 0 0 .18rem rgba(82, 184, 72, .12);
     }
 
+    .proveedor-compra-group .input-group-append .btn {
+        min-height: 44px;
+        border-color: #9bcfaa;
+        border-radius: 0 10px 10px 0;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .proveedor-compra-group .form-control {
+        border-radius: 10px 0 0 10px;
+    }
+
+    .proveedor-compra-group .input-group-append .btn:hover,
+    .proveedor-compra-group .input-group-append .btn:focus {
+        color: #fff;
+        background: #278c46;
+        border-color: #278c46;
+    }
+
     .compra-actions {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -319,7 +338,7 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                                             <th>Estado</th>
                                         </tr>
                                     </thead>
-                                    <tbody></tbody>
+                                    
                                 </table>
                             </div>
 
@@ -335,15 +354,33 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                                     <input type="hidden" name="total_compra" id="total_compra" value="0.00">
 
                                     <div class="row">
-                                        <div class="form-group col-lg-6 col-md-6">
+                                        <div class="form-group col-lg-6 col-md-6 proveedor-compra-group">
                                             <label for="idproveedor">Proveedor <span class="text-danger">*</span></label>
-                                            <select
-                                                name="idproveedor"
-                                                id="idproveedor"
-                                                class="form-control"
-                                                required>
-                                                <option value="">Cargando proveedores...</option>
-                                            </select>
+
+                                            <div class="input-group">
+                                                <select
+                                                    name="idproveedor"
+                                                    id="idproveedor"
+                                                    class="form-control"
+                                                    required>
+                                                    <option value="">Cargando proveedores...</option>
+                                                </select>
+
+                                                <div class="input-group-append">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-outline-success"
+                                                        id="btnNuevoProveedorCompra"
+                                                        title="Registrar un proveedor sin salir de la compra">
+                                                        <i class="fas fa-user-plus mr-1"></i>
+                                                        Nuevo
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <small class="text-muted">
+                                                Registra un proveedor nuevo y quedará seleccionado automáticamente.
+                                            </small>
                                         </div>
 
                                         <div class="form-group col-lg-3 col-md-3">
@@ -546,6 +583,125 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
             </div>
         </div>
     </section>
+</div>
+
+<!-- PROVEEDOR NUEVO -->
+<div class="modal fade modal-compra" id="modalProveedorCompra" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form id="formProveedorCompra" autocomplete="off">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1">Registrar nuevo proveedor</h5>
+                        <small class="text-muted">
+                            Se guardará también en el módulo Proveedores.
+                        </small>
+                    </div>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" name="tipo_persona" value="Proveedor">
+
+                    <div class="row">
+                        <div class="form-group col-lg-4 col-md-4">
+                            <label for="proveedor_tipo_documento">
+                                Tipo de documento <span class="text-danger">*</span>
+                            </label>
+                            <select
+                                class="form-control"
+                                name="tipo_documento"
+                                id="proveedor_tipo_documento"
+                                required>
+                                <option value="RUC">RUC</option>
+                                <option value="DNI">DNI</option>
+                                <option value="CEDULA">Cédula</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-lg-4 col-md-4">
+                            <label for="proveedor_num_documento">
+                                Número de documento <span class="text-danger">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="num_documento"
+                                id="proveedor_num_documento"
+                                maxlength="11"
+                                inputmode="numeric"
+                                required
+                                placeholder="11 dígitos">
+                        </div>
+
+                        <div class="form-group col-lg-4 col-md-4">
+                            <label for="proveedor_nombre">
+                                Nombre o razón social <span class="text-danger">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="nombre"
+                                id="proveedor_nombre"
+                                maxlength="100"
+                                required
+                                placeholder="Nombre del proveedor">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group col-lg-12">
+                            <label for="proveedor_direccion">Dirección</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="direccion"
+                                id="proveedor_direccion"
+                                maxlength="70"
+                                placeholder="Dirección fiscal o comercial">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group col-lg-6 col-md-6">
+                            <label for="proveedor_telefono">Teléfono</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="telefono"
+                                id="proveedor_telefono"
+                                maxlength="20"
+                                inputmode="tel"
+                                placeholder="Número de teléfono">
+                        </div>
+
+                        <div class="form-group col-lg-6 col-md-6">
+                            <label for="proveedor_email">Correo electrónico</label>
+                            <input
+                                type="email"
+                                class="form-control"
+                                name="email"
+                                id="proveedor_email"
+                                maxlength="50"
+                                placeholder="correo@empresa.com">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success" id="btnGuardarProveedorCompra">
+                        <i class="fas fa-save mr-1"></i>
+                        Guardar proveedor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- PRODUCTO EXISTENTE -->

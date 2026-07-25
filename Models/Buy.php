@@ -17,6 +17,129 @@ class Buy
     }
 
     /**
+     * Crea un proveedor desde el formulario rápido de Compras.
+     * Si el documento ya pertenece a un proveedor, devuelve ese registro
+     * para seleccionarlo sin generar duplicados.
+     */
+    public function crearProveedorRapido(array $datos): array
+    {
+        $tipoDocumento = strtoupper(
+            $this->limpiarTexto($datos['tipo_documento'] ?? '', 20)
+        );
+        $numeroDocumento = preg_replace(
+            '/[^0-9A-Za-z\-]/',
+            '',
+            trim((string)($datos['num_documento'] ?? ''))
+        ) ?? '';
+        $nombre = $this->limpiarTexto($datos['nombre'] ?? '', 100);
+        $direccion = $this->limpiarTexto($datos['direccion'] ?? '', 70);
+        $telefono = $this->limpiarTexto($datos['telefono'] ?? '', 20);
+        $email = strtolower($this->limpiarTexto($datos['email'] ?? '', 50));
+
+        if (!in_array($tipoDocumento, ['DNI', 'RUC', 'CEDULA'], true)) {
+            throw new RuntimeException('El tipo de documento del proveedor no es válido.');
+        }
+
+        if ($numeroDocumento === '') {
+            throw new RuntimeException('Debe ingresar el documento del proveedor.');
+        }
+
+        if ($tipoDocumento === 'DNI' && !preg_match('/^\d{8}$/', $numeroDocumento)) {
+            throw new RuntimeException('El DNI del proveedor debe tener exactamente 8 dígitos.');
+        }
+
+        if ($tipoDocumento === 'RUC' && !preg_match('/^\d{11}$/', $numeroDocumento)) {
+            throw new RuntimeException('El RUC del proveedor debe tener exactamente 11 dígitos.');
+        }
+
+        if (
+            $tipoDocumento === 'CEDULA'
+            && !preg_match('/^[0-9A-Za-z\-]{4,20}$/', $numeroDocumento)
+        ) {
+            throw new RuntimeException('El número de cédula no tiene un formato válido.');
+        }
+
+        if ($nombre === '') {
+            throw new RuntimeException('Debe ingresar el nombre o razón social del proveedor.');
+        }
+
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('El correo electrónico del proveedor no es válido.');
+        }
+
+        $transaccionIniciada = false;
+
+        try {
+            $this->conexion->beginTransaction();
+            $transaccionIniciada = true;
+
+            $existente = $this->conexion->getData(
+                "SELECT idpersona, nombre, tipo_documento, num_documento,
+                        direccion, telefono, email
+                 FROM persona
+                 WHERE tipo_persona = 'Proveedor'
+                   AND num_documento = ?
+                 LIMIT 1
+                 FOR UPDATE",
+                [$numeroDocumento]
+            );
+
+            if ($existente) {
+                $this->conexion->commit();
+                $transaccionIniciada = false;
+
+                return [
+                    'idpersona' => (int)$existente['idpersona'],
+                    'nombre' => (string)$existente['nombre'],
+                    'tipo_documento' => (string)$existente['tipo_documento'],
+                    'num_documento' => (string)$existente['num_documento'],
+                    'creado' => false
+                ];
+            }
+
+            $idpersona = (int)$this->conexion->setDataReturnId(
+                "INSERT INTO persona
+                    (tipo_persona, nombre, tipo_documento, num_documento,
+                     direccion, telefono, email)
+                 VALUES ('Proveedor', ?, ?, ?, ?, ?, ?)",
+                [
+                    $nombre,
+                    $tipoDocumento,
+                    $numeroDocumento,
+                    $direccion,
+                    $telefono,
+                    $email
+                ]
+            );
+
+            if ($idpersona <= 0) {
+                throw new RuntimeException('No se pudo crear el proveedor.');
+            }
+
+            $this->conexion->commit();
+            $transaccionIniciada = false;
+
+            return [
+                'idpersona' => $idpersona,
+                'nombre' => $nombre,
+                'tipo_documento' => $tipoDocumento,
+                'num_documento' => $numeroDocumento,
+                'creado' => true
+            ];
+        } catch (Throwable $error) {
+            if ($transaccionIniciada) {
+                try {
+                    $this->conexion->rollBack();
+                } catch (Throwable $rollbackError) {
+                    error_log('[PROVEEDOR RÁPIDO ROLLBACK] ' . $rollbackError->getMessage());
+                }
+            }
+
+            throw $error;
+        }
+    }
+
+    /**
      * Registra una compra completa en una sola transacción.
      *
      * Los detalles pueden ser:

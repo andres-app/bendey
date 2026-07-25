@@ -12,6 +12,7 @@ let datosFormularioCompra = {
 };
 let datosCompraCargados = false;
 let guardandoCompra = false;
+let guardandoProveedorCompra = false;
 let temporizadorCoincidencias = null;
 
 function escaparHtmlCompra(valor) {
@@ -188,19 +189,178 @@ function cancelarform() {
     mostrarform(false);
 }
 
-function cargarProveedoresCompra() {
-    $.ajax({
+function cargarProveedoresCompra(idSeleccionar = 0) {
+    return $.ajax({
         url: 'Controllers/Buy.php?op=selectProveedor',
         method: 'GET',
-        cache: false
+        cache: false,
+        data: { v: Date.now() }
     })
         .done(function (respuesta) {
             $('#idproveedor').html(respuesta);
+
+            const id = Number.parseInt(idSeleccionar, 10) || 0;
+
+            if (id > 0) {
+                $('#idproveedor')
+                    .val(String(id))
+                    .trigger('change');
+            }
         })
         .fail(function () {
             $('#idproveedor').html(
                 '<option value="">No se pudieron cargar los proveedores</option>'
             );
+        });
+}
+
+function limpiarProveedorCompra() {
+    const formulario = document.getElementById('formProveedorCompra');
+
+    if (formulario) {
+        formulario.reset();
+    }
+
+    $('#proveedor_tipo_documento').val('RUC');
+    actualizarReglaDocumentoProveedorCompra();
+}
+
+function actualizarReglaDocumentoProveedorCompra() {
+    const tipo = String($('#proveedor_tipo_documento').val() || '').toUpperCase();
+    const $documento = $('#proveedor_num_documento');
+
+    if (tipo === 'DNI') {
+        $documento
+            .attr('maxlength', '8')
+            .attr('inputmode', 'numeric')
+            .attr('placeholder', '8 dígitos');
+    } else if (tipo === 'RUC') {
+        $documento
+            .attr('maxlength', '11')
+            .attr('inputmode', 'numeric')
+            .attr('placeholder', '11 dígitos');
+    } else {
+        $documento
+            .attr('maxlength', '20')
+            .attr('inputmode', 'text')
+            .attr('placeholder', 'Número de documento');
+    }
+
+    $documento.val('');
+}
+
+function guardarProveedorCompra(evento) {
+    evento.preventDefault();
+
+    if (guardandoProveedorCompra) {
+        return;
+    }
+
+    const formulario = document.getElementById('formProveedorCompra');
+
+    if (!formulario || !formulario.checkValidity()) {
+        if (formulario) {
+            formulario.reportValidity();
+        }
+        return;
+    }
+
+    const tipoDocumento = String(
+        $('#proveedor_tipo_documento').val() || ''
+    ).toUpperCase();
+    const numeroDocumento = String(
+        $('#proveedor_num_documento').val() || ''
+    ).trim();
+
+    if (tipoDocumento === 'DNI' && !/^\d{8}$/.test(numeroDocumento)) {
+        alertaCompra(
+            'warning',
+            'DNI inválido',
+            'El DNI del proveedor debe tener exactamente 8 dígitos.'
+        );
+        return;
+    }
+
+    if (tipoDocumento === 'RUC' && !/^\d{11}$/.test(numeroDocumento)) {
+        alertaCompra(
+            'warning',
+            'RUC inválido',
+            'El RUC del proveedor debe tener exactamente 11 dígitos.'
+        );
+        return;
+    }
+
+    const datos = new FormData(formulario);
+    const $boton = $('#btnGuardarProveedorCompra');
+    const textoOriginal = $boton.html();
+
+    guardandoProveedorCompra = true;
+    $boton
+        .prop('disabled', true)
+        .html(
+            '<span class="spinner-border spinner-border-sm mr-2"></span>' +
+            'Guardando...'
+        );
+
+    $.ajax({
+        url: 'Controllers/Buy.php?op=crearProveedor',
+        method: 'POST',
+        data: datos,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        cache: false
+    })
+        .done(function (respuesta) {
+            if (
+                !respuesta
+                || respuesta.success !== true
+                || !respuesta.proveedor
+            ) {
+                alertaCompra(
+                    'error',
+                    'No se registró el proveedor',
+                    respuesta && respuesta.mensaje
+                        ? respuesta.mensaje
+                        : 'El servidor no confirmó el registro.'
+                );
+                return;
+            }
+
+            const idpersona = Number.parseInt(
+                respuesta.proveedor.idpersona,
+                10
+            ) || 0;
+
+            cargarProveedoresCompra(idpersona)
+                .done(function () {
+                    $('#modalProveedorCompra').modal('hide');
+                    limpiarProveedorCompra();
+
+                    alertaCompra(
+                        'success',
+                        respuesta.proveedor.creado === false
+                            ? 'Proveedor seleccionado'
+                            : 'Proveedor registrado',
+                        respuesta.mensaje
+                    );
+                });
+        })
+        .fail(function (xhr) {
+            alertaCompra(
+                'error',
+                'No se registró el proveedor',
+                mensajeRespuestaCompra(
+                    xhr,
+                    'No se pudo registrar el proveedor.'
+                )
+            );
+        })
+        .always(function () {
+            guardandoProveedorCompra = false;
+            $boton
+                .prop('disabled', false)
+                .html(textoOriginal);
         });
 }
 
@@ -1227,8 +1387,14 @@ function init() {
     cargarProductosCompra();
 
     $('#formulario').on('submit', guardaryeditar);
+    $('#formProveedorCompra').on('submit', guardarProveedorCompra);
     $('#formProductoNuevo').on('submit', agregarProductoNuevoDesdeFormulario);
     $('#formGastoServicio').on('submit', agregarGastoServicioDesdeFormulario);
+
+    $('#btnNuevoProveedorCompra').on('click', function () {
+        limpiarProveedorCompra();
+        $('#modalProveedorCompra').modal('show');
+    });
 
     $('#btnProductoExistente').on('click', function () {
         $('#buscarProductoCompra').val('');
@@ -1254,6 +1420,10 @@ function init() {
         $('#modalGastoServicio').modal('show');
     });
 
+    $('#modalProveedorCompra').on('shown.bs.modal', function () {
+        $('#proveedor_num_documento').trigger('focus');
+    });
+
     $('#modalProductoExistente').on('shown.bs.modal', function () {
         $('#buscarProductoCompra').trigger('focus');
     });
@@ -1264,6 +1434,23 @@ function init() {
 
     $('#modalGastoServicio').on('shown.bs.modal', function () {
         $('#gasto_descripcion').trigger('focus');
+    });
+
+    $('#proveedor_tipo_documento').on(
+        'change',
+        actualizarReglaDocumentoProveedorCompra
+    );
+
+    $('#proveedor_num_documento').on('input', function () {
+        const tipo = String(
+            $('#proveedor_tipo_documento').val() || ''
+        ).toUpperCase();
+
+        if (tipo === 'DNI' || tipo === 'RUC') {
+            $(this).val(
+                String($(this).val() || '').replace(/\D/g, '')
+            );
+        }
     });
 
     $('#nuevo_idcategoria').on('change', actualizarSubcategoriasCompra);

@@ -110,6 +110,34 @@ try {
             );
             break;
 
+        case 'crearProveedor':
+            exigirSesionCompras();
+
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responderJson(false, 'Método no permitido.', [], 405);
+            }
+
+            $proveedor = $buy->crearProveedorRapido([
+                'tipo_documento' => (string)($_POST['tipo_documento'] ?? ''),
+                'num_documento' => (string)($_POST['num_documento'] ?? ''),
+                'nombre' => (string)($_POST['nombre'] ?? ''),
+                'direccion' => (string)($_POST['direccion'] ?? ''),
+                'telefono' => (string)($_POST['telefono'] ?? ''),
+                'email' => (string)($_POST['email'] ?? '')
+            ]);
+
+            $creado = (bool)($proveedor['creado'] ?? false);
+
+            responderJson(
+                true,
+                $creado
+                    ? 'Proveedor registrado y seleccionado correctamente.'
+                    : 'El proveedor ya estaba registrado y fue seleccionado.',
+                ['proveedor' => $proveedor],
+                $creado ? 201 : 200
+            );
+            break;
+
         case 'anular':
             exigirSesionCompras();
 
