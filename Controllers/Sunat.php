@@ -179,15 +179,42 @@ try {
                         . ')">
 
             <i class="fas fa-eye"></i>
+        </button>
+
+        <button
+            type="button"
+            class="btn btn-info btn-sm"
+            title="Duplicar como nueva venta"
+            onclick="duplicarComprobante('
+                        . $idventa
+                        . ')">
+
+            <i class="fas fa-copy"></i>
         </button>'
 
                         . (
                             empty($reg['document_id'])
+                            || in_array(
+                                $estadoSunat,
+                                [
+                                    'RECHAZADO',
+                                    'EXCEPCION',
+                                    'ERROR',
+                                    'NO_ENVIADO'
+                                ],
+                                true
+                            )
                             ? '
                 <button
                     type="button"
                     class="btn btn-primary btn-sm"
-                    title="Enviar manualmente a SUNAT"
+                    title="'
+                            . (
+                                empty($reg['document_id'])
+                                ? 'Enviar manualmente a SUNAT'
+                                : 'Reintentar comprobante corregido'
+                            )
+                            . '"
                     onclick="enviarSunatManual('
                             . $idventa
                             . ')">

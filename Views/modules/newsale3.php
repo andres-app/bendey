@@ -2151,5 +2151,17 @@ $versionNewsaleJs = file_exists($rutaNewsaleJs)
 </script>
 
 <?php
+$rutaDuplicarVentaJs = __DIR__ . '/scripts/duplicar_venta.js';
+
+$versionDuplicarVentaJs = is_file($rutaDuplicarVentaJs)
+    ? filemtime($rutaDuplicarVentaJs)
+    : time();
+?>
+
+<script
+    src="Views/modules/scripts/duplicar_venta.js?v=<?= (int)$versionDuplicarVentaJs ?>">
+</script>
+
+<?php
 ob_end_flush();
 ?>

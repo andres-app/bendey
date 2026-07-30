@@ -465,12 +465,24 @@ class ApiSunatDocument
                 );
             }
 
-            $factorDescuento = $subtotalBrutoConIgv > 0
+            /*
+             * SUNAT valida MultiplierFactorNumeric con un máximo
+             * de 5 decimales. Se calcula usando exactamente los
+             * mismos importes sin IGV que se informarán en Amount
+             * y BaseAmount, para evitar diferencias por redondeo.
+             */
+            $factorDescuento = $totalBaseAntesDescuento > 0
                 ? round(
-                    $descuentoTotal / $subtotalBrutoConIgv,
-                    6
+                    $descuentoBase / $totalBaseAntesDescuento,
+                    5
                 )
                 : 0.00;
+
+            if ($factorDescuento <= 0) {
+                throw new RuntimeException(
+                    'El factor del descuento global no es válido para SUNAT.'
+                );
+            }
         } else {
             $totalBaseGravada = $totalBaseAntesDescuento;
         }
@@ -1019,9 +1031,8 @@ class ApiSunatDocument
                     ],
 
                     'cbc:MultiplierFactorNumeric' => [
-                        '_text' => $this->numeroJson(
-                            $factorDescuento,
-                            6
+                        '_text' => $this->factorDescuentoSunat(
+                            $factorDescuento
                         )
                     ],
 
@@ -1430,6 +1441,44 @@ class ApiSunatDocument
         ) ?: $texto;
 
         return strtoupper($texto);
+    }
+
+    /**
+     * SUNAT admite un decimal positivo de hasta 3 enteros y
+     * como máximo 5 decimales para MultiplierFactorNumeric.
+     * Se devuelve como texto decimal para impedir notación
+     * científica o una sexta cifra decimal en el JSON/XML.
+     */
+    private function factorDescuentoSunat(
+        float $factor
+    ): string {
+        $factor = round($factor, 5);
+
+        if ($factor <= 0 || $factor >= 1000) {
+            throw new RuntimeException(
+                'El factor del descuento global está fuera del formato permitido por SUNAT.'
+            );
+        }
+
+        $texto = number_format(
+            $factor,
+            5,
+            '.',
+            ''
+        );
+
+        $texto = rtrim(
+            rtrim($texto, '0'),
+            '.'
+        );
+
+        if ($texto === '' || $texto === '0') {
+            throw new RuntimeException(
+                'El factor del descuento global no puede ser cero.'
+            );
+        }
+
+        return $texto;
     }
 
     private function numeroJson(

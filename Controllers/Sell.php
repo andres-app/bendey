@@ -1975,6 +1975,312 @@ switch ($op) {
         break;
 
     // =========================================================
+    // PREPARAR DUPLICACIÓN COMO NUEVA VENTA
+    // =========================================================
+    case 'duplicar':
+
+        if (
+            !isset($_SESSION['nombre'])
+            || (int)($_SESSION['ventas'] ?? 0) !== 1
+        ) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'Acceso no autorizado.'
+            ]);
+        }
+
+        $idOrigen = (int)(
+            $_GET['idventa']
+            ?? $_POST['idventa']
+            ?? 0
+        );
+
+        if ($idOrigen <= 0) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'El comprobante de origen no es válido.'
+            ]);
+        }
+
+        $plantilla = $sell->obtenerDatosDuplicacion(
+            $idOrigen
+        );
+
+        if (!is_array($plantilla)) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'No se encontró el comprobante que desea duplicar.'
+            ]);
+        }
+
+        $cabecera = is_array(
+            $plantilla['cabecera'] ?? null
+        )
+            ? $plantilla['cabecera']
+            : [];
+
+        $detallesOriginales = is_array(
+            $plantilla['detalles'] ?? null
+        )
+            ? $plantilla['detalles']
+            : [];
+
+        $tipoComprobanteOrigen = trim(
+            (string)(
+                $cabecera['tipo_comprobante']
+                ?? ''
+            )
+        );
+
+        $tipoNormalizadoOrigen = mb_strtoupper(
+            $tipoComprobanteOrigen,
+            'UTF-8'
+        );
+
+        if (
+            !str_contains($tipoNormalizadoOrigen, 'FACTURA')
+            && !str_contains($tipoNormalizadoOrigen, 'BOLETA')
+        ) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'Solo se pueden duplicar facturas o boletas.'
+            ]);
+        }
+
+        $productos = [];
+        $advertencias = [];
+
+        foreach ($detallesOriginales as $detalle) {
+            $idArticulo = (int)(
+                $detalle['idarticulo']
+                ?? 0
+            );
+
+            $cantidadOriginal = max(
+                0,
+                (int)round(
+                    (float)(
+                        $detalle['cantidad']
+                        ?? 0
+                    )
+                )
+            );
+
+            $stockDisponible = max(
+                0,
+                (int)floor(
+                    (float)(
+                        $detalle['stock_disponible']
+                        ?? 0
+                    )
+                )
+            );
+
+            $articuloActivo = (int)(
+                $detalle['articulo_activo']
+                ?? 0
+            ) === 1;
+
+            $cantidadCargar = min(
+                $cantidadOriginal,
+                $stockDisponible
+            );
+
+            $nombreArticulo = trim(
+                (string)(
+                    $detalle['articulo']
+                    ?? 'Producto'
+                )
+            );
+
+            $puedeCargar = (
+                $idArticulo > 0
+                && $articuloActivo
+                && $stockDisponible > 0
+                && $cantidadCargar > 0
+            );
+
+            if (!$articuloActivo) {
+                $advertencias[] =
+                    $nombreArticulo
+                    . ': el producto está inactivo y no fue agregado.';
+            } elseif ($stockDisponible <= 0) {
+                $advertencias[] =
+                    $nombreArticulo
+                    . ': no tiene stock disponible y no fue agregado.';
+            } elseif ($cantidadCargar < $cantidadOriginal) {
+                $advertencias[] =
+                    $nombreArticulo
+                    . ': la venta original tenía '
+                    . $cantidadOriginal
+                    . ', pero se cargaron '
+                    . $cantidadCargar
+                    . ' por el stock disponible actual.';
+            }
+
+            $productos[] = [
+                'idingreso' => (int)(
+                    $detalle['idingreso']
+                    ?? 0
+                ),
+                'idarticulo' => $idArticulo,
+                'codigo' => trim(
+                    (string)(
+                        $detalle['codigo']
+                        ?? ''
+                    )
+                ),
+                'articulo' => $nombreArticulo,
+                'precio_compra' => round(
+                    (float)(
+                        $detalle['precio_compra_actual']
+                        ?? $detalle['precio_compra_original']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'precio_venta' => round(
+                    (float)(
+                        $detalle['precio_venta']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'cantidad_original' => $cantidadOriginal,
+                'cantidad_cargar' => $cantidadCargar,
+                'stock' => $stockDisponible,
+                'puede_cargar' => $puedeCargar
+            ];
+        }
+
+        $idFormaPagoOrigen = (int)(
+            $cabecera['idforma_pago']
+            ?? 0
+        );
+
+        if ($idFormaPagoOrigen > 0) {
+            $formaPagoOrigen = $sell->getConexion()->getData(
+                "SELECT
+                    nombre,
+                    es_combinado
+                 FROM forma_pago
+                 WHERE idforma_pago = ?
+                 LIMIT 1",
+                [$idFormaPagoOrigen]
+            );
+
+            if (
+                is_array($formaPagoOrigen)
+                && (int)(
+                    $formaPagoOrigen['es_combinado']
+                    ?? 0
+                ) === 1
+            ) {
+                $advertencias[] =
+                    'La venta original usó pago mixto. Debe volver a distribuir los importes antes de procesar.';
+            }
+        }
+
+        responderJson([
+            'success' => true,
+            'mensaje' =>
+                'El comprobante fue cargado como plantilla editable.',
+            'origen' => [
+                'idventa' => (int)(
+                    $cabecera['idventa']
+                    ?? 0
+                ),
+                'comprobante' => trim(
+                    (string)(
+                        $cabecera['serie_comprobante']
+                        ?? ''
+                    )
+                )
+                    . '-'
+                    . trim(
+                        (string)(
+                            $cabecera['num_comprobante']
+                            ?? ''
+                        )
+                    )
+            ],
+            'venta' => [
+                'tipo_comprobante' => $tipoComprobanteOrigen,
+                'tipo_pago' => trim(
+                    (string)(
+                        $cabecera['tipo_pago']
+                        ?? ''
+                    )
+                ),
+                'idforma_pago' => $idFormaPagoOrigen,
+                'descuento_total' => round(
+                    (float)(
+                        $cabecera['descuento_total']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'descuento_porcentaje' => round(
+                    (float)(
+                        $cabecera['descuento_porcentaje']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'numero_cuotas' => (int)(
+                    $cabecera['numero_cuotas']
+                    ?? 0
+                )
+            ],
+            'cliente' => [
+                'idcliente' => (int)(
+                    $cabecera['idcliente']
+                    ?? 0
+                ),
+                'tipo_documento' => trim(
+                    (string)(
+                        $cabecera['tipo_documento']
+                        ?? ''
+                    )
+                ),
+                'num_documento' => trim(
+                    (string)(
+                        $cabecera['num_documento']
+                        ?? ''
+                    )
+                ),
+                'nombre' => trim(
+                    (string)(
+                        $cabecera['cliente']
+                        ?? ''
+                    )
+                ),
+                'direccion' => trim(
+                    (string)(
+                        $cabecera['direccion']
+                        ?? ''
+                    )
+                ),
+                'telefono' => trim(
+                    (string)(
+                        $cabecera['telefono']
+                        ?? ''
+                    )
+                ),
+                'email' => trim(
+                    (string)(
+                        $cabecera['email']
+                        ?? ''
+                    )
+                )
+            ],
+            'productos' => $productos,
+            'advertencias' => $advertencias
+        ]);
+
+        break;
+
+    // =========================================================
     // DETALLE PARA EDICIÓN
     // =========================================================
     case 'listarDetalle_editar':
