@@ -31,22 +31,22 @@ if ($_SESSION['ventas'] == 1) {
 
                 <form id="formularioVenta" method="post" autocomplete="off">
 
-                    <div class="row">
+                    <div class="row venta-pos-layout">
 
                         <!-- =====================================================
                              PANEL IZQUIERDO: FORMULARIO
                         ====================================================== -->
-                        <div class="col-lg-6 col-md-6 col-12">
+                        <div class="col-lg-6 col-md-6 col-12 venta-panel-col venta-panel-col-formulario">
 
-                            <div class="card">
+                            <div class="card venta-panel-card venta-panel-card-formulario">
 
-                                <div class="card-header">
+                                <div class="card-header venta-panel-header">
                                     <h4>Nueva venta</h4>
                                 </div>
 
-                                <div class="card border-0 shadow-sm p-4">
+                                <div class="card border-0 shadow-sm p-4 venta-form-shell">
 
-                                    <div class="card-body px-0 pt-0">
+                                    <div class="card-body px-0 pt-0 venta-form-scroll">
 
                                         <!-- =====================================
                                              COMPROBANTE Y CLIENTE
@@ -522,7 +522,7 @@ if ($_SESSION['ventas'] == 1) {
                                          FOOTER DE LA VENTA
                                     ====================================== -->
                                     <div
-                                        class="card-footer bg-white border-top px-4 py-3 position-sticky"
+                                        class="card-footer bg-white border-top px-4 py-3 position-sticky venta-form-footer"
                                         style="bottom:0; z-index:30;">
 
                                         <div class="row align-items-center">
@@ -583,15 +583,25 @@ if ($_SESSION['ventas'] == 1) {
                         <!-- =====================================================
                              PANEL DERECHO: PEDIDO ACTUAL
                         ====================================================== -->
-                        <div class="col-lg-6 col-md-6 col-12">
+                        <div class="col-lg-6 col-md-6 col-12 venta-panel-col venta-panel-col-pedido">
 
-                            <div class="card">
+                            <div class="card venta-panel-card venta-panel-card-pedido">
 
-                                <div class="card-header">
-                                    <h4>Pedido actual</h4>
+                                <div class="card-header venta-panel-header venta-pedido-header">
+                                    <div>
+                                        <h4 class="mb-1">Pedido actual</h4>
+                                        <small id="contadorProductosPedido" class="venta-pedido-contador">
+                                            0 productos · 0 unidades
+                                        </small>
+                                    </div>
+
+                                    <div class="venta-pedido-total-cabecera">
+                                        <span>Total</span>
+                                        <strong id="totalPedidoHeader">S/ 0.00</strong>
+                                    </div>
                                 </div>
 
-                                <div class="card-body bg-white">
+                                <div class="card-body bg-white venta-pedido-body">
 
                                     <!-- =====================================
                                          BUSCADOR RÁPIDO DE PRODUCTOS
@@ -651,7 +661,7 @@ if ($_SESSION['ventas'] == 1) {
                                         id="contenedorPedido"
                                         style="min-height:100px;">
 
-                                        <div id="detallesCards"></div>
+                                        <div id="detallesCards" class="venta-pedido-lista"></div>
 
                                         <div
                                             id="pedidoVacio"
@@ -705,7 +715,7 @@ if ($_SESSION['ventas'] == 1) {
                                 </div>
 
                                 <div
-                                    class="d-flex justify-content-end align-items-end p-4"
+                                    class="d-flex justify-content-end align-items-end p-4 venta-pedido-footer"
                                     style="pointer-events:none;">
 
                                     <div
@@ -793,6 +803,231 @@ if ($_SESSION['ventas'] == 1) {
 
 
     <style>
+        /* =========================================================
+           DISEÑO POS: FORMULARIO FIJO + PEDIDO CON SCROLL INTERNO
+        ========================================================== */
+        .venta-pos-layout {
+            align-items: flex-start;
+        }
+
+        .venta-panel-card {
+            margin-bottom: 0;
+            border: 1px solid #e7ebe9;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, .07);
+        }
+
+        .venta-panel-header {
+            min-height: 70px;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e8ecea;
+            background: #ffffff;
+        }
+
+        .venta-panel-header h4 {
+            margin: 0;
+            color: #27332d;
+            font-size: 1.05rem;
+            font-weight: 800;
+        }
+
+        .venta-pedido-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+
+        .venta-pedido-contador {
+            display: block;
+            color: #7a8780;
+            font-size: .76rem;
+            font-weight: 600;
+        }
+
+        .venta-pedido-total-cabecera {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            line-height: 1.1;
+            white-space: nowrap;
+        }
+
+        .venta-pedido-total-cabecera span {
+            margin-bottom: 4px;
+            color: #839087;
+            font-size: .69rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .venta-pedido-total-cabecera strong {
+            color: #26352d;
+            font-size: 1.24rem;
+            font-weight: 800;
+        }
+
+        .venta-form-shell {
+            margin-bottom: 0;
+            border-radius: 0;
+            box-shadow: none !important;
+        }
+
+        .venta-form-footer,
+        .venta-pedido-footer {
+            flex: 0 0 auto;
+            border-top: 1px solid #e8ecea;
+            background: #ffffff;
+        }
+
+        .venta-pedido-footer {
+            min-height: 80px;
+        }
+
+        #detallesCards {
+            padding: 2px 7px 8px 1px;
+            scrollbar-width: thin;
+            scrollbar-color: #becbc3 transparent;
+        }
+
+        #detallesCards::-webkit-scrollbar,
+        .venta-form-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #detallesCards::-webkit-scrollbar-track,
+        .venta-form-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #detallesCards::-webkit-scrollbar-thumb,
+        .venta-form-scroll::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: #c7d2cb;
+        }
+
+        #detallesCards::-webkit-scrollbar-thumb:hover,
+        .venta-form-scroll::-webkit-scrollbar-thumb:hover {
+            background: #aebdb4;
+        }
+
+        @media (min-width: 992px) {
+            .venta-pos-layout {
+                min-height: calc(100vh - 118px);
+            }
+
+            .venta-panel-col {
+                position: sticky;
+                top: 84px;
+                align-self: flex-start;
+            }
+
+            .venta-panel-card {
+                height: calc(100vh - 108px);
+                min-height: 610px;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .venta-panel-card-formulario > .venta-form-shell {
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                padding-bottom: 0 !important;
+            }
+
+            .venta-form-scroll {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                padding-right: 8px !important;
+            }
+
+            .venta-form-footer {
+                position: static !important;
+                margin-right: -1.5rem;
+                margin-left: -1.5rem;
+                margin-bottom: 0;
+            }
+
+            .venta-panel-card-pedido {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .venta-pedido-body {
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                padding-bottom: 10px;
+            }
+
+            .buscador-pedido-wrap {
+                flex: 0 0 auto;
+            }
+
+            #contenedorPedido {
+                flex: 1 1 auto;
+                min-height: 0 !important;
+                overflow: hidden;
+            }
+
+            #detallesCards {
+                height: 100%;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+            }
+
+            #pedidoVacio {
+                min-height: 100%;
+            }
+        }
+
+        @media (max-width: 991.98px) {
+            .venta-panel-col {
+                position: static;
+            }
+
+            .venta-panel-card {
+                height: auto;
+                min-height: 0;
+                margin-bottom: 22px;
+                overflow: visible;
+            }
+
+            .venta-form-scroll,
+            #detallesCards {
+                height: auto;
+                max-height: none;
+                overflow: visible;
+            }
+
+            .venta-form-footer {
+                position: sticky !important;
+                bottom: 0;
+            }
+
+            .venta-pedido-body {
+                overflow: visible;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .venta-pedido-header {
+                align-items: flex-start;
+            }
+
+            .venta-pedido-total-cabecera strong {
+                font-size: 1.05rem;
+            }
+        }
+
         /* =========================================================
            BUSCADOR RÁPIDO DENTRO DE PEDIDO ACTUAL
         ========================================================== */

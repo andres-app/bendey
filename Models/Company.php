@@ -39,7 +39,11 @@ class Company
         $token_reniec_sunat,
         $apisunat_persona_id = '',
         $apisunat_persona_token = '',
-        $apisunat_production = 1
+        $apisunat_production = 1,
+        $venta_tipo_comprobante_predeterminado = '',
+        $venta_tipo_pago_predeterminado = '',
+        $venta_idforma_pago_predeterminada = null,
+        $venta_modo_envio_predeterminado = ''
     ): bool {
         $id_negocio = (int)$id_negocio;
 
@@ -112,7 +116,11 @@ class Company
                     token_reniec_sunat = ?,
                     apisunat_persona_id = ?,
                     apisunat_persona_token = ?,
-                    apisunat_production = ?
+                    apisunat_production = ?,
+                    venta_tipo_comprobante_predeterminado = ?,
+                    venta_tipo_pago_predeterminado = ?,
+                    venta_idforma_pago_predeterminada = ?,
+                    venta_modo_envio_predeterminado = ?
                 WHERE id_negocio = ?";
 
         $arrData = [
@@ -132,6 +140,22 @@ class Company
             trim((string)$apisunat_persona_id),
             $tokenApiSunatGuardar,
             $apisunatProduction,
+            trim((string)$venta_tipo_comprobante_predeterminado),
+            trim((string)$venta_tipo_pago_predeterminado),
+            (int)$venta_idforma_pago_predeterminada > 0
+                ? (int)$venta_idforma_pago_predeterminada
+                : null,
+            in_array(
+                strtolower(
+                    trim((string)$venta_modo_envio_predeterminado)
+                ),
+                ['inmediato', 'manual'],
+                true
+            )
+                ? strtolower(
+                    trim((string)$venta_modo_envio_predeterminado)
+                )
+                : null,
             $id_negocio
         ];
 
@@ -393,6 +417,10 @@ class Company
                 condicion,
                 apisunat_persona_id,
                 apisunat_production,
+                venta_tipo_comprobante_predeterminado,
+                venta_tipo_pago_predeterminado,
+                venta_idforma_pago_predeterminada,
+                venta_modo_envio_predeterminado,
                 CASE
                     WHEN apisunat_persona_token IS NOT NULL
                      AND apisunat_persona_token <> ''

@@ -211,6 +211,34 @@ try {
                     ? 1
                     : 0;
 
+            $venta_tipo_comprobante_predeterminado = trim(
+                (string)(
+                    $_POST['venta_tipo_comprobante_predeterminado']
+                    ?? ''
+                )
+            );
+
+            $venta_tipo_pago_predeterminado = trim(
+                (string)(
+                    $_POST['venta_tipo_pago_predeterminado']
+                    ?? ''
+                )
+            );
+
+            $venta_idforma_pago_predeterminada = (int)(
+                $_POST['venta_idforma_pago_predeterminada']
+                ?? 0
+            );
+
+            $venta_modo_envio_predeterminado = strtolower(
+                trim(
+                    (string)(
+                        $_POST['venta_modo_envio_predeterminado']
+                        ?? ''
+                    )
+                )
+            );
+
             if ($nombre === '') {
                 throw new RuntimeException(
                     'Debe ingresar el nombre de la empresa.'
@@ -282,6 +310,75 @@ try {
                 );
             }
 
+            if (
+                mb_strlen(
+                    $venta_tipo_comprobante_predeterminado,
+                    'UTF-8'
+                ) > 80
+            ) {
+                throw new RuntimeException(
+                    'El tipo de comprobante predeterminado no es válido.'
+                );
+            }
+
+            if (
+                mb_strlen(
+                    $venta_tipo_pago_predeterminado,
+                    'UTF-8'
+                ) > 50
+            ) {
+                throw new RuntimeException(
+                    'El tipo de pago predeterminado no es válido.'
+                );
+            }
+
+            if (
+                $venta_modo_envio_predeterminado !== ''
+                && !in_array(
+                    $venta_modo_envio_predeterminado,
+                    ['inmediato', 'manual'],
+                    true
+                )
+            ) {
+                throw new RuntimeException(
+                    'El modo de envío predeterminado no es válido.'
+                );
+            }
+
+            $tipoPagoNormalizado = mb_strtoupper(
+                $venta_tipo_pago_predeterminado,
+                'UTF-8'
+            );
+
+            $tipoPagoNormalizado = str_replace(
+                ['Á', 'É', 'Í', 'Ó', 'Ú'],
+                ['A', 'E', 'I', 'O', 'U'],
+                $tipoPagoNormalizado
+            );
+
+            $comprobanteNormalizado = mb_strtoupper(
+                $venta_tipo_comprobante_predeterminado,
+                'UTF-8'
+            );
+
+            if (
+                (
+                    $tipoPagoNormalizado === '4'
+                    || str_contains(
+                        $tipoPagoNormalizado,
+                        'CREDITO'
+                    )
+                )
+                && !str_contains(
+                    $comprobanteNormalizado,
+                    'FACTURA'
+                )
+            ) {
+                throw new RuntimeException(
+                    'El pago al crédito solo puede configurarse de forma predeterminada para Factura Electrónica.'
+                );
+            }
+
             $resultado = $company->editar(
                 $id_negocio,
                 $nombre,
@@ -299,7 +396,11 @@ try {
                 $token_reniec_sunat,
                 $apisunat_persona_id,
                 $apisunat_persona_token,
-                $apisunat_production
+                $apisunat_production,
+                $venta_tipo_comprobante_predeterminado,
+                $venta_tipo_pago_predeterminado,
+                $venta_idforma_pago_predeterminada,
+                $venta_modo_envio_predeterminado
             );
 
             echo $resultado
