@@ -2327,43 +2327,72 @@ switch ($op) {
             );
 
             $data[] = [
-                '0' => '
-                    <div class="btn-group">
+                '0' => $reg['fecha'],
+                '1' => $reg['cliente'],
+                '2' => $reg['usuario'],
+                '3' => $reg['tipo_comprobante'],
+                '4' =>
+                $reg['serie_comprobante']
+                    . '-'
+                    . $reg['num_comprobante'],
+                '5' => number_format(
+                    (float)$reg['total_venta'],
+                    2,
+                    '.',
+                    ''
+                ),
+                '6' => generarEstadoSunatVenta(
+                    $reg
+                ),
+                '7' => '
+                    <div class="dropdown venta-acciones">
                         <button
-                            class="btn btn-info btn-sm"
-                            title="Ver"
-                            onclick="mostrar(' . $id . ')">
-                            <i class="fas fa-eye"></i>
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary dropdown-toggle venta-acciones-boton"
+                            data-toggle="dropdown"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            title="Abrir acciones de la venta">
+
+                            <i class="fas fa-ellipsis-h mr-1"></i>
+                            <span class="texto-accion">Acciones</span>
                         </button>
 
-                        <button
-                            class="btn btn-success btn-sm"
-                            title="Imprimir Ticket"
-                            onclick="window.open(\'' .
+                        <div class="dropdown-menu dropdown-menu-right venta-acciones-menu">
+                            <h6 class="dropdown-header">Venta</h6>
+
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="mostrar(' . $id . ')">
+                                <i class="fas fa-eye"></i>
+                                <span>Ver detalle</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="duplicarVenta(' . $id . ')">
+                                <i class="far fa-copy"></i>
+                                <span>Duplicar venta</span>
+                            </button>
+
+                            <div class="dropdown-divider"></div>
+                            <h6 class="dropdown-header">Comprobante</h6>
+
+                            <a
+                                class="dropdown-item"
+                                href="' .
                     $baseUrl .
                     'Reports/80mm.php?id=' .
                     $id .
-                    '\', \'_blank\')">
-                            <i class="fas fa-print"></i>
-                        </button>
+                    '"
+                                target="_blank"
+                                rel="noopener">
+                                <i class="fas fa-receipt"></i>
+                                <span>Imprimir ticket</span>
+                            </a>
 
-                        <button
-                            type="button"
-                            class="btn btn-primary btn-sm"
-                            title="Duplicar como nueva venta"
-                            onclick="duplicarVenta(' . $id . ')">
-                            <i class="fas fa-copy"></i>
-                        </button>
-
-                        <button
-                            type="button"
-                            class="btn btn-secondary btn-sm dropdown-toggle"
-                            data-toggle="dropdown"
-                            title="Más">
-                            <span>...</span>
-                        </button>
-
-                        <div class="dropdown-menu">
                             <a
                                 class="dropdown-item"
                                 href="' .
@@ -2371,9 +2400,10 @@ switch ($op) {
                     'Reports/a4.php?id=' .
                     $id .
                     '"
-                                target="_blank">
+                                target="_blank"
+                                rel="noopener">
                                 <i class="far fa-file-pdf"></i>
-                                Imprimir A4
+                                <span>Imprimir A4</span>
                             </a>
 
                             <a
@@ -2381,47 +2411,33 @@ switch ($op) {
                                 href="https://wa.me/?text=' .
                     $whatsappTexto .
                     '"
-                                target="_blank">
-                                <i class="fab fa-whatsapp"></i>
-                                WhatsApp
+                                target="_blank"
+                                rel="noopener">
+                                <i class="far fa-comment-dots"></i>
+                                <span>Compartir por WhatsApp</span>
                             </a>
 
                             ' .
                     (
                         $reg['estado'] === 'Aceptado'
                         ? '
-                                <a
-                                    class="dropdown-item text-danger"
-                                    href="#"
-                                    onclick="anular(' .
+                            <div class="dropdown-divider"></div>
+
+                            <a
+                                class="dropdown-item venta-accion-peligro"
+                                href="#"
+                                onclick="anular(' .
                         $id .
-                        ')">
-                                    <i class="fas fa-times"></i>
-                                    Anular
-                                </a>'
+                        '); return false;">
+                                <i class="fas fa-ban"></i>
+                                <span>Anular venta</span>
+                            </a>'
                         : ''
                     ) .
                     '
                         </div>
                     </div>
-                ',
-                '1' => $reg['fecha'],
-                '2' => $reg['cliente'],
-                '3' => $reg['usuario'],
-                '4' => $reg['tipo_comprobante'],
-                '5' =>
-                $reg['serie_comprobante']
-                    . '-'
-                    . $reg['num_comprobante'],
-                '6' => number_format(
-                    (float)$reg['total_venta'],
-                    2,
-                    '.',
-                    ''
-                ),
-                '7' => generarEstadoSunatVenta(
-                    $reg
-                )
+                '
             ];
         }
 

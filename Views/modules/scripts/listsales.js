@@ -30,22 +30,24 @@ function listar() {
       buttons: [
         {
           extend: "excelHtml5",
-          text: '<i class="fa fa-file-excel-o bg-green"></i> Excel',
+          text: '<i class="far fa-file-excel mr-1"></i> Excel',
+          className: "btn btn-outline-secondary btn-sm",
           titleAttr: "Exportar a Excel",
           title: "Reporte de Ventas",
           sheetName: "Ventas",
           exportOptions: {
-            columns: [1, 2, 3, 4, 5, 6, 7],
+            columns: [0, 1, 2, 3, 4, 5, 6],
           },
         },
         {
           extend: "pdfHtml5",
-          text: '<i class="fa fa-file-pdf-o bg-red"></i> PDF',
+          text: '<i class="far fa-file-pdf mr-1"></i> PDF',
+          className: "btn btn-outline-secondary btn-sm",
           titleAttr: "Exportar a PDF",
           title: "Reporte de Ventas",
           pageSize: "A4",
           exportOptions: {
-            columns: [1, 2, 3, 4, 5, 6, 7],
+            columns: [0, 1, 2, 3, 4, 5, 6],
           },
         },
       ],
@@ -64,8 +66,31 @@ function listar() {
       },
 
       destroy: true,
+      responsive: true,
+      autoWidth: false,
       pageLength: 10,
       order: [],
+
+      columnDefs: [
+        {
+          targets: "_all",
+          className: "align-middle",
+        },
+        {
+          targets: 5,
+          className: "text-right align-middle",
+        },
+        {
+          targets: 6,
+          className: "text-center align-middle",
+        },
+        {
+          targets: 7,
+          orderable: false,
+          searchable: false,
+          className: "text-right align-middle",
+        },
+      ],
     });
 }
 

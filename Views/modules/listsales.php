@@ -12,6 +12,145 @@ if (!isset($_SESSION['nombre'])) {
 
     if ($_SESSION['ventas'] == 1) {
 ?>
+
+        <style>
+            /* =========================================================
+               LISTADO DE VENTAS: ACCIONES SOBRIAS Y ORDENADAS
+            ========================================================== */
+            #tbllistado thead th {
+                padding-top: 13px;
+                padding-bottom: 13px;
+                border-bottom: 1px solid #e5e7eb;
+                color: #4b5563;
+                font-size: .76rem;
+                font-weight: 700;
+                letter-spacing: .035em;
+                text-transform: uppercase;
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+
+            #tbllistado tbody td {
+                color: #374151;
+                vertical-align: middle;
+            }
+
+            #tbllistado tbody tr:hover {
+                background: #f8fafc;
+            }
+
+            .venta-acciones {
+                display: inline-block;
+            }
+
+            .venta-acciones-boton {
+                min-width: 100px;
+                padding: 6px 11px;
+                border-color: #d1d5db;
+                border-radius: 8px;
+                color: #374151;
+                background: #ffffff;
+                box-shadow: none !important;
+                font-size: .78rem;
+                font-weight: 600;
+            }
+
+            .venta-acciones-boton:hover,
+            .venta-acciones-boton:focus,
+            .venta-acciones.show .venta-acciones-boton {
+                border-color: #9ca3af;
+                color: #111827;
+                background: #f3f4f6;
+            }
+
+            .venta-acciones-menu {
+                min-width: 230px;
+                padding: 7px;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                box-shadow: 0 14px 35px rgba(15, 23, 42, .13);
+            }
+
+            .venta-acciones-menu .dropdown-header {
+                padding: 7px 10px 5px;
+                color: #9ca3af;
+                font-size: .67rem;
+                font-weight: 700;
+                letter-spacing: .06em;
+                text-transform: uppercase;
+            }
+
+            .venta-acciones-menu .dropdown-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-height: 38px;
+                padding: 8px 10px;
+                border: 0;
+                border-radius: 7px;
+                color: #374151;
+                background: transparent;
+                font-size: .84rem;
+                text-align: left;
+            }
+
+            .venta-acciones-menu .dropdown-item:hover,
+            .venta-acciones-menu .dropdown-item:focus {
+                color: #111827;
+                background: #f3f4f6;
+            }
+
+            .venta-acciones-menu .dropdown-item i {
+                width: 17px;
+                color: #6b7280;
+                text-align: center;
+            }
+
+            .venta-acciones-menu .dropdown-divider {
+                margin: 6px 3px;
+                border-top-color: #edf0f3;
+            }
+
+            .venta-acciones-menu .venta-accion-peligro,
+            .venta-acciones-menu .venta-accion-peligro i {
+                color: #b42318;
+            }
+
+            .venta-acciones-menu .venta-accion-peligro:hover,
+            .venta-acciones-menu .venta-accion-peligro:focus {
+                color: #912018;
+                background: #fff1f0;
+            }
+
+            #tbllistado_wrapper .dt-buttons .btn {
+                margin-right: 6px;
+                border-color: #d1d5db;
+                border-radius: 8px;
+                color: #374151;
+                background: #ffffff;
+                box-shadow: none;
+                font-size: .8rem;
+                font-weight: 600;
+            }
+
+            #tbllistado_wrapper .dt-buttons .btn:hover,
+            #tbllistado_wrapper .dt-buttons .btn:focus {
+                border-color: #9ca3af;
+                color: #111827;
+                background: #f3f4f6;
+            }
+
+            @media (max-width: 767.98px) {
+                .venta-acciones-boton {
+                    min-width: 42px;
+                }
+
+                .venta-acciones-boton .texto-accion {
+                    display: none;
+                }
+            }
+        </style>
+
         <!-- Main Content -->
         <div class="main-content">
             <section class="section">
@@ -30,14 +169,14 @@ if (!isset($_SESSION['nombre'])) {
                                         <table id="tbllistado" class="table table-striped table-hover text-nowrap"
                                             style="width:100%;">
                                             <thead>
-                                                <th>Opciones</th>
                                                 <th>Fecha</th>
                                                 <th>Cliente</th>
                                                 <th>Usuario</th>
                                                 <th>Documento</th>
                                                 <th>Número</th>
-                                                <th>Total Venta</th>
-                                                <th>Estado SUNAT</th>
+                                                <th class="text-right">Total venta</th>
+                                                <th class="text-center">Estado SUNAT</th>
+                                                <th class="text-right">Acciones</th>
                                             </thead>
                                             <tbody>
                                             </tbody>
