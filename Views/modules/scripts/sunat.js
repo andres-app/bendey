@@ -1,19 +1,40 @@
+"use strict";
+
+let tablaSunat = null;
+
+/*
+|--------------------------------------------------------------------------
+| INICIALIZACIÓN
+|--------------------------------------------------------------------------
+*/
 $(document).ready(function () {
-    $('#tbllistado').DataTable({
+    inicializarTablaSunat();
+
+    $(document).on(
+        "click",
+        "#btnActualizarSunat",
+        function () {
+            recargarTablaSunat(true);
+        }
+    );
+});
+
+/*
+|--------------------------------------------------------------------------
+| TABLA DE COMPROBANTES
+|--------------------------------------------------------------------------
+*/
+function inicializarTablaSunat() {
+    tablaSunat = $("#tbllistado").DataTable({
         responsive: true,
         autoWidth: false,
         scrollX: false,
+        processing: true,
 
-        // Mantiene el orden recibido desde PHP:
-        // último comprobante emitido primero.
+        /*
+         * El controlador ya devuelve el comprobante más reciente primero.
+         */
         order: [],
-
-        columnDefs: [
-            {
-                targets: [0, 4, 5, 6],
-                orderable: false
-            }
-        ],
 
         ajax: {
             url: "Controllers/Sunat.php",
@@ -26,30 +47,93 @@ $(document).ready(function () {
                     op: "listar",
                     v: Date.now()
                 };
+            },
+
+            error: function (xhr) {
+                console.error(
+                    "ERROR LISTADO SUNAT:",
+                    xhr.status,
+                    xhr.responseText
+                );
+
+                Swal.fire({
+                    icon: "error",
+                    title: "No se pudo cargar",
+                    text:
+                        "No fue posible obtener los comprobantes SUNAT."
+                });
             }
         },
 
         columns: [
-            { data: "0", className: "text-center" },
-            { data: "1" },
-            { data: "2" },
-            { data: "3", className: "text-right" },
-            { data: "4", className: "text-center" },
-            { data: "5", className: "text-center" },
-            { data: "6", className: "text-center" },
-            { data: "7" },
-            { data: "8", className: "text-center" }
+            {
+                data: "0",
+                responsivePriority: 2
+            },
+            {
+                data: "1",
+                responsivePriority: 4
+            },
+            {
+                data: "2",
+                className: "text-right",
+                responsivePriority: 5
+            },
+            {
+                data: "3",
+                className: "text-center",
+                orderable: false,
+                searchable: false,
+                responsivePriority: 7
+            },
+            {
+                data: "4",
+                className: "text-center",
+                orderable: false,
+                searchable: false,
+                responsivePriority: 8
+            },
+            {
+                data: "5",
+                className: "text-center",
+                orderable: false,
+                responsivePriority: 3
+            },
+            {
+                data: "6",
+                responsivePriority: 9
+            },
+            {
+                data: "7",
+                className: "text-center",
+                responsivePriority: 6
+            },
+            {
+                data: "8",
+                className: "text-right",
+                orderable: false,
+                searchable: false,
+                responsivePriority: 1
+            }
         ],
 
         language: {
-            emptyTable: "No hay comprobantes electrónicos registrados",
-            processing: "Cargando comprobantes...",
-            search: "Buscar:",
-            lengthMenu: "Mostrar _MENU_ registros",
-            info: "Mostrando _START_ a _END_ de _TOTAL_ comprobantes",
-            infoEmpty: "No hay comprobantes disponibles",
-            infoFiltered: "(filtrado de _MAX_ comprobantes)",
-            zeroRecords: "No se encontraron resultados",
+            emptyTable:
+                "No hay comprobantes electrónicos registrados",
+            processing:
+                "Cargando comprobantes...",
+            search:
+                "Buscar:",
+            lengthMenu:
+                "Mostrar _MENU_ registros",
+            info:
+                "Mostrando _START_ a _END_ de _TOTAL_ comprobantes",
+            infoEmpty:
+                "No hay comprobantes disponibles",
+            infoFiltered:
+                "(filtrado de _MAX_ comprobantes)",
+            zeroRecords:
+                "No se encontraron resultados",
             paginate: {
                 first: "Primero",
                 last: "Último",
@@ -58,187 +142,36 @@ $(document).ready(function () {
             }
         }
     });
-});
-
-function verDetalle(idventa) {
-
-    $.post(
-        'Controllers/Sunat.php?op=detalle',
-        { idventa },
-        function (r) {
-
-            let botones = {};
-            let footer = '';
-
-            // ========= FASE A: TEXTO DEL BOTÓN =========
-            if (!r.xml) {
-                botones = { confirmButtonText: 'Generar XML' };
-
-            } else if (r.xml && !r.cdr && r.estado !== 'EN_PROCESO') {
-                botones = { confirmButtonText: 'Enviar a SUNAT' };
-
-            } else if (r.estado === 'EN_PROCESO') {
-                botones = { confirmButtonText: 'Consultar SUNAT' };
-
-            } else {
-                botones = { confirmButtonText: 'Ver CDR' };
-                footer = `<a href="${r.cdr}" target="_blank">Descargar CDR</a>`;
-            }
-
-            Swal.fire({
-                title: '📄 Comprobante Electrónico',
-                html: `
-                    <div style="text-align:left;font-size:13px">
-                        <strong>${r.comprobante}</strong><br>
-                        Cliente: ${r.cliente}<br>
-                        Total: S/ ${r.total}<br>
-                        Estado SUNAT: <strong>${r.estado}</strong>
-                    </div>
-                `,
-                icon: 'info',
-                showCancelButton: true,
-                confirmButtonColor: '#4f6bed',
-                cancelButtonText: 'Cerrar',
-                footer,
-                ...botones
-            }).then((result) => {
-
-                if (!result.isConfirmed) return;
-
-                // ========= FASE B: ACCIÓN =========
-                if (!r.xml) {
-                    generarXML(idventa);
-
-                } else if (r.xml && !r.cdr && r.estado !== 'EN_PROCESO') {
-                    enviarSunat(idventa);
-
-                } else if (r.estado === 'EN_PROCESO') {
-                    consultarEstado(idventa);
-
-                } else {
-                    window.open(r.cdr, '_blank');
-                }
-            });
-
-        },
-        'json'
-    );
-}
-
-
-
-function generarXML(idventa) {
-
-    console.log('ID enviado:', idventa); // 👈 DEBUG
-
-    Swal.fire({
-        title: 'Generando XML',
-        text: 'Por favor espera...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    $.post(
-        'Controllers/Sunat.php?op=generarxml',
-        { idventa: idventa }, // 👈 CLAVE
-        function (response) {
-
-            Swal.close();
-            console.log(response); // 👈 DEBUG
-
-            if (response.status) {
-                Swal.fire('Éxito', response.message, 'success');
-                $('#tbllistado').DataTable().ajax.reload(null, false);
-            } else {
-                Swal.fire('Error', response.message, 'error');
-            }
-        },
-        'json'
-    );
-}
-
-function enviarSunat(idventa) {
-
-    Swal.fire({
-        title: 'Enviando a SUNAT',
-        text: 'Espere un momento...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    $.post(
-        'Controllers/Sunat.php?op=enviarsunat',
-        { idventa: idventa },
-        function (r) {
-
-            Swal.close();
-
-            if (r.status) {
-                Swal.fire('SUNAT', r.message, 'success');
-                $('#tbllistado').DataTable().ajax.reload(null, false);
-            } else {
-                Swal.fire('Error SUNAT', r.message, 'error');
-            }
-
-        },
-        'json'
-    );
-}
-
-function consultarEstado(idventa) {
-
-    Swal.fire({
-        title: 'Consultando SUNAT',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    $.post(
-        'Controllers/Sunat.php?op=getStatus',
-        { idventa },
-        function (r) {
-            Swal.close();
-
-            if (r.status) {
-                Swal.fire('SUNAT', r.mensaje, 'success');
-                $('#tbllistado').DataTable().ajax.reload(null, false);
-            } else {
-                Swal.fire('Error SUNAT', r.mensaje, 'error');
-            }
-        },
-        'json'
-    );
 }
 
 /*
 |--------------------------------------------------------------------------
-| ENVIAR MANUALMENTE A APISUNAT
+| ENVIAR O REINTENTAR
 |--------------------------------------------------------------------------
 */
 function enviarSunatManual(idventa) {
-    idventa = Number.parseInt(
+    const id = Number.parseInt(
         idventa,
         10
-    );
+    ) || 0;
 
-    if (!idventa || idventa <= 0) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Venta inválida',
-            text: 'No se pudo determinar la venta.'
-        });
+    if (id <= 0) {
+        mostrarErrorSunat(
+            "Venta inválida",
+            "No se pudo determinar el comprobante."
+        );
 
         return;
     }
 
     Swal.fire({
-        icon: 'question',
-        title: 'Enviar comprobante',
+        icon: "question",
+        title: "Enviar comprobante",
         text:
-            'El comprobante será enviado a SUNAT mediante APISUNAT.',
+            "El comprobante será enviado mediante APISUNAT.",
         showCancelButton: true,
-        confirmButtonText: 'Sí, enviar',
-        cancelButtonText: 'Cancelar',
+        confirmButtonText: "Sí, enviar",
+        cancelButtonText: "Cancelar",
         reverseButtons: true,
         allowOutsideClick: false
     }).then(function (resultado) {
@@ -247,8 +180,9 @@ function enviarSunatManual(idventa) {
         }
 
         Swal.fire({
-            title: 'Enviando comprobante',
-            text: 'Espere mientras APISUNAT recibe el documento.',
+            title: "Enviando comprobante",
+            text:
+                "Espere mientras APISUNAT procesa la solicitud.",
             allowOutsideClick: false,
             didOpen: function () {
                 Swal.showLoading();
@@ -256,85 +190,99 @@ function enviarSunatManual(idventa) {
         });
 
         $.ajax({
-            url: 'Controllers/ApiSunat.php?op=enviar',
-            type: 'POST',
-            dataType: 'json',
+            url:
+                "Controllers/Sunat.php" +
+                "?op=enviarsunat",
+
+            type: "POST",
+            dataType: "json",
             cache: false,
 
             data: {
-                idventa: idventa
+                idventa: id
             },
 
             success: function (respuesta) {
-                console.log(
-                    'ENVÍO MANUAL APISUNAT:',
-                    respuesta
+                const resultadoEnvio =
+                    respuesta &&
+                    typeof respuesta.resultado === "object"
+                        ? respuesta.resultado
+                        : {};
+
+                const estado = String(
+                    resultadoEnvio.status ||
+                    resultadoEnvio.estado ||
+                    ""
+                ).toUpperCase();
+
+                const mensaje = String(
+                    respuesta.message ||
+                    resultadoEnvio.mensaje ||
+                    "APISUNAT no devolvió un mensaje."
                 );
 
                 if (
-                    !respuesta
-                    || respuesta.success !== true
+                    !respuesta ||
+                    respuesta.status !== true
                 ) {
                     Swal.fire({
-                        icon: 'error',
-                        title: 'No se pudo enviar',
-                        text: String(
-                            respuesta.mensaje
-                            || respuesta.message
-                            || 'APISUNAT no recibió el comprobante.'
-                        )
+                        icon: "error",
+                        title: "No se pudo enviar",
+                        text: mensaje
                     });
 
-                    recargarTablaSunat();
+                    recargarTablaSunat(false);
                     return;
                 }
 
                 Swal.fire({
-                    icon: 'success',
-                    title: 'Comprobante enviado',
+                    icon: "success",
+                    title: "Comprobante enviado",
                     text:
-                        'APISUNAT recibió el comprobante. ' +
-                        'Estado inicial: ' +
-                        String(
-                            respuesta.status
-                            || 'PENDIENTE'
+                        mensaje +
+                        (
+                            estado !== ""
+                                ? " Estado: " + estado + "."
+                                : ""
                         )
                 }).then(function () {
-                    consultarSunatManual(
-                        idventa,
-                        true
-                    );
-                });
+                    recargarTablaSunat(false);
 
-                recargarTablaSunat();
+                    if (
+                        estado === "PENDIENTE" ||
+                        estado === "EN_PROCESO" ||
+                        estado === "ENVIADO"
+                    ) {
+                        window.setTimeout(
+                            function () {
+                                consultarSunatManual(
+                                    id,
+                                    true
+                                );
+                            },
+                            3500
+                        );
+                    }
+                });
             },
 
             error: function (xhr) {
                 console.error(
-                    'ERROR ENVÍO MANUAL:',
+                    "ERROR ENVÍO SUNAT:",
                     xhr.status,
                     xhr.responseText
                 );
 
-                let mensaje =
-                    'No se pudo completar el envío.';
-
-                if (
-                    xhr.responseJSON
-                    && typeof xhr.responseJSON.mensaje
-                    === 'string'
-                ) {
-                    mensaje =
-                        xhr.responseJSON.mensaje;
-                }
-
                 Swal.fire({
-                    icon: 'error',
-                    title: 'Error de envío',
-                    text: mensaje
+                    icon: "error",
+                    title: "Error de envío",
+                    text: obtenerMensajeAjaxSunat(
+                        xhr,
+                        "No se pudo completar el envío."
+                    )
                 });
 
-                recargarTablaSunat();
+                recargarTablaSunat(false);
             }
         });
     });
@@ -342,116 +290,130 @@ function enviarSunatManual(idventa) {
 
 /*
 |--------------------------------------------------------------------------
-| CONSULTAR RESPUESTA DE APISUNAT
+| CONSULTAR ESTADO ACTUAL
 |--------------------------------------------------------------------------
 */
 function consultarSunatManual(
     idventa,
     automatico = false
 ) {
-    idventa = Number.parseInt(
+    const id = Number.parseInt(
         idventa,
         10
-    );
+    ) || 0;
 
-    if (!idventa || idventa <= 0) {
-        return;
-    }
-
-    const ejecutarConsulta = function () {
-        $.ajax({
-            url: 'Controllers/ApiSunat.php',
-            type: 'GET',
-            dataType: 'json',
-            cache: false,
-
-            data: {
-                op: 'consultar',
-                idventa: idventa,
-                v: Date.now()
-            },
-
-            success: function (respuesta) {
-                console.log(
-                    'CONSULTA MANUAL APISUNAT:',
-                    respuesta
-                );
-
-                const estado = String(
-                    respuesta.status || ''
-                ).toUpperCase();
-
-                if (estado === 'ACEPTADO') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Comprobante aceptado',
-                        text:
-                            'SUNAT aceptó correctamente el comprobante.'
-                    });
-
-                    recargarTablaSunat();
-                    return;
-                }
-
-                if (
-                    estado === 'RECHAZADO'
-                    || estado === 'EXCEPCION'
-                ) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Comprobante no aceptado',
-                        text: String(
-                            respuesta.mensaje
-                            || respuesta.message
-                            || 'Estado: ' + estado
-                        )
-                    });
-
-                    recargarTablaSunat();
-                    return;
-                }
-
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Comprobante en proceso',
-                    text:
-                        'APISUNAT todavía está procesando el comprobante.'
-                });
-
-                recargarTablaSunat();
-            },
-
-            error: function (xhr) {
-                console.error(
-                    'ERROR CONSULTA APISUNAT:',
-                    xhr.responseText
-                );
-
-                Swal.fire({
-                    icon: 'error',
-                    title: 'No se pudo consultar',
-                    text:
-                        'Revise nuevamente el comprobante desde esta pantalla.'
-                });
-            }
-        });
-    };
-
-    if (automatico) {
-        window.setTimeout(
-            ejecutarConsulta,
-            4000
+    if (id <= 0) {
+        mostrarErrorSunat(
+            "Venta inválida",
+            "No se pudo determinar el comprobante."
         );
 
         return;
     }
 
-    Swal.fire({
-        title: 'Consultando SUNAT',
-        allowOutsideClick: false,
-        didOpen: function () {
-            Swal.showLoading();
-            ejecutarConsulta();
+    if (!automatico) {
+        Swal.fire({
+            title: "Consultando SUNAT",
+            text:
+                "Obteniendo el estado actual del comprobante.",
+            allowOutsideClick: false,
+            didOpen: function () {
+                Swal.showLoading();
+            }
+        });
+    }
+
+    $.ajax({
+        url:
+            "Controllers/Sunat.php" +
+            "?op=consultar",
+
+        type: "POST",
+        dataType: "json",
+        cache: false,
+
+        data: {
+            idventa: id
+        },
+
+        success: function (respuesta) {
+            const resultado =
+                respuesta &&
+                typeof respuesta.resultado === "object"
+                    ? respuesta.resultado
+                    : {};
+
+            const estado = String(
+                resultado.status ||
+                resultado.estado ||
+                ""
+            ).toUpperCase();
+
+            const mensaje = String(
+                respuesta.message ||
+                resultado.mensaje ||
+                "SUNAT no devolvió información adicional."
+            );
+
+            const aceptado =
+                estado === "ACEPTADO";
+
+            const rechazado =
+                estado === "RECHAZADO" ||
+                estado === "EXCEPCION" ||
+                estado === "ERROR";
+
+            let icono = "info";
+            let titulo = "Estado actualizado";
+
+            if (aceptado) {
+                icono = "success";
+                titulo = "Comprobante aceptado";
+            } else if (rechazado) {
+                icono = "error";
+                titulo = "Comprobante no aceptado";
+            } else if (
+                respuesta &&
+                respuesta.status !== true
+            ) {
+                icono = "warning";
+                titulo = "No se pudo confirmar el estado";
+            }
+
+            Swal.fire({
+                icon: icono,
+                title: titulo,
+                text:
+                    (
+                        estado !== ""
+                            ? "Estado: " + estado + ". "
+                            : ""
+                    )
+                    + mensaje
+            });
+
+            recargarTablaSunat(false);
+        },
+
+        error: function (xhr) {
+            console.error(
+                "ERROR CONSULTA SUNAT:",
+                xhr.status,
+                xhr.responseText
+            );
+
+            if (!automatico) {
+                Swal.fire({
+                    icon: "error",
+                    title: "No se pudo consultar",
+                    text: obtenerMensajeAjaxSunat(
+                        xhr,
+                        "Revise nuevamente el comprobante."
+                    )
+                });
+            }
+
+            recargarTablaSunat(false);
         }
     });
 }
@@ -461,19 +423,84 @@ function consultarSunatManual(
 | RECARGAR TABLA
 |--------------------------------------------------------------------------
 */
-function recargarTablaSunat() {
+function recargarTablaSunat(
+    mostrarAviso = false
+) {
     if (
-        $.fn.DataTable
-        && $.fn.DataTable.isDataTable(
-            '#tbllistado'
+        !tablaSunat ||
+        !$.fn.DataTable.isDataTable(
+            "#tbllistado"
         )
     ) {
-        $('#tbllistado')
-            .DataTable()
-            .ajax
-            .reload(
-                null,
-                false
-            );
+        return;
     }
+
+    const $boton =
+        $("#btnActualizarSunat");
+
+    const contenidoOriginal =
+        $boton.html();
+
+    $boton
+        .prop("disabled", true)
+        .html(
+            '<span class="spinner-border ' +
+            'spinner-border-sm mr-1"></span>' +
+            "Actualizando"
+        );
+
+    tablaSunat.ajax.reload(
+        function () {
+            $boton
+                .prop("disabled", false)
+                .html(contenidoOriginal);
+
+            if (mostrarAviso) {
+                Swal.fire({
+                    icon: "success",
+                    title: "Tabla actualizada",
+                    timer: 1100,
+                    showConfirmButton: false
+                });
+            }
+        },
+        false
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| UTILIDADES
+|--------------------------------------------------------------------------
+*/
+function obtenerMensajeAjaxSunat(
+    xhr,
+    predeterminado
+) {
+    if (
+        xhr.responseJSON &&
+        typeof xhr.responseJSON.message === "string"
+    ) {
+        return xhr.responseJSON.message;
+    }
+
+    if (
+        xhr.responseJSON &&
+        typeof xhr.responseJSON.mensaje === "string"
+    ) {
+        return xhr.responseJSON.mensaje;
+    }
+
+    return predeterminado;
+}
+
+function mostrarErrorSunat(
+    titulo,
+    mensaje
+) {
+    Swal.fire({
+        icon: "error",
+        title: titulo,
+        text: mensaje
+    });
 }
