@@ -179,17 +179,6 @@ try {
                         . ')">
 
             <i class="fas fa-eye"></i>
-        </button>
-
-        <button
-            type="button"
-            class="btn btn-info btn-sm"
-            title="Duplicar como nueva venta"
-            onclick="duplicarComprobante('
-                        . $idventa
-                        . ')">
-
-            <i class="fas fa-copy"></i>
         </button>'
 
                         . (

@@ -242,6 +242,17 @@ if (!isset($_SESSION['nombre'])) {
     ?>
 
     <script src="Views/modules/scripts/listsales.js?v=<?= $versionListsalesJs ?>"></script>
+
+    <?php
+    $rutaDuplicarVentaListadoJs = __DIR__ . '/scripts/listsales_duplicar.js';
+    $versionDuplicarVentaListadoJs = file_exists($rutaDuplicarVentaListadoJs)
+        ? filemtime($rutaDuplicarVentaListadoJs)
+        : time();
+    ?>
+
+    <script
+        src="Views/modules/scripts/listsales_duplicar.js?v=<?= (int)$versionDuplicarVentaListadoJs ?>">
+    </script>
 <?php
 }
 ob_end_flush();

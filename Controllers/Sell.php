@@ -2349,6 +2349,14 @@ switch ($op) {
 
                         <button
                             type="button"
+                            class="btn btn-primary btn-sm"
+                            title="Duplicar como nueva venta"
+                            onclick="duplicarVenta(' . $id . ')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+
+                        <button
+                            type="button"
                             class="btn btn-secondary btn-sm dropdown-toggle"
                             data-toggle="dropdown"
                             title="Más">
