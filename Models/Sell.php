@@ -467,6 +467,8 @@ class Sell
                 v.serie_comprobante,
                 v.num_comprobante,
                 v.total_venta,
+                v.descuento_total,
+                v.descuento_porcentaje,
                 v.impuesto,
                 v.estado,
                 v.tipo_pago,
@@ -501,8 +503,35 @@ class Sell
 
     public function listarDetalle($idventa)
     {
-        $sql = "SELECT dv.idventa,dv.idarticulo,a.nombre,a.stock, dv.cantidad,dv.precio_compra,dv.precio_venta,dv.descuento,(dv.cantidad*dv.precio_venta-dv.descuento) as subtotal, v.total_venta, v.impuesto FROM detalle_venta dv INNER JOIN articulo a ON dv.idarticulo=a.idarticulo INNER JOIN venta v ON v.idventa=dv.idventa WHERE dv.idventa='$idventa'";
-        return $this->conexion->getDataAll($sql);
+        $sql = "SELECT
+                    dv.idventa,
+                    dv.idarticulo,
+                    a.nombre,
+                    a.stock,
+                    dv.cantidad,
+                    dv.precio_compra,
+                    dv.precio_venta,
+                    dv.descuento,
+                    (
+                        dv.cantidad * dv.precio_venta
+                        - dv.descuento
+                    ) AS subtotal,
+                    v.total_venta,
+                    v.descuento_total,
+                    v.descuento_porcentaje,
+                    v.impuesto
+                FROM detalle_venta dv
+                INNER JOIN articulo a
+                    ON a.idarticulo = dv.idarticulo
+                INNER JOIN venta v
+                    ON v.idventa = dv.idventa
+                WHERE dv.idventa = ?
+                ORDER BY dv.idarticulo";
+
+        return $this->conexion->getDataAll(
+            $sql,
+            [(int)$idventa]
+        );
     }
 
     //listar registros

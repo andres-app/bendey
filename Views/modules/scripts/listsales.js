@@ -176,6 +176,43 @@ function mostrar(idventa) {
         )
       );
 
+      const totalVenta =
+        parseFloat(data.total_venta) || 0;
+
+      const descuentoVenta =
+        parseFloat(data.descuento_total) || 0;
+
+      $("#total_ventam").text(
+        "S/ " + formatearNumero(totalVenta)
+      );
+
+      $("#descuento_ventam").text(
+        "S/ " + formatearNumero(descuentoVenta)
+      );
+
+      if (descuentoVenta > 0) {
+        $("#descuentoResumenWrap").show();
+      } else {
+        $("#descuentoResumenWrap").hide();
+      }
+
+      const comprobanteResumen = [
+        String(data.tipo_comprobante || "").trim(),
+        [
+          String(data.serie_comprobante || "").trim(),
+          String(data.num_comprobante || "").trim(),
+        ]
+          .filter(Boolean)
+          .join("-"),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      $("#modalComprobanteResumen").text(
+        comprobanteResumen ||
+        "Información completa del comprobante"
+      );
+
       /*
       |--------------------------------------------------------------------------
       | FORMA Y CONDICIÓN
@@ -247,7 +284,7 @@ function mostrar(idventa) {
       $("#detallesm").html(`
         <tbody>
           <tr>
-            <td class="text-center text-danger">
+            <td colspan="5" class="venta-detalle-vacio text-danger">
               No se pudo cargar el detalle de productos.
             </td>
           </tr>
@@ -525,6 +562,12 @@ function limpiarVistaVenta() {
   $("#impuestom").val("");
   $("#tipo_pagom").val("");
   $("#condicion_pagom").val("");
+  $("#total_ventam").text("S/ 0.00");
+  $("#descuento_ventam").text("S/ 0.00");
+  $("#descuentoResumenWrap").hide();
+  $("#modalComprobanteResumen").text(
+    "Información completa del comprobante"
+  );
 
   $("#detallePagom").empty();
   $("#detalleCuotasm").empty();
@@ -541,7 +584,7 @@ function limpiarVistaVenta() {
   $("#detallesm").html(`
     <tbody>
       <tr>
-        <td class="text-center text-muted">
+        <td colspan="5" class="venta-detalle-vacio">
           Cargando detalle...
         </td>
       </tr>
@@ -592,7 +635,7 @@ function obtenerBadgeCuota(estado) {
   switch (estado) {
     case "PAGADO":
       return `
-        <span class="badge badge-success">
+        <span class="venta-estado-cuota cuota-pagada">
           Pagado
         </span>
       `;
@@ -600,21 +643,21 @@ function obtenerBadgeCuota(estado) {
     case "PARCIAL":
     case "PAGO_PARCIAL":
       return `
-        <span class="badge badge-warning">
+        <span class="venta-estado-cuota cuota-parcial">
           Pago parcial
         </span>
       `;
 
     case "VENCIDO":
       return `
-        <span class="badge badge-danger">
+        <span class="venta-estado-cuota cuota-vencida">
           Vencido
         </span>
       `;
 
     case "ANULADO":
       return `
-        <span class="badge badge-secondary">
+        <span class="venta-estado-cuota cuota-anulada">
           Anulado
         </span>
       `;
@@ -622,7 +665,7 @@ function obtenerBadgeCuota(estado) {
     case "PENDIENTE":
     default:
       return `
-        <span class="badge badge-info">
+        <span class="venta-estado-cuota cuota-pendiente">
           Pendiente
         </span>
       `;

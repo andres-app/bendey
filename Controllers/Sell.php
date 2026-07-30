@@ -1820,12 +1820,21 @@ switch ($op) {
         $tasaImpuesto = 18.00;
 
         if (!empty($negocio)) {
-            $simbolo = $negocio[0]['simbolo'] ?? 'S/';
-            $nombreImpuesto =
-                $negocio[0]['nombre_impuesto'] ?? 'IGV';
+            $simbolo = trim(
+                (string)($negocio[0]['simbolo'] ?? 'S/')
+            );
 
-            $tasaConfigurada =
-                (float)($negocio[0]['monto_impuesto'] ?? 18);
+            $nombreImpuesto = trim(
+                (string)(
+                    $negocio[0]['nombre_impuesto']
+                    ?? 'IGV'
+                )
+            );
+
+            $tasaConfigurada = (float)(
+                $negocio[0]['monto_impuesto']
+                ?? 18
+            );
 
             if ($tasaConfigurada > 0) {
                 $tasaImpuesto = $tasaConfigurada;
@@ -1834,141 +1843,196 @@ switch ($op) {
 
         $id = (int)($_GET['id'] ?? 0);
         $detalles = $sell->listarDetalle($id);
-        $totalVenta = 0.00;
+
+        $simboloHtml = htmlspecialchars(
+            $simbolo !== '' ? $simbolo : 'S/',
+            ENT_QUOTES,
+            'UTF-8'
+        );
+
+        $nombreImpuestoHtml = htmlspecialchars(
+            $nombreImpuesto !== '' ? $nombreImpuesto : 'IGV',
+            ENT_QUOTES,
+            'UTF-8'
+        );
 
         echo '
-            <thead style="background-color:#A9D0F5">
-                <th>Opciones</th>
-                <th>Artículo</th>
-                <th>Cantidad</th>
-                <th>Precio Venta</th>
-                <th>Descuento</th>
-                <th>Total</th>
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th class="text-center">Cantidad</th>
+                    <th class="text-right">Precio unitario</th>
+                    <th class="text-right">Descuento</th>
+                    <th class="text-right">Importe</th>
+                </tr>
             </thead>
+            <tbody>
         ';
 
-        foreach ($detalles as $reg) {
-            $totalArticulo =
-                ((float)$reg['precio_venta']
-                    * (float)$reg['cantidad'])
-                - (float)$reg['descuento'];
+        if (!is_array($detalles) || count($detalles) === 0) {
+            echo '
+                <tr>
+                    <td colspan="5" class="venta-detalle-vacio">
+                        No se encontraron productos para esta venta.
+                    </td>
+                </tr>
+                </tbody>
+            ';
 
-            $totalVenta += $totalArticulo;
+            break;
+        }
+
+        $subtotalProductos = 0.00;
+        $descuentoDetalle = 0.00;
+
+        foreach ($detalles as $reg) {
+            $cantidad = (float)($reg['cantidad'] ?? 0);
+            $precioVenta = (float)($reg['precio_venta'] ?? 0);
+            $descuentoLinea = (float)($reg['descuento'] ?? 0);
+
+            $importeBruto = round(
+                $cantidad * $precioVenta,
+                2
+            );
+
+            $importeLinea = round(
+                $importeBruto - $descuentoLinea,
+                2
+            );
+
+            $subtotalProductos += $importeBruto;
+            $descuentoDetalle += $descuentoLinea;
+
+            $cantidadTexto = abs(
+                $cantidad - round($cantidad)
+            ) < 0.00001
+                ? number_format($cantidad, 0, '.', '')
+                : number_format($cantidad, 2, '.', '');
 
             echo '
-                <tr class="filas">
-                    <td></td>
-                    <td>' .
+                <tr>
+                    <td>
+                        <div class="venta-producto-nombre">' .
                 htmlspecialchars(
-                    $reg['nombre'],
+                    (string)($reg['nombre'] ?? 'Producto'),
                     ENT_QUOTES,
                     'UTF-8'
                 ) .
+                '</div>
+                    </td>
+                    <td class="text-center venta-cantidad">' .
+                $cantidadTexto .
                 '</td>
-                    <td>' .
-                number_format(
-                    (float)$reg['cantidad'],
-                    2,
-                    '.',
-                    ''
-                ) .
+                    <td class="text-right">' .
+                $simboloHtml . ' ' .
+                number_format($precioVenta, 2, '.', ',') .
                 '</td>
-                    <td>' .
-                number_format(
-                    (float)$reg['precio_venta'],
-                    2
-                ) .
+                    <td class="text-right">' .
+                $simboloHtml . ' ' .
+                number_format($descuentoLinea, 2, '.', ',') .
                 '</td>
-                    <td>' .
-                number_format(
-                    (float)$reg['descuento'],
-                    2
-                ) .
-                '</td>
-                    <td>' .
-                number_format(
-                    $totalArticulo,
-                    2
-                ) .
+                    <td class="text-right venta-importe">' .
+                $simboloHtml . ' ' .
+                number_format($importeLinea, 2, '.', ',') .
                 '</td>
                 </tr>
             ';
         }
 
-        /*
-         * Los precios incluyen IGV.
-         * Base = Total / 1.18
-         * IGV = Total - Base
-         */
+        $subtotalProductos = round(
+            $subtotalProductos,
+            2
+        );
+
+        $descuentoCabecera = round(
+            (float)($detalles[0]['descuento_total'] ?? 0),
+            2
+        );
+
+        $totalVentaRegistrado = round(
+            (float)($detalles[0]['total_venta'] ?? 0),
+            2
+        );
+
+        $totalCalculado = round(
+            $subtotalProductos
+                - $descuentoDetalle
+                - $descuentoCabecera,
+            2
+        );
+
+        $totalVenta = $totalVentaRegistrado > 0
+            ? $totalVentaRegistrado
+            : max($totalCalculado, 0);
+
+        $descuentoTotal = max(
+            round(
+                $subtotalProductos - $totalVenta,
+                2
+            ),
+            0
+        );
+
         $factor = 1 + ($tasaImpuesto / 100);
 
-        $subtotalSinImpuesto = $factor > 0
+        $baseImponible = $factor > 0
             ? round($totalVenta / $factor, 2)
             : $totalVenta;
 
         $importeImpuesto = round(
-            $totalVenta - $subtotalSinImpuesto,
+            $totalVenta - $baseImponible,
             2
         );
 
         echo '
+            </tbody>
             <tfoot>
-                <th>
-                    <span>Subtotal</span><br>
-                    <span id="valor_impuestoc">' .
-            htmlspecialchars(
-                $nombreImpuesto,
-                ENT_QUOTES,
-                'UTF-8'
-            ) .
-            ' ' .
-            number_format(
-                $tasaImpuesto,
-                2
-            ) .
-            '%</span><br>
-                    <span>TOTAL</span>
-                </th>
+                <tr class="venta-resumen-fila">
+                    <th colspan="4" class="text-right">
+                        Subtotal de productos
+                    </th>
+                    <th class="text-right">' .
+            $simboloHtml . ' ' .
+            number_format($subtotalProductos, 2, '.', ',') .
+            '</th>
+                </tr>
+        ';
 
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
+        if ($descuentoTotal > 0) {
+            echo '
+                <tr class="venta-resumen-fila venta-resumen-descuento">
+                    <th colspan="4" class="text-right">
+                        Descuento aplicado
+                    </th>
+                    <th class="text-right">
+                        − ' .
+                $simboloHtml . ' ' .
+                number_format($descuentoTotal, 2, '.', ',') .
+                '
+                    </th>
+                </tr>
+            ';
+        }
 
-                <th>
-                    <span class="pull-right" id="total">' .
-            $simbolo .
-            ' ' .
-            number_format(
-                $subtotalSinImpuesto,
-                2,
-                '.',
-                ''
-            ) .
-            '</span><br>
-
-                    <span class="pull-right" id="most_imp">' .
-            $simbolo .
-            ' ' .
-            number_format(
-                $importeImpuesto,
-                2,
-                '.',
-                ''
-            ) .
-            '</span><br>
-
-                    <span class="pull-right" id="most_total">' .
-            $simbolo .
-            ' ' .
-            number_format(
-                $totalVenta,
-                2,
-                '.',
-                ''
-            ) .
-            '</span>
-                </th>
+        echo '
+                <tr class="venta-resumen-total">
+                    <th colspan="4" class="text-right">
+                        <span>Total de la venta</span>
+                        <small>
+                            Incluye ' .
+            $nombreImpuestoHtml . ' ' .
+            number_format($tasaImpuesto, 2, '.', '') .
+            '%: ' .
+            $simboloHtml . ' ' .
+            number_format($importeImpuesto, 2, '.', ',') .
+            '
+                        </small>
+                    </th>
+                    <th class="text-right">' .
+            $simboloHtml . ' ' .
+            number_format($totalVenta, 2, '.', ',') .
+            '</th>
+                </tr>
             </tfoot>
         ';
 
