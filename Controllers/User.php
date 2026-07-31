@@ -61,6 +61,208 @@ function escapar($valor)
 }
 
 
+/**
+ * Valida un token de Cloudflare Turnstile contra Siteverify.
+ * La clave secreta nunca se envía al navegador.
+ */
+function validarTurnstile($token)
+{
+    $token = trim((string)$token);
+
+    if ($token === '') {
+        return array(
+            'ok' => false,
+            'mensaje' => 'Completa la verificación de seguridad.'
+        );
+    }
+
+    $rutaConfiguracion = __DIR__ . '/../Config/turnstile.php';
+
+    if (!is_file($rutaConfiguracion)) {
+        error_log('[TURNSTILE] No existe Config/turnstile.php');
+
+        return array(
+            'ok' => false,
+            'mensaje' => 'La verificación de seguridad no está configurada.'
+        );
+    }
+
+    $configuracion = require $rutaConfiguracion;
+
+    if (!is_array($configuracion)) {
+        error_log('[TURNSTILE] Configuración inválida.');
+
+        return array(
+            'ok' => false,
+            'mensaje' => 'La verificación de seguridad no está configurada.'
+        );
+    }
+
+    $claveSecreta = trim((string)($configuracion['secret_key'] ?? ''));
+    $accionEsperada = trim((string)($configuracion['expected_action'] ?? 'login'));
+    $hostsPermitidos = $configuracion['allowed_hostnames'] ?? array();
+    $hostsPermitidos = is_array($hostsPermitidos) ? $hostsPermitidos : array();
+    $hostsPermitidos = array_values(
+        array_filter(
+            array_map(
+                static function ($host) {
+                    return strtolower(trim((string)$host));
+                },
+                $hostsPermitidos
+            )
+        )
+    );
+
+    if (
+        $claveSecreta === ''
+        || strpos($claveSecreta, 'REEMPLAZA_') === 0
+    ) {
+        error_log('[TURNSTILE] Falta configurar secret_key.');
+
+        return array(
+            'ok' => false,
+            'mensaje' => 'La verificación de seguridad no está configurada.'
+        );
+    }
+
+    $datos = array(
+        'secret' => $claveSecreta,
+        'response' => $token
+    );
+
+    $ipRemota = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+
+    if ($ipRemota !== '') {
+        $datos['remoteip'] = $ipRemota;
+    }
+
+    $url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+    $respuestaHttp = false;
+
+    if (function_exists('curl_init')) {
+        $curl = curl_init($url);
+
+        curl_setopt_array(
+            $curl,
+            array(
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => http_build_query($datos),
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_HTTPHEADER => array(
+                    'Content-Type: application/x-www-form-urlencoded'
+                ),
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2
+            )
+        );
+
+        $respuestaHttp = curl_exec($curl);
+        $errorCurl = curl_error($curl);
+        $codigoHttp = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        if ($respuestaHttp === false || $codigoHttp < 200 || $codigoHttp >= 300) {
+            error_log(
+                '[TURNSTILE] Error HTTP/cURL. Código: '
+                . $codigoHttp
+                . '. Detalle: '
+                . $errorCurl
+            );
+
+            return array(
+                'ok' => false,
+                'mensaje' => 'No se pudo validar la seguridad. Intenta nuevamente.'
+            );
+        }
+    } elseif ((bool)ini_get('allow_url_fopen')) {
+        $contexto = stream_context_create(
+            array(
+                'http' => array(
+                    'method' => 'POST',
+                    'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                    'content' => http_build_query($datos),
+                    'timeout' => 10,
+                    'ignore_errors' => true
+                )
+            )
+        );
+
+        $respuestaHttp = @file_get_contents($url, false, $contexto);
+
+        if ($respuestaHttp === false) {
+            error_log('[TURNSTILE] No se pudo conectar mediante file_get_contents.');
+
+            return array(
+                'ok' => false,
+                'mensaje' => 'No se pudo validar la seguridad. Intenta nuevamente.'
+            );
+        }
+    } else {
+        error_log('[TURNSTILE] El servidor no tiene cURL ni allow_url_fopen disponible.');
+
+        return array(
+            'ok' => false,
+            'mensaje' => 'El servidor no puede validar la seguridad en este momento.'
+        );
+    }
+
+    $resultado = json_decode((string)$respuestaHttp, true);
+
+    if (!is_array($resultado)) {
+        error_log('[TURNSTILE] La respuesta de Siteverify no es JSON válido.');
+
+        return array(
+            'ok' => false,
+            'mensaje' => 'No se pudo validar la seguridad. Intenta nuevamente.'
+        );
+    }
+
+    if (empty($resultado['success'])) {
+        $codigos = $resultado['error-codes'] ?? array('desconocido');
+        $codigos = is_array($codigos) ? implode(', ', $codigos) : (string)$codigos;
+
+        error_log('[TURNSTILE] Token rechazado: ' . $codigos);
+
+        return array(
+            'ok' => false,
+            'mensaje' => 'La verificación de seguridad venció o no es válida. Intenta nuevamente.'
+        );
+    }
+
+    if (
+        $accionEsperada !== ''
+        && (string)($resultado['action'] ?? '') !== $accionEsperada
+    ) {
+        error_log('[TURNSTILE] La acción recibida no coincide con la esperada.');
+
+        return array(
+            'ok' => false,
+            'mensaje' => 'La verificación de seguridad no corresponde a este formulario.'
+        );
+    }
+
+    if (!empty($hostsPermitidos)) {
+        $hostname = strtolower(trim((string)($resultado['hostname'] ?? '')));
+
+        if ($hostname === '' || !in_array($hostname, $hostsPermitidos, true)) {
+            error_log('[TURNSTILE] Hostname no permitido: ' . $hostname);
+
+            return array(
+                'ok' => false,
+                'mensaje' => 'La verificación de seguridad no corresponde a este sitio.'
+            );
+        }
+    }
+
+    return array(
+        'ok' => true,
+        'mensaje' => 'Verificación correcta.'
+    );
+}
+
+
 function avatarUsuarioPredeterminado()
 {
     $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">'
@@ -500,11 +702,21 @@ switch ($op) {
         break;
 
     case 'verificar':
+        header('Content-Type: text/plain; charset=utf-8');
+
         $login = trim((string)($_POST['nombre'] ?? ''));
         $clave = (string)($_POST['clave'] ?? '');
+        $tokenTurnstile = trim((string)($_POST['cf-turnstile-response'] ?? ''));
 
         if ($login === '' || $clave === '') {
             echo '0';
+            break;
+        }
+
+        $validacionTurnstile = validarTurnstile($tokenTurnstile);
+
+        if (empty($validacionTurnstile['ok'])) {
+            echo (string)($validacionTurnstile['mensaje'] ?? 'No se pudo validar la seguridad.');
             break;
         }
 
