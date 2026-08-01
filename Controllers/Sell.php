@@ -1820,12 +1820,21 @@ switch ($op) {
         $tasaImpuesto = 18.00;
 
         if (!empty($negocio)) {
-            $simbolo = $negocio[0]['simbolo'] ?? 'S/';
-            $nombreImpuesto =
-                $negocio[0]['nombre_impuesto'] ?? 'IGV';
+            $simbolo = trim(
+                (string)($negocio[0]['simbolo'] ?? 'S/')
+            );
 
-            $tasaConfigurada =
-                (float)($negocio[0]['monto_impuesto'] ?? 18);
+            $nombreImpuesto = trim(
+                (string)(
+                    $negocio[0]['nombre_impuesto']
+                    ?? 'IGV'
+                )
+            );
+
+            $tasaConfigurada = (float)(
+                $negocio[0]['monto_impuesto']
+                ?? 18
+            );
 
             if ($tasaConfigurada > 0) {
                 $tasaImpuesto = $tasaConfigurada;
@@ -1834,143 +1843,504 @@ switch ($op) {
 
         $id = (int)($_GET['id'] ?? 0);
         $detalles = $sell->listarDetalle($id);
-        $totalVenta = 0.00;
+
+        $simboloHtml = htmlspecialchars(
+            $simbolo !== '' ? $simbolo : 'S/',
+            ENT_QUOTES,
+            'UTF-8'
+        );
+
+        $nombreImpuestoHtml = htmlspecialchars(
+            $nombreImpuesto !== '' ? $nombreImpuesto : 'IGV',
+            ENT_QUOTES,
+            'UTF-8'
+        );
 
         echo '
-            <thead style="background-color:#A9D0F5">
-                <th>Opciones</th>
-                <th>Artículo</th>
-                <th>Cantidad</th>
-                <th>Precio Venta</th>
-                <th>Descuento</th>
-                <th>Total</th>
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th class="text-center">Cantidad</th>
+                    <th class="text-right">Precio unitario</th>
+                    <th class="text-right">Descuento</th>
+                    <th class="text-right">Importe</th>
+                </tr>
             </thead>
+            <tbody>
         ';
 
-        foreach ($detalles as $reg) {
-            $totalArticulo =
-                ((float)$reg['precio_venta']
-                    * (float)$reg['cantidad'])
-                - (float)$reg['descuento'];
+        if (!is_array($detalles) || count($detalles) === 0) {
+            echo '
+                <tr>
+                    <td colspan="5" class="venta-detalle-vacio">
+                        No se encontraron productos para esta venta.
+                    </td>
+                </tr>
+                </tbody>
+            ';
 
-            $totalVenta += $totalArticulo;
+            break;
+        }
+
+        $subtotalProductos = 0.00;
+        $descuentoDetalle = 0.00;
+
+        foreach ($detalles as $reg) {
+            $cantidad = (float)($reg['cantidad'] ?? 0);
+            $precioVenta = (float)($reg['precio_venta'] ?? 0);
+            $descuentoLinea = (float)($reg['descuento'] ?? 0);
+
+            $importeBruto = round(
+                $cantidad * $precioVenta,
+                2
+            );
+
+            $importeLinea = round(
+                $importeBruto - $descuentoLinea,
+                2
+            );
+
+            $subtotalProductos += $importeBruto;
+            $descuentoDetalle += $descuentoLinea;
+
+            $cantidadTexto = abs(
+                $cantidad - round($cantidad)
+            ) < 0.00001
+                ? number_format($cantidad, 0, '.', '')
+                : number_format($cantidad, 2, '.', '');
 
             echo '
-                <tr class="filas">
-                    <td></td>
-                    <td>' .
+                <tr>
+                    <td>
+                        <div class="venta-producto-nombre">' .
                 htmlspecialchars(
-                    $reg['nombre'],
+                    (string)($reg['nombre'] ?? 'Producto'),
                     ENT_QUOTES,
                     'UTF-8'
                 ) .
+                '</div>
+                    </td>
+                    <td class="text-center venta-cantidad">' .
+                $cantidadTexto .
                 '</td>
-                    <td>' .
-                number_format(
-                    (float)$reg['cantidad'],
-                    2,
-                    '.',
-                    ''
-                ) .
+                    <td class="text-right">' .
+                $simboloHtml . ' ' .
+                number_format($precioVenta, 2, '.', ',') .
                 '</td>
-                    <td>' .
-                number_format(
-                    (float)$reg['precio_venta'],
-                    2
-                ) .
+                    <td class="text-right">' .
+                $simboloHtml . ' ' .
+                number_format($descuentoLinea, 2, '.', ',') .
                 '</td>
-                    <td>' .
-                number_format(
-                    (float)$reg['descuento'],
-                    2
-                ) .
-                '</td>
-                    <td>' .
-                number_format(
-                    $totalArticulo,
-                    2
-                ) .
+                    <td class="text-right venta-importe">' .
+                $simboloHtml . ' ' .
+                number_format($importeLinea, 2, '.', ',') .
                 '</td>
                 </tr>
             ';
         }
 
-        /*
-         * Los precios incluyen IGV.
-         * Base = Total / 1.18
-         * IGV = Total - Base
-         */
+        $subtotalProductos = round(
+            $subtotalProductos,
+            2
+        );
+
+        $descuentoCabecera = round(
+            (float)($detalles[0]['descuento_total'] ?? 0),
+            2
+        );
+
+        $totalVentaRegistrado = round(
+            (float)($detalles[0]['total_venta'] ?? 0),
+            2
+        );
+
+        $totalCalculado = round(
+            $subtotalProductos
+                - $descuentoDetalle
+                - $descuentoCabecera,
+            2
+        );
+
+        $totalVenta = $totalVentaRegistrado > 0
+            ? $totalVentaRegistrado
+            : max($totalCalculado, 0);
+
+        $descuentoTotal = max(
+            round(
+                $subtotalProductos - $totalVenta,
+                2
+            ),
+            0
+        );
+
         $factor = 1 + ($tasaImpuesto / 100);
 
-        $subtotalSinImpuesto = $factor > 0
+        $baseImponible = $factor > 0
             ? round($totalVenta / $factor, 2)
             : $totalVenta;
 
         $importeImpuesto = round(
-            $totalVenta - $subtotalSinImpuesto,
+            $totalVenta - $baseImponible,
             2
         );
 
         echo '
+            </tbody>
             <tfoot>
-                <th>
-                    <span>Subtotal</span><br>
-                    <span id="valor_impuestoc">' .
-            htmlspecialchars(
-                $nombreImpuesto,
-                ENT_QUOTES,
-                'UTF-8'
-            ) .
-            ' ' .
-            number_format(
-                $tasaImpuesto,
-                2
-            ) .
-            '%</span><br>
-                    <span>TOTAL</span>
-                </th>
+                <tr class="venta-resumen-fila">
+                    <th colspan="4" class="text-right">
+                        Subtotal de productos
+                    </th>
+                    <th class="text-right">' .
+            $simboloHtml . ' ' .
+            number_format($subtotalProductos, 2, '.', ',') .
+            '</th>
+                </tr>
+        ';
 
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
+        if ($descuentoTotal > 0) {
+            echo '
+                <tr class="venta-resumen-fila venta-resumen-descuento">
+                    <th colspan="4" class="text-right">
+                        Descuento aplicado
+                    </th>
+                    <th class="text-right">
+                        − ' .
+                $simboloHtml . ' ' .
+                number_format($descuentoTotal, 2, '.', ',') .
+                '
+                    </th>
+                </tr>
+            ';
+        }
 
-                <th>
-                    <span class="pull-right" id="total">' .
-            $simbolo .
-            ' ' .
-            number_format(
-                $subtotalSinImpuesto,
-                2,
-                '.',
-                ''
-            ) .
-            '</span><br>
-
-                    <span class="pull-right" id="most_imp">' .
-            $simbolo .
-            ' ' .
-            number_format(
-                $importeImpuesto,
-                2,
-                '.',
-                ''
-            ) .
-            '</span><br>
-
-                    <span class="pull-right" id="most_total">' .
-            $simbolo .
-            ' ' .
-            number_format(
-                $totalVenta,
-                2,
-                '.',
-                ''
-            ) .
-            '</span>
-                </th>
+        echo '
+                <tr class="venta-resumen-total">
+                    <th colspan="4" class="text-right">
+                        <span>Total de la venta</span>
+                        <small>
+                            Incluye ' .
+            $nombreImpuestoHtml . ' ' .
+            number_format($tasaImpuesto, 2, '.', '') .
+            '%: ' .
+            $simboloHtml . ' ' .
+            number_format($importeImpuesto, 2, '.', ',') .
+            '
+                        </small>
+                    </th>
+                    <th class="text-right">' .
+            $simboloHtml . ' ' .
+            number_format($totalVenta, 2, '.', ',') .
+            '</th>
+                </tr>
             </tfoot>
         ';
+
+        break;
+
+    // =========================================================
+    // PREPARAR DUPLICACIÓN COMO NUEVA VENTA
+    // =========================================================
+    case 'duplicar':
+
+        if (
+            !isset($_SESSION['nombre'])
+            || (int)($_SESSION['ventas'] ?? 0) !== 1
+        ) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'Acceso no autorizado.'
+            ]);
+        }
+
+        $idOrigen = (int)(
+            $_GET['idventa']
+            ?? $_POST['idventa']
+            ?? 0
+        );
+
+        if ($idOrigen <= 0) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'El comprobante de origen no es válido.'
+            ]);
+        }
+
+        $plantilla = $sell->obtenerDatosDuplicacion(
+            $idOrigen
+        );
+
+        if (!is_array($plantilla)) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'No se encontró el comprobante que desea duplicar.'
+            ]);
+        }
+
+        $cabecera = is_array(
+            $plantilla['cabecera'] ?? null
+        )
+            ? $plantilla['cabecera']
+            : [];
+
+        $detallesOriginales = is_array(
+            $plantilla['detalles'] ?? null
+        )
+            ? $plantilla['detalles']
+            : [];
+
+        $tipoComprobanteOrigen = trim(
+            (string)(
+                $cabecera['tipo_comprobante']
+                ?? ''
+            )
+        );
+
+        $tipoNormalizadoOrigen = mb_strtoupper(
+            $tipoComprobanteOrigen,
+            'UTF-8'
+        );
+
+        if (
+            !str_contains($tipoNormalizadoOrigen, 'FACTURA')
+            && !str_contains($tipoNormalizadoOrigen, 'BOLETA')
+        ) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'Solo se pueden duplicar facturas o boletas.'
+            ]);
+        }
+
+        $productos = [];
+        $advertencias = [];
+
+        foreach ($detallesOriginales as $detalle) {
+            $idArticulo = (int)(
+                $detalle['idarticulo']
+                ?? 0
+            );
+
+            $cantidadOriginal = max(
+                0,
+                (int)round(
+                    (float)(
+                        $detalle['cantidad']
+                        ?? 0
+                    )
+                )
+            );
+
+            $stockDisponible = max(
+                0,
+                (int)floor(
+                    (float)(
+                        $detalle['stock_disponible']
+                        ?? 0
+                    )
+                )
+            );
+
+            $articuloActivo = (int)(
+                $detalle['articulo_activo']
+                ?? 0
+            ) === 1;
+
+            $cantidadCargar = min(
+                $cantidadOriginal,
+                $stockDisponible
+            );
+
+            $nombreArticulo = trim(
+                (string)(
+                    $detalle['articulo']
+                    ?? 'Producto'
+                )
+            );
+
+            $puedeCargar = (
+                $idArticulo > 0
+                && $articuloActivo
+                && $stockDisponible > 0
+                && $cantidadCargar > 0
+            );
+
+            if (!$articuloActivo) {
+                $advertencias[] =
+                    $nombreArticulo
+                    . ': el producto está inactivo y no fue agregado.';
+            } elseif ($stockDisponible <= 0) {
+                $advertencias[] =
+                    $nombreArticulo
+                    . ': no tiene stock disponible y no fue agregado.';
+            } elseif ($cantidadCargar < $cantidadOriginal) {
+                $advertencias[] =
+                    $nombreArticulo
+                    . ': la venta original tenía '
+                    . $cantidadOriginal
+                    . ', pero se cargaron '
+                    . $cantidadCargar
+                    . ' por el stock disponible actual.';
+            }
+
+            $productos[] = [
+                'idingreso' => (int)(
+                    $detalle['idingreso']
+                    ?? 0
+                ),
+                'idarticulo' => $idArticulo,
+                'codigo' => trim(
+                    (string)(
+                        $detalle['codigo']
+                        ?? ''
+                    )
+                ),
+                'articulo' => $nombreArticulo,
+                'precio_compra' => round(
+                    (float)(
+                        $detalle['precio_compra_actual']
+                        ?? $detalle['precio_compra_original']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'precio_venta' => round(
+                    (float)(
+                        $detalle['precio_venta']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'cantidad_original' => $cantidadOriginal,
+                'cantidad_cargar' => $cantidadCargar,
+                'stock' => $stockDisponible,
+                'puede_cargar' => $puedeCargar
+            ];
+        }
+
+        $idFormaPagoOrigen = (int)(
+            $cabecera['idforma_pago']
+            ?? 0
+        );
+
+        if ($idFormaPagoOrigen > 0) {
+            $formaPagoOrigen = $sell->getConexion()->getData(
+                "SELECT
+                    nombre,
+                    es_combinado
+                 FROM forma_pago
+                 WHERE idforma_pago = ?
+                 LIMIT 1",
+                [$idFormaPagoOrigen]
+            );
+
+            if (
+                is_array($formaPagoOrigen)
+                && (int)(
+                    $formaPagoOrigen['es_combinado']
+                    ?? 0
+                ) === 1
+            ) {
+                $advertencias[] =
+                    'La venta original usó pago mixto. Debe volver a distribuir los importes antes de procesar.';
+            }
+        }
+
+        responderJson([
+            'success' => true,
+            'mensaje' =>
+                'El comprobante fue cargado como plantilla editable.',
+            'origen' => [
+                'idventa' => (int)(
+                    $cabecera['idventa']
+                    ?? 0
+                ),
+                'comprobante' => trim(
+                    (string)(
+                        $cabecera['serie_comprobante']
+                        ?? ''
+                    )
+                )
+                    . '-'
+                    . trim(
+                        (string)(
+                            $cabecera['num_comprobante']
+                            ?? ''
+                        )
+                    )
+            ],
+            'venta' => [
+                'tipo_comprobante' => $tipoComprobanteOrigen,
+                'tipo_pago' => trim(
+                    (string)(
+                        $cabecera['tipo_pago']
+                        ?? ''
+                    )
+                ),
+                'idforma_pago' => $idFormaPagoOrigen,
+                'descuento_total' => round(
+                    (float)(
+                        $cabecera['descuento_total']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'descuento_porcentaje' => round(
+                    (float)(
+                        $cabecera['descuento_porcentaje']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'numero_cuotas' => (int)(
+                    $cabecera['numero_cuotas']
+                    ?? 0
+                )
+            ],
+            'cliente' => [
+                'idcliente' => (int)(
+                    $cabecera['idcliente']
+                    ?? 0
+                ),
+                'tipo_documento' => trim(
+                    (string)(
+                        $cabecera['tipo_documento']
+                        ?? ''
+                    )
+                ),
+                'num_documento' => trim(
+                    (string)(
+                        $cabecera['num_documento']
+                        ?? ''
+                    )
+                ),
+                'nombre' => trim(
+                    (string)(
+                        $cabecera['cliente']
+                        ?? ''
+                    )
+                ),
+                'direccion' => trim(
+                    (string)(
+                        $cabecera['direccion']
+                        ?? ''
+                    )
+                ),
+                'telefono' => trim(
+                    (string)(
+                        $cabecera['telefono']
+                        ?? ''
+                    )
+                ),
+                'email' => trim(
+                    (string)(
+                        $cabecera['email']
+                        ?? ''
+                    )
+                )
+            ],
+            'productos' => $productos,
+            'advertencias' => $advertencias
+        ]);
 
         break;
 
@@ -2021,35 +2391,72 @@ switch ($op) {
             );
 
             $data[] = [
-                '0' => '
-                    <div class="btn-group">
+                '0' => $reg['fecha'],
+                '1' => $reg['cliente'],
+                '2' => $reg['usuario'],
+                '3' => $reg['tipo_comprobante'],
+                '4' =>
+                $reg['serie_comprobante']
+                    . '-'
+                    . $reg['num_comprobante'],
+                '5' => number_format(
+                    (float)$reg['total_venta'],
+                    2,
+                    '.',
+                    ''
+                ),
+                '6' => generarEstadoSunatVenta(
+                    $reg
+                ),
+                '7' => '
+                    <div class="dropdown venta-acciones">
                         <button
-                            class="btn btn-info btn-sm"
-                            title="Ver"
-                            onclick="mostrar(' . $id . ')">
-                            <i class="fas fa-eye"></i>
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary dropdown-toggle venta-acciones-boton"
+                            data-toggle="dropdown"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            title="Abrir acciones de la venta">
+
+                            <i class="fas fa-ellipsis-h mr-1"></i>
+                            <span class="texto-accion">Acciones</span>
                         </button>
 
-                        <button
-                            class="btn btn-success btn-sm"
-                            title="Imprimir Ticket"
-                            onclick="window.open(\'' .
+                        <div class="dropdown-menu dropdown-menu-right venta-acciones-menu">
+                            <h6 class="dropdown-header">Venta</h6>
+
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="mostrar(' . $id . ')">
+                                <i class="fas fa-eye"></i>
+                                <span>Ver detalle</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="duplicarVenta(' . $id . ')">
+                                <i class="far fa-copy"></i>
+                                <span>Duplicar venta</span>
+                            </button>
+
+                            <div class="dropdown-divider"></div>
+                            <h6 class="dropdown-header">Comprobante</h6>
+
+                            <a
+                                class="dropdown-item"
+                                href="' .
                     $baseUrl .
                     'Reports/80mm.php?id=' .
                     $id .
-                    '\', \'_blank\')">
-                            <i class="fas fa-print"></i>
-                        </button>
+                    '"
+                                target="_blank"
+                                rel="noopener">
+                                <i class="fas fa-receipt"></i>
+                                <span>Imprimir ticket</span>
+                            </a>
 
-                        <button
-                            type="button"
-                            class="btn btn-secondary btn-sm dropdown-toggle"
-                            data-toggle="dropdown"
-                            title="Más">
-                            <span>...</span>
-                        </button>
-
-                        <div class="dropdown-menu">
                             <a
                                 class="dropdown-item"
                                 href="' .
@@ -2057,9 +2464,10 @@ switch ($op) {
                     'Reports/a4.php?id=' .
                     $id .
                     '"
-                                target="_blank">
+                                target="_blank"
+                                rel="noopener">
                                 <i class="far fa-file-pdf"></i>
-                                Imprimir A4
+                                <span>Imprimir A4</span>
                             </a>
 
                             <a
@@ -2067,47 +2475,33 @@ switch ($op) {
                                 href="https://wa.me/?text=' .
                     $whatsappTexto .
                     '"
-                                target="_blank">
-                                <i class="fab fa-whatsapp"></i>
-                                WhatsApp
+                                target="_blank"
+                                rel="noopener">
+                                <i class="far fa-comment-dots"></i>
+                                <span>Compartir por WhatsApp</span>
                             </a>
 
                             ' .
                     (
                         $reg['estado'] === 'Aceptado'
                         ? '
-                                <a
-                                    class="dropdown-item text-danger"
-                                    href="#"
-                                    onclick="anular(' .
+                            <div class="dropdown-divider"></div>
+
+                            <a
+                                class="dropdown-item venta-accion-peligro"
+                                href="#"
+                                onclick="anular(' .
                         $id .
-                        ')">
-                                    <i class="fas fa-times"></i>
-                                    Anular
-                                </a>'
+                        '); return false;">
+                                <i class="fas fa-ban"></i>
+                                <span>Anular venta</span>
+                            </a>'
                         : ''
                     ) .
                     '
                         </div>
                     </div>
-                ',
-                '1' => $reg['fecha'],
-                '2' => $reg['cliente'],
-                '3' => $reg['usuario'],
-                '4' => $reg['tipo_comprobante'],
-                '5' =>
-                $reg['serie_comprobante']
-                    . '-'
-                    . $reg['num_comprobante'],
-                '6' => number_format(
-                    (float)$reg['total_venta'],
-                    2,
-                    '.',
-                    ''
-                ),
-                '7' => generarEstadoSunatVenta(
-                    $reg
-                )
+                '
             ];
         }
 

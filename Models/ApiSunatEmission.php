@@ -310,19 +310,6 @@ class ApiSunatEmission
             return;
         }
 
-        $documentId = trim(
-            (string)(
-                $registro['document_id']
-                ?? ''
-            )
-        );
-
-        if ($documentId !== '') {
-            throw new RuntimeException(
-                'Esta venta ya tiene un documentId de APISUNAT y no puede enviarse nuevamente.'
-            );
-        }
-
         $estado = strtoupper(
             trim(
                 (string)(
@@ -332,13 +319,42 @@ class ApiSunatEmission
             )
         );
 
+        $documentId = trim(
+            (string)(
+                $registro['document_id']
+                ?? ''
+            )
+        );
+
+        /*
+         * Un comprobante rechazado, con excepción o error no fue
+         * aceptado tributariamente. Después de corregir el XML se
+         * permite reenviar el mismo correlativo. reservarEnvio()
+         * reemplazará el documentId anterior y registrará el nuevo
+         * intento de manera controlada.
+         */
+        $estadosReintentables = [
+            'RECHAZADO',
+            'EXCEPCION',
+            'ERROR',
+            'NO_ENVIADO'
+        ];
+
+        if (
+            in_array(
+                $estado,
+                $estadosReintentables,
+                true
+            )
+        ) {
+            return;
+        }
+
         $estadosBloqueados = [
             'EN_PROCESO',
             'PENDIENTE',
             'ENVIADO',
-            'ACEPTADO',
-            'RECHAZADO',
-            'EXCEPCION'
+            'ACEPTADO'
         ];
 
         if (
@@ -352,6 +368,16 @@ class ApiSunatEmission
                 'La venta ya tiene un proceso APISUNAT con estado '
                 . $estado
                 . '.'
+            );
+        }
+
+        /*
+         * Si existe documentId pero el estado está vacío o no es
+         * reconocible, se bloquea para evitar un envío duplicado.
+         */
+        if ($documentId !== '') {
+            throw new RuntimeException(
+                'Esta venta ya tiene un documentId de APISUNAT y su estado no permite reenviarla.'
             );
         }
     }

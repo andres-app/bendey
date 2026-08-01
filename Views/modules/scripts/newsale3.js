@@ -19,6 +19,21 @@ let solicitudInventarioBusquedaPedido = null;
 let resultadosBusquedaPedidoCache = [];
 let temporizadorBusquedaPedido = null;
 let indiceResultadoBusquedaPedido = -1;
+let configuracionVentaPredeterminadaCache = null;
+let configuracionVentaPredeterminadaCargada = false;
+
+const MODO_DUPLICACION_INICIAL = (() => {
+    const parametros = new URLSearchParams(
+        window.location.search
+    );
+
+    return (
+        Number.parseInt(
+            parametros.get('duplicar'),
+            10
+        ) || 0
+    ) > 0;
+})();
 
 const ESTADO_ESCANER = {
     buffer: '',
@@ -257,6 +272,7 @@ $(document).ready(function () {
     inicializarEscanerProductos();
     cargarFormasPagoMixto();
     inicializarBuscadorPedido();
+    inicializarConfiguracionVentaPredeterminada();
 
 });
 
@@ -275,6 +291,188 @@ $(document).ready(function () {
 });
 
 
+
+/*
+|--------------------------------------------------------------------------
+| CONFIGURACIÓN PREDETERMINADA DE NUEVA VENTA
+|--------------------------------------------------------------------------
+*/
+function inicializarConfiguracionVentaPredeterminada() {
+    $.ajax({
+        url: 'Controllers/Company.php',
+        type: 'GET',
+        dataType: 'json',
+        cache: false,
+        data: {
+            op: 'mostrar_datos',
+            v: Date.now()
+        }
+    }).done(function (respuesta) {
+        if (!respuesta || typeof respuesta !== 'object') {
+            return;
+        }
+
+        configuracionVentaPredeterminadaCache = respuesta;
+        configuracionVentaPredeterminadaCargada = true;
+
+        esperarSelectoresVentaListos()
+            .then(function () {
+                aplicarConfiguracionVentaPredeterminada({
+                    inicial: true
+                });
+            });
+    }).fail(function (xhr) {
+        console.warn(
+            'No se cargaron los valores predeterminados de venta:',
+            xhr.status,
+            xhr.responseText
+        );
+    });
+}
+
+function esperarSelectoresVentaListos() {
+    return new Promise(function (resolve) {
+        let intentos = 0;
+        const maximoIntentos = 100;
+
+        const temporizador = window.setInterval(function () {
+            intentos += 1;
+
+            const listos =
+                $('#tipo_comprobante option').length > 1
+                && $('#tipo_pago option').length > 1
+                && $('#forma_pago option').length > 1;
+
+            if (listos || intentos >= maximoIntentos) {
+                window.clearInterval(temporizador);
+                resolve(listos);
+            }
+        }, 100);
+    });
+}
+
+function existeSolicitudDuplicacion() {
+    return MODO_DUPLICACION_INICIAL;
+}
+
+function seleccionarOpcionVentaFlexible(
+    selector,
+    valor
+) {
+    const $select = $(selector);
+    const buscado = String(valor || '').trim();
+
+    if (!$select.length || buscado === '') {
+        return false;
+    }
+
+    const buscadoNormalizado = textoNormalizado(
+        buscado
+    );
+
+    let valorEncontrado = '';
+
+    $select.find('option').each(function () {
+        const valorOpcion = String(
+            $(this).val() || ''
+        ).trim();
+
+        const textoOpcion = String(
+            $(this).text() || ''
+        ).trim();
+
+        if (
+            valorOpcion === buscado
+            || textoNormalizado(valorOpcion)
+                === buscadoNormalizado
+            || textoNormalizado(textoOpcion)
+                === buscadoNormalizado
+        ) {
+            valorEncontrado = valorOpcion;
+            return false;
+        }
+    });
+
+    if (valorEncontrado === '') {
+        return false;
+    }
+
+    $select
+        .val(valorEncontrado)
+        .trigger('change');
+
+    return true;
+}
+
+function aplicarConfiguracionVentaPredeterminada(
+    opciones = {}
+) {
+    if (
+        !configuracionVentaPredeterminadaCargada
+        || !configuracionVentaPredeterminadaCache
+    ) {
+        return false;
+    }
+
+    /*
+     * En una duplicación, el comprobante original debe ganar.
+     * Después de guardar sí se aplican los predeterminados para
+     * preparar la siguiente venta normal.
+     */
+    if (
+        opciones.inicial === true
+        && existeSolicitudDuplicacion()
+    ) {
+        return false;
+    }
+
+    const configuracion =
+        configuracionVentaPredeterminadaCache;
+
+    seleccionarOpcionVentaFlexible(
+        '#tipo_comprobante',
+        configuracion
+            .venta_tipo_comprobante_predeterminado
+    );
+
+    seleccionarOpcionVentaFlexible(
+        '#tipo_pago',
+        configuracion
+            .venta_tipo_pago_predeterminado
+    );
+
+    const idFormaPago = Number.parseInt(
+        configuracion
+            .venta_idforma_pago_predeterminada,
+        10
+    ) || 0;
+
+    if (
+        idFormaPago > 0
+        && $('#forma_pago option[value="' + idFormaPago + '"]').length
+    ) {
+        $('#forma_pago')
+            .val(String(idFormaPago))
+            .trigger('change');
+    }
+
+    const modoEnvio = String(
+        configuracion
+            .venta_modo_envio_predeterminado
+        || ''
+    ).trim().toLowerCase();
+
+    if (
+        modoEnvio === 'inmediato'
+        || modoEnvio === 'manual'
+    ) {
+        $('#modo_envio')
+            .val(modoEnvio)
+            .trigger('change');
+    }
+
+    return true;
+}
 
 // 1. CARGA DE SELECTS DINÁMICOS
 function cargarComprobantes() {
@@ -639,6 +837,12 @@ function guardarVenta() {
                 actualizarMensajePedido();
                 mostrarSerieNumero();
 
+                window.setTimeout(function () {
+                    aplicarConfiguracionVentaPredeterminada({
+                        despuesDeGuardar: true
+                    });
+                }, 50);
+
                 /*
                  * Consultar el resultado definitivo solo cuando
                  * APISUNAT recibió el comprobante.
@@ -750,6 +954,7 @@ function calcularTotales() {
     if (totalFinal < 0) totalFinal = 0;
 
     $("#totalGeneral").text("S/" + totalFinal.toFixed(2));
+    $("#totalPedidoHeader").text("S/ " + totalFinal.toFixed(2));
 
     // 🔒 BACKEND (SIEMPRE CLARO)
     $('#descuento_total').val(descuento.toFixed(2));
@@ -3276,13 +3481,43 @@ function eliminarDetalle(indice) {
 
 function actualizarMensajePedido() {
 
-    const hayProductos = $("#detallesCards .filas").length > 0;
+    const $filas = $("#detallesCards .filas");
+    const cantidadProductos = $filas.length;
+    let totalUnidades = 0;
+
+    $("#detallesCards input[name='cantidad[]']").each(function () {
+        totalUnidades += Number.parseInt($(this).val(), 10) || 0;
+    });
+
+    const hayProductos = cantidadProductos > 0;
 
     if (hayProductos) {
         $("#contenedorPedido").addClass("con-items");
     } else {
         $("#contenedorPedido").removeClass("con-items");
     }
+
+    const textoProductos =
+        cantidadProductos === 1
+            ? "1 producto"
+            : cantidadProductos + " productos";
+
+    const textoUnidades =
+        totalUnidades === 1
+            ? "1 unidad"
+            : totalUnidades + " unidades";
+
+    $("#contadorProductosPedido").text(
+        textoProductos + " · " + textoUnidades
+    );
+
+    const totalActual = Number(
+        totalVentaActual().toFixed(2)
+    );
+
+    $("#totalPedidoHeader").text(
+        "S/ " + totalActual.toFixed(2)
+    );
 }
 
 

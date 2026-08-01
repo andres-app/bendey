@@ -1,12 +1,16 @@
 // Views/modules/scripts/generalsetting.js
 "use strict";
 
+let datosEmpresaConfiguracionCache = null;
+let opcionesVentaPredeterminadaCargadas = false;
+
 /*
 |--------------------------------------------------------------------------
 | INICIALIZACIÓN
 |--------------------------------------------------------------------------
 */
 function init() {
+    cargarOpcionesVentaPredeterminada();
     cargarDatosEmpresa();
     cargarConfiguracionCaja();
 
@@ -168,6 +172,9 @@ function cargarDatosEmpresa() {
                 )
             );
 
+            datosEmpresaConfiguracionCache = data;
+            aplicarValoresPredeterminadosVenta(data);
+
             const tokenConfigurado =
                 Number(
                     data.apisunat_token_configurado || 0
@@ -206,6 +213,162 @@ function cargarDatosEmpresa() {
             );
         }
     });
+}
+
+/*
+|--------------------------------------------------------------------------
+| OPCIONES PREDETERMINADAS DE NUEVA VENTA
+|--------------------------------------------------------------------------
+*/
+function cargarOpcionesVentaPredeterminada() {
+    const solicitudComprobantes = $.ajax({
+        url: "Controllers/Sell.php?op=selectComprobante",
+        type: "GET",
+        dataType: "html",
+        cache: false
+    }).done(function (html) {
+        $("#venta_tipo_comprobante_predeterminado")
+            .html(html)
+            .find("option:first")
+            .text("Sin comprobante predeterminado");
+    });
+
+    const solicitudTiposPago = $.ajax({
+        url: "Controllers/Paymentstype.php?op=selectTipopago",
+        type: "GET",
+        dataType: "html",
+        cache: false
+    }).done(function (html) {
+        $("#venta_tipo_pago_predeterminado")
+            .html(html)
+            .find("option:first")
+            .text("Sin tipo de pago predeterminado");
+    });
+
+    const solicitudFormasPago = $.ajax({
+        url: "Controllers/Sell.php?op=selectFormaPago",
+        type: "GET",
+        dataType: "html",
+        cache: false
+    }).done(function (html) {
+        $("#venta_idforma_pago_predeterminada")
+            .html(html)
+            .find("option:first")
+            .text("Sin forma de pago predeterminada");
+    });
+
+    $.when(
+        solicitudComprobantes,
+        solicitudTiposPago,
+        solicitudFormasPago
+    ).done(function () {
+        opcionesVentaPredeterminadaCargadas = true;
+
+        if (datosEmpresaConfiguracionCache) {
+            aplicarValoresPredeterminadosVenta(
+                datosEmpresaConfiguracionCache
+            );
+        }
+    }).fail(function () {
+        opcionesVentaPredeterminadaCargadas = false;
+
+        mostrarAlertaConfiguracion(
+            "Opciones de venta",
+            "No se pudieron cargar todos los valores disponibles para la nueva venta.",
+            "warning"
+        );
+    });
+}
+
+function aplicarValoresPredeterminadosVenta(data) {
+    if (
+        !data
+        || typeof data !== "object"
+        || !opcionesVentaPredeterminadaCargadas
+    ) {
+        return;
+    }
+
+    seleccionarOpcionConfiguracion(
+        "#venta_tipo_comprobante_predeterminado",
+        data.venta_tipo_comprobante_predeterminado || ""
+    );
+
+    seleccionarOpcionConfiguracion(
+        "#venta_tipo_pago_predeterminado",
+        data.venta_tipo_pago_predeterminado || ""
+    );
+
+    const idFormaPago = Number(
+        data.venta_idforma_pago_predeterminada || 0
+    );
+
+    $("#venta_idforma_pago_predeterminada").val(
+        idFormaPago > 0
+            ? String(idFormaPago)
+            : ""
+    );
+
+    const modoEnvio = String(
+        data.venta_modo_envio_predeterminado || ""
+    ).trim().toLowerCase();
+
+    $("#venta_modo_envio_predeterminado").val(
+        modoEnvio === "inmediato" || modoEnvio === "manual"
+            ? modoEnvio
+            : ""
+    );
+}
+
+function seleccionarOpcionConfiguracion(
+    selector,
+    valor
+) {
+    const $select = $(selector);
+    const buscado = String(valor || "").trim();
+
+    if (!$select.length || buscado === "") {
+        $select.val("");
+        return false;
+    }
+
+    const buscadoNormalizado = normalizarTextoConfiguracion(
+        buscado
+    );
+
+    let valorEncontrado = "";
+
+    $select.find("option").each(function () {
+        const valorOpcion = String(
+            $(this).val() || ""
+        ).trim();
+
+        const textoOpcion = String(
+            $(this).text() || ""
+        ).trim();
+
+        if (
+            valorOpcion === buscado
+            || normalizarTextoConfiguracion(valorOpcion)
+                === buscadoNormalizado
+            || normalizarTextoConfiguracion(textoOpcion)
+                === buscadoNormalizado
+        ) {
+            valorEncontrado = valorOpcion;
+            return false;
+        }
+    });
+
+    $select.val(valorEncontrado);
+    return valorEncontrado !== "";
+}
+
+function normalizarTextoConfiguracion(valor) {
+    return String(valor || "")
+        .trim()
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
 }
 
 /*
@@ -706,6 +869,60 @@ function guardaryeditar(e) {
         mostrarAlertaConfiguracion(
             "Persona Token inválido",
             "El Persona Token ingresado parece incompleto.",
+            "warning"
+        );
+
+        return;
+    }
+
+    const tipoComprobantePredeterminado = String(
+        $("#venta_tipo_comprobante_predeterminado").val() || ""
+    ).trim();
+
+    const tipoPagoPredeterminado = String(
+        $("#venta_tipo_pago_predeterminado").val() || ""
+    ).trim();
+
+    const formaPagoPredeterminada = Number(
+        $("#venta_idforma_pago_predeterminada").val() || 0
+    );
+
+    const comprobanteNormalizado = normalizarTextoConfiguracion(
+        tipoComprobantePredeterminado
+    );
+
+    const tipoPagoPredeterminadoTexto = String(
+        $("#venta_tipo_pago_predeterminado option:selected").text() || ""
+    ).trim();
+
+    const pagoNormalizado = normalizarTextoConfiguracion(
+        tipoPagoPredeterminado + " " + tipoPagoPredeterminadoTexto
+    );
+
+    if (
+        pagoNormalizado.includes("CREDITO")
+        && !comprobanteNormalizado.includes("FACTURA")
+    ) {
+        mostrarAlertaConfiguracion(
+            "Configuración incompatible",
+            "El pago al crédito está habilitado únicamente para facturas electrónicas. Seleccione Factura Electrónica como comprobante predeterminado.",
+            "warning"
+        );
+
+        return;
+    }
+
+    if (
+        pagoNormalizado.includes("CREDITO")
+        && formaPagoPredeterminada > 0
+        && Number(
+            $("#venta_idforma_pago_predeterminada option:selected")
+                .attr("data-combinado") || 0
+        ) === 1
+    ) {
+        mostrarAlertaConfiguracion(
+            "Forma de pago incompatible",
+            "No establezca Pago mixto como forma predeterminada para ventas al crédito.",
             "warning"
         );
 

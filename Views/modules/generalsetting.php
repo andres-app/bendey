@@ -414,6 +414,107 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                 maxlength="10">
                                         </div>
 
+                                        <!-- =========================
+                                             VALORES PREDETERMINADOS DE VENTA
+                                        ========================== -->
+
+                                        <div class="col-12 mt-3 mb-3">
+                                            <hr>
+
+                                            <h5 class="mb-1">
+                                                Valores predeterminados de nueva venta
+                                            </h5>
+
+                                            <p class="text-muted mb-0">
+                                                Estos valores se seleccionarán automáticamente al abrir
+                                                Nueva venta. Podrás cambiarlos antes de procesar cada operación.
+                                            </p>
+                                        </div>
+
+                                        <div class="form-group col-lg-3 col-md-6">
+                                            <label for="venta_tipo_comprobante_predeterminado">
+                                                Tipo de comprobante
+                                            </label>
+
+                                            <select
+                                                class="form-control"
+                                                name="venta_tipo_comprobante_predeterminado"
+                                                id="venta_tipo_comprobante_predeterminado">
+                                                <option value="">Cargando comprobantes...</option>
+                                            </select>
+
+                                            <small class="form-text text-muted">
+                                                Ejemplo: Boleta Electrónica o Factura Electrónica.
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group col-lg-3 col-md-6">
+                                            <label for="venta_tipo_pago_predeterminado">
+                                                Tipo de pago
+                                            </label>
+
+                                            <select
+                                                class="form-control"
+                                                name="venta_tipo_pago_predeterminado"
+                                                id="venta_tipo_pago_predeterminado">
+                                                <option value="">Cargando tipos de pago...</option>
+                                            </select>
+
+                                            <small class="form-text text-muted">
+                                                Ejemplo: Contado o Crédito.
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group col-lg-3 col-md-6">
+                                            <label for="venta_idforma_pago_predeterminada">
+                                                Forma de pago
+                                            </label>
+
+                                            <select
+                                                class="form-control"
+                                                name="venta_idforma_pago_predeterminada"
+                                                id="venta_idforma_pago_predeterminada">
+                                                <option value="">Cargando formas de pago...</option>
+                                            </select>
+
+                                            <small class="form-text text-muted">
+                                                Ejemplo: Efectivo, Yape, Plin o Tarjeta.
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group col-lg-3 col-md-6">
+                                            <label for="venta_modo_envio_predeterminado">
+                                                Modo de envío SUNAT
+                                            </label>
+
+                                            <select
+                                                class="form-control"
+                                                name="venta_modo_envio_predeterminado"
+                                                id="venta_modo_envio_predeterminado">
+                                                <option value="">
+                                                    Usar el valor de la pantalla
+                                                </option>
+                                                <option value="inmediato">
+                                                    Enviar inmediatamente
+                                                </option>
+                                                <option value="manual">
+                                                    Enviar manualmente después
+                                                </option>
+                                            </select>
+
+                                            <small class="form-text text-muted">
+                                                Solo aplica a facturas y boletas electrónicas.
+                                            </small>
+                                        </div>
+
+                                        <div class="col-12 mb-3">
+                                            <div class="alert alert-light border mb-0">
+                                                <i class="fas fa-info-circle mr-2 text-primary"></i>
+                                                Al duplicar una venta, los datos del comprobante original
+                                                tendrán prioridad sobre estos valores predeterminados.
+                                            </div>
+                                        </div>
+
                                         <div class="form-group col-lg-12 text-right">
 
                                             <button

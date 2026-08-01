@@ -59,6 +59,67 @@ function escaparSunat(
     );
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| ACCIÓN PRINCIPAL DEL COMPROBANTE
+|--------------------------------------------------------------------------
+| Se muestra una sola acción útil y neutral:
+| - Enviar
+| - Reintentar
+| - Consultar estado
+*/
+function generarAccionPrincipalSunat(
+    int $idventa,
+    string $estadoSunat,
+    bool $tieneDocumentId
+): string {
+    $estadosReintento = [
+        'RECHAZADO',
+        'EXCEPCION',
+        'ERROR'
+    ];
+
+    if (
+        !$tieneDocumentId
+        || $estadoSunat === 'NO_ENVIADO'
+    ) {
+        $texto = 'Enviar';
+        $titulo = 'Enviar comprobante a SUNAT';
+        $icono = 'fa-paper-plane';
+        $funcion = 'enviarSunatManual';
+    } elseif (
+        in_array(
+            $estadoSunat,
+            $estadosReintento,
+            true
+        )
+    ) {
+        $texto = 'Reintentar';
+        $titulo = 'Reintentar envío del comprobante';
+        $icono = 'fa-redo-alt';
+        $funcion = 'enviarSunatManual';
+    } else {
+        $texto = 'Consultar';
+        $titulo = 'Consultar estado actual en SUNAT';
+        $icono = 'fa-sync-alt';
+        $funcion = 'consultarSunatManual';
+    }
+
+    return '
+        <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm sunat-action-btn"
+            title="' . escaparSunat($titulo) . '"
+            onclick="' . $funcion . '(' . $idventa . ')">
+
+            <i class="fas ' . $icono . ' mr-1"></i>
+            ' . escaparSunat($texto) . '
+        </button>
+    ';
+}
+
+
 try {
     switch ($op) {
 
@@ -68,7 +129,20 @@ try {
             $data = [];
 
             foreach ($registros as $reg) {
-                $idventa = (int)$reg['idventa'];
+                $idventa = (int)(
+                    $reg['idventa']
+                    ?? 0
+                );
+
+                $documentId = trim(
+                    (string)(
+                        $reg['document_id']
+                        ?? ''
+                    )
+                );
+
+                $tieneDocumentId =
+                    $documentId !== '';
 
                 $tieneXml =
                     !empty($reg['xml'])
@@ -81,24 +155,26 @@ try {
                 $xml = $tieneXml
                     ? '<a
                             href="Controllers/Sunat.php?op=descargar&tipo=xml&idventa='
-                    . $idventa
-                    . '"
-                            target="_blank"
-                            class="badge-xml">
+                        . $idventa
+                        . '"
+                            class="sunat-file-link"
+                            title="Descargar XML">
+                            <i class="far fa-file-code mr-1"></i>
                             XML
                        </a>'
-                    : '<span class="badge-xml">—</span>';
+                    : '<span class="sunat-file-empty">—</span>';
 
                 $cdr = $tieneCdr
                     ? '<a
                             href="Controllers/Sunat.php?op=descargar&tipo=cdr&idventa='
-                    . $idventa
-                    . '"
-                            target="_blank"
-                            class="badge-cdr">
+                        . $idventa
+                        . '"
+                            class="sunat-file-link"
+                            title="Descargar CDR">
+                            <i class="far fa-file-archive mr-1"></i>
                             CDR
                        </a>'
-                    : '<span class="badge-cdr">—</span>';
+                    : '<span class="sunat-file-empty">—</span>';
 
                 $estadoSunat = strtoupper(
                     trim(
@@ -110,7 +186,7 @@ try {
                 );
 
                 if (
-                    empty($reg['document_id'])
+                    !$tieneDocumentId
                     && $estadoSunat === ''
                 ) {
                     $estadoSunat = 'NO_ENVIADO';
@@ -134,11 +210,13 @@ try {
                         break;
 
                     case 'RECHAZADO':
+                        $estado =
+                            '<span class="badge-sunat sunat-rechazado">Rechazado</span>';
+                        break;
+
                     case 'EXCEPCION':
                         $estado =
-                            '<span class="badge-sunat sunat-rechazado">'
-                            . escaparSunat($estadoSunat)
-                            . '</span>';
+                            '<span class="badge-sunat sunat-rechazado">Excepción</span>';
                         break;
 
                     case 'ERROR':
@@ -148,107 +226,75 @@ try {
 
                     case 'NO_ENVIADO':
                         $estado =
-                            '<span class="badge-sunat sunat-pendiente">'
-                            . 'No enviado'
-                            . '</span>';
+                            '<span class="badge-sunat sunat-pendiente">No enviado</span>';
                         break;
 
                     default:
                         $estado =
                             '<span class="badge-sunat sunat-pendiente">Pendiente</span>';
+                        break;
                 }
 
-                $mensaje = !empty($reg['mensaje_sunat'])
-                    ? '<small>'
-                    . escaparSunat(
-                        (string)$reg['mensaje_sunat']
+                $mensajeTexto = trim(
+                    (string)(
+                        $reg['mensaje_sunat']
+                        ?? ''
                     )
-                    . '</small>'
+                );
+
+                $mensaje = $mensajeTexto !== ''
+                    ? '<div
+                            class="sunat-response-text"
+                            title="'
+                        . escaparSunat($mensajeTexto)
+                        . '">'
+                        . escaparSunat($mensajeTexto)
+                        . '</div>'
                     : '<span class="text-muted">—</span>';
 
+                $accion =
+                    generarAccionPrincipalSunat(
+                        $idventa,
+                        $estadoSunat,
+                        $tieneDocumentId
+                    );
+
+                /*
+                 * Acciones se devuelve en la última posición,
+                 * para que aparezca al extremo derecho.
+                 */
                 $data[] = [
-                    '0' => (
-                        '<div class="btn-group">
-
-        <button
-            type="button"
-            class="btn btn-light btn-sm"
-            title="Ver detalle"
-            onclick="verDetalle('
-                        . $idventa
-                        . ')">
-
-            <i class="fas fa-eye"></i>
-        </button>'
-
-                        . (
-                            empty($reg['document_id'])
-                            ? '
-                <button
-                    type="button"
-                    class="btn btn-primary btn-sm"
-                    title="Enviar manualmente a SUNAT"
-                    onclick="enviarSunatManual('
-                            . $idventa
-                            . ')">
-
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-              '
-                            : ''
+                    '0' => escaparSunat(
+                        (string)(
+                            $reg['comprobante']
+                            ?? ''
                         )
-
-                        . (
-                            !empty($reg['document_id'])
-                            && in_array(
-                                strtoupper(
-                                    (string)(
-                                        $reg['estado_sunat']
-                                        ?? ''
-                                    )
-                                ),
-                                [
-                                    'PENDIENTE',
-                                    'EN_PROCESO',
-                                    'ENVIADO'
-                                ],
-                                true
-                            )
-                            ? '
-                <button
-                    type="button"
-                    class="btn btn-warning btn-sm"
-                    title="Consultar respuesta SUNAT"
-                    onclick="consultarSunatManual('
-                            . $idventa
-                            . ')">
-
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-              '
-                            : ''
-                        )
-
-                        . '</div>'
                     ),
                     '1' => escaparSunat(
-                        (string)$reg['comprobante']
+                        (string)(
+                            $reg['cliente']
+                            ?? ''
+                        )
                     ),
-                    '2' => escaparSunat(
-                        (string)$reg['cliente']
-                    ),
-                    '3' => 'S/ '
+                    '2' => 'S/ '
                         . number_format(
-                            (float)$reg['total'],
+                            (float)(
+                                $reg['total']
+                                ?? 0
+                            ),
                             2
                         ),
-                    '4' => $xml,
-                    '5' => $cdr,
-                    '6' => $estado,
-                    '7' => $mensaje,
-                    '8' => escaparSunat(
-                        (string)$reg['fecha']
-                    )
+                    '3' => $xml,
+                    '4' => $cdr,
+                    '5' => $estado,
+                    '6' => $mensaje,
+                    '7' => escaparSunat(
+                        (string)(
+                            $reg['fecha']
+                            ?? ''
+                        )
+                    ),
+                    '8' => $accion
                 ];
             }
 

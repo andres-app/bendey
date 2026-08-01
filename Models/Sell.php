@@ -467,6 +467,8 @@ class Sell
                 v.serie_comprobante,
                 v.num_comprobante,
                 v.total_venta,
+                v.descuento_total,
+                v.descuento_porcentaje,
                 v.impuesto,
                 v.estado,
                 v.tipo_pago,
@@ -501,8 +503,35 @@ class Sell
 
     public function listarDetalle($idventa)
     {
-        $sql = "SELECT dv.idventa,dv.idarticulo,a.nombre,a.stock, dv.cantidad,dv.precio_compra,dv.precio_venta,dv.descuento,(dv.cantidad*dv.precio_venta-dv.descuento) as subtotal, v.total_venta, v.impuesto FROM detalle_venta dv INNER JOIN articulo a ON dv.idarticulo=a.idarticulo INNER JOIN venta v ON v.idventa=dv.idventa WHERE dv.idventa='$idventa'";
-        return $this->conexion->getDataAll($sql);
+        $sql = "SELECT
+                    dv.idventa,
+                    dv.idarticulo,
+                    a.nombre,
+                    a.stock,
+                    dv.cantidad,
+                    dv.precio_compra,
+                    dv.precio_venta,
+                    dv.descuento,
+                    (
+                        dv.cantidad * dv.precio_venta
+                        - dv.descuento
+                    ) AS subtotal,
+                    v.total_venta,
+                    v.descuento_total,
+                    v.descuento_porcentaje,
+                    v.impuesto
+                FROM detalle_venta dv
+                INNER JOIN articulo a
+                    ON a.idarticulo = dv.idarticulo
+                INNER JOIN venta v
+                    ON v.idventa = dv.idventa
+                WHERE dv.idventa = ?
+                ORDER BY dv.idarticulo";
+
+        return $this->conexion->getDataAll(
+            $sql,
+            [(int)$idventa]
+        );
     }
 
     //listar registros
@@ -678,6 +707,130 @@ class Sell
             ORDER BY v.idventa DESC";
 
         return $this->conexion->getDataAll($sql);
+    }
+
+
+    /**
+     * Obtiene una venta como plantilla para registrar una nueva venta.
+     *
+     * No copia correlativo, estado SUNAT, movimientos de caja ni fechas
+     * anteriores. Los productos se contrastan con el stock disponible actual.
+     */
+    public function obtenerDatosDuplicacion(int $idventa): ?array
+    {
+        if ($idventa <= 0) {
+            return null;
+        }
+
+        $cabecera = $this->conexion->getData(
+            "SELECT
+                v.idventa,
+                v.idcliente,
+                v.tipo_comprobante,
+                v.serie_comprobante,
+                v.num_comprobante,
+                v.total_venta,
+                v.descuento_total,
+                v.descuento_porcentaje,
+                v.tipo_pago,
+                v.idforma_pago,
+                v.estado,
+
+                p.tipo_documento,
+                p.num_documento,
+                p.nombre AS cliente,
+                p.direccion,
+                p.telefono,
+                p.email,
+
+                (
+                    SELECT COUNT(*)
+                    FROM venta_cuota vc
+                    WHERE vc.idventa = v.idventa
+                ) AS numero_cuotas
+
+             FROM venta v
+
+             INNER JOIN persona p
+                ON p.idpersona = v.idcliente
+
+             WHERE v.idventa = ?
+
+             LIMIT 1",
+            [$idventa]
+        );
+
+        if (!is_array($cabecera)) {
+            return null;
+        }
+
+        $detalles = $this->conexion->getDataAll(
+            "SELECT
+                dv.iddetalle_venta,
+                dv.idarticulo,
+                dv.cantidad,
+                dv.precio_compra AS precio_compra_original,
+                dv.precio_venta,
+                dv.descuento,
+
+                a.codigo,
+                a.nombre AS articulo,
+                COALESCE(a.stock, 0) AS stock_disponible,
+                a.condicion AS articulo_activo,
+
+                COALESCE(
+                    (
+                        SELECT di.iddetalle_ingreso
+                        FROM detalle_ingreso di
+                        WHERE di.idarticulo = dv.idarticulo
+                          AND COALESCE(di.stock_venta, 0) > 0
+                        ORDER BY
+                            CASE
+                                WHEN di.stock_estado = '1' THEN 0
+                                ELSE 1
+                            END,
+                            di.iddetalle_ingreso ASC
+                        LIMIT 1
+                    ),
+                    0
+                ) AS idingreso,
+
+                COALESCE(
+                    (
+                        SELECT di.precio_compra
+                        FROM detalle_ingreso di
+                        WHERE di.idarticulo = dv.idarticulo
+                          AND COALESCE(di.stock_venta, 0) > 0
+                        ORDER BY
+                            CASE
+                                WHEN di.stock_estado = '1' THEN 0
+                                ELSE 1
+                            END,
+                            di.iddetalle_ingreso ASC
+                        LIMIT 1
+                    ),
+                    dv.precio_compra,
+                    0
+                ) AS precio_compra_actual
+
+             FROM detalle_venta dv
+
+             INNER JOIN articulo a
+                ON a.idarticulo = dv.idarticulo
+
+             WHERE dv.idventa = ?
+               AND dv.estado = 1
+
+             ORDER BY dv.iddetalle_venta ASC",
+            [$idventa]
+        );
+
+        return [
+            'cabecera' => $cabecera,
+            'detalles' => is_array($detalles)
+                ? $detalles
+                : []
+        ];
     }
 
 

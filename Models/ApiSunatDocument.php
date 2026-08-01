@@ -91,13 +91,16 @@ class ApiSunatDocument
         );
 
         /*
-         * Primera etapa:
-         * para evitar emitir incorrectamente en producción,
-         * solo se enviarán ventas sin descuentos.
+         * El descuento registrado en venta.descuento_total es global
+         * y está expresado en el precio final, incluido IGV.
+         *
+         * Más adelante se convertirá a valor de venta sin IGV para
+         * declararlo mediante cac:AllowanceCharge con el código 02
+         * del catálogo SUNAT N.° 53.
          */
-        if ($descuentoTotal > 0) {
+        if ($descuentoTotal < 0) {
             throw new RuntimeException(
-                'La primera versión de APISUNAT no enviará ventas con descuento. Registra una venta sin descuento para la prueba inicial.'
+                'El descuento total de la venta no puede ser negativo.'
             );
         }
 
@@ -401,6 +404,102 @@ class ApiSunatDocument
 
         /*
 |--------------------------------------------------------------------------
+| DESCUENTO GLOBAL E IGV
+|--------------------------------------------------------------------------
+| Los precios de venta incluyen IGV.
+|
+| - totalBaseAntesDescuento: suma del valor de venta de las líneas sin IGV.
+| - descuentoBase: descuento global sin IGV.
+| - totalBaseGravada: base imponible final luego del descuento.
+| - totalIgv: IGV correspondiente al importe final.
+|--------------------------------------------------------------------------
+*/
+        $subtotalBrutoConIgv = $totalDocumentoCalculado;
+
+        if ($descuentoTotal > $subtotalBrutoConIgv) {
+            throw new RuntimeException(
+                'El descuento total supera el subtotal de la venta.'
+            );
+        }
+
+        $totalEsperado = round(
+            $subtotalBrutoConIgv - $descuentoTotal,
+            2
+        );
+
+        if (abs($totalEsperado - $totalVenta) > 0.02) {
+            throw new RuntimeException(
+                'El subtotal, el descuento y el total de la venta no coinciden. '
+                . 'Subtotal: S/ '
+                . number_format($subtotalBrutoConIgv, 2, '.', '')
+                . ', descuento: S/ '
+                . number_format($descuentoTotal, 2, '.', '')
+                . ', total guardado: S/ '
+                . number_format($totalVenta, 2, '.', '')
+                . '.'
+            );
+        }
+
+        $totalBaseAntesDescuento = $totalBase;
+        $descuentoBase = 0.00;
+        $factorDescuento = 0.00;
+
+        if ($descuentoTotal > 0) {
+            /*
+             * Se obtiene la base final desde el total que realmente pagará
+             * el cliente. Así el total final siempre cuadra exactamente.
+             */
+            $totalBaseGravada = round(
+                $totalVenta / self::FACTOR_IGV,
+                2
+            );
+
+            $descuentoBase = round(
+                $totalBaseAntesDescuento - $totalBaseGravada,
+                2
+            );
+
+            if ($descuentoBase <= 0) {
+                throw new RuntimeException(
+                    'No se pudo calcular la base imponible del descuento global.'
+                );
+            }
+
+            /*
+             * SUNAT valida MultiplierFactorNumeric con un máximo
+             * de 5 decimales. Se calcula usando exactamente los
+             * mismos importes sin IGV que se informarán en Amount
+             * y BaseAmount, para evitar diferencias por redondeo.
+             */
+            $factorDescuento = $totalBaseAntesDescuento > 0
+                ? round(
+                    $descuentoBase / $totalBaseAntesDescuento,
+                    5
+                )
+                : 0.00;
+
+            if ($factorDescuento <= 0) {
+                throw new RuntimeException(
+                    'El factor del descuento global no es válido para SUNAT.'
+                );
+            }
+        } else {
+            $totalBaseGravada = $totalBaseAntesDescuento;
+        }
+
+        $totalIgv = round(
+            $totalVenta - $totalBaseGravada,
+            2
+        );
+
+        if ($totalBaseGravada < 0 || $totalIgv < 0) {
+            throw new RuntimeException(
+                'Los importes tributarios calculados no son válidos.'
+            );
+        }
+
+        /*
+|--------------------------------------------------------------------------
 | TÉRMINOS DE PAGO SUNAT
 |--------------------------------------------------------------------------
 */
@@ -637,15 +736,6 @@ class ApiSunatDocument
             }
         }
 
-        /*
-         * Para evitar diferencias de redondeo:
-         * el IGV final es la diferencia entre total y base.
-         */
-        $totalIgv = round(
-            $totalVenta - $totalBase,
-            2
-        );
-
         $fileName = $rucEmisor
             . '-'
             . $tipoSunat
@@ -653,6 +743,60 @@ class ApiSunatDocument
             . $serie
             . '-'
             . $numero;
+
+        $legalMonetaryTotal = [
+            'cbc:LineExtensionAmount' => [
+                '_attributes' => [
+                    'currencyID' => self::MONEDA
+                ],
+                '_text' => $this->numeroJson(
+                    $totalBaseAntesDescuento,
+                    2
+                )
+            ],
+
+            'cbc:TaxExclusiveAmount' => [
+                '_attributes' => [
+                    'currencyID' => self::MONEDA
+                ],
+                '_text' => $this->numeroJson(
+                    $totalBaseGravada,
+                    2
+                )
+            ],
+
+            'cbc:TaxInclusiveAmount' => [
+                '_attributes' => [
+                    'currencyID' => self::MONEDA
+                ],
+                '_text' => $this->numeroJson(
+                    $totalVenta,
+                    2
+                )
+            ]
+        ];
+
+        if ($descuentoBase > 0) {
+            $legalMonetaryTotal['cbc:AllowanceTotalAmount'] = [
+                '_attributes' => [
+                    'currencyID' => self::MONEDA
+                ],
+                '_text' => $this->numeroJson(
+                    $descuentoBase,
+                    2
+                )
+            ];
+        }
+
+        $legalMonetaryTotal['cbc:PayableAmount'] = [
+            '_attributes' => [
+                'currencyID' => self::MONEDA
+            ],
+            '_text' => $this->numeroJson(
+                $totalVenta,
+                2
+            )
+        ];
 
         $documentBody = [
             'cbc:UBLVersionID' => [
@@ -778,7 +922,7 @@ class ApiSunatDocument
                                 'currencyID' => self::MONEDA
                             ],
                             '_text' => $this->numeroJson(
-                                $totalBase,
+                                $totalBaseGravada,
                                 2
                             )
                         ],
@@ -812,37 +956,7 @@ class ApiSunatDocument
                 ]
             ],
 
-            'cac:LegalMonetaryTotal' => [
-                'cbc:LineExtensionAmount' => [
-                    '_attributes' => [
-                        'currencyID' => self::MONEDA
-                    ],
-                    '_text' => $this->numeroJson(
-                        $totalBase,
-                        2
-                    )
-                ],
-
-                'cbc:TaxInclusiveAmount' => [
-                    '_attributes' => [
-                        'currencyID' => self::MONEDA
-                    ],
-                    '_text' => $this->numeroJson(
-                        $totalVenta,
-                        2
-                    )
-                ],
-
-                'cbc:PayableAmount' => [
-                    '_attributes' => [
-                        'currencyID' => self::MONEDA
-                    ],
-                    '_text' => $this->numeroJson(
-                        $totalVenta,
-                        2
-                    )
-                ]
-            ],
+            'cac:LegalMonetaryTotal' => $legalMonetaryTotal,
 
             'cac:InvoiceLine' => $lineas
         ];
@@ -894,6 +1008,57 @@ class ApiSunatDocument
             );
         }
 
+        /*
+|--------------------------------------------------------------------------
+| DESCUENTO GLOBAL SUNAT
+|--------------------------------------------------------------------------
+| Catálogo N.° 53:
+| 02 = Descuentos globales que afectan la base imponible del IGV/IVAP.
+|--------------------------------------------------------------------------
+*/
+        if ($descuentoBase > 0) {
+            $documentBody = $this->insertarAntesDeClave(
+                $documentBody,
+                'cac:TaxTotal',
+                'cac:AllowanceCharge',
+                [
+                    'cbc:ChargeIndicator' => [
+                        '_text' => 'false'
+                    ],
+
+                    'cbc:AllowanceChargeReasonCode' => [
+                        '_text' => '02'
+                    ],
+
+                    'cbc:MultiplierFactorNumeric' => [
+                        '_text' => $this->factorDescuentoSunat(
+                            $factorDescuento
+                        )
+                    ],
+
+                    'cbc:Amount' => [
+                        '_attributes' => [
+                            'currencyID' => self::MONEDA
+                        ],
+                        '_text' => $this->numeroJson(
+                            $descuentoBase,
+                            2
+                        )
+                    ],
+
+                    'cbc:BaseAmount' => [
+                        '_attributes' => [
+                            'currencyID' => self::MONEDA
+                        ],
+                        '_text' => $this->numeroJson(
+                            $totalBaseAntesDescuento,
+                            2
+                        )
+                    ]
+                ]
+            );
+        }
+
         return [
             'idventa' => $idventa,
             'fileName' => $fileName,
@@ -921,7 +1086,13 @@ class ApiSunatDocument
                 : null,
             'documentBody' => $documentBody,
             'totales' => [
-                'gravada' => $totalBase,
+                'valor_venta_antes_descuento' =>
+                    $totalBaseAntesDescuento,
+                'descuento_global_sin_igv' =>
+                    $descuentoBase,
+                'descuento_global_con_igv' =>
+                    $descuentoTotal,
+                'gravada' => $totalBaseGravada,
                 'igv' => $totalIgv,
                 'total' => $totalVenta
             ]
@@ -1270,6 +1441,44 @@ class ApiSunatDocument
         ) ?: $texto;
 
         return strtoupper($texto);
+    }
+
+    /**
+     * SUNAT admite un decimal positivo de hasta 3 enteros y
+     * como máximo 5 decimales para MultiplierFactorNumeric.
+     * Se devuelve como texto decimal para impedir notación
+     * científica o una sexta cifra decimal en el JSON/XML.
+     */
+    private function factorDescuentoSunat(
+        float $factor
+    ): string {
+        $factor = round($factor, 5);
+
+        if ($factor <= 0 || $factor >= 1000) {
+            throw new RuntimeException(
+                'El factor del descuento global está fuera del formato permitido por SUNAT.'
+            );
+        }
+
+        $texto = number_format(
+            $factor,
+            5,
+            '.',
+            ''
+        );
+
+        $texto = rtrim(
+            rtrim($texto, '0'),
+            '.'
+        );
+
+        if ($texto === '' || $texto === '0') {
+            throw new RuntimeException(
+                'El factor del descuento global no puede ser cero.'
+            );
+        }
+
+        return $texto;
     }
 
     private function numeroJson(
