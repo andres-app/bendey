@@ -29,6 +29,47 @@ if ($_SESSION['ventas'] == 1) {
         <section class="section">
             <div class="section-body">
 
+                <!-- =====================================================
+                     SWITCH FIJO PARA MÓVIL Y TABLET
+                     Permite alternar entre los datos de la venta y el pedido.
+                ====================================================== -->
+                <div
+                    class="venta-mobile-switch-wrap"
+                    id="ventaMobileSwitchWrap"
+                    aria-label="Cambiar sección de la venta">
+
+                    <div
+                        class="venta-mobile-switch"
+                        role="tablist"
+                        aria-label="Secciones de nueva venta">
+
+                        <button
+                            type="button"
+                            class="venta-mobile-switch-btn active"
+                            id="ventaSwitchDatos"
+                            data-venta-panel="datos"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="ventaPanelDatos">
+                            <i class="bi bi-receipt-cutoff" aria-hidden="true"></i>
+                            <span>Datos</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="venta-mobile-switch-btn"
+                            id="ventaSwitchProductos"
+                            data-venta-panel="productos"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="ventaPanelProductos">
+                            <i class="bi bi-bag-check" aria-hidden="true"></i>
+                            <span>Productos</span>
+                        </button>
+
+                    </div>
+                </div>
+
                 <form id="formularioVenta" method="post" autocomplete="off">
 
                     <div class="row venta-pos-layout">
@@ -36,7 +77,11 @@ if ($_SESSION['ventas'] == 1) {
                         <!-- =====================================================
                              PANEL IZQUIERDO: FORMULARIO
                         ====================================================== -->
-                        <div class="col-lg-6 col-md-6 col-12 venta-panel-col venta-panel-col-formulario">
+                        <div
+                            class="col-lg-6 col-md-6 col-12 venta-panel-col venta-panel-col-formulario venta-panel-activo"
+                            id="ventaPanelDatos"
+                            role="tabpanel"
+                            aria-labelledby="ventaSwitchDatos">
 
                             <div class="card venta-panel-card venta-panel-card-formulario">
 
@@ -583,7 +628,11 @@ if ($_SESSION['ventas'] == 1) {
                         <!-- =====================================================
                              PANEL DERECHO: PEDIDO ACTUAL
                         ====================================================== -->
-                        <div class="col-lg-6 col-md-6 col-12 venta-panel-col venta-panel-col-pedido">
+                        <div
+                            class="col-lg-6 col-md-6 col-12 venta-panel-col venta-panel-col-pedido"
+                            id="ventaPanelProductos"
+                            role="tabpanel"
+                            aria-labelledby="ventaSwitchProductos">
 
                             <div class="card venta-panel-card venta-panel-card-pedido">
 
@@ -804,6 +853,13 @@ if ($_SESSION['ventas'] == 1) {
 
     <style>
         /* =========================================================
+           SWITCH FIJO DATOS / PRODUCTOS (MÓVIL Y TABLET)
+        ========================================================== */
+        .venta-mobile-switch-wrap {
+            display: none;
+        }
+
+        /* =========================================================
            DISEÑO POS: FORMULARIO FIJO + PEDIDO CON SCROLL INTERNO
         ========================================================== */
         .venta-pos-layout {
@@ -913,7 +969,7 @@ if ($_SESSION['ventas'] == 1) {
             background: #aebdb4;
         }
 
-        @media (min-width: 992px) {
+        @media (min-width: 1200px) {
             .venta-pos-layout {
                 min-height: calc(100vh - 118px);
             }
@@ -989,15 +1045,105 @@ if ($_SESSION['ventas'] == 1) {
             }
         }
 
-        @media (max-width: 991.98px) {
+        @media (max-width: 1199.98px) {
+            body.venta-switch-responsive-activo {
+                padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .venta-mobile-switch-wrap {
+                position: fixed;
+                left: 50%;
+                bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+                z-index: 1030;
+                display: block;
+                width: min(360px, calc(100vw - 28px));
+                transform: translateX(-50%);
+                pointer-events: none;
+            }
+
+            .venta-mobile-switch {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 5px;
+                padding: 5px;
+                border: 1px solid rgba(255, 255, 255, .78);
+                border-radius: 18px;
+                background: rgba(31, 45, 37, .92);
+                box-shadow:
+                    0 16px 38px rgba(15, 23, 42, .24),
+                    inset 0 1px 0 rgba(255, 255, 255, .12);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                pointer-events: auto;
+            }
+
+            .venta-mobile-switch-btn {
+                min-width: 0;
+                min-height: 50px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 10px 15px;
+                border: 0;
+                border-radius: 14px;
+                color: rgba(255, 255, 255, .72);
+                background: transparent;
+                font-size: .92rem;
+                font-weight: 800;
+                line-height: 1;
+                cursor: pointer;
+                transition:
+                    color .18s ease,
+                    background .18s ease,
+                    box-shadow .18s ease,
+                    transform .18s ease;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .venta-mobile-switch-btn i {
+                font-size: 1.05rem;
+            }
+
+            .venta-mobile-switch-btn.active {
+                color: #1f3c2b;
+                background: #ffffff;
+                box-shadow: 0 7px 18px rgba(15, 23, 42, .2);
+            }
+
+            .venta-mobile-switch-btn:active {
+                transform: scale(.98);
+            }
+
+            .venta-mobile-switch-btn:focus-visible {
+                outline: 3px solid rgba(82, 184, 72, .36);
+                outline-offset: 2px;
+            }
+
+            .venta-pos-layout {
+                display: block;
+                margin-bottom: 0;
+            }
+
             .venta-panel-col {
                 position: static;
+                display: none;
+                width: 100%;
+                max-width: 100%;
+                flex: 0 0 100%;
+                padding-right: 15px;
+                padding-left: 15px;
+            }
+
+            .venta-panel-col.venta-panel-activo {
+                display: block;
+                animation: ventaPanelEntrada .2s ease both;
             }
 
             .venta-panel-card {
                 height: auto;
                 min-height: 0;
-                margin-bottom: 22px;
+                margin-bottom: 16px;
                 overflow: visible;
             }
 
@@ -1010,15 +1156,40 @@ if ($_SESSION['ventas'] == 1) {
 
             .venta-form-footer {
                 position: sticky !important;
-                bottom: 0;
+                bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+                z-index: 25 !important;
             }
 
             .venta-pedido-body {
                 overflow: visible;
             }
+
+            @keyframes ventaPanelEntrada {
+                from {
+                    opacity: 0;
+                    transform: translateY(7px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
         }
 
         @media (max-width: 575.98px) {
+            .venta-mobile-switch-wrap {
+                width: calc(100vw - 22px);
+                bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .venta-mobile-switch-btn {
+                min-height: 48px;
+                padding-right: 11px;
+                padding-left: 11px;
+                font-size: .88rem;
+            }
+
             .venta-pedido-header {
                 align-items: flex-start;
             }

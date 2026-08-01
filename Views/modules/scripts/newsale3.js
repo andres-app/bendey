@@ -273,6 +273,7 @@ $(document).ready(function () {
     cargarFormasPagoMixto();
     inicializarBuscadorPedido();
     inicializarConfiguracionVentaPredeterminada();
+    inicializarSwitchVentaResponsive();
 
 });
 
@@ -289,6 +290,192 @@ $(document).ready(function () {
 $(document).ready(function () {
     $('#descuentoSwitch').trigger('change');
 });
+
+
+
+/*
+|--------------------------------------------------------------------------
+| SWITCH RESPONSIVE: DATOS / PRODUCTOS
+|--------------------------------------------------------------------------
+| En móvil y tablet se muestra un solo panel a la vez. El selector queda
+| fijo en la parte inferior y, al cambiar, la pantalla vuelve al inicio
+| del área de venta para evitar desplazamientos largos.
+*/
+const MEDIA_SWITCH_VENTA = window.matchMedia('(max-width: 1199.98px)');
+let panelVentaResponsiveActivo = 'datos';
+
+function obtenerPanelVentaResponsive(nombrePanel) {
+    return nombrePanel === 'productos'
+        ? $('#ventaPanelProductos')
+        : $('#ventaPanelDatos');
+}
+
+function desplazarVentaHaciaArriba() {
+    const contenedor = document.querySelector('.venta-pos-layout');
+
+    if (!contenedor) {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+        return;
+    }
+
+    const margenSuperior = 88;
+    const posicion = Math.max(
+        0,
+        contenedor.getBoundingClientRect().top
+            + window.pageYOffset
+            - margenSuperior
+    );
+
+    window.scrollTo({
+        top: posicion,
+        behavior: 'smooth'
+    });
+}
+
+function aplicarPanelVentaResponsive(
+    nombrePanel,
+    opciones = {}
+) {
+    const panelNormalizado = nombrePanel === 'productos'
+        ? 'productos'
+        : 'datos';
+
+    panelVentaResponsiveActivo = panelNormalizado;
+
+    const esResponsive = MEDIA_SWITCH_VENTA.matches;
+    const $panelDatos = $('#ventaPanelDatos');
+    const $panelProductos = $('#ventaPanelProductos');
+    const $botones = $('.venta-mobile-switch-btn[data-venta-panel]');
+
+    if (!esResponsive) {
+        $('body').removeClass('venta-switch-responsive-activo');
+
+        $panelDatos
+            .addClass('venta-panel-activo')
+            .removeAttr('aria-hidden');
+
+        $panelProductos
+            .addClass('venta-panel-activo')
+            .removeAttr('aria-hidden');
+
+        return;
+    }
+
+    $('body').addClass('venta-switch-responsive-activo');
+
+    $panelDatos
+        .toggleClass(
+            'venta-panel-activo',
+            panelNormalizado === 'datos'
+        )
+        .attr(
+            'aria-hidden',
+            panelNormalizado === 'datos' ? 'false' : 'true'
+        );
+
+    $panelProductos
+        .toggleClass(
+            'venta-panel-activo',
+            panelNormalizado === 'productos'
+        )
+        .attr(
+            'aria-hidden',
+            panelNormalizado === 'productos' ? 'false' : 'true'
+        );
+
+    $botones.each(function () {
+        const activo = String(
+            $(this).attr('data-venta-panel') || ''
+        ) === panelNormalizado;
+
+        $(this)
+            .toggleClass('active', activo)
+            .attr('aria-selected', activo ? 'true' : 'false')
+            .attr('tabindex', activo ? '0' : '-1');
+    });
+
+    if (opciones.desplazar === true) {
+        window.requestAnimationFrame(function () {
+            desplazarVentaHaciaArriba();
+        });
+    }
+
+    if (
+        opciones.enfocar === true
+        && panelNormalizado === 'productos'
+    ) {
+        window.setTimeout(function () {
+            $('#buscarProductoPedido').trigger('focus');
+        }, 280);
+    }
+}
+
+function inicializarSwitchVentaResponsive() {
+    const $switch = $('#ventaMobileSwitchWrap');
+
+    if (!$switch.length) {
+        return;
+    }
+
+    $(document)
+        .off('click.switchVentaResponsive', '.venta-mobile-switch-btn[data-venta-panel]')
+        .on(
+            'click.switchVentaResponsive',
+            '.venta-mobile-switch-btn[data-venta-panel]',
+            function () {
+                const panelSolicitado = String(
+                    $(this).attr('data-venta-panel') || 'datos'
+                );
+
+                if (
+                    MEDIA_SWITCH_VENTA.matches
+                    && panelSolicitado === panelVentaResponsiveActivo
+                ) {
+                    return;
+                }
+
+                aplicarPanelVentaResponsive(
+                    panelSolicitado,
+                    {
+                        desplazar: true,
+                        enfocar: false
+                    }
+                );
+            }
+        );
+
+    const manejarCambioBreakpoint = function () {
+        aplicarPanelVentaResponsive(
+            panelVentaResponsiveActivo,
+            {
+                desplazar: false,
+                enfocar: false
+            }
+        );
+    };
+
+    if (typeof MEDIA_SWITCH_VENTA.addEventListener === 'function') {
+        MEDIA_SWITCH_VENTA.addEventListener(
+            'change',
+            manejarCambioBreakpoint
+        );
+    } else if (typeof MEDIA_SWITCH_VENTA.addListener === 'function') {
+        MEDIA_SWITCH_VENTA.addListener(
+            manejarCambioBreakpoint
+        );
+    }
+
+    aplicarPanelVentaResponsive(
+        panelVentaResponsiveActivo,
+        {
+            desplazar: false,
+            enfocar: false
+        }
+    );
+}
 
 
 
