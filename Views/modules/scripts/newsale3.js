@@ -2699,7 +2699,7 @@ function renderProductos(data) {
             const imagenHtml = escaparHtmlProducto(imagen);
 
             prodHtml += `
-                <div class="col-12 col-sm-6 col-lg-4 producto-item"
+                <div class="producto-item"
                      data-nombre="${nombreHtml.toLowerCase()}"
                      data-codigo="${codigoHtml.toLowerCase()}">
 

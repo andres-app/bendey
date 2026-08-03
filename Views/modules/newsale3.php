@@ -89,7 +89,7 @@ if ($_SESSION['ventas'] == 1) {
                                     <h4>Nueva venta</h4>
                                 </div>
 
-                                <div class="card border-0 shadow-sm p-4 venta-form-shell">
+                                <div class="venta-form-shell">
 
                                     <div class="card-body px-0 pt-0 venta-form-scroll">
 
@@ -378,7 +378,7 @@ if ($_SESSION['ventas'] == 1) {
                                         <!-- =====================================
                                              DESCUENTO
                                         ====================================== -->
-                                        <div class="row mb-4">
+                                        <div class="row mb-4 venta-descuento-row">
 
                                             <div class="col-12 d-flex justify-content-center">
 
@@ -427,7 +427,7 @@ if ($_SESSION['ventas'] == 1) {
                                         <!-- =====================================
                                              TOTAL RECIBIDO Y VUELTO
                                         ====================================== -->
-                                        <div class="row g-4 mb-5 text-center">
+                                        <div class="row g-4 mb-5 text-center venta-cobro-row">
 
                                             <div class="col-md-6">
 
@@ -506,58 +506,55 @@ if ($_SESSION['ventas'] == 1) {
                                         </div>
 
                                         <!-- =====================================
-                                             OBSERVACIÓN
+                                             OBSERVACIÓN Y MODO DE ENVÍO
                                         ====================================== -->
-                                        <div class="mb-4">
+                                        <div class="row g-3 venta-fila-final">
 
-                                            <label
-                                                for="observacion"
-                                                class="form-label">
-                                                Observación
-                                            </label>
+                                            <div class="col-md-5 venta-observacion">
+                                                <label
+                                                    for="observacion"
+                                                    class="form-label">
+                                                    Observación
+                                                </label>
 
-                                            <textarea
-                                                class="form-control"
-                                                id="observacion"
-                                                name="observacion"
-                                                rows="3"
-                                                spellcheck="false">
-                                            </textarea>
+                                                <textarea
+                                                    class="form-control"
+                                                    id="observacion"
+                                                    name="observacion"
+                                                    rows="2"
+                                                    placeholder="Opcional"
+                                                    spellcheck="false"></textarea>
+                                            </div>
 
-                                        </div>
+                                            <div class="col-md-7 venta-modo-envio">
+                                                <label
+                                                    for="modo_envio"
+                                                    class="form-label">
+                                                    Envío del comprobante
+                                                </label>
 
-                                        <!-- =====================================
-     MODO DE ENVÍO
-====================================== -->
-                                        <div class="mb-4">
+                                                <select
+                                                    class="form-control form-select"
+                                                    id="modo_envio"
+                                                    name="modo_envio"
+                                                    required>
 
-                                            <label
-                                                for="modo_envio"
-                                                class="form-label">
-                                                Modo de envío
-                                            </label>
+                                                    <option value="inmediato">
+                                                        Enviar inmediatamente a SUNAT
+                                                    </option>
 
-                                            <select
-                                                class="form-control form-select"
-                                                id="modo_envio"
-                                                name="modo_envio"
-                                                required>
+                                                    <option value="manual">
+                                                        Guardar y enviar manualmente después
+                                                    </option>
 
-                                                <option value="inmediato">
-                                                    Registrar y enviar inmediatamente a SUNAT
-                                                </option>
+                                                </select>
 
-                                                <option value="manual">
-                                                    Registrar ahora y enviar manualmente después
-                                                </option>
-
-                                            </select>
-
-                                            <small
-                                                class="text-muted d-block mt-2"
-                                                id="mensajeModoEnvio">
-                                                La venta se registrará y luego será enviada automáticamente mediante APISUNAT.
-                                            </small>
+                                                <small
+                                                    class="text-muted d-block mt-2"
+                                                    id="mensajeModoEnvio">
+                                                    La venta se registrará y luego será enviada automáticamente mediante APISUNAT.
+                                                </small>
+                                            </div>
 
                                         </div>
 
@@ -566,58 +563,22 @@ if ($_SESSION['ventas'] == 1) {
                                     <!-- =====================================
                                          FOOTER DE LA VENTA
                                     ====================================== -->
-                                    <div
-                                        class="card-footer bg-white border-top px-4 py-3 position-sticky venta-form-footer"
-                                        style="bottom:0; z-index:30;">
+                                    <div class="card-footer venta-form-footer">
 
-                                        <div class="row align-items-center">
-
-                                            <div class="col-12 col-md-8 mb-3 mb-md-0">
-
-                                                <div
-                                                    class="d-flex justify-content-md-start justify-content-center align-items-center h-100">
-
-                                                    <span
-                                                        style="font-size:1.3rem; color:#353535; font-weight:400;">
-                                                        Total:&nbsp;
-                                                    </span>
-
-                                                    <span
-                                                        id="totalGeneral"
-                                                        style="font-size:2.4rem; color:#353535; font-weight:700;">
-                                                        S/0.00
-                                                    </span>
-
-                                                </div>
-
-                                            </div>
-
-                                            <div class="col-12 col-md-4">
-
-                                                <div
-                                                    class="d-flex justify-content-md-end justify-content-center">
-
-                                                    <button
-                                                        type="submit"
-                                                        id="btnProcesarVenta"
-                                                        class="btn fw-normal"
-                                                        style="
-                                                            background:#52b848;
-                                                            color:white;
-                                                            min-width:190px;
-                                                            height:60px;
-                                                            font-size:1.2rem;
-                                                        ">
-
-                                                        Procesar
-
-                                                    </button>
-
-                                                </div>
-
-                                            </div>
-
+                                        <div class="venta-footer-total">
+                                            <span class="venta-footer-total-label">Total</span>
+                                            <span id="totalGeneral" class="venta-footer-total-monto">
+                                                S/0.00
+                                            </span>
                                         </div>
+
+                                        <button
+                                            type="submit"
+                                            id="btnProcesarVenta"
+                                            class="btn venta-procesar-btn">
+                                            <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                                            <span>Procesar venta</span>
+                                        </button>
 
                                     </div>
 
@@ -860,45 +821,60 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         /* =========================================================
-           DISEÑO POS: FORMULARIO FIJO + PEDIDO CON SCROLL INTERNO
+           DISEÑO POS: UNA SOLA NAVEGACIÓN VERTICAL
+           El formulario no genera barras internas. El pedido conserva
+           desplazamiento con rueda/táctil, pero sin mostrar una barra gruesa.
         ========================================================== */
+        .section-body {
+            overflow-x: clip;
+        }
+
         .venta-pos-layout {
             align-items: flex-start;
+            margin-right: -12px;
+            margin-left: -12px;
+        }
+
+        .venta-panel-col {
+            padding-right: 12px;
+            padding-left: 12px;
         }
 
         .venta-panel-card {
             margin-bottom: 0;
-            border: 1px solid #e7ebe9;
+            border: 1px solid #e4e9e6;
             border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 12px 30px rgba(15, 23, 42, .07);
+            background: #ffffff;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, .065);
         }
 
         .venta-panel-header {
-            min-height: 70px;
-            padding: 16px 20px;
+            min-height: 58px;
+            display: flex;
+            align-items: center;
+            padding: 12px 18px;
             border-bottom: 1px solid #e8ecea;
             background: #ffffff;
         }
 
         .venta-panel-header h4 {
             margin: 0;
-            color: #27332d;
-            font-size: 1.05rem;
+            color: #26332c;
+            font-size: 1rem;
             font-weight: 800;
         }
 
         .venta-pedido-header {
-            display: flex;
-            align-items: center;
             justify-content: space-between;
             gap: 18px;
         }
 
         .venta-pedido-contador {
             display: block;
+            margin-top: 3px;
             color: #7a8780;
-            font-size: .76rem;
+            font-size: .72rem;
             font-weight: 600;
         }
 
@@ -906,111 +882,323 @@ if ($_SESSION['ventas'] == 1) {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            line-height: 1.1;
+            line-height: 1.08;
             white-space: nowrap;
         }
 
         .venta-pedido-total-cabecera span {
             margin-bottom: 4px;
             color: #839087;
-            font-size: .69rem;
-            font-weight: 700;
-            letter-spacing: .04em;
+            font-size: .65rem;
+            font-weight: 800;
+            letter-spacing: .05em;
             text-transform: uppercase;
         }
 
         .venta-pedido-total-cabecera strong {
             color: #26352d;
-            font-size: 1.24rem;
+            font-size: 1.18rem;
             font-weight: 800;
         }
 
+        .venta-panel-card-formulario {
+            display: flex;
+            flex-direction: column;
+        }
+
         .venta-form-shell {
-            margin-bottom: 0;
-            border-radius: 0;
-            box-shadow: none !important;
+            min-height: 0;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            background: #ffffff;
+        }
+
+        .venta-form-scroll {
+            flex: 1 1 auto;
+            padding: 14px 18px 10px !important;
+            overflow: visible;
+        }
+
+        .venta-form-scroll > .row,
+        .venta-form-scroll > #bloque_credito {
+            margin-right: -6px;
+            margin-left: -6px;
+        }
+
+        .venta-form-scroll > .row > [class*="col-"],
+        .venta-form-scroll > #bloque_credito > [class*="col-"] {
+            padding-right: 6px;
+            padding-left: 6px;
+        }
+
+        .venta-form-scroll > .row.mb-4,
+        .venta-form-scroll > #bloque_credito.mb-4 {
+            margin-bottom: 11px !important;
+        }
+
+        .venta-form-scroll > .row.mb-5 {
+            margin-bottom: 12px !important;
+        }
+
+        .venta-form-scroll label,
+        .venta-form-scroll .form-label {
+            margin-bottom: 5px !important;
+            color: #66736c;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+
+        .venta-form-scroll .form-control,
+        .venta-form-scroll .form-select,
+        .venta-form-scroll .input-group-text,
+        .venta-form-scroll .input-group .btn {
+            min-height: 39px;
+            border-color: #dce3df;
+            border-radius: 9px;
+            font-size: .82rem;
+        }
+
+        .venta-form-scroll .input-group-prepend .input-group-text,
+        .venta-form-scroll .input-group-prepend .btn {
+            border-radius: 9px 0 0 9px;
+        }
+
+        .venta-form-scroll .input-group-append .input-group-text,
+        .venta-form-scroll .input-group-append .btn {
+            border-radius: 0 9px 9px 0;
+        }
+
+        .venta-form-scroll .form-control:focus,
+        .venta-form-scroll .form-select:focus {
+            border-color: #7fc28d;
+            box-shadow: 0 0 0 .16rem rgba(82, 184, 72, .11);
+        }
+
+        #nombre_cliente,
+        #mensajeModoEnvio,
+        #bloque_credito small,
+        #bloque_pago_mixto small {
+            line-height: 1.3;
+        }
+
+        #nombre_cliente {
+            min-height: 15px;
+            margin-top: 4px !important;
+            font-size: .67rem;
+        }
+
+        .venta-descuento-row {
+            margin: 0 0 10px !important;
+        }
+
+        .venta-descuento-row > .col-12 {
+            padding: 0 !important;
+        }
+
+        .venta-descuento-row > .col-12 > .d-flex {
+            min-height: 42px;
+            padding: 6px 12px;
+            border: 1px solid #e1e8e4;
+            border-radius: 11px;
+            background: #f8faf9;
+        }
+
+        .venta-descuento-row .custom-switch-description {
+            color: #536159;
+            font-size: .76rem;
+            font-weight: 700;
+        }
+
+        #descuentoPorcentaje {
+            width: 80px !important;
+            min-height: 34px;
+            height: 34px;
+            margin-left: 16px !important;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            background: #ffffff;
+            font-weight: 800;
+        }
+
+        .venta-cobro-row {
+            margin: 0 0 11px !important;
+            padding: 8px 5px 9px;
+            border: 1px solid #e2e9e5;
+            border-radius: 12px;
+            background: #fbfcfb;
+        }
+
+        .venta-cobro-row > [class*="col-"] {
+            padding-right: 6px !important;
+            padding-left: 6px !important;
+        }
+
+        .venta-cobro-row label {
+            margin-bottom: 4px !important;
+            font-size: .68rem;
+        }
+
+        .venta-cobro-row .total-display {
+            min-height: 38px;
+            height: 38px;
+            font-size: .92rem;
+            font-weight: 800;
+        }
+
+        .venta-cobro-row .total-disabled {
+            color: #65716b;
+            background: #edf1ef;
+        }
+
+        #bloque_pago_mixto {
+            margin-bottom: 11px !important;
+            padding: 11px;
+            border: 1px solid #e1e8e4;
+            border-radius: 12px;
+            background: #fafcfb;
+        }
+
+        .venta-fila-final {
+            margin-bottom: 0 !important;
+        }
+
+        .venta-fila-final textarea {
+            min-height: 66px;
+            height: 66px;
+            resize: vertical;
+        }
+
+        .venta-modo-envio select {
+            padding-right: 32px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        #mensajeModoEnvio {
+            min-height: 28px;
+            margin-top: 5px !important;
+            color: #7a8780 !important;
+            font-size: .66rem;
         }
 
         .venta-form-footer,
         .venta-pedido-footer {
             flex: 0 0 auto;
-            border-top: 1px solid #e8ecea;
+            border-top: 1px solid #e7ece9;
             background: #ffffff;
         }
 
+        .venta-form-footer {
+            min-height: 66px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin: 0;
+            padding: 9px 18px;
+        }
+
+        .venta-footer-total {
+            min-width: 0;
+            display: flex;
+            align-items: baseline;
+            gap: 9px;
+        }
+
+        .venta-footer-total-label {
+            color: #78847e;
+            font-size: .76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .venta-footer-total-monto {
+            overflow: hidden;
+            color: #26332c;
+            font-size: 1.72rem;
+            font-weight: 800;
+            line-height: 1;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .venta-procesar-btn {
+            min-width: 170px;
+            min-height: 46px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 18px;
+            border: 1px solid #4daf45;
+            border-radius: 10px;
+            color: #ffffff !important;
+            background: #52b848;
+            box-shadow: 0 7px 15px rgba(82, 184, 72, .16);
+            font-size: .9rem;
+            font-weight: 800;
+        }
+
+        .venta-procesar-btn:hover,
+        .venta-procesar-btn:focus {
+            color: #ffffff !important;
+            background: #469f3e;
+            border-color: #469f3e;
+            box-shadow: 0 0 0 .18rem rgba(82, 184, 72, .15);
+        }
+
         .venta-pedido-footer {
-            min-height: 80px;
+            min-height: 66px;
+            padding: 9px 18px !important;
+        }
+
+        .venta-pedido-footer > div {
+            gap: 12px !important;
+        }
+
+        .venta-pedido-footer .btn {
+            width: 58px !important;
+            height: 46px !important;
+            border-radius: 13px !important;
+            box-shadow: 0 7px 15px rgba(37, 125, 64, .15) !important;
+        }
+
+        .venta-pedido-footer .btn i {
+            font-size: 1.45rem !important;
         }
 
         #detallesCards {
-            padding: 2px 7px 8px 1px;
-            scrollbar-width: thin;
-            scrollbar-color: #becbc3 transparent;
+            padding: 2px 3px 8px 1px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
 
-        #detallesCards::-webkit-scrollbar,
-        .venta-form-scroll::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        #detallesCards::-webkit-scrollbar-track,
-        .venta-form-scroll::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        #detallesCards::-webkit-scrollbar-thumb,
-        .venta-form-scroll::-webkit-scrollbar-thumb {
-            border-radius: 999px;
-            background: #c7d2cb;
-        }
-
-        #detallesCards::-webkit-scrollbar-thumb:hover,
-        .venta-form-scroll::-webkit-scrollbar-thumb:hover {
-            background: #aebdb4;
+        #detallesCards::-webkit-scrollbar {
+            width: 0;
+            height: 0;
         }
 
         @media (min-width: 1200px) {
             .venta-pos-layout {
-                min-height: calc(100vh - 118px);
+                min-height: calc(100vh - 112px);
             }
 
-            .venta-panel-col {
+            .venta-panel-card-formulario {
+                min-height: calc(100vh - 108px);
+            }
+
+            .venta-panel-col-pedido {
                 position: sticky;
                 top: 84px;
                 align-self: flex-start;
             }
 
-            .venta-panel-card {
-                height: calc(100vh - 108px);
-                min-height: 610px;
-                display: flex;
-                flex-direction: column;
-            }
-
-            .venta-panel-card-formulario > .venta-form-shell {
-                flex: 1 1 auto;
-                min-height: 0;
-                display: flex;
-                flex-direction: column;
-                padding-bottom: 0 !important;
-            }
-
-            .venta-form-scroll {
-                flex: 1 1 auto;
-                min-height: 0;
-                overflow-y: auto;
-                overscroll-behavior: contain;
-                padding-right: 8px !important;
-            }
-
-            .venta-form-footer {
-                position: static !important;
-                margin-right: -1.5rem;
-                margin-left: -1.5rem;
-                margin-bottom: 0;
-            }
-
             .venta-panel-card-pedido {
+                height: calc(100vh - 108px);
+                min-height: 510px;
                 display: flex;
                 flex-direction: column;
             }
@@ -1021,11 +1209,12 @@ if ($_SESSION['ventas'] == 1) {
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
-                padding-bottom: 10px;
+                padding: 14px 18px 8px;
             }
 
             .buscador-pedido-wrap {
                 flex: 0 0 auto;
+                margin-bottom: 10px !important;
             }
 
             #contenedorPedido {
@@ -1036,12 +1225,53 @@ if ($_SESSION['ventas'] == 1) {
 
             #detallesCards {
                 height: 100%;
+                overflow-x: hidden;
                 overflow-y: auto;
                 overscroll-behavior: contain;
             }
 
             #pedidoVacio {
                 min-height: 100%;
+            }
+        }
+
+        @media (min-width: 1200px) and (max-height: 760px) {
+            .venta-panel-header {
+                min-height: 54px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+            }
+
+            .venta-form-scroll {
+                padding: 10px 16px 7px !important;
+            }
+
+            .venta-form-scroll > .row.mb-4,
+            .venta-form-scroll > #bloque_credito.mb-4 {
+                margin-bottom: 8px !important;
+            }
+
+            .venta-descuento-row,
+            .venta-cobro-row {
+                margin-bottom: 8px !important;
+            }
+
+            .venta-fila-final textarea {
+                min-height: 58px;
+                height: 58px;
+            }
+
+            .venta-form-footer,
+            .venta-pedido-footer {
+                min-height: 60px;
+            }
+
+            .venta-footer-total-monto {
+                font-size: 1.55rem;
+            }
+
+            .venta-procesar-btn {
+                min-height: 42px;
             }
         }
 
@@ -1122,7 +1352,7 @@ if ($_SESSION['ventas'] == 1) {
 
             .venta-pos-layout {
                 display: block;
-                margin-bottom: 0;
+                margin: 0;
             }
 
             .venta-panel-col {
@@ -1131,8 +1361,7 @@ if ($_SESSION['ventas'] == 1) {
                 width: 100%;
                 max-width: 100%;
                 flex: 0 0 100%;
-                padding-right: 15px;
-                padding-left: 15px;
+                padding: 0;
             }
 
             .venta-panel-col.venta-panel-activo {
@@ -1155,9 +1384,11 @@ if ($_SESSION['ventas'] == 1) {
             }
 
             .venta-form-footer {
-                position: sticky !important;
+                position: sticky;
                 bottom: calc(82px + env(safe-area-inset-bottom, 0px));
-                z-index: 25 !important;
+                z-index: 25;
+                border-radius: 0 0 16px 16px;
+                box-shadow: 0 -8px 20px rgba(15, 23, 42, .06);
             }
 
             .venta-pedido-body {
@@ -1174,6 +1405,32 @@ if ($_SESSION['ventas'] == 1) {
                     opacity: 1;
                     transform: translateY(0);
                 }
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .venta-form-scroll {
+                padding: 14px 14px 10px !important;
+            }
+
+            .venta-fila-final .venta-observacion {
+                margin-bottom: 12px;
+            }
+
+            .venta-form-footer {
+                align-items: stretch;
+                flex-direction: column;
+                gap: 9px;
+                padding: 10px 14px;
+            }
+
+            .venta-footer-total {
+                justify-content: space-between;
+            }
+
+            .venta-procesar-btn {
+                width: 100%;
+                min-width: 0;
             }
         }
 
@@ -1196,6 +1453,10 @@ if ($_SESSION['ventas'] == 1) {
 
             .venta-pedido-total-cabecera strong {
                 font-size: 1.05rem;
+            }
+
+            .venta-cobro-row > .col-md-6:first-child {
+                margin-bottom: 8px;
             }
         }
 
@@ -1618,15 +1879,33 @@ if ($_SESSION['ventas'] == 1) {
             background: #f7f9f8;
         }
 
+        /*
+         * GRID RESPONSIVE DE PRODUCTOS
+         * No depende de las columnas de Bootstrap. De esta forma las tarjetas
+         * mantienen el mismo diseño en escritorio, tablet y móvil.
+         */
         #modalProductos #productosList {
-            margin-left: -8px;
-            margin-right: -8px;
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+            width: 100%;
+            margin: 0 !important;
+        }
+
+        #modalProductos #productosList > .col-12:not(.producto-item) {
+            grid-column: 1 / -1;
+            width: 100%;
+            max-width: none;
+            padding: 0;
         }
 
         #modalProductos .producto-item {
-            padding-left: 8px;
-            padding-right: 8px;
-            margin-bottom: 16px !important;
+            width: 100% !important;
+            max-width: none !important;
+            min-width: 0;
+            flex: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
 
         #modalProductos .producto-card {
@@ -1774,6 +2053,66 @@ if ($_SESSION['ventas'] == 1) {
             pointer-events: none !important;
         }
 
+        @media (max-width: 991.98px) {
+            /*
+             * En escritorio .buscador-productos-box usa flex-basis:520px como
+             * ancho. Al pasar a flex-direction:column ese mismo valor se
+             * convierte en ALTURA y empuja los productos fuera de la vista.
+             */
+            #modalProductos .buscador-productos-box {
+                flex: 0 0 auto !important;
+                width: 100%;
+                max-width: none;
+                min-height: 0;
+            }
+
+            #modalProductos #btnMostrarProductoRapido {
+                flex: 0 0 auto;
+                width: 100%;
+            }
+
+            #modalProductos #productosList {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            #modalProductos #productosList {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 10px;
+            }
+
+            #modalProductos .producto-card .card-body {
+                padding: 13px;
+            }
+
+            #modalProductos .producto-imagen {
+                width: 58px;
+                height: 58px;
+                flex-basis: 58px;
+                border-radius: 11px;
+            }
+
+            #modalProductos .producto-nombre {
+                min-height: 0;
+                display: -webkit-box;
+                overflow: hidden;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                font-size: .92rem;
+            }
+
+            #modalProductos .producto-precio {
+                font-size: 1rem;
+            }
+
+            #modalProductos .producto-stock {
+                padding: 4px 8px;
+                font-size: .69rem;
+            }
+        }
+
         @media (max-width: 767.98px) {
             #modalProductos .modal-productos-dialog {
                 width: 100%;
@@ -1784,9 +2123,21 @@ if ($_SESSION['ventas'] == 1) {
 
             #modalProductos .modal-productos-content {
                 height: 100vh;
-                max-height: none;
+                height: 100dvh;
+                max-height: 100vh;
+                max-height: 100dvh;
                 min-height: 0;
                 border-radius: 0;
+            }
+
+            #modalProductos .modal-productos-tools {
+                flex: 0 0 auto;
+                min-height: 0;
+            }
+
+            #modalProductos .modal-productos-buscador > .d-flex {
+                height: auto !important;
+                min-height: 0;
             }
 
             #modalProductos .modal-productos-header {
@@ -1814,6 +2165,10 @@ if ($_SESSION['ventas'] == 1) {
             }
 
             #modalProductos .productos-modal-body {
+                flex: 1 1 0;
+                min-height: 0;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
                 padding: 12px 12px 4px;
             }
 
