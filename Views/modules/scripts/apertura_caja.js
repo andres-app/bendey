@@ -12,6 +12,8 @@ let contextoCajaActual = {
 };
 
 $(document).ready(function () {
+  ocultarFormularioApertura();
+  ocultarMensajeCaja();
   cargarContextoCaja();
 
   $(document).on("click", "#btnAbrirCaja", function () {
@@ -23,13 +25,34 @@ $(document).ready(function () {
 
     if (idcaja <= 0) {
       contextoCajaActual.idcajaActiva = 0;
+      contextoCajaActual.idaperturaActiva = 0;
+
+      actualizarIndicadorCajaSesion(null);
       configurarCajaSinSeleccionar();
       return;
     }
 
     seleccionarCajaOperacion(idcaja);
   });
+
+  $(document).on("blur", "#montoApertura", function () {
+    const valor = String($(this).val() || "").trim();
+
+    if (valor === "") {
+      return;
+    }
+
+    const monto = Number(valor);
+
+    if (Number.isFinite(monto) && monto >= 0) {
+      $(this).val(monto.toFixed(2));
+    }
+  });
 });
+
+/* ==========================================================
+   CONTEXTO GENERAL
+========================================================== */
 
 function cargarContextoCaja() {
   $.ajax({
@@ -62,7 +85,11 @@ function cargarContextoCaja() {
     },
 
     error: function (xhr) {
-      console.error("Error al cargar contexto de caja:", xhr.responseText);
+      console.error(
+        "Error al cargar contexto de caja:",
+        xhr.responseText
+      );
+
       aplicarContextoLegacy();
       verificarAperturaCaja();
     },
@@ -97,7 +124,7 @@ function renderizarContextoCaja() {
       $("#idcajaOperacion").val(
         String(contextoCajaActual.idcajaActiva)
       );
-      actualizarPermisoCajaSeleccionada();
+
       verificarAperturaCaja();
     } else {
       configurarCajaSinSeleccionar();
@@ -115,52 +142,42 @@ function aplicarContextoLegacy() {
   contextoCajaActual.modo = "LEGACY";
 
   ocultarBloquesContexto();
-
-  $("#btnAbrirCaja")
-    .prop("disabled", false)
-    .html('<i class="fas fa-lock-open"></i> INICIAR CAJA');
-
-  $("#montoApertura").prop("disabled", false);
+  ocultarFormularioApertura();
+  ocultarMensajeCaja();
 }
 
 function renderizarCajaUnica() {
   const caja = contextoCajaActual.cajas.find(function (registro) {
-    return Number(registro.idcaja) === contextoCajaActual.idcajaUnica;
+    return Number(registro.idcaja) === Number(
+      contextoCajaActual.idcajaUnica
+    );
   });
 
-  contextoCajaActual.idcajaActiva = contextoCajaActual.idcajaUnica;
-  actualizarIndicadorCajaSesion(caja || null);
-
-  $("#bloqueContextoCaja").removeClass("d-none");
-  $("#tituloContextoCaja").text("Caja única");
-  $("#descripcionContextoCaja").text(
-    "Todos los usuarios autorizados trabajan sobre la misma apertura."
+  contextoCajaActual.idcajaActiva = Number(
+    contextoCajaActual.idcajaUnica || 0
   );
 
+  actualizarIndicadorCajaSesion(caja || null);
+
   $("#grupoCajaAutomatica").removeClass("d-none");
+
   $("#nombreCajaAutomatica").text(
     caja ? String(caja.nombre || "") : "Caja no encontrada"
   );
+
   $("#codigoCajaAutomatica").text(
     caja ? String(caja.codigo || "") : "—"
   );
-
-  actualizarPermisoCajaSeleccionada(caja || null);
 }
 
 function renderizarMulticaja() {
-  $("#bloqueContextoCaja").removeClass("d-none");
-  $("#tituloContextoCaja").text("Multicaja");
-  $("#descripcionContextoCaja").text(
-    "Seleccione la caja física que operará. Cada caja mantiene su propia apertura y cierre."
-  );
-
   $("#grupoSeleccionCaja").removeClass("d-none");
   cargarCajasAutorizadas();
 }
 
 function cargarCajasAutorizadas() {
   const $select = $("#idcajaOperacion");
+
   $select.empty();
 
   if (
@@ -173,11 +190,19 @@ function cargarCajasAutorizadas() {
         text: "No tiene cajas autorizadas",
       })
     );
+
     $select.prop("disabled", true);
+
+    mostrarMensajeCaja(
+      "warning",
+      "No tienes una caja autorizada para operar."
+    );
+
     return;
   }
 
   $select.prop("disabled", false);
+
   $select.append(
     $("<option>", {
       value: "",
@@ -186,14 +211,23 @@ function cargarCajasAutorizadas() {
   );
 
   contextoCajaActual.cajas.forEach(function (caja) {
+    const nombre = String(caja.nombre || "").trim();
+    const codigo = String(caja.codigo || "").trim();
+
+    let texto = nombre;
+
+    if (codigo !== "") {
+      texto += nombre !== "" ? " — " + codigo : codigo;
+    }
+
+    if (texto === "") {
+      texto = "Caja #" + Number(caja.idcaja || 0);
+    }
+
     $select.append(
       $("<option>", {
         value: Number(caja.idcaja),
-        text:
-          String(caja.nombre || "") +
-          " (" +
-          String(caja.codigo || "") +
-          ")",
+        text: texto,
       })
     );
   });
@@ -203,15 +237,15 @@ function cargarCajasAutorizadas() {
   }
 }
 
+/* ==========================================================
+   SELECCIÓN DE CAJA
+========================================================== */
+
 function seleccionarCajaOperacion(idcaja) {
   $("#idcajaOperacion").prop("disabled", true);
-  $("#btnAbrirCaja").prop("disabled", true);
-  $("#montoApertura").prop("disabled", true);
 
-  mostrarMensajeCaja(
-    "info",
-    "Validando la caja seleccionada..."
-  );
+  ocultarFormularioApertura();
+  ocultarMensajeCaja();
 
   $.ajax({
     url: "Controllers/ContextoCaja.php?op=seleccionar",
@@ -224,26 +258,39 @@ function seleccionarCajaOperacion(idcaja) {
     success: function (resp) {
       if (!resp || resp.success !== true) {
         contextoCajaActual.idcajaActiva = 0;
+        contextoCajaActual.idcajaPreparada = 0;
+        contextoCajaActual.idaperturaActiva = 0;
+
         $("#idcajaOperacion").val("");
+        actualizarIndicadorCajaSesion(null);
+
+        configurarCajaSinSeleccionar();
 
         Swal.fire({
           icon: "error",
           title: "No se pudo seleccionar la caja",
-          text: resp && resp.mensaje ? resp.mensaje : "Operación no válida.",
+          text:
+            resp && resp.mensaje
+              ? resp.mensaje
+              : "Operación no válida.",
         });
 
-        configurarCajaSinSeleccionar();
         return;
       }
 
       if (resp.operativa !== true) {
-        Swal.fire({
-          icon: "warning",
-          title: "Caja no operativa",
-          text:
-            resp.mensaje ||
-            "La caja fue preparada, pero el modo real todavía no está activo.",
-        });
+        contextoCajaActual.idcajaActiva = 0;
+        contextoCajaActual.idaperturaActiva = 0;
+
+        $("#idcajaOperacion").val("");
+        actualizarIndicadorCajaSesion(null);
+
+        mostrarMensajeCaja(
+          "warning",
+          resp.mensaje ||
+          "La caja todavía no se encuentra disponible para operar."
+        );
+
         return;
       }
 
@@ -270,18 +317,19 @@ function seleccionarCajaOperacion(idcaja) {
         }) ||
         null;
 
-      /*
-       * Actualiza el encabezado sin recargar la página.
-       */
       actualizarIndicadorCajaSesion(cajaSeleccionada);
-
-      actualizarPermisoCajaSeleccionada(cajaSeleccionada);
       verificarAperturaCaja();
     },
 
     error: function (xhr) {
       contextoCajaActual.idcajaActiva = 0;
+      contextoCajaActual.idcajaPreparada = 0;
+      contextoCajaActual.idaperturaActiva = 0;
+
       $("#idcajaOperacion").val("");
+      actualizarIndicadorCajaSesion(null);
+
+      configurarCajaSinSeleccionar();
 
       Swal.fire({
         icon: "error",
@@ -290,15 +338,22 @@ function seleccionarCajaOperacion(idcaja) {
           (xhr.responseJSON && xhr.responseJSON.mensaje) ||
           "No se pudo seleccionar la caja.",
       });
-
-      configurarCajaSinSeleccionar();
     },
 
     complete: function () {
-      $("#idcajaOperacion").prop("disabled", false);
+      if (
+        Array.isArray(contextoCajaActual.cajas) &&
+        contextoCajaActual.cajas.length > 0
+      ) {
+        $("#idcajaOperacion").prop("disabled", false);
+      }
     },
   });
 }
+
+/* ==========================================================
+   CAJA Y PERMISOS
+========================================================== */
 
 function obtenerCajaSeleccionada() {
   let idcaja = contextoCajaActual.idcajaActiva;
@@ -308,7 +363,11 @@ function obtenerCajaSeleccionada() {
   }
 
   if (contextoCajaActual.modo === "MULTICAJA") {
-    idcaja = Number($("#idcajaOperacion").val() || idcaja || 0);
+    idcaja = Number(
+      $("#idcajaOperacion").val() ||
+      contextoCajaActual.idcajaActiva ||
+      0
+    );
   }
 
   return (
@@ -329,7 +388,6 @@ function actualizarIndicadorCajaSesion(caja) {
       .addClass("caja-inactiva");
 
     $dropdown.text("Sin caja seleccionada");
-
     return;
   }
 
@@ -377,68 +435,120 @@ function actualizarPermisoCajaSeleccionada(cajaForzada) {
   }
 
   if (!usuarioPuedeAbrirCaja(caja)) {
-    $("#btnAbrirCaja").prop("disabled", true);
-    $("#montoApertura").prop("disabled", true);
+    ocultarFormularioApertura();
 
     mostrarMensajeCaja(
       "warning",
-      "Puede operar esta caja cuando se encuentre abierta, pero no tiene permiso para abrirla."
+      "Esta caja está cerrada y no tienes permiso para abrirla."
     );
+
     return;
   }
 
-  $("#btnAbrirCaja")
-    .prop("disabled", false)
-    .html('<i class="fas fa-lock-open"></i> INICIAR CAJA');
-
-  $("#montoApertura").prop("disabled", false);
-
-  mostrarMensajeCaja(
-    "info",
-    "Caja autorizada. Puede registrar la apertura si todavía se encuentra cerrada."
-  );
+  ocultarMensajeCaja();
+  mostrarFormularioApertura();
 }
 
 function configurarCajaSinSeleccionar() {
-  $("#btnAbrirCaja").prop("disabled", true);
+  ocultarFormularioApertura();
+  ocultarMensajeCaja();
+}
+
+/* ==========================================================
+   INTERFAZ DEL MODAL
+========================================================== */
+
+function mostrarFormularioApertura() {
+  ocultarMensajeCaja();
+
+  $("#bloqueAperturaCaja").removeClass("d-none");
+
+  $("#montoApertura").prop("disabled", false);
+
+  $("#btnAbrirCaja")
+    .prop("disabled", false)
+    .html(
+      '<i class="fas fa-lock-open mr-2"></i> Abrir caja'
+    );
+
+  setTimeout(function () {
+    if (
+      $("#modalCajaChica").hasClass("show") &&
+      !$("#montoApertura").prop("disabled")
+    ) {
+      $("#montoApertura").trigger("focus");
+    }
+  }, 180);
+}
+
+function ocultarFormularioApertura(limpiarMonto = true) {
+  $("#bloqueAperturaCaja").addClass("d-none");
+
   $("#montoApertura").prop("disabled", true);
 
-  mostrarMensajeCaja(
-    "warning",
-    "Seleccione primero la caja que operará."
-  );
+  $("#btnAbrirCaja")
+    .prop("disabled", true)
+    .html(
+      '<i class="fas fa-lock-open mr-2"></i> Abrir caja'
+    );
+
+  if (limpiarMonto) {
+    $("#montoApertura").val("");
+  }
 }
 
 function mostrarMensajeCaja(tipo, mensaje) {
   const $mensaje = $("#mensajePermisoCaja");
 
   $mensaje
-    .removeClass("d-none alert-info alert-warning alert-danger alert-success")
+    .removeClass(
+      "d-none alert-info alert-warning alert-danger alert-success"
+    )
     .addClass("alert-" + tipo)
     .text(mensaje);
 }
 
+function ocultarMensajeCaja() {
+  $("#mensajePermisoCaja")
+    .addClass("d-none")
+    .removeClass(
+      "alert-info alert-warning alert-danger alert-success"
+    )
+    .text("");
+}
+
 function ocultarBloquesContexto() {
-  $("#bloqueContextoCaja").addClass("d-none");
   $("#grupoSeleccionCaja").addClass("d-none");
   $("#grupoCajaAutomatica").addClass("d-none");
 
-  $("#mensajePermisoCaja")
-    .addClass("d-none")
-    .removeClass("alert-info alert-warning alert-danger alert-success");
-
   $("#idcajaOperacion").empty();
+
+  ocultarFormularioApertura();
+  ocultarMensajeCaja();
 }
 
 function mostrarModalCaja() {
-  $("#modalCajaChica").modal({
+  const $modal = $("#modalCajaChica");
+
+  if ($modal.hasClass("show")) {
+    return;
+  }
+
+  $modal.modal({
     backdrop: "static",
     keyboard: false,
     show: true,
   });
 }
 
+/* ==========================================================
+   VERIFICACIÓN DE APERTURA
+========================================================== */
+
 function verificarAperturaCaja() {
+  ocultarFormularioApertura();
+  ocultarMensajeCaja();
+
   $.ajax({
     url: "Controllers/Cajachica.php?op=verificar_apertura",
     type: "GET",
@@ -447,6 +557,8 @@ function verificarAperturaCaja() {
 
     success: function (resp) {
       if (!resp || String(resp.status || "") === "error") {
+        ocultarFormularioApertura();
+
         Swal.fire({
           icon: "error",
           title: "Error de caja",
@@ -454,63 +566,68 @@ function verificarAperturaCaja() {
             (resp && resp.message) ||
             "No se pudo verificar la apertura de caja.",
         });
+
         return;
       }
 
       if (resp.estado === "SIN_CAJA_SELECCIONADA") {
-        /*
-         * Solo limpiar si realmente no existe una caja seleccionada
-         * en el contexto actual.
-         */
-        if (
-          contextoCajaActual.idcajaActiva <= 0 &&
-          contextoCajaActual.idcajaPreparada <= 0
-        ) {
-          contextoCajaActual.idcajaActiva = 0;
-          contextoCajaActual.idaperturaActiva = 0;
+        contextoCajaActual.idcajaActiva = 0;
+        contextoCajaActual.idaperturaActiva = 0;
 
-          actualizarIndicadorCajaSesion(null);
-          configurarCajaSinSeleccionar();
-          mostrarModalCaja();
-        }
+        actualizarIndicadorCajaSesion(null);
+        configurarCajaSinSeleccionar();
+        mostrarModalCaja();
 
         return;
       }
 
       if (resp.caja && contextoCajaActual.modo !== "LEGACY") {
         contextoCajaActual.idcajaActiva = Number(
-          resp.caja.idcaja || contextoCajaActual.idcajaActiva || 0
+          resp.caja.idcaja ||
+          contextoCajaActual.idcajaActiva ||
+          0
         );
+
+        actualizarIndicadorCajaSesion(resp.caja);
       }
 
+      /*
+       * Si la caja ya está abierta, se cierra el modal.
+       */
       if (resp.existe === true && resp.apertura) {
         contextoCajaActual.idaperturaActiva = Number(
           resp.apertura.idapertura || 0
         );
 
+        ocultarFormularioApertura();
         $("#modalCajaChica").modal("hide");
+
         return;
       }
 
+      /*
+       * La caja está cerrada.
+       * Recién aquí aparece el campo de monto.
+       */
       contextoCajaActual.idaperturaActiva = 0;
+
       mostrarModalCaja();
 
       if (contextoCajaActual.modo === "LEGACY") {
-        $("#btnAbrirCaja").prop("disabled", false);
-        $("#montoApertura").prop("disabled", false);
-      } else {
-        actualizarPermisoCajaSeleccionada(resp.caja || null);
+        mostrarFormularioApertura();
+        return;
       }
 
-      setTimeout(function () {
-        if (!$("#montoApertura").prop("disabled")) {
-          $("#montoApertura").trigger("focus");
-        }
-      }, 250);
+      actualizarPermisoCajaSeleccionada(resp.caja || null);
     },
 
     error: function (xhr) {
-      console.error("Error al verificar apertura:", xhr.responseText);
+      console.error(
+        "Error al verificar apertura:",
+        xhr.responseText
+      );
+
+      ocultarFormularioApertura();
 
       Swal.fire({
         icon: "error",
@@ -520,6 +637,10 @@ function verificarAperturaCaja() {
     },
   });
 }
+
+/* ==========================================================
+   APERTURA
+========================================================== */
 
 function abrirCaja() {
   if (
@@ -531,6 +652,7 @@ function abrirCaja() {
       title: "Seleccione una caja",
       text: "Debe seleccionar la caja que operará.",
     });
+
     return;
   }
 
@@ -541,25 +663,28 @@ function abrirCaja() {
       Swal.fire({
         icon: "warning",
         title: "Sin permiso de apertura",
-        text:
-          "Puede operar esta caja cuando esté abierta, pero no tiene permiso para abrirla.",
+        text: "No tiene permiso para abrir esta caja.",
       });
+
       return;
     }
   }
 
-  const valorMonto = String($("#montoApertura").val() || "").trim();
+  const valorMonto = String(
+    $("#montoApertura").val() || ""
+  ).trim();
 
   if (valorMonto === "") {
     Swal.fire({
       icon: "warning",
       title: "Monto requerido",
-      text: "Ingrese el monto inicial de caja.",
+      text: "Ingrese el efectivo inicial.",
     });
+
     return;
   }
 
-  const monto = parseFloat(valorMonto);
+  const monto = Number(valorMonto);
 
   if (!Number.isFinite(monto) || monto < 0) {
     Swal.fire({
@@ -567,14 +692,18 @@ function abrirCaja() {
       title: "Monto inválido",
       text: "Ingrese un monto válido.",
     });
+
     return;
   }
 
   const $boton = $("#btnAbrirCaja");
+  let aperturaCompletada = false;
 
   $boton
     .prop("disabled", true)
-    .html('<i class="fas fa-spinner fa-spin"></i> Abriendo...');
+    .html(
+      '<i class="fas fa-spinner fa-spin mr-2"></i> Abriendo...'
+    );
 
   $.ajax({
     url: "Controllers/Cajachica.php?op=guardar_apertura",
@@ -586,12 +715,15 @@ function abrirCaja() {
 
     success: function (resp) {
       if (resp && resp.status === "ok") {
+        aperturaCompletada = true;
+
         contextoCajaActual.idaperturaActiva = Number(
           resp.idapertura ||
           (resp.apertura && resp.apertura.idapertura) ||
           0
         );
 
+        ocultarFormularioApertura(false);
         $("#modalCajaChica").modal("hide");
 
         Swal.fire({
@@ -619,26 +751,39 @@ function abrirCaja() {
     },
 
     error: function (xhr) {
-      console.error("Error al abrir caja:", xhr.responseText);
+      console.error(
+        "Error al abrir caja:",
+        xhr.responseText
+      );
 
       Swal.fire({
         icon: "error",
         title: "Error del servidor",
         text:
           (xhr.responseJSON &&
-            (xhr.responseJSON.message || xhr.responseJSON.error)) ||
+            (
+              xhr.responseJSON.message ||
+              xhr.responseJSON.error
+            )) ||
           "No se pudo comunicar con el servidor.",
       });
     },
 
     complete: function () {
-      $boton.html('<i class="fas fa-lock-open"></i> INICIAR CAJA');
+      if (aperturaCompletada) {
+        return;
+      }
+
+      $boton.html(
+        '<i class="fas fa-lock-open mr-2"></i> Abrir caja'
+      );
 
       if (contextoCajaActual.modo === "LEGACY") {
         $boton.prop("disabled", false);
-      } else {
-        actualizarPermisoCajaSeleccionada();
+        return;
       }
+
+      actualizarPermisoCajaSeleccionada();
     },
   });
 }
