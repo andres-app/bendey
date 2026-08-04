@@ -2,6 +2,9 @@
 
 let tabla = null;
 let tablaNotasCredito = null;
+let tipoDocumentoActivo = "ventas";
+let filtroPremiumRegistrado = false;
+let temporizadorBusquedaDocumentos = null;
 
 /*
 |--------------------------------------------------------------------------
@@ -9,9 +12,18 @@ let tablaNotasCredito = null;
 |--------------------------------------------------------------------------
 */
 function init() {
+  registrarFiltroPremiumDataTables();
   listar();
   listarNotasCredito();
-  registrarEventosTabsDocumentos();
+  registrarEventosFiltrosPremium();
+
+  const tipoInicial =
+    obtenerTipoDocumentoDesdeUrl();
+
+  cambiarTipoDocumento(
+    tipoInicial,
+    false
+  );
 }
 
 $(document).on("click", "#btnagregar", function () {
@@ -28,13 +40,13 @@ function listar() {
     .DataTable({
       processing: true,
       serverSide: false,
-      dom: "Bfrtip",
+      dom: "Brtip",
 
       buttons: [
         {
           extend: "excelHtml5",
-          text: '<i class="far fa-file-excel mr-1"></i> Excel',
-          className: "btn btn-outline-secondary btn-sm",
+          text: '<i class="far fa-file-excel"></i> Exportar Excel',
+          className: "btn btn-sm btn-export-excel",
           titleAttr: "Exportar a Excel",
           title: "Reporte de Ventas",
           sheetName: "Ventas",
@@ -44,8 +56,8 @@ function listar() {
         },
         {
           extend: "pdfHtml5",
-          text: '<i class="far fa-file-pdf mr-1"></i> PDF',
-          className: "btn btn-outline-secondary btn-sm",
+          text: '<i class="far fa-file-pdf"></i> Exportar PDF',
+          className: "btn btn-sm btn-export-pdf",
           titleAttr: "Exportar a PDF",
           title: "Reporte de Ventas",
           pageSize: "A4",
@@ -88,6 +100,19 @@ function listar() {
       pageLength: 10,
       order: [],
 
+      initComplete: function () {
+        moverExportadoresDataTable(
+          tabla,
+          "#exportadoresVentas"
+        );
+
+        aplicarFiltrosPremium();
+      },
+
+      drawCallback: function () {
+        actualizarResumenResultados();
+      },
+
       columnDefs: [
         {
           targets: "_all",
@@ -123,15 +148,15 @@ function listarNotasCredito() {
       .DataTable({
         processing: true,
         serverSide: false,
-        dom: "Bfrtip",
+        dom: "Brtip",
 
         buttons: [
           {
             extend: "excelHtml5",
             text:
-              '<i class="far fa-file-excel mr-1"></i> Excel',
+              '<i class="far fa-file-excel"></i> Exportar Excel',
             className:
-              "btn btn-outline-secondary btn-sm",
+              "btn btn-sm btn-export-excel",
             titleAttr:
               "Exportar notas de crédito a Excel",
             title:
@@ -154,9 +179,9 @@ function listarNotasCredito() {
           {
             extend: "pdfHtml5",
             text:
-              '<i class="far fa-file-pdf mr-1"></i> PDF',
+              '<i class="far fa-file-pdf"></i> Exportar PDF',
             className:
-              "btn btn-outline-secondary btn-sm",
+              "btn btn-sm btn-export-pdf",
             titleAttr:
               "Exportar notas de crédito a PDF",
             title:
@@ -234,6 +259,19 @@ function listarNotasCredito() {
         order:
           [],
 
+        initComplete: function () {
+          moverExportadoresDataTable(
+            tablaNotasCredito,
+            "#exportadoresNotas"
+          );
+
+          aplicarFiltrosPremium();
+        },
+
+        drawCallback: function () {
+          actualizarResumenResultados();
+        },
+
         columnDefs: [
           {
             targets:
@@ -278,57 +316,633 @@ function listarNotasCredito() {
 | AJUSTAR TABLAS AL CAMBIAR DE PESTAÑA
 |--------------------------------------------------------------------------
 */
-function registrarEventosTabsDocumentos() {
+function registrarEventosFiltrosPremium() {
   $(document)
     .off(
-      "shown.bs.tab.documentosVentas",
-      '#ventasDocumentosTabs a[data-toggle="tab"]'
+      "click.filtroDocumentoVentas",
+      "[data-documento]"
     )
     .on(
-      "shown.bs.tab.documentosVentas",
-      '#ventasDocumentosTabs a[data-toggle="tab"]',
+      "click.filtroDocumentoVentas",
+      "[data-documento]",
       function () {
-        if (
-          tabla &&
-          $.fn.DataTable.isDataTable(
-            "#tbllistado"
+        cambiarTipoDocumento(
+          String(
+            $(this).data("documento") || "ventas"
           )
-        ) {
-          tabla
-            .columns
-            .adjust();
+        );
+      }
+    );
 
-          if (
-            tabla.responsive &&
-            typeof tabla.responsive.recalc
-              === "function"
-          ) {
-            tabla.responsive.recalc();
-          }
+  $("#filtroPeriodo")
+    .off("change.filtrosVentas")
+    .on(
+      "change.filtrosVentas",
+      function () {
+        aplicarPeriodoSeleccionado(
+          String($(this).val() || "todos")
+        );
+      }
+    );
+
+  $(
+    "#filtroFechaDesde, #filtroFechaHasta"
+  )
+    .off("change.filtrosVentas")
+    .on(
+      "change.filtrosVentas",
+      function () {
+        $("#filtroPeriodo")
+          .val("personalizado");
+
+        aplicarFiltrosPremium();
+      }
+    );
+
+  $("#filtroEstadoSunat")
+    .off("change.filtrosVentas")
+    .on(
+      "change.filtrosVentas",
+      function () {
+        aplicarFiltrosPremium();
+      }
+    );
+
+  $("#filtroBusquedaDocumentos")
+    .off("input.filtrosVentas")
+    .on(
+      "input.filtrosVentas",
+      function () {
+        window.clearTimeout(
+          temporizadorBusquedaDocumentos
+        );
+
+        temporizadorBusquedaDocumentos =
+          window.setTimeout(
+            aplicarFiltrosPremium,
+            180
+          );
+      }
+    );
+
+  $("#btnLimpiarFiltros")
+    .off("click.filtrosVentas")
+    .on(
+      "click.filtrosVentas",
+      function () {
+        limpiarFiltrosPremium();
+      }
+    );
+}
+
+function obtenerTipoDocumentoDesdeUrl() {
+  try {
+    const parametros =
+      new URLSearchParams(
+        window.location.search || ""
+      );
+
+    const valor = String(
+      parametros.get("tab") || ""
+    )
+      .toLowerCase()
+      .trim();
+
+    if (
+      valor === "notas"
+      || valor === "nota"
+      || valor === "notas-credito"
+    ) {
+      return "notas";
+    }
+  } catch (error) {
+    console.warn(
+      "No se pudo leer la pestaña inicial:",
+      error
+    );
+  }
+
+  return "ventas";
+}
+
+function cambiarTipoDocumento(
+  tipo,
+  actualizarUrl = true
+) {
+  tipoDocumentoActivo =
+    tipo === "notas"
+      ? "notas"
+      : "ventas";
+
+  const mostrandoVentas =
+    tipoDocumentoActivo === "ventas";
+
+  $("#ventas-panel")
+    .toggleClass(
+      "d-none",
+      !mostrandoVentas
+    );
+
+  $("#notas-credito-panel")
+    .toggleClass(
+      "d-none",
+      mostrandoVentas
+    );
+
+  $("#exportadoresVentas")
+    .toggleClass(
+      "d-none",
+      !mostrandoVentas
+    );
+
+  $("#exportadoresNotas")
+    .toggleClass(
+      "d-none",
+      mostrandoVentas
+    );
+
+  $("[data-documento]")
+    .removeClass(
+      "active is-active"
+    )
+    .filter(
+      '[data-documento="' +
+      tipoDocumentoActivo +
+      '"]'
+    )
+    .addClass(function () {
+      return $(this)
+        .hasClass(
+          "ventas-summary-card"
+        )
+          ? "is-active"
+          : "active";
+    });
+
+  if (actualizarUrl) {
+    actualizarParametroDocumentoUrl(
+      tipoDocumentoActivo
+    );
+  }
+
+  window.setTimeout(
+    function () {
+      const tablaActiva =
+        obtenerTablaActiva();
+
+      if (tablaActiva) {
+        tablaActiva
+          .columns
+          .adjust();
+
+        if (
+          tablaActiva.responsive &&
+          typeof tablaActiva.responsive
+            .recalc === "function"
+        ) {
+          tablaActiva.responsive.recalc();
         }
 
+        tablaActiva.draw(false);
+      }
+
+      actualizarResumenResultados();
+    },
+    30
+  );
+}
+
+function actualizarParametroDocumentoUrl(
+  tipo
+) {
+  try {
+    const url =
+      new URL(
+        window.location.href
+      );
+
+    url.searchParams.set(
+      "tab",
+      tipo === "notas"
+        ? "notas"
+        : "ventas"
+    );
+
+    window.history.replaceState(
+      {},
+      "",
+      url.toString()
+    );
+  } catch (error) {
+    console.warn(
+      "No se pudo actualizar la URL:",
+      error
+    );
+  }
+}
+
+function aplicarPeriodoSeleccionado(
+  periodo
+) {
+  const hoy =
+    new Date();
+
+  let desde = "";
+  let hasta = "";
+
+  if (periodo === "hoy") {
+    desde =
+      formatearFechaInput(hoy);
+
+    hasta =
+      desde;
+  } else if (periodo === "7dias") {
+    const fechaDesde =
+      new Date(hoy);
+
+    fechaDesde.setDate(
+      hoy.getDate() - 6
+    );
+
+    desde =
+      formatearFechaInput(
+        fechaDesde
+      );
+
+    hasta =
+      formatearFechaInput(
+        hoy
+      );
+  } else if (periodo === "mes") {
+    const inicioMes =
+      new Date(
+        hoy.getFullYear(),
+        hoy.getMonth(),
+        1
+      );
+
+    desde =
+      formatearFechaInput(
+        inicioMes
+      );
+
+    hasta =
+      formatearFechaInput(
+        hoy
+      );
+  } else if (
+    periodo === "personalizado"
+  ) {
+    aplicarFiltrosPremium();
+    return;
+  }
+
+  $("#filtroFechaDesde").val(
+    desde
+  );
+
+  $("#filtroFechaHasta").val(
+    hasta
+  );
+
+  aplicarFiltrosPremium();
+}
+
+function formatearFechaInput(
+  fecha
+) {
+  const anio =
+    fecha.getFullYear();
+
+  const mes =
+    String(
+      fecha.getMonth() + 1
+    ).padStart(2, "0");
+
+  const dia =
+    String(
+      fecha.getDate()
+    ).padStart(2, "0");
+
+  return (
+    anio +
+    "-" +
+    mes +
+    "-" +
+    dia
+  );
+}
+
+function registrarFiltroPremiumDataTables() {
+  if (filtroPremiumRegistrado) {
+    return;
+  }
+
+  $.fn.dataTable.ext.search.push(
+    function (
+      settings,
+      data
+    ) {
+      const tablaId =
+        settings &&
+        settings.nTable
+          ? settings.nTable.id
+          : "";
+
+      if (
+        tablaId !== "tbllistado"
+        && tablaId !== "tblNotasCredito"
+      ) {
+        return true;
+      }
+
+      const desde =
+        String(
+          $("#filtroFechaDesde").val() || ""
+        );
+
+      const hasta =
+        String(
+          $("#filtroFechaHasta").val() || ""
+        );
+
+      const estadoBuscado =
+        normalizarTextoFiltro(
+          $("#filtroEstadoSunat").val()
+        );
+
+      const fechaRegistro =
+        convertirFechaTabla(
+          data[0]
+        );
+
+      if (
+        desde !== ""
+        && fechaRegistro
+        && fechaRegistro <
+          crearFechaLocal(
+            desde,
+            false
+          )
+      ) {
+        return false;
+      }
+
+      if (
+        hasta !== ""
+        && fechaRegistro
+        && fechaRegistro >
+          crearFechaLocal(
+            hasta,
+            true
+          )
+      ) {
+        return false;
+      }
+
+      if (estadoBuscado !== "") {
+        const indiceEstado =
+          tablaId === "tbllistado"
+            ? 6
+            : 7;
+
+        const estadoFila =
+          normalizarTextoFiltro(
+            data[indiceEstado]
+          );
+
         if (
-          tablaNotasCredito &&
-          $.fn.DataTable.isDataTable(
-            "#tblNotasCredito"
+          !estadoFila.includes(
+            estadoBuscado
           )
         ) {
-          tablaNotasCredito
-            .columns
-            .adjust();
-
-          if (
-            tablaNotasCredito.responsive &&
-            typeof tablaNotasCredito
-              .responsive
-              .recalc === "function"
-          ) {
-            tablaNotasCredito
-              .responsive
-              .recalc();
-          }
+          return false;
         }
       }
+
+      return true;
+    }
+  );
+
+  filtroPremiumRegistrado =
+    true;
+}
+
+function convertirFechaTabla(
+  valor
+) {
+  const texto =
+    limpiarHtmlFiltro(
+      valor
+    ).trim();
+
+  const coincidencia =
+    texto.match(
+      /(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/
+    );
+
+  if (!coincidencia) {
+    return null;
+  }
+
+  return new Date(
+    Number(coincidencia[3]),
+    Number(coincidencia[2]) - 1,
+    Number(coincidencia[1]),
+    Number(coincidencia[4] || 0),
+    Number(coincidencia[5] || 0),
+    0,
+    0
+  );
+}
+
+function crearFechaLocal(
+  valor,
+  finDelDia
+) {
+  const partes =
+    String(valor)
+      .split("-")
+      .map(Number);
+
+  if (partes.length !== 3) {
+    return null;
+  }
+
+  return new Date(
+    partes[0],
+    partes[1] - 1,
+    partes[2],
+    finDelDia ? 23 : 0,
+    finDelDia ? 59 : 0,
+    finDelDia ? 59 : 0,
+    finDelDia ? 999 : 0
+  );
+}
+
+function normalizarTextoFiltro(
+  valor
+) {
+  return limpiarHtmlFiltro(
+    valor
+  )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .toUpperCase()
+    .trim();
+}
+
+function limpiarHtmlFiltro(
+  valor
+) {
+  return $("<div>")
+    .html(
+      String(valor || "")
+    )
+    .text();
+}
+
+function aplicarFiltrosPremium() {
+  const busqueda =
+    String(
+      $("#filtroBusquedaDocumentos").val() || ""
+    ).trim();
+
+  if (tabla) {
+    tabla
+      .search(
+        busqueda
+      )
+      .draw(false);
+  }
+
+  if (tablaNotasCredito) {
+    tablaNotasCredito
+      .search(
+        busqueda
+      )
+      .draw(false);
+  }
+
+  actualizarResumenResultados();
+}
+
+function limpiarFiltrosPremium() {
+  $("#filtroPeriodo").val(
+    "todos"
+  );
+
+  $("#filtroFechaDesde").val(
+    ""
+  );
+
+  $("#filtroFechaHasta").val(
+    ""
+  );
+
+  $("#filtroEstadoSunat").val(
+    ""
+  );
+
+  $("#filtroBusquedaDocumentos").val(
+    ""
+  );
+
+  aplicarFiltrosPremium();
+}
+
+function moverExportadoresDataTable(
+  instancia,
+  selectorDestino
+) {
+  if (
+    !instancia
+    || typeof instancia.buttons
+      !== "function"
+  ) {
+    return;
+  }
+
+  const contenedor =
+    instancia.buttons()
+      .container();
+
+  $(selectorDestino)
+    .empty()
+    .append(
+      contenedor
+    );
+}
+
+function obtenerTablaActiva() {
+  return tipoDocumentoActivo === "notas"
+    ? tablaNotasCredito
+    : tabla;
+}
+
+function actualizarResumenResultados() {
+  const tablaActiva =
+    obtenerTablaActiva();
+
+  if (
+    !tablaActiva
+    || typeof tablaActiva.page
+      !== "function"
+  ) {
+    return;
+  }
+
+  const informacion =
+    tablaActiva.page.info();
+
+  const etiqueta =
+    tipoDocumentoActivo === "notas"
+      ? "notas de crédito"
+      : "ventas";
+
+  const totalVisible =
+    Number(
+      informacion.recordsDisplay || 0
+    );
+
+  const totalGeneral =
+    Number(
+      informacion.recordsTotal || 0
+    );
+
+  let texto =
+    totalVisible +
+    " " +
+    (
+      totalVisible === 1
+        ? etiqueta.replace(
+            "notas de crédito",
+            "nota de crédito"
+          ).replace(
+            "ventas",
+            "venta"
+          )
+        : etiqueta
+    );
+
+  if (
+    totalVisible !== totalGeneral
+  ) {
+    texto +=
+      " de " +
+      totalGeneral +
+      " registradas";
+  } else {
+    texto +=
+      " registradas";
+  }
+
+  $("#resumenFiltroActual")
+    .text(
+      texto
     );
 }
 
