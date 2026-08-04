@@ -1521,15 +1521,16 @@ switch ($op) {
         break;
 
     // =========================================================
-    // ANULAR VENTA LOCAL
+    // ANULACIÓN DE VENTAS DESHABILITADA
     // =========================================================
     case 'anular':
 
-        $rspta = $sell->anular($idventa);
+        http_response_code(403);
 
-        echo $rspta
-            ? 'Ingreso anulado correctamente'
-            : 'No se pudo anular el ingreso';
+        responderJson([
+            'success' => false,
+            'mensaje' => 'La anulación de ventas no está permitida.'
+        ]);
 
         break;
 
@@ -1631,22 +1632,6 @@ switch ($op) {
                                 Imprimir A4
                             </a>
 
-                            ' .
-                    (
-                        $reg['estado'] === 'Aceptado'
-                        ? '
-                                <a
-                                    class="dropdown-item text-danger"
-                                    href="#"
-                                    onclick="anular(' .
-                        $id .
-                        ')">
-                                    <i class="fas fa-times"></i>
-                                    Anular
-                                </a>'
-                        : ''
-                    ) .
-                    '
                         </div>
                     </div>
                 ',
@@ -2481,24 +2466,6 @@ switch ($op) {
                                 <span>Compartir por WhatsApp</span>
                             </a>
 
-                            ' .
-                    (
-                        $reg['estado'] === 'Aceptado'
-                        ? '
-                            <div class="dropdown-divider"></div>
-
-                            <a
-                                class="dropdown-item venta-accion-peligro"
-                                href="#"
-                                onclick="anular(' .
-                        $id .
-                        '); return false;">
-                                <i class="fas fa-ban"></i>
-                                <span>Anular venta</span>
-                            </a>'
-                        : ''
-                    ) .
-                    '
                         </div>
                     </div>
                 '
