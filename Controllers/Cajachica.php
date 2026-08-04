@@ -865,6 +865,14 @@ try {
                     'otros_ingresos_efectivo' =>
                     $totales['otros_ingresos_efectivo'],
 
+                    'notas_credito_efectivo' =>
+                    $totales['notas_credito_efectivo']
+                    ?? 0,
+
+                    'otros_egresos_efectivo' =>
+                    $totales['otros_egresos_efectivo']
+                    ?? 0,
+
                     'egresos_efectivo' =>
                     $totales['egresos_efectivo'],
 
@@ -1071,6 +1079,14 @@ try {
 
                 'otros_ingresos_efectivo' =>
                 $totales['otros_ingresos_efectivo'],
+
+                'notas_credito_efectivo' =>
+                $totales['notas_credito_efectivo']
+                ?? 0,
+
+                'otros_egresos_efectivo' =>
+                $totales['otros_egresos_efectivo']
+                ?? 0,
 
                 'egresos_efectivo' =>
                 $totales['egresos_efectivo'],

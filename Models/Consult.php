@@ -18,126 +18,247 @@ class Consult{
       return  $this->conexion->getDataAll($sql); 
   }
 
-  public function ventasfecha(
+public function ventasfecha(
     $fecha_inicio,
     $fecha_fin
-) {
-    /*
-    |--------------------------------------------------------------------------
-    | RANGO DE FECHAS
-    |--------------------------------------------------------------------------
-    | Desde la fecha inicial a las 00:00:00 hasta el día siguiente
-    | de la fecha final, sin utilizar DATE() sobre fecha_hora.
-    |--------------------------------------------------------------------------
-    */
+  ) {
     $ini = $fecha_inicio . ' 00:00:00';
 
     $fin = date(
-        'Y-m-d',
-        strtotime($fecha_fin . ' +1 day')
+      'Y-m-d',
+      strtotime($fecha_fin . ' +1 day')
     ) . ' 00:00:00';
 
     $sql = "
+      SELECT
+        v.idventa,
+
+        DATE_FORMAT(
+          v.fecha_hora,
+          '%d/%m/%Y %H:%i'
+        ) AS fecha,
+
+        COALESCE(
+          u.nombre,
+          'SIN USUARIO'
+        ) AS usuario,
+
+        COALESCE(
+          p.nombre,
+          'SIN CLIENTE'
+        ) AS cliente,
+
+        v.tipo_comprobante,
+        v.serie_comprobante,
+        v.num_comprobante,
+
+        v.total_venta,
+
+        COALESCE(
+          nc_aceptadas.total_notas_credito,
+          0
+        ) AS total_notas_credito,
+
+        ROUND(
+          v.total_venta
+          - COALESCE(
+              nc_aceptadas.total_notas_credito,
+              0
+            ),
+          2
+        ) AS total_neto,
+
+        v.impuesto,
+        v.estado,
+
+        v.idsucursal,
+        v.idcaja,
+        v.idapertura,
+
+        COALESCE(
+          s.nombre,
+          'LEGACY'
+        ) AS sucursal,
+
+        CASE
+          WHEN v.idcaja IS NULL
+          THEN 'LEGACY'
+
+          ELSE CONCAT(
+            COALESCE(
+              cf.codigo,
+              'SIN CÓDIGO'
+            ),
+            ' - ',
+            COALESCE(
+              cf.nombre,
+              'CAJA NO ENCONTRADA'
+            )
+          )
+        END AS caja,
+
+        CASE
+          WHEN v.idapertura IS NULL
+          THEN 'SIN VÍNCULO FÍSICO'
+
+          ELSE CAST(
+            v.idapertura AS CHAR
+          )
+        END AS apertura,
+
+        CASE
+          WHEN v.idcaja IS NULL
+           AND v.idapertura IS NULL
+          THEN 'LEGACY'
+
+          ELSE 'CAJA_FISICA'
+        END AS modo_caja
+
+      FROM venta AS v
+
+      LEFT JOIN persona AS p
+        ON p.idpersona = v.idcliente
+
+      LEFT JOIN usuario AS u
+        ON u.idusuario = v.idusuario
+
+      LEFT JOIN sucursal AS s
+        ON s.idsucursal = v.idsucursal
+
+      LEFT JOIN caja_fisica AS cf
+        ON cf.idcaja = v.idcaja
+
+      LEFT JOIN (
         SELECT
-            v.idventa,
+          nc.idventa,
+          SUM(nc.total_nota)
+            AS total_notas_credito
 
-            DATE_FORMAT(
-                v.fecha_hora,
-                '%d/%m/%Y %H:%i'
-            ) AS fecha,
+        FROM nota_credito AS nc
 
-            COALESCE(
-                u.nombre,
-                'SIN USUARIO'
-            ) AS usuario,
+        INNER JOIN nota_credito_sunat AS ncs
+          ON ncs.idnota_credito =
+             nc.idnota_credito
 
-            COALESCE(
-                p.nombre,
-                'SIN CLIENTE'
-            ) AS cliente,
+        WHERE nc.estado = 'REGISTRADA'
+          AND UPPER(ncs.estado_sunat) =
+              'ACEPTADO'
 
-            v.tipo_comprobante,
-            v.serie_comprobante,
-            v.num_comprobante,
-            v.total_venta,
-            v.impuesto,
-            v.estado,
+        GROUP BY nc.idventa
+      ) AS nc_aceptadas
+        ON nc_aceptadas.idventa =
+           v.idventa
 
-            v.idsucursal,
-            v.idcaja,
-            v.idapertura,
+      WHERE v.fecha_hora >= ?
+        AND v.fecha_hora < ?
 
-            COALESCE(
-                s.nombre,
-                'LEGACY'
-            ) AS sucursal,
-
-            CASE
-                WHEN v.idcaja IS NULL
-                THEN 'LEGACY'
-
-                ELSE CONCAT(
-                    COALESCE(cf.codigo, 'SIN CÓDIGO'),
-                    ' - ',
-                    COALESCE(cf.nombre, 'CAJA NO ENCONTRADA')
-                )
-            END AS caja,
-
-            CASE
-                WHEN v.idapertura IS NULL
-                THEN 'SIN VÍNCULO FÍSICO'
-
-                ELSE CAST(
-                    v.idapertura AS CHAR
-                )
-            END AS apertura,
-
-            CASE
-                WHEN v.idcaja IS NULL
-                 AND v.idapertura IS NULL
-                THEN 'LEGACY'
-
-                ELSE 'CAJA_FISICA'
-            END AS modo_caja
-
-        FROM venta AS v
-
-        LEFT JOIN persona AS p
-            ON p.idpersona = v.idcliente
-
-        LEFT JOIN usuario AS u
-            ON u.idusuario = v.idusuario
-
-        LEFT JOIN sucursal AS s
-            ON s.idsucursal = v.idsucursal
-
-        LEFT JOIN caja_fisica AS cf
-            ON cf.idcaja = v.idcaja
-
-        WHERE v.fecha_hora >= ?
-          AND v.fecha_hora < ?
-
-        ORDER BY
-            v.fecha_hora DESC,
-            v.idventa DESC
+      ORDER BY
+        v.fecha_hora DESC,
+        v.idventa DESC
     ";
 
     $resultado = $this->conexion->getDataAll(
-        $sql,
-        [
-            $ini,
-            $fin
-        ]
+      $sql,
+      [
+        $ini,
+        $fin
+      ]
     );
 
     return is_array($resultado)
-        ? $resultado
-        : [];
-}
+      ? $resultado
+      : [];
+  }
 
-  public function ventasfechacliente($fecha_inicio,$fecha_fin,$idcliente){
-    $sql="SELECT DATE(v.fecha_hora) as fecha, u.nombre as usuario, p.nombre as cliente, v.tipo_comprobante,v.serie_comprobante, v.num_comprobante , v.total_venta, v.impuesto, v.estado FROM venta v INNER JOIN persona p ON v.idcliente=p.idpersona INNER JOIN usuario u ON v.idusuario=u.idusuario WHERE DATE(v.fecha_hora)>='$fecha_inicio' AND DATE(v.fecha_hora)<='$fecha_fin' AND v.idcliente='$idcliente'";
-    return  $this->conexion->getDataAll($sql); 
+public function ventasfechacliente(
+    $fecha_inicio,
+    $fecha_fin,
+    $idcliente
+  ) {
+    $ini = $fecha_inicio . ' 00:00:00';
+
+    $fin = date(
+      'Y-m-d',
+      strtotime($fecha_fin . ' +1 day')
+    ) . ' 00:00:00';
+
+    $sql = "
+      SELECT
+        DATE(v.fecha_hora) AS fecha,
+        u.nombre AS usuario,
+        p.nombre AS cliente,
+        v.tipo_comprobante,
+        v.serie_comprobante,
+        v.num_comprobante,
+        v.total_venta,
+
+        COALESCE(
+          nc_aceptadas.total_notas_credito,
+          0
+        ) AS total_notas_credito,
+
+        ROUND(
+          v.total_venta
+          - COALESCE(
+              nc_aceptadas.total_notas_credito,
+              0
+            ),
+          2
+        ) AS total_neto,
+
+        v.impuesto,
+        v.estado
+
+      FROM venta AS v
+
+      INNER JOIN persona AS p
+        ON v.idcliente = p.idpersona
+
+      INNER JOIN usuario AS u
+        ON v.idusuario = u.idusuario
+
+      LEFT JOIN (
+        SELECT
+          nc.idventa,
+          SUM(nc.total_nota)
+            AS total_notas_credito
+
+        FROM nota_credito AS nc
+
+        INNER JOIN nota_credito_sunat AS ncs
+          ON ncs.idnota_credito =
+             nc.idnota_credito
+
+        WHERE nc.estado = 'REGISTRADA'
+          AND UPPER(ncs.estado_sunat) =
+              'ACEPTADO'
+
+        GROUP BY nc.idventa
+      ) AS nc_aceptadas
+        ON nc_aceptadas.idventa =
+           v.idventa
+
+      WHERE v.fecha_hora >= ?
+        AND v.fecha_hora < ?
+        AND v.idcliente = ?
+
+      ORDER BY
+        v.fecha_hora DESC,
+        v.idventa DESC
+    ";
+
+    $resultado = $this->conexion->getDataAll(
+      $sql,
+      [
+        $ini,
+        $fin,
+        (int)$idcliente
+      ]
+    );
+
+    return is_array($resultado)
+      ? $resultado
+      : [];
   }
 
   public function totalcomprahoy(){
@@ -145,9 +266,62 @@ class Consult{
     return  $this->conexion->getDataAll($sql); 
   }
 
-  public function totalventahoy(){
-    $sql="SELECT IFNULL(SUM(total_venta),0) as total_venta FROM venta WHERE DATE(fecha_hora)=curdate()";
-    return  $this->conexion->getDataAll($sql); 
+public function totalventahoy() {
+    $sql = "
+      SELECT
+        ROUND(
+          COALESCE(ventas.ventas_brutas, 0),
+          2
+        ) AS ventas_brutas,
+
+        ROUND(
+          COALESCE(notas.notas_credito, 0),
+          2
+        ) AS notas_credito,
+
+        ROUND(
+          COALESCE(ventas.ventas_brutas, 0)
+          - COALESCE(notas.notas_credito, 0),
+          2
+        ) AS ventas_netas,
+
+        ROUND(
+          COALESCE(ventas.ventas_brutas, 0)
+          - COALESCE(notas.notas_credito, 0),
+          2
+        ) AS total_venta
+
+      FROM (
+        SELECT
+          SUM(v.total_venta)
+            AS ventas_brutas
+
+        FROM venta AS v
+
+        WHERE DATE(v.fecha_hora) = CURDATE()
+          AND v.estado = 'Aceptado'
+      ) AS ventas
+
+      CROSS JOIN (
+        SELECT
+          SUM(nc.total_nota)
+            AS notas_credito
+
+        FROM nota_credito AS nc
+
+        INNER JOIN nota_credito_sunat AS ncs
+          ON ncs.idnota_credito =
+             nc.idnota_credito
+
+        WHERE DATE(nc.fecha_hora) =
+              CURDATE()
+          AND nc.estado = 'REGISTRADA'
+          AND UPPER(ncs.estado_sunat) =
+              'ACEPTADO'
+      ) AS notas
+    ";
+
+    return $this->conexion->getDataAll($sql);
   }
 
   public function comprasultimos_10dias(){
@@ -155,27 +329,277 @@ class Consult{
     return  $this->conexion->getDataAll($sql); 
   }
 
-  public function ventasultimos_12meses(){
-    $sql="SELECT DATE_FORMAT(fecha_hora,'%M') AS fecha, SUM(total_venta) AS total FROM venta GROUP BY MONTH(fecha_hora) ORDER BY fecha_hora DESC LIMIT 0,12";
-    return  $this->conexion->getDataAll($sql); 
+public function ventasultimos_12meses() {
+    $sql = "
+      SELECT
+        movimientos.fecha,
+
+        ROUND(
+          SUM(movimientos.ventas_brutas),
+          2
+        ) AS ventas_brutas,
+
+        ROUND(
+          SUM(movimientos.notas_credito),
+          2
+        ) AS notas_credito,
+
+        ROUND(
+          SUM(movimientos.ventas_brutas)
+          - SUM(movimientos.notas_credito),
+          2
+        ) AS total
+
+      FROM (
+        SELECT
+          DATE_FORMAT(
+            v.fecha_hora,
+            '%Y-%m-01'
+          ) AS fecha,
+
+          SUM(v.total_venta)
+            AS ventas_brutas,
+
+          0 AS notas_credito
+
+        FROM venta AS v
+
+        WHERE v.estado = 'Aceptado'
+
+        GROUP BY
+          DATE_FORMAT(
+            v.fecha_hora,
+            '%Y-%m'
+          )
+
+        UNION ALL
+
+        SELECT
+          DATE_FORMAT(
+            nc.fecha_hora,
+            '%Y-%m-01'
+          ) AS fecha,
+
+          0 AS ventas_brutas,
+
+          SUM(nc.total_nota)
+            AS notas_credito
+
+        FROM nota_credito AS nc
+
+        INNER JOIN nota_credito_sunat AS ncs
+          ON ncs.idnota_credito =
+             nc.idnota_credito
+
+        WHERE nc.estado = 'REGISTRADA'
+          AND UPPER(ncs.estado_sunat) =
+              'ACEPTADO'
+
+        GROUP BY
+          DATE_FORMAT(
+            nc.fecha_hora,
+            '%Y-%m'
+          )
+      ) AS movimientos
+
+      GROUP BY movimientos.fecha
+
+      ORDER BY movimientos.fecha DESC
+
+      LIMIT 12
+    ";
+
+    $resultado = $this->conexion->getDataAll(
+      $sql
+    );
+
+    return is_array($resultado)
+      ? array_reverse($resultado)
+      : [];
   }
 
-  public function ventasultimos_12meses_grafica(){
+public function ventasultimos_12meses_grafica() {
+    $sql = "
+      SELECT
+        movimientos.fecha,
 
-    $sql=" SELECT DATE_FORMAT(fecha_hora,'%M') AS fecha, SUM(total_venta) AS total FROM venta GROUP BY MONTH(fecha_hora) ORDER BY fecha_hora DESC LIMIT 0,12";
+        ROUND(
+          SUM(movimientos.ventas_brutas),
+          2
+        ) AS ventas_brutas,
 
-    return  $this->conexion->getDataAll($sql); 
-}
+        ROUND(
+          SUM(movimientos.notas_credito),
+          2
+        ) AS notas_credito,
+
+        ROUND(
+          SUM(movimientos.ventas_brutas)
+          - SUM(movimientos.notas_credito),
+          2
+        ) AS total
+
+      FROM (
+        SELECT
+          DATE_FORMAT(
+            v.fecha_hora,
+            '%Y-%m-01'
+          ) AS fecha,
+
+          SUM(v.total_venta)
+            AS ventas_brutas,
+
+          0 AS notas_credito
+
+        FROM venta AS v
+
+        WHERE v.estado = 'Aceptado'
+
+        GROUP BY
+          DATE_FORMAT(
+            v.fecha_hora,
+            '%Y-%m'
+          )
+
+        UNION ALL
+
+        SELECT
+          DATE_FORMAT(
+            nc.fecha_hora,
+            '%Y-%m-01'
+          ) AS fecha,
+
+          0 AS ventas_brutas,
+
+          SUM(nc.total_nota)
+            AS notas_credito
+
+        FROM nota_credito AS nc
+
+        INNER JOIN nota_credito_sunat AS ncs
+          ON ncs.idnota_credito =
+             nc.idnota_credito
+
+        WHERE nc.estado = 'REGISTRADA'
+          AND UPPER(ncs.estado_sunat) =
+              'ACEPTADO'
+
+        GROUP BY
+          DATE_FORMAT(
+            nc.fecha_hora,
+            '%Y-%m'
+          )
+      ) AS movimientos
+
+      GROUP BY movimientos.fecha
+
+      ORDER BY movimientos.fecha DESC
+
+      LIMIT 12
+    ";
+
+    $resultado = $this->conexion->getDataAll(
+      $sql
+    );
+
+    return is_array($resultado)
+      ? array_reverse($resultado)
+      : [];
+  }
 
   public function comparsultimos_12meses_grafica(){
     $sql="SELECT DATE_FORMAT(fecha_hora,'%M') AS fecha, SUM(total_compra) AS total FROM ingreso GROUP BY MONTH(fecha_hora) ORDER BY fecha_hora DESC LIMIT 0,12";
     return  $this->conexion->getDataAll($sql); 
 }
 
-  public function ventas_grafica(){
-    $sql="SELECT DATE(fecha_hora) AS fecha, SUM(total_venta) AS total FROM venta GROUP BY MONTH(fecha_hora) ORDER BY fecha_hora DESC LIMIT 0,12";
-    return  $this->conexion->getDataAll($sql); 
-}
+public function ventas_grafica() {
+    $sql = "
+      SELECT
+        movimientos.fecha,
+
+        ROUND(
+          SUM(movimientos.ventas_brutas),
+          2
+        ) AS ventas_brutas,
+
+        ROUND(
+          SUM(movimientos.notas_credito),
+          2
+        ) AS notas_credito,
+
+        ROUND(
+          SUM(movimientos.ventas_brutas)
+          - SUM(movimientos.notas_credito),
+          2
+        ) AS total
+
+      FROM (
+        SELECT
+          DATE_FORMAT(
+            v.fecha_hora,
+            '%Y-%m-01'
+          ) AS fecha,
+
+          SUM(v.total_venta)
+            AS ventas_brutas,
+
+          0 AS notas_credito
+
+        FROM venta AS v
+
+        WHERE v.estado = 'Aceptado'
+
+        GROUP BY
+          DATE_FORMAT(
+            v.fecha_hora,
+            '%Y-%m'
+          )
+
+        UNION ALL
+
+        SELECT
+          DATE_FORMAT(
+            nc.fecha_hora,
+            '%Y-%m-01'
+          ) AS fecha,
+
+          0 AS ventas_brutas,
+
+          SUM(nc.total_nota)
+            AS notas_credito
+
+        FROM nota_credito AS nc
+
+        INNER JOIN nota_credito_sunat AS ncs
+          ON ncs.idnota_credito =
+             nc.idnota_credito
+
+        WHERE nc.estado = 'REGISTRADA'
+          AND UPPER(ncs.estado_sunat) =
+              'ACEPTADO'
+
+        GROUP BY
+          DATE_FORMAT(
+            nc.fecha_hora,
+            '%Y-%m'
+          )
+      ) AS movimientos
+
+      GROUP BY movimientos.fecha
+
+      ORDER BY movimientos.fecha DESC
+
+      LIMIT 12
+    ";
+
+    $resultado = $this->conexion->getDataAll(
+      $sql
+    );
+
+    return is_array($resultado)
+      ? array_reverse($resultado)
+      : [];
+  }
   public function compras_grafica(){
     $sql="SELECT DATE(fecha_hora) AS fecha, SUM(total_compra) AS total FROM ingreso GROUP BY MONTH(fecha_hora) ORDER BY fecha_hora DESC LIMIT 0,12";
     return  $this->conexion->getDataAll($sql); 

@@ -1,4 +1,10 @@
 "use strict";
+
+let graficoCompras = null;
+let graficoVentas = null;
+let graficoResumenCompras = null;
+let graficoResumenVentas = null;
+
 function init() {
   compras_grafica();
   ventas_grafica();
@@ -9,30 +15,48 @@ function init() {
 function compras_grafica() {
   $.post(
     "Controllers/Graphics.php?op=compras_grafica",
-    function (data, status) {
-      data = JSON.parse(data);
-      //console.log(data.fechas);
+    function (data) {
+      const respuesta =
+        normalizarGraphicsJson(data);
 
-      var ctx = document.getElementById("compras_grafica");
-      if (ctx) {
-        ctx.height = 150;
-        var myChart = new Chart(ctx, {
+      const canvas =
+        document.getElementById(
+          "compras_grafica"
+        );
+
+      if (!canvas) {
+        return;
+      }
+
+      if (graficoCompras) {
+        graficoCompras.destroy();
+      }
+
+      graficoCompras =
+        new Chart(canvas, {
           type: "line",
           data: {
-            labels: data.fechas,
-            type: "line",
-            defaultFontFamily: "Poppins",
+            labels:
+              Array.isArray(
+                respuesta.fechas
+              )
+                ? respuesta.fechas
+                : [],
             datasets: [
               {
                 label: "Compras",
-                data: data.totales,
-                backgroundColor: "transparent",
-                borderColor: "#f96332",
+                data:
+                  normalizarSerie(
+                    respuesta.totales
+                  ),
+                backgroundColor:
+                  "transparent",
+                borderColor:
+                  "#f96332",
                 borderWidth: 2,
-                pointStyle: "circle",
                 pointRadius: 3,
-                pointBorderColor: "transparent",
-                pointBackgroundColor: "#f96332",
+                pointBackgroundColor:
+                  "#f96332",
               },
             ],
           },
@@ -40,247 +64,472 @@ function compras_grafica() {
             responsive: true,
             tooltips: {
               mode: "index",
-              titleFontSize: 12,
-              titleFontColor: "#000",
-              bodyFontColor: "#000",
-              backgroundColor: "#fff",
-              titleFontFamily: "Poppins",
-              bodyFontFamily: "Poppins",
-              cornerRadius: 3,
               intersect: false,
+              callbacks: {
+                label: function (
+                  tooltipItem,
+                  chartData
+                ) {
+                  const etiqueta =
+                    chartData.datasets[
+                      tooltipItem
+                        .datasetIndex
+                    ].label || "";
+
+                  return (
+                    etiqueta
+                    + ": S/ "
+                    + formatearMontoGraphics(
+                        tooltipItem.yLabel
+                      )
+                  );
+                },
+              },
             },
             legend: {
               display: false,
-              labels: {
-                usePointStyle: true,
-                fontFamily: "Poppins",
-              },
             },
             scales: {
               xAxes: [
                 {
-                  display: true,
                   gridLines: {
                     display: false,
-                    drawBorder: false,
-                  },
-                  scaleLabel: {
-                    display: true,
-                    labelString: "Fecha",
-                  },
-                  ticks: {
-                    fontFamily: "Poppins",
-                    fontColor: "#9aa0ac", // Font Color
                   },
                 },
               ],
               yAxes: [
                 {
-                  display: true,
-                  gridLines: {
-                    display: true,
-                    drawBorder: false,
-                  },
-                  scaleLabel: {
-                    display: true,
-                    labelString: "Total",
-                    fontFamily: "Poppins",
-                  },
                   ticks: {
-                    fontFamily: "Poppins",
-                    fontColor: "#9aa0ac", // Font Color
+                    beginAtZero: true,
+                    callback:
+                      function (value) {
+                        return (
+                          "S/ "
+                          + Number(value)
+                            .toLocaleString(
+                              "es-PE"
+                            )
+                        );
+                      },
                   },
                 },
               ],
             },
-            title: {
-              display: false,
-              text: "Normal Legend",
-            },
           },
         });
-      }
     }
   );
 }
 
 function ventas_grafica() {
-  $.post("Controllers/Graphics.php?op=ventas_grafica", function (data, status) {
-    data = JSON.parse(data);
-    // console.log(data.fechas);
+  $.post(
+    "Controllers/Graphics.php?op=ventas_grafica",
+    function (data) {
+      const respuesta =
+        normalizarGraphicsJson(data);
 
-    var ctx = document.getElementById("ventas_grafica");
-    if (ctx) {
-      ctx.height = 150;
-      var myChart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: data.fechas,
+      const canvas =
+        document.getElementById(
+          "ventas_grafica"
+        );
+
+      if (!canvas) {
+        return;
+      }
+
+      if (graficoVentas) {
+        graficoVentas.destroy();
+      }
+
+      graficoVentas =
+        new Chart(canvas, {
           type: "line",
-          defaultFontFamily: "Poppins",
-          datasets: [
-            {
-              label: "Ventas",
-              data: data.totales,
-              backgroundColor: "transparent",
-              borderColor: "#2ECC71",
-              borderWidth: 2,
-              pointStyle: "circle",
-              pointRadius: 3,
-              pointBorderColor: "transparent",
-              pointBackgroundColor: "#2ECC71",
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          tooltips: {
-            mode: "index",
-            titleFontSize: 12,
-            titleFontColor: "#000",
-            bodyFontColor: "#000",
-            backgroundColor: "#fff",
-            titleFontFamily: "Poppins",
-            bodyFontFamily: "Poppins",
-            cornerRadius: 3,
-            intersect: false,
-          },
-          legend: {
-            display: false,
-            labels: {
-              usePointStyle: true,
-              fontFamily: "Poppins",
-            },
-          },
-          scales: {
-            xAxes: [
+          data: {
+            labels:
+              Array.isArray(
+                respuesta.fechas
+              )
+                ? respuesta.fechas
+                : [],
+            datasets: [
               {
-                display: true,
-                gridLines: {
-                  display: false,
-                  drawBorder: false,
-                },
-                scaleLabel: {
-                  display: true,
-                  labelString: "Fecha",
-                },
-                ticks: {
-                  fontFamily: "Poppins",
-                  fontColor: "#9aa0ac", // Font Color
-                },
+                label:
+                  "Ventas brutas",
+                data:
+                  normalizarSerie(
+                    respuesta
+                      .ventas_brutas
+                  ),
+                backgroundColor:
+                  "transparent",
+                borderColor:
+                  "#6B7280",
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor:
+                  "#6B7280",
               },
-            ],
-            yAxes: [
               {
-                display: true,
-                gridLines: {
-                  display: true,
-                  drawBorder: false,
-                },
-                scaleLabel: {
-                  display: true,
-                  labelString: "Total",
-                  fontFamily: "Poppins",
-                },
-                ticks: {
-                  fontFamily: "Poppins",
-                  fontColor: "#9aa0ac", // Font Color
-                },
+                label:
+                  "Notas de crédito",
+                data:
+                  normalizarSerie(
+                    respuesta
+                      .notas_credito
+                  ),
+                backgroundColor:
+                  "transparent",
+                borderColor:
+                  "#EF4444",
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor:
+                  "#EF4444",
+              },
+              {
+                label:
+                  "Ventas netas",
+                data:
+                  normalizarSerie(
+                    respuesta.totales
+                  ),
+                backgroundColor:
+                  "transparent",
+                borderColor:
+                  "#10B981",
+                borderWidth: 3,
+                pointRadius: 4,
+                pointBackgroundColor:
+                  "#10B981",
               },
             ],
           },
-          title: {
-            display: false,
-            text: "Normal Legend",
+          options: {
+            responsive: true,
+            tooltips: {
+              mode: "index",
+              intersect: false,
+              callbacks: {
+                label: function (
+                  tooltipItem,
+                  chartData
+                ) {
+                  const etiqueta =
+                    chartData.datasets[
+                      tooltipItem
+                        .datasetIndex
+                    ].label || "";
+
+                  return (
+                    etiqueta
+                    + ": S/ "
+                    + formatearMontoGraphics(
+                        tooltipItem.yLabel
+                      )
+                  );
+                },
+              },
+            },
+            legend: {
+              display: true,
+              position: "bottom",
+            },
+            scales: {
+              xAxes: [
+                {
+                  gridLines: {
+                    display: false,
+                  },
+                },
+              ],
+              yAxes: [
+                {
+                  ticks: {
+                    beginAtZero: true,
+                    callback:
+                      function (value) {
+                        return (
+                          "S/ "
+                          + Number(value)
+                            .toLocaleString(
+                              "es-PE"
+                            )
+                        );
+                      },
+                  },
+                },
+              ],
+            },
           },
-        },
-      });
+        });
     }
-  });
+  );
 }
 
 function resumen_compras() {
   $.post(
     "Controllers/Graphics.php?op=resumen_compras",
-    function (data, status) {
-      data = JSON.parse(data);
-      //console.log(data);
-      var ctx = document.getElementById("resumen_compras").getContext("2d");
-      var myChart = new Chart(ctx, {
-        type: "pie",
-        data: {
-          datasets: [
-            {
-              data: data.totales,
-              backgroundColor: [
-                "#191d21",
-                "#63ed7a",
-                "#ffa426",
-                "#fc544b",
-                "#6777ef",
-              ],
-              label: "Dataset 1",
-            },
-          ],
-          labels: data.fechas,
-        },
-        options: {
-          responsive: true,
-          legend: {
-            position: "bottom",
+    function (data) {
+      const respuesta =
+        normalizarGraphicsJson(data);
+
+      const canvas =
+        document.getElementById(
+          "resumen_compras"
+        );
+
+      if (!canvas) {
+        return;
+      }
+
+      if (graficoResumenCompras) {
+        graficoResumenCompras.destroy();
+      }
+
+      graficoResumenCompras =
+        new Chart(canvas, {
+          type: "pie",
+          data: {
+            datasets: [
+              {
+                data:
+                  normalizarSerie(
+                    respuesta.totales
+                  ),
+                backgroundColor: [
+                  "#191d21",
+                  "#63ed7a",
+                  "#ffa426",
+                  "#fc544b",
+                  "#6777ef",
+                  "#3abaf4",
+                  "#f59e0b",
+                  "#8b5cf6",
+                  "#14b8a6",
+                  "#64748b",
+                  "#ec4899",
+                  "#22c55e",
+                ],
+              },
+            ],
+            labels:
+              Array.isArray(
+                respuesta.fechas
+              )
+                ? respuesta.fechas
+                : [],
           },
-        },
-      });
+          options: {
+            responsive: true,
+            legend: {
+              position: "bottom",
+            },
+          },
+        });
     }
   );
 }
 
 function resumen_ventas() {
-  $.post("Controllers/Graphics.php?op=resumen_ventas", function (data, status) {
-    data = JSON.parse(data);
-    //console.log(data);
-    var options = {
-      tooltips: {
-        enabled: true,
-      },
-      plugins: {
-        datalabels: {
-          formatter: (value, ctx) => {
-            let sum = ctx.dataset._meta[0].total;
-            let percentage = ((value * 100) / sum).toFixed(2) + "%";
-            return percentage;
-          },
-          color: "#fff",
-        },
-      },
-    };
-    var ctx = document.getElementById("resumen_ventas").getContext("2d");
-    var myChart = new Chart(ctx, {
-      type: "pie",
-      data: {
-        datasets: [
-          {
-            data: data.totales,
-            backgroundColor: [
-              "#191d21",
-              "#63ed7a",
-              "#ffa426",
-              "#fc544b",
-              "#6777ef",
+  $.post(
+    "Controllers/Graphics.php?op=resumen_ventas",
+    function (data) {
+      const respuesta =
+        normalizarGraphicsJson(data);
+
+      const ventasBrutas =
+        normalizarSerie(
+          respuesta.ventas_brutas
+        );
+
+      const notasCredito =
+        normalizarSerie(
+          respuesta.notas_credito
+        );
+
+      const ventasNetas =
+        normalizarSerie(
+          respuesta.totales
+        );
+
+      const totalBruto =
+        sumarSerie(ventasBrutas);
+
+      const totalNotas =
+        sumarSerie(notasCredito);
+
+      const totalNeto =
+        sumarSerie(ventasNetas);
+
+      $("#graficaVentasBrutas").text(
+        "S/ "
+        + formatearMontoGraphics(
+          totalBruto
+        )
+      );
+
+      $("#graficaNotasCredito").text(
+        "- S/ "
+        + formatearMontoGraphics(
+          totalNotas
+        )
+      );
+
+      $("#graficaVentasNetas")
+        .toggleClass(
+          "text-danger",
+          totalNeto < 0
+        )
+        .text(
+          (totalNeto < 0
+            ? "- S/ "
+            : "S/ ")
+          + formatearMontoGraphics(
+              Math.abs(totalNeto)
+            )
+        );
+
+      const canvas =
+        document.getElementById(
+          "resumen_ventas"
+        );
+
+      if (!canvas) {
+        return;
+      }
+
+      if (graficoResumenVentas) {
+        graficoResumenVentas.destroy();
+      }
+
+      graficoResumenVentas =
+        new Chart(canvas, {
+          type: "doughnut",
+          data: {
+            datasets: [
+              {
+                data: ventasNetas,
+                backgroundColor: [
+                  "#10B981",
+                  "#34D399",
+                  "#6EE7B7",
+                  "#A7F3D0",
+                  "#059669",
+                  "#047857",
+                  "#065F46",
+                  "#14B8A6",
+                  "#2DD4BF",
+                  "#5EEAD4",
+                  "#0F766E",
+                  "#115E59",
+                ],
+              },
             ],
-            label: "Dataset 1",
+            labels:
+              Array.isArray(
+                respuesta.fechas
+              )
+                ? respuesta.fechas
+                : [],
           },
-        ],
-        labels: data.fechas,
-      },
-      options: {
-        responsive: true,
-        legend: {
-          position: "bottom",
-        },
-      },
-    });
+          options: {
+            responsive: true,
+            legend: {
+              position: "bottom",
+            },
+            tooltips: {
+              callbacks: {
+                label: function (
+                  tooltipItem,
+                  chartData
+                ) {
+                  const indice =
+                    tooltipItem.index;
+
+                  const etiqueta =
+                    chartData.labels[
+                      indice
+                    ] || "";
+
+                  const valor =
+                    chartData.datasets[0]
+                      .data[indice] || 0;
+
+                  return (
+                    etiqueta
+                    + ": S/ "
+                    + formatearMontoGraphics(
+                        valor
+                      )
+                  );
+                },
+              },
+            },
+          },
+        });
+    }
+  );
+}
+
+function normalizarGraphicsJson(
+  data
+) {
+  if (
+    data
+    && typeof data === "object"
+  ) {
+    return data;
+  }
+
+  try {
+    return JSON.parse(data);
+  } catch (error) {
+    console.error(
+      "Respuesta JSON inválida:",
+      error,
+      data
+    );
+
+    return {};
+  }
+}
+
+function normalizarSerie(
+  valores
+) {
+  if (!Array.isArray(valores)) {
+    return [];
+  }
+
+  return valores.map(function (valor) {
+    return parseFloat(valor) || 0;
   });
+}
+
+function sumarSerie(
+  valores
+) {
+  return valores.reduce(
+    function (acumulado, valor) {
+      return acumulado
+        + (parseFloat(valor) || 0);
+    },
+    0
+  );
+}
+
+function formatearMontoGraphics(
+  valor
+) {
+  return (
+    parseFloat(valor) || 0
+  ).toLocaleString(
+    "es-PE",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  );
 }
 
 init();

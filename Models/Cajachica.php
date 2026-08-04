@@ -20,7 +20,8 @@ class Cajachica
     | RESUMEN POR TIPO DE COMPROBANTE Y FORMA DE PAGO
     |--------------------------------------------------------------------------
     */
-    public function resumen(
+
+public function resumen(
         string $fechaInicio,
         string $fechaFin,
         ?int $idusuario = null,
@@ -32,12 +33,12 @@ class Cajachica
                 fp.nombre AS forma_pago,
                 SUM(vp.monto) AS total
 
-            FROM venta_pago vp
+            FROM venta_pago AS vp
 
-            INNER JOIN venta v
+            INNER JOIN venta AS v
                 ON v.idventa = vp.idventa
 
-            INNER JOIN forma_pago fp
+            INNER JOIN forma_pago AS fp
                 ON fp.idforma_pago = vp.idforma_pago
 
             WHERE DATE(v.fecha_hora) BETWEEN ? AND ?
@@ -77,13 +78,26 @@ class Cajachica
             : [];
 
         /*
-         * Cuando exista movimiento_financiero,
-         * agregar las cobranzas al resumen.
-         */
+        |--------------------------------------------------------------------------
+        | COBRANZAS Y DEVOLUCIONES POR NOTA DE CRÉDITO
+        |--------------------------------------------------------------------------
+        | Los ingresos se muestran positivos y los egresos negativos.
+        | La nota solo aparece aquí cuando produjo una devolución financiera.
+        |--------------------------------------------------------------------------
+        */
         if ($this->tablaExiste('movimiento_financiero')) {
-            $sqlCobranzas = "
+            $sqlMovimientos = "
                 SELECT
-                    'COBRANZAS' AS tipo_comprobante,
+                    CASE
+                        WHEN mf.origen = 'COBRANZA'
+                        THEN 'COBRANZAS'
+
+                        WHEN mf.origen = 'NOTA_CREDITO'
+                        THEN 'DEVOLUCIONES POR NOTA DE CRÉDITO'
+
+                        ELSE 'OTROS MOVIMIENTOS'
+                    END AS tipo_comprobante,
+
                     fp.nombre AS forma_pago,
 
                     SUM(
@@ -94,43 +108,53 @@ class Cajachica
                         END
                     ) AS total
 
-                FROM movimiento_financiero mf
+                FROM movimiento_financiero AS mf
 
-                INNER JOIN forma_pago fp
+                INNER JOIN forma_pago AS fp
                     ON fp.idforma_pago = mf.idforma_pago
 
                 WHERE DATE(mf.fecha_hora) BETWEEN ? AND ?
                   AND mf.estado = 'ACTIVO'
-                  AND mf.origen = 'COBRANZA'
+                  AND mf.origen IN (
+                      'COBRANZA',
+                      'NOTA_CREDITO'
+                  )
             ";
 
-            $parametrosCobranzas = [
+            $parametrosMovimientos = [
                 $fechaInicio,
                 $fechaFin
             ];
 
             if ($idapertura !== null && $idapertura > 0) {
-                $sqlCobranzas .= " AND mf.idapertura = ?";
-                $parametrosCobranzas[] = $idapertura;
+                $sqlMovimientos .= " AND mf.idapertura = ?";
+                $parametrosMovimientos[] = $idapertura;
             } elseif ($idusuario !== null && $idusuario > 0) {
-                $sqlCobranzas .= " AND mf.idusuario = ?";
-                $parametrosCobranzas[] = $idusuario;
+                $sqlMovimientos .= " AND mf.idusuario = ?";
+                $parametrosMovimientos[] = $idusuario;
             }
 
-            $sqlCobranzas .= "
-                GROUP BY fp.nombre
+            $sqlMovimientos .= "
+                GROUP BY
+                    tipo_comprobante,
+                    fp.nombre
+
                 HAVING total <> 0
+
+                ORDER BY
+                    tipo_comprobante,
+                    fp.nombre
             ";
 
-            $cobranzas = $this->conexion->getDataAll(
-                $sqlCobranzas,
-                $parametrosCobranzas
+            $movimientos = $this->conexion->getDataAll(
+                $sqlMovimientos,
+                $parametrosMovimientos
             );
 
-            if (is_array($cobranzas)) {
+            if (is_array($movimientos)) {
                 $resultado = array_merge(
                     $resultado,
-                    $cobranzas
+                    $movimientos
                 );
             }
         }
@@ -143,7 +167,8 @@ class Cajachica
     | TOTALES GENERALES
     |--------------------------------------------------------------------------
     */
-    public function totales(
+
+public function totales(
         string $fechaInicio,
         string $fechaFin,
         ?int $idusuario = null,
@@ -178,12 +203,12 @@ class Cajachica
                     0
                 ) AS no_efectivo_ventas
 
-            FROM venta_pago vp
+            FROM venta_pago AS vp
 
-            INNER JOIN venta v
+            INNER JOIN venta AS v
                 ON v.idventa = vp.idventa
 
-            INNER JOIN forma_pago fp
+            INNER JOIN forma_pago AS fp
                 ON fp.idforma_pago = vp.idforma_pago
 
             WHERE DATE(v.fecha_hora) BETWEEN ? AND ?
@@ -208,7 +233,7 @@ class Cajachica
             $parametros
         ) ?: [];
 
-        $ingresosVentas = round(
+        $ventasBrutas = round(
             (float)($ventas['ingresos_ventas'] ?? 0),
             2
         );
@@ -223,10 +248,14 @@ class Cajachica
             2
         );
 
-        $ingresosMovimientos = 0.00;
-        $efectivoMovimientos = 0.00;
+        $otrosIngresos = 0.00;
+        $otrosIngresosEfectivo = 0.00;
         $egresos = 0.00;
         $egresosEfectivo = 0.00;
+        $notasCredito = 0.00;
+        $notasCreditoEfectivo = 0.00;
+        $otrosEgresos = 0.00;
+        $otrosEgresosEfectivo = 0.00;
 
         if ($this->tablaExiste('movimiento_financiero')) {
             $sqlMovimientos = "
@@ -275,11 +304,61 @@ class Cajachica
                             END
                         ),
                         0
-                    ) AS egresos_efectivo
+                    ) AS egresos_efectivo,
 
-                FROM movimiento_financiero mf
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN mf.tipo = 'EGRESO'
+                                 AND mf.origen = 'NOTA_CREDITO'
+                                THEN mf.monto
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS notas_credito,
 
-                INNER JOIN forma_pago fp
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN mf.tipo = 'EGRESO'
+                                 AND mf.origen = 'NOTA_CREDITO'
+                                 AND fp.es_efectivo = 1
+                                THEN mf.monto
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS notas_credito_efectivo,
+
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN mf.tipo = 'EGRESO'
+                                 AND mf.origen <> 'NOTA_CREDITO'
+                                THEN mf.monto
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS otros_egresos,
+
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN mf.tipo = 'EGRESO'
+                                 AND mf.origen <> 'NOTA_CREDITO'
+                                 AND fp.es_efectivo = 1
+                                THEN mf.monto
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS otros_egresos_efectivo
+
+                FROM movimiento_financiero AS mf
+
+                INNER JOIN forma_pago AS fp
                     ON fp.idforma_pago = mf.idforma_pago
 
                 WHERE DATE(mf.fecha_hora) BETWEEN ? AND ?
@@ -305,12 +384,12 @@ class Cajachica
                 $parametrosMovimientos
             ) ?: [];
 
-            $ingresosMovimientos = round(
+            $otrosIngresos = round(
                 (float)($movimientos['ingresos'] ?? 0),
                 2
             );
 
-            $efectivoMovimientos = round(
+            $otrosIngresosEfectivo = round(
                 (float)($movimientos['ingresos_efectivo'] ?? 0),
                 2
             );
@@ -324,31 +403,73 @@ class Cajachica
                 (float)($movimientos['egresos_efectivo'] ?? 0),
                 2
             );
+
+            $notasCredito = round(
+                (float)($movimientos['notas_credito'] ?? 0),
+                2
+            );
+
+            $notasCreditoEfectivo = round(
+                (float)($movimientos['notas_credito_efectivo'] ?? 0),
+                2
+            );
+
+            $otrosEgresos = round(
+                (float)($movimientos['otros_egresos'] ?? 0),
+                2
+            );
+
+            $otrosEgresosEfectivo = round(
+                (float)($movimientos['otros_egresos_efectivo'] ?? 0),
+                2
+            );
         }
 
+        $ingresos = round(
+            $ventasBrutas + $otrosIngresos,
+            2
+        );
+
+        $resultadoNeto = round(
+            $ingresos - $egresos,
+            2
+        );
+
+        $efectivo = round(
+            $efectivoVentas + $otrosIngresosEfectivo,
+            2
+        );
+
+        $noEfectivo = round(
+            $noEfectivoVentas
+                + (
+                    $otrosIngresos
+                    - $otrosIngresosEfectivo
+                ),
+            2
+        );
+
         return [
-            'ingresos' => round(
-                $ingresosVentas + $ingresosMovimientos,
-                2
-            ),
+            'ventas_brutas' => $ventasBrutas,
+            'notas_credito' => $notasCredito,
+            'otros_ingresos' => $otrosIngresos,
+            'otros_egresos' => $otrosEgresos,
 
-            'efectivo' => round(
-                $efectivoVentas + $efectivoMovimientos,
-                2
-            ),
-
-            'no_efectivo' => round(
-                $noEfectivoVentas
-                    + (
-                        $ingresosMovimientos
-                        - $efectivoMovimientos
-                    ),
-                2
-            ),
-
+            'ingresos' => $ingresos,
             'egresos' => $egresos,
+            'resultado_neto' => $resultadoNeto,
 
-            'egresos_efectivo' => $egresosEfectivo
+            'efectivo' => $efectivo,
+            'no_efectivo' => $noEfectivo,
+
+            'notas_credito_efectivo' =>
+                $notasCreditoEfectivo,
+
+            'otros_egresos_efectivo' =>
+                $otrosEgresosEfectivo,
+
+            'egresos_efectivo' =>
+                $egresosEfectivo
         ];
     }
 
@@ -880,12 +1001,47 @@ class Cajachica
             : null;
     }
 
+
+public function obtenerAperturaPorId(
+        int $idapertura
+    ): ?array {
+        if ($idapertura <= 0) {
+            return null;
+        }
+
+        $resultado = $this->conexion->getData(
+            "SELECT
+                ca.*,
+                cf.codigo AS codigo_caja,
+                cf.nombre AS nombre_caja,
+                s.codigo AS codigo_sucursal,
+                s.nombre AS nombre_sucursal
+
+             FROM caja_apertura AS ca
+
+             LEFT JOIN caja_fisica AS cf
+                ON cf.idcaja = ca.idcaja
+
+             LEFT JOIN sucursal AS s
+                ON s.idsucursal = ca.idsucursal
+
+             WHERE ca.idapertura = ?
+             LIMIT 1",
+            [$idapertura]
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : null;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | TOTALES DE UNA APERTURA ESPECÍFICA
     |--------------------------------------------------------------------------
     */
-    public function calcularTotalesApertura(
+
+public function calcularTotalesApertura(
         int $idapertura
     ): array {
         $apertura = $this->conexion->getData(
@@ -915,12 +1071,12 @@ class Cajachica
                     0
                 ) AS ventas_efectivo
 
-             FROM venta_pago vp
+             FROM venta_pago AS vp
 
-             INNER JOIN venta v
+             INNER JOIN venta AS v
                 ON v.idventa = vp.idventa
 
-             INNER JOIN forma_pago fp
+             INNER JOIN forma_pago AS fp
                 ON fp.idforma_pago = vp.idforma_pago
 
              WHERE v.idusuario = ?
@@ -945,6 +1101,8 @@ class Cajachica
 
         $otrosIngresosEfectivo = 0.00;
         $egresosEfectivo = 0.00;
+        $notasCreditoEfectivo = 0.00;
+        $otrosEgresosEfectivo = 0.00;
 
         if ($this->tablaExiste('movimiento_financiero')) {
             $movimientos = $this->conexion->getData(
@@ -971,11 +1129,37 @@ class Cajachica
                             END
                         ),
                         0
-                    ) AS egresos_efectivo
+                    ) AS egresos_efectivo,
 
-                 FROM movimiento_financiero mf
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN mf.tipo = 'EGRESO'
+                                 AND mf.origen = 'NOTA_CREDITO'
+                                 AND fp.es_efectivo = 1
+                                THEN mf.monto
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS notas_credito_efectivo,
 
-                 INNER JOIN forma_pago fp
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN mf.tipo = 'EGRESO'
+                                 AND mf.origen <> 'NOTA_CREDITO'
+                                 AND fp.es_efectivo = 1
+                                THEN mf.monto
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS otros_egresos_efectivo
+
+                 FROM movimiento_financiero AS mf
+
+                 INNER JOIN forma_pago AS fp
                     ON fp.idforma_pago = mf.idforma_pago
 
                  WHERE mf.idapertura = ?
@@ -985,18 +1169,22 @@ class Cajachica
             ) ?: [];
 
             $otrosIngresosEfectivo = round(
-                (float)(
-                    $movimientos['ingresos_efectivo']
-                    ?? 0
-                ),
+                (float)($movimientos['ingresos_efectivo'] ?? 0),
                 2
             );
 
             $egresosEfectivo = round(
-                (float)(
-                    $movimientos['egresos_efectivo']
-                    ?? 0
-                ),
+                (float)($movimientos['egresos_efectivo'] ?? 0),
+                2
+            );
+
+            $notasCreditoEfectivo = round(
+                (float)($movimientos['notas_credito_efectivo'] ?? 0),
+                2
+            );
+
+            $otrosEgresosEfectivo = round(
+                (float)($movimientos['otros_egresos_efectivo'] ?? 0),
                 2
             );
         }
@@ -1019,7 +1207,11 @@ class Cajachica
             'monto_apertura' => $montoApertura,
             'ventas_efectivo' => $ventasEfectivo,
             'otros_ingresos_efectivo' =>
-            $otrosIngresosEfectivo,
+                $otrosIngresosEfectivo,
+            'notas_credito_efectivo' =>
+                $notasCreditoEfectivo,
+            'otros_egresos_efectivo' =>
+                $otrosEgresosEfectivo,
             'egresos_efectivo' => $egresosEfectivo,
             'total_sistema' => $totalSistema
         ];
@@ -1033,7 +1225,8 @@ class Cajachica
 | Las ventas y movimientos se calculan por idapertura.
 |--------------------------------------------------------------------------
 */
-    public function calcularTotalesAperturaFisica(
+
+public function calcularTotalesAperturaFisica(
         int $idapertura
     ): array {
         if ($idapertura <= 0) {
@@ -1044,26 +1237,26 @@ class Cajachica
 
         $apertura = $this->conexion->getData(
             "SELECT
-            ca.idapertura,
-            ca.fecha,
-            ca.monto_apertura,
-            ca.idsucursal,
-            ca.idcaja,
-            ca.idusuario_apertura,
-            ca.idusuario_responsable,
-            ca.estado,
-            ca.created_at,
-            ca.fecha_cierre,
-            cf.codigo AS codigo_caja,
-            cf.nombre AS nombre_caja
+                ca.idapertura,
+                ca.fecha,
+                ca.monto_apertura,
+                ca.idsucursal,
+                ca.idcaja,
+                ca.idusuario_apertura,
+                ca.idusuario_responsable,
+                ca.estado,
+                ca.created_at,
+                ca.fecha_cierre,
+                cf.codigo AS codigo_caja,
+                cf.nombre AS nombre_caja
 
-         FROM caja_apertura AS ca
+             FROM caja_apertura AS ca
 
-         INNER JOIN caja_fisica AS cf
-            ON cf.idcaja = ca.idcaja
+             INNER JOIN caja_fisica AS cf
+                ON cf.idcaja = ca.idcaja
 
-         WHERE ca.idapertura = ?
-         LIMIT 1",
+             WHERE ca.idapertura = ?
+             LIMIT 1",
             [$idapertura]
         );
 
@@ -1073,59 +1266,45 @@ class Cajachica
             );
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | VENTAS EN EFECTIVO VINCULADAS A LA APERTURA
-    |--------------------------------------------------------------------------
-    */
         $ventas = $this->conexion->getData(
             "SELECT
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN fp.es_efectivo = 1
-                        THEN vp.monto
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS ventas_efectivo
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN fp.es_efectivo = 1
+                            THEN vp.monto
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS ventas_efectivo
 
-         FROM venta_pago AS vp
+             FROM venta_pago AS vp
 
-         INNER JOIN venta AS v
-            ON v.idventa = vp.idventa
+             INNER JOIN venta AS v
+                ON v.idventa = vp.idventa
 
-         INNER JOIN forma_pago AS fp
-            ON fp.idforma_pago = vp.idforma_pago
+             INNER JOIN forma_pago AS fp
+                ON fp.idforma_pago = vp.idforma_pago
 
-         WHERE v.idapertura = ?
-           AND v.estado = 'Aceptado'",
+             WHERE v.idapertura = ?
+               AND v.estado = 'Aceptado'",
             [$idapertura]
         ) ?: [];
 
         $ventasEfectivo = round(
-            (float)(
-                $ventas['ventas_efectivo']
-                ?? 0
-            ),
+            (float)($ventas['ventas_efectivo'] ?? 0),
             2
         );
 
-        /*
-    |--------------------------------------------------------------------------
-    | OTROS INGRESOS Y EGRESOS EN EFECTIVO
-    |--------------------------------------------------------------------------
-    */
         $otrosIngresosEfectivo = 0.00;
         $egresosEfectivo = 0.00;
+        $notasCreditoEfectivo = 0.00;
+        $otrosEgresosEfectivo = 0.00;
 
-        if ($this->tablaExiste(
-            'movimiento_financiero'
-        )) {
-            $movimientos =
-                $this->conexion->getData(
-                    "SELECT
+        if ($this->tablaExiste('movimiento_financiero')) {
+            $movimientos = $this->conexion->getData(
+                "SELECT
                     COALESCE(
                         SUM(
                             CASE
@@ -1148,42 +1327,68 @@ class Cajachica
                             END
                         ),
                         0
-                    ) AS egresos_efectivo
+                    ) AS egresos_efectivo,
+
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN mf.tipo = 'EGRESO'
+                                 AND mf.origen = 'NOTA_CREDITO'
+                                 AND fp.es_efectivo = 1
+                                THEN mf.monto
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS notas_credito_efectivo,
+
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN mf.tipo = 'EGRESO'
+                                 AND mf.origen <> 'NOTA_CREDITO'
+                                 AND fp.es_efectivo = 1
+                                THEN mf.monto
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS otros_egresos_efectivo
 
                  FROM movimiento_financiero AS mf
 
                  INNER JOIN forma_pago AS fp
-                    ON fp.idforma_pago =
-                       mf.idforma_pago
+                    ON fp.idforma_pago = mf.idforma_pago
 
                  WHERE mf.idapertura = ?
                    AND mf.estado = 'ACTIVO'
                    AND mf.origen <> 'VENTA'",
-                    [$idapertura]
-                ) ?: [];
+                [$idapertura]
+            ) ?: [];
 
             $otrosIngresosEfectivo = round(
-                (float)(
-                    $movimientos['ingresos_efectivo']
-                    ?? 0
-                ),
+                (float)($movimientos['ingresos_efectivo'] ?? 0),
                 2
             );
 
             $egresosEfectivo = round(
-                (float)(
-                    $movimientos['egresos_efectivo']
-                    ?? 0
-                ),
+                (float)($movimientos['egresos_efectivo'] ?? 0),
+                2
+            );
+
+            $notasCreditoEfectivo = round(
+                (float)($movimientos['notas_credito_efectivo'] ?? 0),
+                2
+            );
+
+            $otrosEgresosEfectivo = round(
+                (float)($movimientos['otros_egresos_efectivo'] ?? 0),
                 2
             );
         }
 
         $montoApertura = round(
-            (float)(
-                $apertura['monto_apertura']
-                ?? 0
-            ),
+            (float)($apertura['monto_apertura'] ?? 0),
             2
         );
 
@@ -1197,34 +1402,40 @@ class Cajachica
 
         return [
             'idapertura' =>
-            (int)$apertura['idapertura'],
+                (int)$apertura['idapertura'],
 
             'idsucursal' =>
-            (int)$apertura['idsucursal'],
+                (int)$apertura['idsucursal'],
 
             'idcaja' =>
-            (int)$apertura['idcaja'],
+                (int)$apertura['idcaja'],
 
             'codigo_caja' =>
-            (string)$apertura['codigo_caja'],
+                (string)$apertura['codigo_caja'],
 
             'nombre_caja' =>
-            (string)$apertura['nombre_caja'],
+                (string)$apertura['nombre_caja'],
 
             'monto_apertura' =>
-            $montoApertura,
+                $montoApertura,
 
             'ventas_efectivo' =>
-            $ventasEfectivo,
+                $ventasEfectivo,
 
             'otros_ingresos_efectivo' =>
-            $otrosIngresosEfectivo,
+                $otrosIngresosEfectivo,
+
+            'notas_credito_efectivo' =>
+                $notasCreditoEfectivo,
+
+            'otros_egresos_efectivo' =>
+                $otrosEgresosEfectivo,
 
             'egresos_efectivo' =>
-            $egresosEfectivo,
+                $egresosEfectivo,
 
             'total_sistema' =>
-            $totalSistema
+                $totalSistema
         ];
     }
 

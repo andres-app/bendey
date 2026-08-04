@@ -128,51 +128,97 @@ if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
                                     </table>
                                 </div>
 
-                                <!-- ================= TOTALES INFERIORES ================= -->
+                                <!-- ================= RESUMEN FINANCIERO ================= -->
                                 <div class="row mt-4">
 
-                                    <div class="col-md-4">
+                                    <div class="col-xl-4 col-md-6">
                                         <div class="card card-statistic-1">
                                             <div class="card-icon bg-success">
+                                                <i class="fas fa-cash-register"></i>
+                                            </div>
+                                            <div class="card-wrap">
+                                                <div class="card-header">
+                                                    <h4>Ventas cobradas</h4>
+                                                </div>
+                                                <div id="totalVentasBrutas" class="card-body">
+                                                    S/ 0.00
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-xl-4 col-md-6">
+                                        <div class="card card-statistic-1">
+                                            <div class="card-icon bg-danger">
+                                                <i class="fas fa-file-invoice-dollar"></i>
+                                            </div>
+                                            <div class="card-wrap">
+                                                <div class="card-header">
+                                                    <h4>Devoluciones N.C.</h4>
+                                                </div>
+                                                <div id="totalNotasCredito" class="card-body text-danger">
+                                                    - S/ 0.00
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-xl-4 col-md-6">
+                                        <div class="card card-statistic-1">
+                                            <div class="card-icon bg-info">
                                                 <i class="fas fa-arrow-down"></i>
                                             </div>
                                             <div class="card-wrap">
                                                 <div class="card-header">
-                                                    <h4>Ingresos</h4>
+                                                    <h4>Otros ingresos</h4>
                                                 </div>
-                                                <div id="totalIngresos" class="card-body">
+                                                <div id="totalOtrosIngresos" class="card-body">
                                                     S/ 0.00
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="col-md-4">
+                                    <div class="col-xl-4 col-md-6">
                                         <div class="card card-statistic-1">
-                                            <div class="card-icon bg-danger">
+                                            <div class="card-icon bg-warning">
                                                 <i class="fas fa-arrow-up"></i>
                                             </div>
                                             <div class="card-wrap">
                                                 <div class="card-header">
-                                                    <h4>Egresos</h4>
+                                                    <h4>Otros egresos</h4>
                                                 </div>
-                                                <div
-                                                    id="totalEgresos"
-                                                    class="card-body">
+                                                <div id="totalOtrosEgresos" class="card-body">
+                                                    - S/ 0.00
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-xl-4 col-md-6">
+                                        <div class="card card-statistic-1">
+                                            <div class="card-icon bg-primary">
+                                                <i class="fas fa-balance-scale"></i>
+                                            </div>
+                                            <div class="card-wrap">
+                                                <div class="card-header">
+                                                    <h4>Movimiento neto</h4>
+                                                </div>
+                                                <div id="totalResultadoNeto" class="card-body">
                                                     S/ 0.00
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="col-md-4">
+                                    <div class="col-xl-4 col-md-6">
                                         <div class="card card-statistic-1">
-                                            <div class="card-icon bg-primary">
+                                            <div class="card-icon bg-dark">
                                                 <i class="fas fa-wallet"></i>
                                             </div>
                                             <div class="card-wrap">
                                                 <div class="card-header">
-                                                    <h4>Total en Caja</h4>
+                                                    <h4>Efectivo esperado</h4>
                                                 </div>
                                                 <div id="totalCaja" class="card-body">
                                                     S/ 0.00

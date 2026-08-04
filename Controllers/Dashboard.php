@@ -1,111 +1,208 @@
 <?php
-require_once "../Models/Consult.php";
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../Models/Consult.php';
 
 $consult = new Consult();
+$op = $_GET['op'] ?? '';
 
-switch ($_GET["op"]) {
+header('Content-Type: application/json; charset=utf-8');
+
+function responderDashboard(array $datos): void
+{
+    echo json_encode(
+        $datos,
+        JSON_UNESCAPED_UNICODE
+        | JSON_UNESCAPED_SLASHES
+    );
+
+    exit;
+}
+
+function etiquetaMes(string $fecha): string
+{
+    $timestamp = strtotime($fecha);
+
+    if ($timestamp === false) {
+        return $fecha;
+    }
+
+    $meses = [
+        1 => 'Enero',
+        2 => 'Febrero',
+        3 => 'Marzo',
+        4 => 'Abril',
+        5 => 'Mayo',
+        6 => 'Junio',
+        7 => 'Julio',
+        8 => 'Agosto',
+        9 => 'Septiembre',
+        10 => 'Octubre',
+        11 => 'Noviembre',
+        12 => 'Diciembre'
+    ];
+
+    $numeroMes = (int)date('n', $timestamp);
+
+    return ($meses[$numeroMes] ?? '')
+        . ' '
+        . date('Y', $timestamp);
+}
+
+switch ($op) {
     case 'compras10dias':
-        //COMPRAS DE LOS ULTIMOS 10 DIAS
-        $compras10 = $consult->comprasultimos_10dias();
-        $fechas = array();
-        $totales = array();
+        $compras = $consult->comprasultimos_10dias();
 
-        $meses = array("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre");
+        $fechas = [];
+        $totales = [];
 
-        foreach ($compras10 as $regfechac) {
-            array_push($fechas, $meses[date("n", strtotime($regfechac["fecha"])) - 1]);
-            array_push($totales, $regfechac['total']);
+        foreach ($compras as $registro) {
+            $fechas[] = etiquetaMes(
+                (string)($registro['fecha'] ?? '')
+            );
+
+            $totales[] = round(
+                (float)($registro['total'] ?? 0),
+                2
+            );
         }
-        $respuesta = [
-            "fechas" => $fechas,
-            "totales" => $totales,
-        ];
-        echo json_encode($respuesta);
 
-        break;
+        responderDashboard([
+            'fechas' => $fechas,
+            'totales' => $totales
+        ]);
 
     case 'ventas12meses':
-        //COMPRAS DE LOS ULTIMOS 10 DIAS
-        $compras10 = $consult->ventasultimos_12meses();
-        $fechas = array();
-        $totales = array();
+        $ventas = $consult->ventasultimos_12meses();
 
-        $meses = array("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre");
+        $fechas = [];
+        $ventasBrutas = [];
+        $notasCredito = [];
+        $ventasNetas = [];
 
-        foreach ($compras10 as $regfechac) {
-            array_push($fechas, $meses[date("n", strtotime($regfechac["fecha"])) - 1]);
-            array_push($totales, $regfechac['total']);
+        foreach ($ventas as $registro) {
+            $fechas[] = etiquetaMes(
+                (string)($registro['fecha'] ?? '')
+            );
+
+            $ventasBrutas[] = round(
+                (float)($registro['ventas_brutas'] ?? 0),
+                2
+            );
+
+            $notasCredito[] = round(
+                (float)($registro['notas_credito'] ?? 0),
+                2
+            );
+
+            $ventasNetas[] = round(
+                (float)($registro['total'] ?? 0),
+                2
+            );
         }
-        $respuesta = [
-            "fechas" => $fechas,
-            "totales" => $totales,
-        ];
-        echo json_encode($respuesta);
 
-        break;
+        responderDashboard([
+            'fechas' => $fechas,
+            'ventas_brutas' => $ventasBrutas,
+            'notas_credito' => $notasCredito,
+            'totales' => $ventasNetas
+        ]);
 
     case 'cuadros1':
-        $rsptac = $consult->totalcomprahoy();
-        $regc = $rsptac[0];
-        $totalc = $regc['total_compra'];
+        $compraHoy = $consult->totalcomprahoy();
+        $registroCompra = $compraHoy[0] ?? [];
 
-        $rsptav = $consult->totalventahoy();
-        $regv = $rsptav[0];
-        $totalv = $regv['total_venta'];
+        $ventaHoy = $consult->totalventahoy();
+        $registroVenta = $ventaHoy[0] ?? [];
 
-        $rsptav = $consult->cantidadclientes();
-        $regv = $rsptav[0];
-        $totalclientes = $regv['totalc'];
+        $clientes = $consult->cantidadclientes();
+        $registroClientes = $clientes[0] ?? [];
 
-        $rsptav = $consult->cantidadproveedores();
-        $regv = $rsptav[0];
-        $totalproveedores = $regv['totalp'];
+        $proveedores = $consult->cantidadproveedores();
+        $registroProveedores = $proveedores[0] ?? [];
 
-        $data = [
-            "totalcomprahoy" => $totalc,
-            "totalventahoy" => $totalv,
-            "cantidadclientes" => $totalclientes,
-            "cantidadproveedores" => $totalproveedores,
-        ];
-        echo json_encode($data);
-        break;
+        $ventasBrutas = round(
+            (float)($registroVenta['ventas_brutas'] ?? 0),
+            2
+        );
+
+        $notasCredito = round(
+            (float)($registroVenta['notas_credito'] ?? 0),
+            2
+        );
+
+        $ventasNetas = round(
+            (float)(
+                $registroVenta['ventas_netas']
+                ?? $registroVenta['total_venta']
+                ?? 0
+            ),
+            2
+        );
+
+        responderDashboard([
+            'totalcomprahoy' => round(
+                (float)($registroCompra['total_compra'] ?? 0),
+                2
+            ),
+
+            /*
+             * Se conserva totalventahoy para mantener
+             * compatibilidad con vistas antiguas.
+             */
+            'totalventahoy' => $ventasNetas,
+            'totalventabruta' => $ventasBrutas,
+            'totalnotascredito' => $notasCredito,
+            'totalventaneta' => $ventasNetas,
+
+            'cantidadclientes' =>
+                (int)($registroClientes['totalc'] ?? 0),
+
+            'cantidadproveedores' =>
+                (int)($registroProveedores['totalp'] ?? 0)
+        ]);
 
     case 'cuadros2':
-        $rsptav = $consult->cantidadarticulos();
-        $regv = $rsptav[0];
-        $totalarticulos = $regv['totalar'];
+        $articulos = $consult->cantidadarticulos();
+        $registroArticulos = $articulos[0] ?? [];
 
-        $rsptav = $consult->totalstock();
-        $regv = $rsptav[0];
-        $totalstock = $regv['totalstock'];
-        $cap_almacen = 3000;
+        $stock = $consult->totalstock();
+        $registroStock = $stock[0] ?? [];
 
-        $rsptav = $consult->cantidadcategorias();
-        $regv = $rsptav[0];
-        $totalcategorias = $regv['totalca'];
+        $categorias = $consult->cantidadcategorias();
+        $registroCategorias = $categorias[0] ?? [];
 
-        $data = [
-            "cantidadarticulos" => $totalarticulos,
-            "totalstock" => $totalstock,
-            "cantidadcategorias" => $totalcategorias,
-        ];
-        echo json_encode($data);
-        break;
+        responderDashboard([
+            'cantidadarticulos' =>
+                (int)($registroArticulos['totalar'] ?? 0),
+
+            'totalstock' =>
+                (int)($registroStock['totalstock'] ?? 0),
+
+            'cantidadcategorias' =>
+                (int)($registroCategorias['totalca'] ?? 0)
+        ]);
 
     case 'cateogriasMasVendidas':
-        $cateogriasMasVendidas = $consult->cateogriasMasVendidas();
-
-        echo json_encode($cateogriasMasVendidas);
-
-        break;
+        responderDashboard(
+            $consult->cateogriasMasVendidas()
+        );
 
     case 'stockCategoria':
-        require_once "../Models/Category.php";
+        require_once __DIR__ . '/../Models/Category.php';
+
         $categoria = new Category();
 
-        $rspta = $categoria->stockPorCategoria();
+        responderDashboard(
+            $categoria->stockPorCategoria()
+        );
 
-        echo json_encode($rspta);
-        break;
+    default:
+        http_response_code(400);
 
+        responderDashboard([
+            'status' => false,
+            'message' => 'Operación no válida.'
+        ]);
 }

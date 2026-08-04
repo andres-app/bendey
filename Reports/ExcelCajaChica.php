@@ -1,111 +1,317 @@
 <?php
-require_once '../Models/Cajachica.php';
-require_once '../Models/Company.php';
 
-$fecha_inicio = $_GET['fecha_inicio'] ?? date('Y-m-d');
-$fecha_fin    = $_GET['fecha_fin'] ?? date('Y-m-d');
-$idusuario    = $_GET['idusuario'] ?? null;
+declare(strict_types=1);
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+if (!isset($_SESSION['nombre'])) {
+    echo 'Debe ingresar al sistema correctamente';
+    exit;
+}
+
+if (
+    !isset($_SESSION['ventas'])
+    || (int)$_SESSION['ventas'] !== 1
+) {
+    echo 'No tiene permiso';
+    exit;
+}
+
+require_once __DIR__ . '/../Models/Cajachica.php';
+require_once __DIR__ . '/../Models/Company.php';
+
+function hCajaExcel(mixed $valor): string
+{
+    return htmlspecialchars(
+        (string)$valor,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+}
+
+function numeroCajaExcel(float $valor): string
+{
+    return number_format(
+        $valor,
+        2,
+        '.',
+        ''
+    );
+}
+
+$fechaInicio = trim(
+    (string)(
+        $_GET['fecha_inicio']
+        ?? date('Y-m-d')
+    )
+);
+
+$fechaFin = trim(
+    (string)(
+        $_GET['fecha_fin']
+        ?? date('Y-m-d')
+    )
+);
+
+$idusuario = isset($_GET['idusuario'])
+    && (int)$_GET['idusuario'] > 0
+    ? (int)$_GET['idusuario']
+    : null;
+
+$idapertura = isset($_GET['idapertura'])
+    && (int)$_GET['idapertura'] > 0
+    ? (int)$_GET['idapertura']
+    : null;
 
 $caja = new Cajachica();
-$data = $caja->resumen($fecha_inicio, $fecha_fin, $idusuario);
-$totales = $caja->totales($fecha_inicio, $fecha_fin, $idusuario);
 
-// Empresa
+$data = $caja->resumen(
+    $fechaInicio,
+    $fechaFin,
+    $idusuario,
+    $idapertura
+);
+
+$totales = $caja->totales(
+    $fechaInicio,
+    $fechaFin,
+    $idusuario,
+    $idapertura
+);
+
+$apertura = $idapertura !== null
+    ? $caja->obtenerAperturaPorId(
+        $idapertura
+    )
+    : $caja->obtenerAperturaPorFecha(
+        $fechaInicio,
+        $idusuario
+    );
+
+$montoApertura = round(
+    (float)(
+        $apertura['monto_apertura']
+        ?? 0
+    ),
+    2
+);
+
 $empresa = new Company();
 $info = $empresa->listar()[0] ?? [];
 
-// Agrupar igual que en pantalla
 $filas = [];
 
-foreach ($data as $r) {
-    $tc = $r['tipo_comprobante'];
+foreach (is_array($data) ? $data : [] as $registro) {
+    $tipo = trim(
+        (string)(
+            $registro['tipo_comprobante']
+            ?? 'SIN COMPROBANTE'
+        )
+    );
 
-    if (!isset($filas[$tc])) {
-        $filas[$tc] = [
-            'efectivo' => 0,
-            'tarjeta' => 0,
-            'transferencia' => 0,
-            'yape' => 0,
-            'plin' => 0
+    if (!isset($filas[$tipo])) {
+        $filas[$tipo] = [
+            'efectivo' => 0.00,
+            'tarjeta' => 0.00,
+            'transferencia' => 0.00,
+            'billeteras' => 0.00,
+            'otros' => 0.00
         ];
     }
 
-    $forma = strtolower($r['forma_pago']);
-    $monto = (float)$r['total'];
+    $forma = mb_strtolower(
+        trim(
+            (string)(
+                $registro['forma_pago']
+                ?? ''
+            )
+        ),
+        'UTF-8'
+    );
 
-    if (strpos($forma, 'efectivo') !== false) {
-        $filas[$tc]['efectivo'] += $monto;
-    } elseif (strpos($forma, 'tarjeta') !== false) {
-        $filas[$tc]['tarjeta'] += $monto;
-    } elseif (strpos($forma, 'transfer') !== false) {
-        $filas[$tc]['transferencia'] += $monto;
-    } elseif (strpos($forma, 'yape') !== false) {
-        $filas[$tc]['yape'] += $monto;
-    } elseif (strpos($forma, 'plin') !== false) {
-        $filas[$tc]['plin'] += $monto;
+    $monto = round(
+        (float)($registro['total'] ?? 0),
+        2
+    );
+
+    if (str_contains($forma, 'efectivo')) {
+        $filas[$tipo]['efectivo'] += $monto;
+    } elseif (
+        str_contains($forma, 'tarjeta')
+        || str_contains($forma, 'izipay')
+    ) {
+        $filas[$tipo]['tarjeta'] += $monto;
+    } elseif (str_contains($forma, 'transfer')) {
+        $filas[$tipo]['transferencia'] += $monto;
+    } elseif (
+        str_contains($forma, 'yape')
+        || str_contains($forma, 'plin')
+    ) {
+        $filas[$tipo]['billeteras'] += $monto;
+    } else {
+        $filas[$tipo]['otros'] += $monto;
     }
 }
 
-// HEADERS EXCEL
-header("Content-Type: application/vnd.ms-excel; charset=UTF-8");
-header("Content-Disposition: attachment; filename=Liquidacion_Caja_$fecha_inicio.xls");
-header("Pragma: no-cache");
-header("Expires: 0");
+header(
+    'Content-Type: application/vnd.ms-excel; charset=UTF-8'
+);
+
+header(
+    'Content-Disposition: attachment; filename=Liquidacion_Caja_'
+    . $fechaInicio
+    . '.xls'
+);
+
+header('Pragma: no-cache');
+header('Expires: 0');
 
 echo "<meta charset='UTF-8'>";
 
-// ================= TABLA =================
 echo "<table border='1'>";
 
-echo "<tr>
-        <th colspan='7' style='font-size:14px'>{$info['nombre']}</th>
-      </tr>";
-echo "<tr>
-        <th colspan='7'>LIQUIDACIÓN DE CAJA</th>
-      </tr>";
-echo "<tr>
-        <th colspan='7'>Desde $fecha_inicio - Hasta $fecha_fin</th>
-      </tr>";
+echo '<tr>';
+echo '<th colspan="6" style="font-size:14px">';
+echo hCajaExcel(
+    $info['nombre'] ?? 'EMPRESA'
+);
+echo '</th>';
+echo '</tr>';
 
-echo "<tr>
-        <th>Comprobante</th>
-        <th>Efectivo</th>
-        <th>Tarjeta</th>
-        <th>Transferencia</th>
-        <th>Yape / Plin</th>
-        <th>Total</th>
-      </tr>";
+echo '<tr>';
+echo '<th colspan="6">LIQUIDACIÓN DE CAJA</th>';
+echo '</tr>';
 
-$total_general = 0;
+echo '<tr>';
+echo '<th colspan="6">';
+echo hCajaExcel(
+    'Desde '
+    . $fechaInicio
+    . ' - Hasta '
+    . $fechaFin
+);
+echo '</th>';
+echo '</tr>';
 
-foreach ($filas as $tc => $f) {
-
-    $total = $f['efectivo'] + $f['tarjeta'] + $f['transferencia'] + $f['yape'] + $f['plin'];
-    $total_general += $total;
-
-    echo "<tr>
-            <td>$tc</td>
-            <td>{$f['efectivo']}</td>
-            <td>{$f['tarjeta']}</td>
-            <td>{$f['transferencia']}</td>
-            <td>" . ($f['yape'] + $f['plin']) . "</td>
-            <td><strong>$total</strong></td>
-          </tr>";
+if ($idapertura !== null) {
+    echo '<tr>';
+    echo '<th colspan="6">';
+    echo hCajaExcel(
+        'Apertura N.° '
+        . $idapertura
+    );
+    echo '</th>';
+    echo '</tr>';
 }
 
-echo "<tr>
-        <td colspan='5'><strong>INGRESOS</strong></td>
-        <td><strong>$total_general</strong></td>
-      </tr>";
+echo '<tr>';
+echo '<th>Comprobante</th>';
+echo '<th>Efectivo</th>';
+echo '<th>Tarjeta</th>';
+echo '<th>Transferencia</th>';
+echo '<th>Yape / Plin</th>';
+echo '<th>Total</th>';
+echo '</tr>';
 
-echo "<tr>
-        <td colspan='5'><strong>EGRESOS</strong></td>
-        <td>0.00</td>
-      </tr>";
+echo '<tr>';
+echo '<td><strong>APERTURA DE CAJA</strong></td>';
+echo '<td>'
+    . numeroCajaExcel($montoApertura)
+    . '</td>';
+echo '<td>0.00</td>';
+echo '<td>0.00</td>';
+echo '<td>0.00</td>';
+echo '<td><strong>'
+    . numeroCajaExcel($montoApertura)
+    . '</strong></td>';
+echo '</tr>';
 
-echo "<tr>
-        <td colspan='5'><strong>TOTAL EN CAJA</strong></td>
-        <td><strong>$total_general</strong></td>
-      </tr>";
+foreach ($filas as $tipo => $fila) {
+    $totalFila = round(
+        array_sum($fila),
+        2
+    );
 
-echo "</table>";
+    $estilo = $totalFila < 0
+        ? " style='color:#b91c1c;background:#fee2e2'"
+        : '';
+
+    echo '<tr' . $estilo . '>';
+    echo '<td>' . hCajaExcel($tipo) . '</td>';
+    echo '<td>'
+        . numeroCajaExcel($fila['efectivo'])
+        . '</td>';
+    echo '<td>'
+        . numeroCajaExcel($fila['tarjeta'])
+        . '</td>';
+    echo '<td>'
+        . numeroCajaExcel($fila['transferencia'])
+        . '</td>';
+    echo '<td>'
+        . numeroCajaExcel($fila['billeteras'])
+        . '</td>';
+    echo '<td><strong>'
+        . numeroCajaExcel($totalFila)
+        . '</strong></td>';
+    echo '</tr>';
+}
+
+$ventasBrutas = round(
+    (float)($totales['ventas_brutas'] ?? 0),
+    2
+);
+
+$notasCredito = round(
+    (float)($totales['notas_credito'] ?? 0),
+    2
+);
+
+$otrosIngresos = round(
+    (float)($totales['otros_ingresos'] ?? 0),
+    2
+);
+
+$otrosEgresos = round(
+    (float)($totales['otros_egresos'] ?? 0),
+    2
+);
+
+$resultadoNeto = round(
+    (float)($totales['resultado_neto'] ?? 0),
+    2
+);
+
+$efectivoEsperado = round(
+    $montoApertura
+    + (float)($totales['efectivo'] ?? 0)
+    - (float)($totales['egresos_efectivo'] ?? 0),
+    2
+);
+
+$resumen = [
+    'VENTAS COBRADAS' => $ventasBrutas,
+    'OTROS INGRESOS' => $otrosIngresos,
+    'DEVOLUCIONES N.C.' => -$notasCredito,
+    'OTROS EGRESOS' => -$otrosEgresos,
+    'MOVIMIENTO NETO' => $resultadoNeto,
+    'EFECTIVO ESPERADO' => $efectivoEsperado
+];
+
+foreach ($resumen as $concepto => $monto) {
+    $estilo = $monto < 0
+        ? " style='color:#b91c1c'"
+        : '';
+
+    echo '<tr' . $estilo . '>';
+    echo '<td colspan="5"><strong>'
+        . hCajaExcel($concepto)
+        . '</strong></td>';
+    echo '<td><strong>'
+        . numeroCajaExcel($monto)
+        . '</strong></td>';
+    echo '</tr>';
+}
+
+echo '</table>';

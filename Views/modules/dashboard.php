@@ -99,6 +99,23 @@ require_once "sidebar.php";
         margin-bottom: 0;
     }
 
+    .tp-stat-breakdown {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 13px;
+        color: rgba(255,255,255,0.95);
+    }
+
+    .tp-stat-breakdown span {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.16);
+    }
+
     .tp-mini-plus {
         position: absolute;
         right: 22px;
@@ -182,12 +199,32 @@ require_once "sidebar.php";
             <div class="section-body">
                 <div class="dashboard-modern">
                     <div class="row">
-                        <!-- VENTAS DEL DIA -->
+                        <!-- VENTA NETA DEL DÍA -->
                         <div class="col-lg-4 col-md-6 col-12 mb-4">
                             <a href="listsales" style="text-decoration:none;">
                                 <div class="tp-stat-card tp-green">
-                                    <div class="tp-stat-value">S/<span id="tventahoy"></span></div>
-                                    <p class="tp-stat-label">Ventas del día</p>
+                                    <div class="tp-stat-value">
+                                        S/ <span id="tventahoy">0.00</span>
+                                    </div>
+
+                                    <p class="tp-stat-label">
+                                        Venta neta del día
+                                    </p>
+
+                                    <div class="tp-stat-breakdown">
+                                        <span>
+                                            Bruta:
+                                            &nbsp;S/
+                                            <strong id="tventabruta">0.00</strong>
+                                        </span>
+
+                                        <span>
+                                            N.C.:
+                                            &nbsp;- S/
+                                            <strong id="tnotascredito">0.00</strong>
+                                        </span>
+                                    </div>
+
                                     <div class="tp-mini-plus">+</div>
                                 </div>
                             </a>
@@ -251,7 +288,13 @@ require_once "sidebar.php";
 
 <script src="Assets/bundles/highcharts/highcharts.js"></script>
 <script src="Assets/bundles/chartjs/chart.min.js"></script>
-<script src="Views/modules/scripts/dashboard.js"></script>
+<?php
+$rutaDashboardJs = __DIR__ . '/scripts/dashboard.js';
+$versionDashboardJs = file_exists($rutaDashboardJs)
+    ? filemtime($rutaDashboardJs)
+    : time();
+?>
+<script src="Views/modules/scripts/dashboard.js?v=<?= $versionDashboardJs ?>"></script>
 
 <?php
 ob_end_flush();

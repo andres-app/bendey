@@ -15,7 +15,57 @@ header("location: login");
 <div class="main-content">
     <section class="section">
         <div class="section-body">
-            <!-- add content here -->
+            <!-- RESUMEN DE VENTAS -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="card card-statistic-1">
+                        <div class="card-icon bg-secondary">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="card-wrap">
+                            <div class="card-header">
+                                <h4>Ventas brutas</h4>
+                            </div>
+                            <div class="card-body" id="graficaVentasBrutas">
+                                S/ 0.00
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card card-statistic-1">
+                        <div class="card-icon bg-danger">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                        <div class="card-wrap">
+                            <div class="card-header">
+                                <h4>Notas de crédito</h4>
+                            </div>
+                            <div class="card-body text-danger" id="graficaNotasCredito">
+                                - S/ 0.00
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card card-statistic-1">
+                        <div class="card-icon bg-success">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="card-wrap">
+                            <div class="card-header">
+                                <h4>Ventas netas</h4>
+                            </div>
+                            <div class="card-body" id="graficaVentasNetas">
+                                S/ 0.00
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="row">
 
                 <!--GRAFICO DE COMPRAS-->
@@ -34,7 +84,7 @@ header("location: login");
                 <div class="col-12 col-md-6 col-lg-6">
                     <div class="card">
                         <div class="card-header">
-                            <h4>Grafico de ventas</h4>
+                            <h4>Ventas brutas, notas de crédito y ventas netas</h4>
                         </div>
                         <div class="card-body">
                             <canvas id="ventas_grafica"></canvas>
@@ -57,7 +107,7 @@ header("location: login");
                 <div class="col-12 col-md-6 col-lg-6">
                     <div class="card">
                         <div class="card-header">
-                            <h4>Resumen de ventas del año <?php echo date("Y"); ?></h4>
+                            <h4>Ventas netas por mes <?php echo date("Y"); ?></h4>
                         </div>
                         <div class="card-body">
                             <canvas id="resumen_ventas"></canvas>
@@ -76,7 +126,13 @@ require "footer.php";
 ?>
 <!-- JS Libraies -->
 <script src="Assets/bundles/chartjs/chart.min.js"></script>
-<script src="Views/modules/scripts/graphics.js"></script>
+<?php
+$rutaGraphicsJs = __DIR__ . '/scripts/graphics.js';
+$versionGraphicsJs = file_exists($rutaGraphicsJs)
+    ? filemtime($rutaGraphicsJs)
+    : time();
+?>
+<script src="Views/modules/scripts/graphics.js?v=<?= $versionGraphicsJs ?>"></script>
 
 
 

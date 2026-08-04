@@ -1,5 +1,10 @@
 // Views/modules/scripts/cajachica.js
 
+let contextoCajaActual = {
+  modo: "LEGACY",
+  idapertura: 0,
+};
+
 $(document).ready(function () {
   cargarCaja();
 
@@ -53,6 +58,18 @@ function cargarCaja() {
 
         return;
       }
+
+      contextoCajaActual = {
+        modo: String(
+          resp.modo || "LEGACY"
+        ).toUpperCase(),
+
+        idapertura:
+          Number.parseInt(
+            resp.apertura?.idapertura,
+            10
+          ) || 0,
+      };
 
       renderTabla(
         resp.detalle || [],
@@ -166,6 +183,7 @@ function actualizarEstadoCaja(
 | EXPORTACIONES
 |--------------------------------------------------------------------------
 */
+
 function exportarExcel() {
   const fechaInicio =
     $("#fecha_inicio").val();
@@ -176,20 +194,28 @@ function exportarExcel() {
   const idusuario =
     $("#idusuario").val();
 
-  const url =
-    "Reports/ExcelCajaChica.php" +
-    "?fecha_inicio=" +
-    encodeURIComponent(fechaInicio) +
-    "&fecha_fin=" +
-    encodeURIComponent(fechaFin) +
-    "&idusuario=" +
-    encodeURIComponent(idusuario);
+  const parametros =
+    new URLSearchParams({
+      fecha_inicio:
+        fechaInicio || "",
+      fecha_fin:
+        fechaFin || "",
+      idusuario:
+        idusuario || "",
+      idapertura:
+        String(
+          contextoCajaActual
+            .idapertura || 0
+        ),
+    });
 
   window.open(
-    url,
+    "Reports/ExcelCajaChica.php?"
+      + parametros.toString(),
     "_blank"
   );
 }
+
 
 function exportarPDF() {
   const fechaInicio =
@@ -198,15 +224,27 @@ function exportarPDF() {
   const fechaFin =
     $("#fecha_fin").val();
 
-  const url =
-    "Reports/caja_chica.php" +
-    "?fecha_inicio=" +
-    encodeURIComponent(fechaInicio) +
-    "&fecha_fin=" +
-    encodeURIComponent(fechaFin);
+  const idusuario =
+    $("#idusuario").val();
+
+  const parametros =
+    new URLSearchParams({
+      fecha_inicio:
+        fechaInicio || "",
+      fecha_fin:
+        fechaFin || "",
+      idusuario:
+        idusuario || "",
+      idapertura:
+        String(
+          contextoCajaActual
+            .idapertura || 0
+        ),
+    });
 
   window.open(
-    url,
+    "Reports/caja_chica.php?"
+      + parametros.toString(),
     "_blank"
   );
 }
@@ -216,6 +254,7 @@ function exportarPDF() {
 | TABLA
 |--------------------------------------------------------------------------
 */
+
 function renderTabla(
   data,
   apertura
@@ -254,47 +293,27 @@ function renderTabla(
         .toLowerCase()
         .trim();
 
-    if (
-      forma.includes(
-        "efectivo"
-      )
-    ) {
-      filas[tipo].efectivo +=
-        monto;
+    if (forma.includes("efectivo")) {
+      filas[tipo].efectivo += monto;
     } else if (
-      forma.includes(
-        "tarjeta"
-      ) ||
-      forma.includes(
-        "izipay"
-      )
+      forma.includes("tarjeta")
+      || forma.includes("izipay")
     ) {
-      filas[tipo].tarjeta +=
-        monto;
+      filas[tipo].tarjeta += monto;
     } else if (
-      forma.includes(
-        "transfer"
-      )
+      forma.includes("transfer")
     ) {
-      filas[tipo].transferencia +=
-        monto;
+      filas[tipo].transferencia += monto;
     } else if (
-      forma.includes(
-        "yape"
-      )
+      forma.includes("yape")
     ) {
-      filas[tipo].yape +=
-        monto;
+      filas[tipo].yape += monto;
     } else if (
-      forma.includes(
-        "plin"
-      )
+      forma.includes("plin")
     ) {
-      filas[tipo].plin +=
-        monto;
+      filas[tipo].plin += monto;
     } else {
-      filas[tipo].otros +=
-        monto;
+      filas[tipo].otros += monto;
     }
   });
 
@@ -308,22 +327,17 @@ function renderTabla(
   if (apertura) {
     html += `
       <tr class="table-success font-weight-bold">
-        <td>
-          APERTURA DE CAJA
-        </td>
-
+        <td>APERTURA DE CAJA</td>
         <td class="text-right">
-          S/ ${formatearMonto(
+          ${formatearMovimiento(
             montoApertura
           )}
         </td>
-
         <td class="text-right">-</td>
         <td class="text-right">-</td>
         <td class="text-right">-</td>
-
         <td class="text-right">
-          S/ ${formatearMonto(
+          ${formatearMovimiento(
             montoApertura
           )}
         </td>
@@ -331,75 +345,77 @@ function renderTabla(
     `;
   }
 
-  Object.keys(
-    filas
-  ).forEach(function (tipo) {
-    const fila =
-      filas[tipo];
+  Object.keys(filas)
+    .sort()
+    .forEach(function (tipo) {
+      const fila = filas[tipo];
 
-    const billeteras =
-      fila.yape +
-      fila.plin;
+      const billeteras =
+        fila.yape + fila.plin;
 
-    const total =
-      fila.efectivo +
-      fila.tarjeta +
-      fila.transferencia +
-      billeteras +
-      fila.otros;
+      const total =
+        fila.efectivo
+        + fila.tarjeta
+        + fila.transferencia
+        + billeteras
+        + fila.otros;
 
-    html += `
-      <tr>
-        <td>
-          ${escaparHtml(tipo)}
-        </td>
+      const esEgreso =
+        total < 0;
 
-        <td class="text-right">
-          S/ ${formatearMonto(
-            fila.efectivo
-          )}
-        </td>
+      const claseFila =
+        esEgreso
+          ? "table-danger"
+          : "";
 
-        <td class="text-right">
-          S/ ${formatearMonto(
-            fila.tarjeta
-          )}
-        </td>
+      html += `
+        <tr class="${claseFila}">
+          <td>
+            ${escaparHtml(tipo)}
+          </td>
 
-        <td class="text-right">
-          S/ ${formatearMonto(
-            fila.transferencia
-          )}
-        </td>
+          <td class="text-right">
+            ${formatearMovimiento(
+              fila.efectivo
+            )}
+          </td>
 
-        <td class="text-right">
-          S/ ${formatearMonto(
-            billeteras
-          )}
-        </td>
+          <td class="text-right">
+            ${formatearMovimiento(
+              fila.tarjeta
+            )}
+          </td>
 
-        <td class="text-right font-weight-bold">
-          S/ ${formatearMonto(
-            total
-          )}
-        </td>
-      </tr>
-    `;
-  });
+          <td class="text-right">
+            ${formatearMovimiento(
+              fila.transferencia
+            )}
+          </td>
+
+          <td class="text-right">
+            ${formatearMovimiento(
+              billeteras
+            )}
+          </td>
+
+          <td class="text-right font-weight-bold">
+            ${formatearMovimiento(
+              total
+            )}
+          </td>
+        </tr>
+      `;
+    });
 
   if (apertura?.estado === "CERRADA") {
     html += `
-      <tr class="table-danger font-weight-bold">
-        <td>
-          CIERRE DE CAJA
-        </td>
-
+      <tr class="table-secondary font-weight-bold">
+        <td>CIERRE DE CAJA</td>
         <td
           colspan="4"
           class="text-center">
           Caja cerrada
         </td>
-
         <td class="text-right">
           <i class="fas fa-check"></i>
         </td>
@@ -429,23 +445,39 @@ function renderTabla(
 | TOTALES
 |--------------------------------------------------------------------------
 */
+
 function renderTotales(
   totales,
   apertura
 ) {
-  const ingresos =
+  const ventasBrutas =
     parseFloat(
-      totales.ingresos
+      totales.ventas_brutas
+    ) || 0;
+
+  const notasCredito =
+    parseFloat(
+      totales.notas_credito
+    ) || 0;
+
+  const otrosIngresos =
+    parseFloat(
+      totales.otros_ingresos
+    ) || 0;
+
+  const otrosEgresos =
+    parseFloat(
+      totales.otros_egresos
+    ) || 0;
+
+  const resultadoNeto =
+    parseFloat(
+      totales.resultado_neto
     ) || 0;
 
   const efectivo =
     parseFloat(
       totales.efectivo
-    ) || 0;
-
-  const egresos =
-    parseFloat(
-      totales.egresos
     ) || 0;
 
   const egresosEfectivo =
@@ -459,42 +491,64 @@ function renderTotales(
     ) || 0;
 
   const totalCajaFisica =
-    montoApertura +
-    efectivo -
-    egresosEfectivo;
+    montoApertura
+    + efectivo
+    - egresosEfectivo;
 
-  $("#montoAperturaCard").text(
-    "S/ " +
-    formatearMonto(
-      montoApertura
+  $("#totalVentasBrutas").text(
+    "S/ "
+    + formatearMonto(
+      ventasBrutas
     )
   );
 
-  $("#totalIngresos").text(
-    "S/ " +
-    formatearMonto(
-      ingresos
+  $("#totalNotasCredito").text(
+    "- S/ "
+    + formatearMonto(
+      notasCredito
     )
   );
 
-  $("#totalEgresos").text(
-    "S/ " +
-    formatearMonto(
-      egresos
+  $("#totalOtrosIngresos").text(
+    "S/ "
+    + formatearMonto(
+      otrosIngresos
     )
   );
+
+  $("#totalOtrosEgresos").text(
+    "- S/ "
+    + formatearMonto(
+      otrosEgresos
+    )
+  );
+
+  $("#totalResultadoNeto")
+    .toggleClass(
+      "text-danger",
+      resultadoNeto < 0
+    )
+    .text(
+      formatearMovimiento(
+        resultadoNeto
+      )
+    );
 
   /*
-   * Total en Caja representa únicamente
-   * el efectivo físico esperado.
-   * No incluye Yape, tarjetas ni cuentas bancarias.
+   * Efectivo esperado:
+   * apertura + ingresos en efectivo
+   * - egresos en efectivo.
    */
-  $("#totalCaja").text(
-    "S/ " +
-    formatearMonto(
-      totalCajaFisica
+  $("#totalCaja")
+    .toggleClass(
+      "text-danger",
+      totalCajaFisica < 0
     )
-  );
+    .text(
+      formatearMovimiento(
+        totalCajaFisica
+      )
+    );
 }
 
 /*
@@ -548,6 +602,16 @@ function cerrarCaja() {
           resp.egresos_efectivo
         ) || 0;
 
+      const notasCreditoEfectivo =
+        parseFloat(
+          resp.notas_credito_efectivo
+        ) || 0;
+
+      const otrosEgresosEfectivo =
+        parseFloat(
+          resp.otros_egresos_efectivo
+        ) || 0;
+
       Swal.fire({
         title:
           "Arqueo de Caja",
@@ -576,9 +640,23 @@ function cerrarCaja() {
               )}
             </div>
 
+            <div class="mb-2 text-danger">
+              <strong>Devoluciones N.C. en efectivo:</strong>
+              - S/ ${formatearMonto(
+                notasCreditoEfectivo
+              )}
+            </div>
+
+            <div class="mb-2">
+              <strong>Otros egresos en efectivo:</strong>
+              - S/ ${formatearMonto(
+                otrosEgresosEfectivo
+              )}
+            </div>
+
             <div class="mb-3">
-              <strong>Egresos en efectivo:</strong>
-              S/ ${formatearMonto(
+              <strong>Total egresos en efectivo:</strong>
+              - S/ ${formatearMonto(
                 egresosEfectivo
               )}
             </div>
@@ -862,6 +940,24 @@ function formatearMonto(
       maximumFractionDigits: 2,
     }
   );
+}
+
+
+function formatearMovimiento(
+  monto
+) {
+  const numero =
+    parseFloat(monto) || 0;
+
+  const prefijo =
+    numero < 0
+      ? "- S/ "
+      : "S/ ";
+
+  return prefijo
+    + formatearMonto(
+      Math.abs(numero)
+    );
 }
 
 function escaparHtml(

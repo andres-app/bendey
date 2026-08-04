@@ -1,180 +1,457 @@
 <?php
-include('../Libraries/fpdf182/fpdf.php');
-require_once '../Models/Cajachica.php';
-require_once '../Models/Company.php';
 
-function t($txt) {
-    return iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $txt);
+declare(strict_types=1);
+
+ob_start();
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
 }
 
-$fecha_inicio = $_GET['fecha_inicio'] ?? date('Y-m-d');
-$fecha_fin    = $_GET['fecha_fin'] ?? date('Y-m-d');
+if (!isset($_SESSION['nombre'])) {
+    echo 'Debe ingresar al sistema correctamente';
+    exit;
+}
+
+if (
+    !isset($_SESSION['ventas'])
+    || (int)$_SESSION['ventas'] !== 1
+) {
+    echo 'No tiene permiso';
+    exit;
+}
+
+require_once __DIR__ . '/../Libraries/fpdf182/fpdf.php';
+require_once __DIR__ . '/../Models/Cajachica.php';
+require_once __DIR__ . '/../Models/Company.php';
+
+function textoCajaPdf(string $texto): string
+{
+    $convertido = iconv(
+        'UTF-8',
+        'windows-1252//TRANSLIT',
+        $texto
+    );
+
+    return $convertido !== false
+        ? $convertido
+        : $texto;
+}
+
+function montoCajaPdf(float $monto): string
+{
+    $prefijo = $monto < 0
+        ? '- S/ '
+        : 'S/ ';
+
+    return $prefijo
+        . number_format(
+            abs($monto),
+            2,
+            '.',
+            ','
+        );
+}
+
+$fechaInicio = trim(
+    (string)(
+        $_GET['fecha_inicio']
+        ?? date('Y-m-d')
+    )
+);
+
+$fechaFin = trim(
+    (string)(
+        $_GET['fecha_fin']
+        ?? date('Y-m-d')
+    )
+);
+
+$idusuario = isset($_GET['idusuario'])
+    && (int)$_GET['idusuario'] > 0
+    ? (int)$_GET['idusuario']
+    : null;
+
+$idapertura = isset($_GET['idapertura'])
+    && (int)$_GET['idapertura'] > 0
+    ? (int)$_GET['idapertura']
+    : null;
 
 $caja = new Cajachica();
-$data = $caja->resumen($fecha_inicio, $fecha_fin);
-$totales = $caja->totales($fecha_inicio, $fecha_fin);
-$apertura = $caja->obtenerAperturaPorFecha($fecha_inicio);
-$monto_apertura = (float)($apertura['monto_apertura'] ?? 0);
 
-// Empresa
+$data = $caja->resumen(
+    $fechaInicio,
+    $fechaFin,
+    $idusuario,
+    $idapertura
+);
+
+$totales = $caja->totales(
+    $fechaInicio,
+    $fechaFin,
+    $idusuario,
+    $idapertura
+);
+
+$apertura = $idapertura !== null
+    ? $caja->obtenerAperturaPorId(
+        $idapertura
+    )
+    : $caja->obtenerAperturaPorFecha(
+        $fechaInicio,
+        $idusuario
+    );
+
+$montoApertura = round(
+    (float)(
+        $apertura['monto_apertura']
+        ?? 0
+    ),
+    2
+);
+
 $empresa = new Company();
 $info = $empresa->listar()[0] ?? [];
 
-$pdf = new FPDF('P', 'mm', [80, 200]);
-$pdf->AddPage();
-$pdf->SetMargins(4, 4, 4);
-$pdf->SetAutoPageBreak(true, 5);
-
-/* ======================
-   ENCABEZADO
-====================== */
-$pdf->SetFont('Arial', 'B', 10);
-$pdf->MultiCell(0, 5, t(strtoupper($info['nombre'] ?? 'EMPRESA')), 0, 'C');
-
-$pdf->SetFont('Arial', '', 8);
-$pdf->MultiCell(0, 4, t('RUC: ' . ($info['ruc'] ?? '-')), 0, 'C');
-$pdf->MultiCell(0, 4, t($info['direccion'] ?? '-'), 0, 'C');
-
-$pdf->Ln(2);
-$pdf->SetFont('Arial', 'B', 9);
-$pdf->Cell(0, 5, t('LIQUIDACIÓN DE CAJA'), 0, 1, 'C');
-
-$pdf->SetFont('Arial', '', 8);
-$pdf->Cell(0, 4, t("Desde: $fecha_inicio"), 0, 1, 'C');
-$pdf->Cell(0, 4, t("Hasta: $fecha_fin"), 0, 1, 'C');
-
-$pdf->Ln(3);
-
-/* ======================
-   APERTURA
-====================== */
-
-$pdf->SetFont('Arial', 'B', 9);
-$pdf->Cell(0, 5, t('APERTURA DE CAJA'), 0, 1);
-
-$pdf->SetFont('Arial', '', 9);
-$pdf->Cell(0, 5, t('Monto inicial: S/ ' . number_format($monto_apertura, 2)), 0, 1);
-
-$pdf->Ln(3);
-
-
-/* ======================
-   AGRUPAR DATOS
-====================== */
 $filas = [];
 
-foreach ($data as $r) {
+foreach (is_array($data) ? $data : [] as $registro) {
+    $tipo = trim(
+        (string)(
+            $registro['tipo_comprobante']
+            ?? 'SIN COMPROBANTE'
+        )
+    );
 
-    $tc = $r['tipo_comprobante'];
-
-    if (!isset($filas[$tc])) {
-        $filas[$tc] = [
-            'efectivo' => 0,
-            'tarjeta' => 0,
-            'transferencia' => 0,
-            'yape' => 0,
-            'plin' => 0
+    if (!isset($filas[$tipo])) {
+        $filas[$tipo] = [
+            'efectivo' => 0.00,
+            'tarjeta' => 0.00,
+            'transferencia' => 0.00,
+            'billeteras' => 0.00,
+            'otros' => 0.00
         ];
     }
 
-    $forma = strtolower($r['forma_pago']);
-    $monto = (float)$r['total'];
+    $forma = mb_strtolower(
+        trim(
+            (string)(
+                $registro['forma_pago']
+                ?? ''
+            )
+        ),
+        'UTF-8'
+    );
 
-    if (strpos($forma, 'efectivo') !== false) {
-        $filas[$tc]['efectivo'] += $monto;
-    } elseif (strpos($forma, 'tarjeta') !== false) {
-        $filas[$tc]['tarjeta'] += $monto;
-    } elseif (strpos($forma, 'transfer') !== false) {
-        $filas[$tc]['transferencia'] += $monto;
-    } elseif (strpos($forma, 'yape') !== false) {
-        $filas[$tc]['yape'] += $monto;
-    } elseif (strpos($forma, 'plin') !== false) {
-        $filas[$tc]['plin'] += $monto;
+    $monto = round(
+        (float)($registro['total'] ?? 0),
+        2
+    );
+
+    if (str_contains($forma, 'efectivo')) {
+        $filas[$tipo]['efectivo'] += $monto;
+    } elseif (
+        str_contains($forma, 'tarjeta')
+        || str_contains($forma, 'izipay')
+    ) {
+        $filas[$tipo]['tarjeta'] += $monto;
+    } elseif (str_contains($forma, 'transfer')) {
+        $filas[$tipo]['transferencia'] += $monto;
+    } elseif (
+        str_contains($forma, 'yape')
+        || str_contains($forma, 'plin')
+    ) {
+        $filas[$tipo]['billeteras'] += $monto;
+    } else {
+        $filas[$tipo]['otros'] += $monto;
     }
 }
 
-/* ======================
-   DETALLE (FORMATO TABLA)
-====================== */
-$pdf->SetFont('Arial', 'B', 8);
-$pdf->Cell(0, 5, t('RESUMEN'), 0, 1, 'L');
-$pdf->Ln(1);
+$pdf = new FPDF(
+    'P',
+    'mm',
+    [80, 300]
+);
 
-$total_general = 0;
-
-foreach ($filas as $tc => $f) {
-
-    $total = $f['efectivo'] + $f['tarjeta'] + $f['transferencia'] + $f['yape'] + $f['plin'];
-    $total_general += $total;
-
-    // ---- TÍTULO COMPROBANTE ----
-    $pdf->SetFont('Arial', 'B', 8);
-    $pdf->Cell(0, 5, t($tc), 0, 1);
-
-    // Línea
-    $pdf->Cell(0, 1, t(str_repeat('-', 32)), 0, 1);
-
-    // ---- CABECERA TABLA ----
-    $pdf->SetFont('Arial', 'B', 7);
-    $pdf->Cell(40, 5, t('Concepto'), 0, 0);
-    $pdf->Cell(32, 5, t('Monto'), 0, 1, 'R');
-
-    $pdf->Cell(0, 1, t(str_repeat('-', 32)), 0, 1);
-
-    $pdf->SetFont('Arial', '', 8);
-
-    // ---- FILAS ----
-    if ($f['efectivo'] > 0) {
-        $pdf->Cell(40, 5, t('Efectivo'), 0, 0);
-        $pdf->Cell(32, 5, 'S/ ' . number_format($f['efectivo'], 2), 0, 1, 'R');
-    }
-
-    if ($f['tarjeta'] > 0) {
-        $pdf->Cell(40, 5, t('Tarjeta'), 0, 0);
-        $pdf->Cell(32, 5, 'S/ ' . number_format($f['tarjeta'], 2), 0, 1, 'R');
-    }
-
-    if ($f['transferencia'] > 0) {
-        $pdf->Cell(40, 5, t('Transferencia'), 0, 0);
-        $pdf->Cell(32, 5, 'S/ ' . number_format($f['transferencia'], 2), 0, 1, 'R');
-    }
-
-    if (($f['yape'] + $f['plin']) > 0) {
-        $pdf->Cell(40, 5, t('Yape / Plin'), 0, 0);
-        $pdf->Cell(32, 5, 'S/ ' . number_format($f['yape'] + $f['plin'], 2), 0, 1, 'R');
-    }
-
-    // Línea
-    $pdf->Cell(0, 1, t(str_repeat('-', 32)), 0, 1);
-
-    // ---- TOTAL ----
-    $pdf->SetFont('Arial', 'B', 8);
-    $pdf->Cell(40, 6, t('TOTAL'), 0, 0);
-    $pdf->Cell(32, 6, 'S/ ' . number_format($total, 2), 0, 1, 'R');
-
-    $pdf->Ln(2);
-}
-
-
-/* ======================
-   TOTALES
-====================== */
-$pdf->Ln(2);
-$pdf->SetFont('Arial', 'B', 9);
-$pdf->Cell(0, 5, t('------------------------------'), 0, 1, 'C');
-
-$total_caja = $monto_apertura + $total_general;
-
-$pdf->Cell(0, 5, t('APERTURA: S/ ' . number_format($monto_apertura, 2)), 0, 1);
-$pdf->Cell(0, 5, t('INGRESOS: S/ ' . number_format($total_general, 2)), 0, 1);
-$pdf->Cell(0, 5, t('EGRESOS: S/ 0.00'), 0, 1);
+$pdf->SetMargins(4, 4, 4);
+$pdf->SetAutoPageBreak(true, 6);
+$pdf->AddPage();
 
 $pdf->SetFont('Arial', 'B', 10);
-$pdf->Cell(0, 6, t('TOTAL CAJA: S/ ' . number_format($total_caja, 2)), 0, 1);
+$pdf->MultiCell(
+    0,
+    5,
+    textoCajaPdf(
+        mb_strtoupper(
+            (string)($info['nombre'] ?? 'EMPRESA'),
+            'UTF-8'
+        )
+    ),
+    0,
+    'C'
+);
 
+$ruc = trim(
+    (string)(
+        $info['documento']
+        ?? $info['ruc']
+        ?? '-'
+    )
+);
+
+$pdf->SetFont('Arial', '', 8);
+$pdf->Cell(
+    0,
+    4,
+    textoCajaPdf('RUC: ' . $ruc),
+    0,
+    1,
+    'C'
+);
+
+$pdf->MultiCell(
+    0,
+    4,
+    textoCajaPdf(
+        (string)($info['direccion'] ?? '-')
+    ),
+    0,
+    'C'
+);
+
+$pdf->Ln(2);
+$pdf->SetFont('Arial', 'B', 9);
+$pdf->Cell(
+    0,
+    5,
+    textoCajaPdf('LIQUIDACIÓN DE CAJA'),
+    0,
+    1,
+    'C'
+);
+
+$pdf->SetFont('Arial', '', 8);
+$pdf->Cell(
+    0,
+    4,
+    textoCajaPdf(
+        'Desde: ' . $fechaInicio
+    ),
+    0,
+    1,
+    'C'
+);
+
+$pdf->Cell(
+    0,
+    4,
+    textoCajaPdf(
+        'Hasta: ' . $fechaFin
+    ),
+    0,
+    1,
+    'C'
+);
+
+if ($idapertura !== null) {
+    $pdf->Cell(
+        0,
+        4,
+        textoCajaPdf(
+            'Apertura N.° '
+            . $idapertura
+        ),
+        0,
+        1,
+        'C'
+    );
+}
+
+$pdf->Ln(3);
+
+$pdf->SetFont('Arial', 'B', 8);
+$pdf->Cell(
+    0,
+    5,
+    textoCajaPdf('RESUMEN DE MOVIMIENTOS'),
+    0,
+    1
+);
+
+foreach ($filas as $tipo => $fila) {
+    $totalFila = round(
+        array_sum($fila),
+        2
+    );
+
+    $pdf->Ln(1);
+    $pdf->SetFont('Arial', 'B', 8);
+    $pdf->MultiCell(
+        0,
+        4,
+        textoCajaPdf($tipo),
+        0,
+        'L'
+    );
+
+    $pdf->SetFont('Arial', '', 7);
+
+    $conceptos = [
+        'Efectivo' => $fila['efectivo'],
+        'Tarjeta' => $fila['tarjeta'],
+        'Transferencia' => $fila['transferencia'],
+        'Yape / Plin' => $fila['billeteras'],
+        'Otros' => $fila['otros']
+    ];
+
+    foreach ($conceptos as $concepto => $monto) {
+        if (abs($monto) < 0.005) {
+            continue;
+        }
+
+        $pdf->Cell(
+            38,
+            4,
+            textoCajaPdf($concepto),
+            0,
+            0
+        );
+
+        $pdf->Cell(
+            34,
+            4,
+            textoCajaPdf(
+                montoCajaPdf($monto)
+            ),
+            0,
+            1,
+            'R'
+        );
+    }
+
+    $pdf->SetFont('Arial', 'B', 8);
+    $pdf->Cell(
+        38,
+        5,
+        textoCajaPdf('Total'),
+        'T',
+        0
+    );
+
+    $pdf->Cell(
+        34,
+        5,
+        textoCajaPdf(
+            montoCajaPdf($totalFila)
+        ),
+        'T',
+        1,
+        'R'
+    );
+}
+
+$ventasBrutas = round(
+    (float)($totales['ventas_brutas'] ?? 0),
+    2
+);
+
+$notasCredito = round(
+    (float)($totales['notas_credito'] ?? 0),
+    2
+);
+
+$otrosIngresos = round(
+    (float)($totales['otros_ingresos'] ?? 0),
+    2
+);
+
+$otrosEgresos = round(
+    (float)($totales['otros_egresos'] ?? 0),
+    2
+);
+
+$resultadoNeto = round(
+    (float)($totales['resultado_neto'] ?? 0),
+    2
+);
+
+$efectivoEsperado = round(
+    $montoApertura
+    + (float)($totales['efectivo'] ?? 0)
+    - (float)($totales['egresos_efectivo'] ?? 0),
+    2
+);
+
+$pdf->Ln(3);
+$pdf->SetFont('Arial', 'B', 9);
+$pdf->Cell(
+    0,
+    5,
+    textoCajaPdf('TOTALES'),
+    'T',
+    1,
+    'C'
+);
+
+$resumen = [
+    'Apertura' => $montoApertura,
+    'Ventas cobradas' => $ventasBrutas,
+    'Otros ingresos' => $otrosIngresos,
+    'Devoluciones N.C.' => -$notasCredito,
+    'Otros egresos' => -$otrosEgresos,
+    'Movimiento neto' => $resultadoNeto,
+    'Efectivo esperado' => $efectivoEsperado
+];
+
+foreach ($resumen as $concepto => $monto) {
+    $pdf->SetFont(
+        'Arial',
+        $concepto === 'Efectivo esperado'
+            ? 'B'
+            : '',
+        $concepto === 'Efectivo esperado'
+            ? 10
+            : 8
+    );
+
+    $pdf->Cell(
+        40,
+        5,
+        textoCajaPdf($concepto),
+        0,
+        0
+    );
+
+    $pdf->Cell(
+        32,
+        5,
+        textoCajaPdf(
+            montoCajaPdf($monto)
+        ),
+        0,
+        1,
+        'R'
+    );
+}
 
 $pdf->Ln(3);
 $pdf->SetFont('Arial', '', 8);
-$pdf->Cell(0, 4, t('--- FIN DEL REPORTE ---'), 0, 1, 'C');
+$pdf->Cell(
+    0,
+    4,
+    textoCajaPdf('--- FIN DEL REPORTE ---'),
+    0,
+    1,
+    'C'
+);
 
-$pdf->Output('I', 'Liquidacion_Caja_80mm.pdf');
+if (ob_get_length()) {
+    ob_end_clean();
+}
+
+$pdf->Output(
+    'I',
+    'Liquidacion_Caja_'
+    . $fechaInicio
+    . '.pdf'
+);
