@@ -108,6 +108,121 @@ function ventaPdfTipoDocumentoSunat(string $tipo): string
     return '0';
 }
 
+
+/**
+ * Prepara un logo compatible con FPDF.
+ *
+ * @return array{ruta:string,temporal:?string}
+ */
+function ventaPdfPrepararLogo(array $empresa): array
+{
+    $directorio = __DIR__ . '/../Assets/img/company/';
+    $nombre = basename(
+        trim((string)($empresa['logo'] ?? ''))
+    );
+
+    $ruta = $nombre !== ''
+        ? $directorio . $nombre
+        : '';
+
+    $rutaDefault =
+        $directorio . 'default_logo.png';
+
+    if (
+        $ruta === ''
+        || !is_file($ruta)
+    ) {
+        $ruta = is_file($rutaDefault)
+            ? $rutaDefault
+            : '';
+    }
+
+    if ($ruta === '') {
+        return [
+            'ruta' => '',
+            'temporal' => null
+        ];
+    }
+
+    $extension = strtolower(
+        pathinfo(
+            $ruta,
+            PATHINFO_EXTENSION
+        )
+    );
+
+    if (
+        in_array(
+            $extension,
+            ['png', 'jpg', 'jpeg'],
+            true
+        )
+        && @getimagesize($ruta) !== false
+    ) {
+        return [
+            'ruta' => $ruta,
+            'temporal' => null
+        ];
+    }
+
+    if (
+        $extension === 'webp'
+        && function_exists('imagecreatefromwebp')
+        && function_exists('imagepng')
+    ) {
+        $imagen = @imagecreatefromwebp(
+            $ruta
+        );
+
+        if ($imagen !== false) {
+            $temporal =
+                sys_get_temp_dir()
+                . '/logo_venta_'
+                . bin2hex(random_bytes(5))
+                . '.png';
+
+            imagealphablending(
+                $imagen,
+                false
+            );
+
+            imagesavealpha(
+                $imagen,
+                true
+            );
+
+            $convertido = imagepng(
+                $imagen,
+                $temporal,
+                6
+            );
+
+            imagedestroy(
+                $imagen
+            );
+
+            if (
+                $convertido
+                && is_file($temporal)
+            ) {
+                return [
+                    'ruta' => $temporal,
+                    'temporal' => $temporal
+                ];
+            }
+        }
+    }
+
+    return [
+        'ruta' =>
+            is_file($rutaDefault)
+                && @getimagesize($rutaDefault) !== false
+                    ? $rutaDefault
+                    : '',
+        'temporal' => null
+    ];
+}
+
 final class TiquePosVentaA4 extends FPDF
 {
     public string $empresaCorta = '';
@@ -360,19 +475,68 @@ $monedaNombre = trim((string)($empresa['moneda'] ?? 'SOLES'));
 $porcentajeIgv = (float)($empresa['monto_impuesto'] ?? 18);
 $nombreImpuesto = trim((string)($empresa['nombre_impuesto'] ?? 'IGV'));
 
-$logo = __DIR__ . '/../Assets/img/company/' . trim((string)($empresa['logo'] ?? ''));
-if (!is_file($logo)) {
-    $logo = __DIR__ . '/../Assets/img/company/default_logo.png';
-}
+$logoPreparado = ventaPdfPrepararLogo(
+    $empresa
+);
 
-$tipoComprobante = strtoupper(trim((string)($reg['tipo_comprobante'] ?? 'COMPROBANTE ELECTRÓNICO')));
-$tipoComprobanteTitulo = strtr($tipoComprobante, [
-    'Á' => 'A',
-    'É' => 'E',
-    'Í' => 'I',
-    'Ó' => 'O',
-    'Ú' => 'U'
-]);
+$logo = (string)(
+    $logoPreparado['ruta']
+    ?? ''
+);
+
+$logoTemporal = $logoPreparado['temporal']
+    ?? null;
+
+$tipoComprobanteOriginal = trim(
+    (string)(
+        $reg['tipo_comprobante']
+        ?? 'COMPROBANTE ELECTRÓNICO'
+    )
+);
+
+/*
+|--------------------------------------------------------------------------
+| TÍTULO TRIBUTARIO UNIFORME
+|--------------------------------------------------------------------------
+| strtoupper() no convierte correctamente caracteres acentuados UTF-8.
+| Se usa mb_strtoupper() y luego se asigna el nombre tributario exacto.
+*/
+$tipoComprobante = mb_strtoupper(
+    $tipoComprobanteOriginal,
+    'UTF-8'
+);
+
+$tipoComprobanteNormalizado = strtr(
+    $tipoComprobante,
+    [
+        'Á' => 'A',
+        'É' => 'E',
+        'Í' => 'I',
+        'Ó' => 'O',
+        'Ú' => 'U'
+    ]
+);
+
+if (
+    str_contains(
+        $tipoComprobanteNormalizado,
+        'BOLETA'
+    )
+) {
+    $tipoComprobanteTitulo =
+        'BOLETA DE VENTA ELECTRÓNICA';
+} elseif (
+    str_contains(
+        $tipoComprobanteNormalizado,
+        'FACTURA'
+    )
+) {
+    $tipoComprobanteTitulo =
+        'FACTURA ELECTRÓNICA';
+} else {
+    $tipoComprobanteTitulo =
+        $tipoComprobante;
+}
 $serie = trim((string)($reg['serie_comprobante'] ?? ''));
 $numero = trim((string)($reg['num_comprobante'] ?? ''));
 $comprobante = $serie . '-' . $numero;
@@ -451,12 +615,12 @@ $pdf->SetAutoPageBreak(false);
 $pdf->AddPage();
 
 // CABECERA
-if (is_file($logo)) {
+if ($logo !== '' && is_file($logo)) {
     $pdf->Image($logo, 12, 12, 28, 22);
 }
 
-$xEmpresa = is_file($logo) ? 45 : 12;
-$wEmpresa = is_file($logo) ? 84 : 117;
+$xEmpresa = ($logo !== '' && is_file($logo)) ? 45 : 12;
+$wEmpresa = ($logo !== '' && is_file($logo)) ? 84 : 117;
 $pdf->SetXY($xEmpresa, 12.5);
 $pdf->SetFont('Helvetica', 'B', 13);
 $pdf->SetTextColor(37, 42, 47);
@@ -685,7 +849,7 @@ $pdf->MultiCell(
     150,
     3.8,
     ventaPdfTexto(
-        'Representación impresa del ' . $tipoComprobante . '. '
+        'Representación impresa de la ' . $tipoComprobanteTitulo . '. '
         . 'Serie y número: ' . $comprobante . '. '
         . 'Consulte su validez en SUNAT o con su proveedor electrónico.'
     ),
@@ -707,4 +871,12 @@ $pdf->Output('I', $nombreArchivo);
 
 if (is_file($qrRuta)) {
     @unlink($qrRuta);
+}
+
+if (
+    is_string($logoTemporal)
+    && $logoTemporal !== ''
+    && is_file($logoTemporal)
+) {
+    @unlink($logoTemporal);
 }

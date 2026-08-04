@@ -165,6 +165,80 @@ class Company
         );
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOGO DE LA EMPRESA
+    |--------------------------------------------------------------------------
+    */
+    public function obtenerLogo(
+        int $idNegocio
+    ): string {
+        if (
+            $idNegocio <= 0
+            || !$this->columnaExiste('logo')
+        ) {
+            return '';
+        }
+
+        $registro = $this->conexion->getData(
+            "SELECT logo
+             FROM {$this->tableName}
+             WHERE id_negocio = ?
+             LIMIT 1",
+            [$idNegocio]
+        );
+
+        return is_array($registro)
+            ? trim((string)($registro['logo'] ?? ''))
+            : '';
+    }
+
+    public function actualizarLogo(
+        int $idNegocio,
+        ?string $logo
+    ): bool {
+        if ($idNegocio <= 0) {
+            throw new InvalidArgumentException(
+                'La empresa no es válida.'
+            );
+        }
+
+        if (!$this->columnaExiste('logo')) {
+            throw new RuntimeException(
+                'Falta la columna logo en datos_negocio. '
+                . 'Ejecuta SQL/01_corregir_columna_logo.sql.'
+            );
+        }
+
+        $logo = trim((string)$logo);
+
+        if ($logo !== '') {
+            $logo = basename($logo);
+
+            if (
+                !preg_match(
+                    '/^[A-Za-z0-9._-]+\.(png|jpe?g|webp)$/i',
+                    $logo
+                )
+            ) {
+                throw new InvalidArgumentException(
+                    'El nombre del logo no es válido.'
+                );
+            }
+        }
+
+        return (bool)$this->conexion->setData(
+            "UPDATE {$this->tableName}
+             SET logo = ?
+             WHERE id_negocio = ?",
+            [
+                $logo !== '' ? $logo : null,
+                $idNegocio
+            ]
+        );
+    }
+
     /*
     |--------------------------------------------------------------------------
     | MOSTRAR REGISTRO INTERNO
@@ -399,37 +473,53 @@ class Company
     */
     public function listar(): array
     {
-        return $this->conexion->getDataAll(
-            "SELECT
-                id_negocio,
-                nombre,
-                ndocumento,
-                documento,
-                direccion,
-                telefono,
-                email,
-                pais,
-                ciudad,
-                nombre_impuesto,
-                monto_impuesto,
-                moneda,
-                simbolo,
-                condicion,
-                apisunat_persona_id,
-                apisunat_production,
-                venta_tipo_comprobante_predeterminado,
-                venta_tipo_pago_predeterminado,
-                venta_idforma_pago_predeterminada,
-                venta_modo_envio_predeterminado,
-                CASE
-                    WHEN apisunat_persona_token IS NOT NULL
-                     AND apisunat_persona_token <> ''
-                    THEN 1
-                    ELSE 0
-                END AS apisunat_token_configurado
-             FROM {$this->tableName}
-             ORDER BY id_negocio DESC"
+        /*
+         * Compatibilidad con instalaciones antiguas:
+         * si la columna logo aún no existe, se devuelve
+         * una cadena vacía y los reportes no se detienen.
+         */
+        $campoLogo = $this->columnaExiste('logo')
+            ? 'logo'
+            : "'' AS logo";
+
+        $sql = "SELECT
+                    id_negocio,
+                    nombre,
+                    ndocumento,
+                    documento,
+                    direccion,
+                    telefono,
+                    email,
+                    pais,
+                    ciudad,
+                    nombre_impuesto,
+                    monto_impuesto,
+                    moneda,
+                    simbolo,
+                    {$campoLogo},
+                    condicion,
+                    apisunat_persona_id,
+                    apisunat_production,
+                    venta_tipo_comprobante_predeterminado,
+                    venta_tipo_pago_predeterminado,
+                    venta_idforma_pago_predeterminada,
+                    venta_modo_envio_predeterminado,
+                    CASE
+                        WHEN apisunat_persona_token IS NOT NULL
+                         AND apisunat_persona_token <> ''
+                        THEN 1
+                        ELSE 0
+                    END AS apisunat_token_configurado
+                FROM {$this->tableName}
+                ORDER BY id_negocio DESC";
+
+        $resultado = $this->conexion->getDataAll(
+            $sql
         );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
     }
 
     /*
@@ -481,6 +571,39 @@ class Company
                 $idNegocio
             ]
         );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMPROBAR COLUMNA
+    |--------------------------------------------------------------------------
+    */
+    private function columnaExiste(
+        string $columna
+    ): bool {
+        $columna = trim($columna);
+
+        if (
+            $columna === ''
+            || !preg_match('/^[A-Za-z0-9_]+$/', $columna)
+        ) {
+            return false;
+        }
+
+        $resultado = $this->conexion->getData(
+            "SELECT COUNT(*) AS cantidad
+             FROM information_schema.columns
+             WHERE table_schema = DATABASE()
+               AND table_name = ?
+               AND column_name = ?",
+            [
+                $this->tableName,
+                $columna
+            ]
+        );
+
+        return (int)($resultado['cantidad'] ?? 0) > 0;
     }
 
     /*

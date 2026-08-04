@@ -2453,10 +2453,76 @@ switch ($op) {
                 '1' => $reg['cliente'],
                 '2' => $reg['usuario'],
                 '3' => $reg['tipo_comprobante'],
-                '4' =>
-                $reg['serie_comprobante']
-                    . '-'
-                    . $reg['num_comprobante'],
+                '4' => (
+                    function () use ($reg): string {
+                        $numero = htmlspecialchars(
+                            (string)$reg['serie_comprobante']
+                            . '-'
+                            . (string)$reg['num_comprobante'],
+                            ENT_QUOTES,
+                            'UTF-8'
+                        );
+
+                        $cantidadNotas = (int)(
+                            $reg['cantidad_notas_credito']
+                            ?? 0
+                        );
+
+                        $totalNotas = round(
+                            (float)(
+                                $reg['total_notas_credito']
+                                ?? 0
+                            ),
+                            2
+                        );
+
+                        if (
+                            $cantidadNotas <= 0
+                            || $totalNotas <= 0
+                        ) {
+                            return '<strong>'
+                                . $numero
+                                . '</strong>';
+                        }
+
+                        $textoCantidad =
+                            $cantidadNotas === 1
+                                ? '1 nota de crédito'
+                                : $cantidadNotas
+                                    . ' notas de crédito';
+
+                        return '
+                            <div class="venta-numero-documento">
+                                <strong>'
+                                    . $numero
+                                    . '
+                                </strong>
+
+                                <span
+                                    class="venta-nota-badge"
+                                    title="'
+                                    . htmlspecialchars(
+                                        $textoCantidad,
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    )
+                                    . '">
+                                    <i class="fas fa-file-invoice-dollar"></i>
+                                    '
+                                    . $cantidadNotas
+                                    . ' N.C. · S/ '
+                                    . number_format(
+                                        $totalNotas,
+                                        2,
+                                        '.',
+                                        ''
+                                    )
+                                    . '
+                                </span>
+                            </div>
+                        ';
+                    }
+                )(),
                 '5' => number_format(
                     (float)$reg['total_venta'],
                     2,
@@ -2539,6 +2605,343 @@ switch ($op) {
                                 rel="noopener">
                                 <i class="far fa-comment-dots"></i>
                                 <span>Compartir por WhatsApp</span>
+                            </a>
+
+                        </div>
+                    </div>
+                '
+            ];
+        }
+
+        responderJson([
+            'sEcho' => 1,
+            'iTotalRecords' => count($data),
+            'iTotalDisplayRecords' => count($data),
+            'aaData' => $data
+        ]);
+
+        break;
+
+    // =========================================================
+    // LISTAR NOTAS DE CRÉDITO EN VENTAS
+    // =========================================================
+    case 'listarnotascredito':
+
+        require_once __DIR__ . '/../Models/CreditNote.php';
+
+        $creditNote = new CreditNote();
+        $notas = $creditNote->listarParaVentas();
+        $data = [];
+        $baseUrl = obtenerBaseUrl();
+
+        foreach ($notas as $nota) {
+            $idNota = (int)(
+                $nota['idnota_credito']
+                ?? 0
+            );
+
+            $idVentaOrigen = (int)(
+                $nota['idventa']
+                ?? 0
+            );
+
+            if ($idNota <= 0) {
+                continue;
+            }
+
+            $serieNumero =
+                trim(
+                    (string)(
+                        $nota['serie_comprobante']
+                        ?? ''
+                    )
+                )
+                . '-'
+                . trim(
+                    (string)(
+                        $nota['num_comprobante']
+                        ?? ''
+                    )
+                );
+
+            $documentoOrigen =
+                trim(
+                    (string)(
+                        $nota['serie_documento_modificado']
+                        ?? ''
+                    )
+                )
+                . '-'
+                . trim(
+                    (string)(
+                        $nota['numero_documento_modificado']
+                        ?? ''
+                    )
+                );
+
+            $estadoLocal = strtoupper(
+                trim(
+                    (string)(
+                        $nota['estado_local']
+                        ?? 'REGISTRADA'
+                    )
+                )
+            );
+
+            $estadoSunat = strtoupper(
+                trim(
+                    (string)(
+                        $nota['estado_sunat']
+                        ?? 'NO_ENVIADO'
+                    )
+                )
+            );
+
+            if ($estadoLocal === 'ANULADA') {
+                $estadoSunat = 'ANULADO';
+            }
+
+            $notaEstadoVisual = $nota;
+            $notaEstadoVisual['estado_sunat'] =
+                $estadoSunat;
+
+            $sustento = trim(
+                (string)(
+                    $nota['sustento']
+                    ?? ''
+                )
+            );
+
+            $motivo = trim(
+                (string)(
+                    $nota['motivo']
+                    ?? ''
+                )
+            );
+
+            $codigoMotivo = str_pad(
+                preg_replace(
+                    '/\D/',
+                    '',
+                    (string)(
+                        $nota['codigo_motivo']
+                        ?? ''
+                    )
+                ),
+                2,
+                '0',
+                STR_PAD_LEFT
+            );
+
+            $motivoHtml = '
+                <div class="nota-motivo-celda">
+                    <strong>'
+                        . htmlspecialchars(
+                            $codigoMotivo
+                            . ' - '
+                            . $motivo,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        )
+                        . '</strong>';
+
+            if ($sustento !== '') {
+                $motivoHtml .= '
+                    <small title="'
+                        . htmlspecialchars(
+                            $sustento,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        )
+                        . '">'
+                        . htmlspecialchars(
+                            $sustento,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        )
+                        . '</small>';
+            }
+
+            $motivoHtml .= '</div>';
+
+            $whatsappTexto = urlencode(
+                'Nota de crédito '
+                . $serieNumero
+                . ' - Ver PDF: '
+                . $baseUrl
+                . 'Reports/notacredito_a4.php?id='
+                . $idNota
+            );
+
+            $data[] = [
+                '0' => htmlspecialchars(
+                    (string)(
+                        $nota['fecha']
+                        ?? ''
+                    ),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+
+                '1' => htmlspecialchars(
+                    (string)(
+                        $nota['cliente']
+                        ?? 'SIN CLIENTE'
+                    ),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+
+                '2' => htmlspecialchars(
+                    (string)(
+                        $nota['usuario']
+                        ?? 'SIN USUARIO'
+                    ),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+
+                '3' => '
+                    <div class="nota-numero-celda">
+                        <span class="nota-tipo-label">
+                            NOTA DE CRÉDITO
+                        </span>
+                        <strong>'
+                            . htmlspecialchars(
+                                $serieNumero,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            )
+                            . '</strong>
+                    </div>
+                ',
+
+                '4' => '
+                    <a
+                        class="nota-origen-link"
+                        href="'
+                        . $baseUrl
+                        . 'Reports/a4.php?id='
+                        . $idVentaOrigen
+                        . '"
+                        target="_blank"
+                        rel="noopener">
+                        <i class="far fa-file-alt"></i>
+                        '
+                        . htmlspecialchars(
+                            $documentoOrigen,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        )
+                        . '
+                    </a>
+                ',
+
+                '5' => $motivoHtml,
+
+                '6' => '
+                    <span class="nota-total-negativo">
+                        - S/ '
+                        . number_format(
+                            (float)(
+                                $nota['total_nota']
+                                ?? 0
+                            ),
+                            2,
+                            '.',
+                            ''
+                        )
+                        . '
+                    </span>
+                ',
+
+                '7' => generarEstadoSunatVenta(
+                    $notaEstadoVisual
+                ),
+
+                '8' => '
+                    <div class="dropdown venta-acciones">
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary dropdown-toggle venta-acciones-boton"
+                            data-toggle="dropdown"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            title="Abrir acciones de la nota de crédito">
+
+                            <i class="fas fa-ellipsis-h mr-1"></i>
+                            <span class="texto-accion">
+                                Acciones
+                            </span>
+                        </button>
+
+                        <div
+                            class="dropdown-menu dropdown-menu-right venta-acciones-menu">
+
+                            <h6 class="dropdown-header">
+                                Nota de crédito
+                            </h6>
+
+                            <a
+                                class="dropdown-item"
+                                href="'
+                                . $baseUrl
+                                . 'Reports/notacredito_a4.php?id='
+                                . $idNota
+                                . '"
+                                target="_blank"
+                                rel="noopener">
+                                <i class="far fa-file-pdf"></i>
+                                <span>Imprimir A4</span>
+                            </a>
+
+                            <a
+                                class="dropdown-item"
+                                href="'
+                                . $baseUrl
+                                . 'Reports/notacredito_80mm.php?id='
+                                . $idNota
+                                . '"
+                                target="_blank"
+                                rel="noopener">
+                                <i class="fas fa-receipt"></i>
+                                <span>Imprimir ticket</span>
+                            </a>
+
+                            <a
+                                class="dropdown-item"
+                                href="https://wa.me/?text='
+                                . $whatsappTexto
+                                . '"
+                                target="_blank"
+                                rel="noopener">
+                                <i class="far fa-comment-dots"></i>
+                                <span>Compartir por WhatsApp</span>
+                            </a>
+
+                            <div class="dropdown-divider"></div>
+                            <h6 class="dropdown-header">
+                                Comprobante original
+                            </h6>
+
+                            <a
+                                class="dropdown-item"
+                                href="'
+                                . $baseUrl
+                                . 'Reports/a4.php?id='
+                                . $idVentaOrigen
+                                . '"
+                                target="_blank"
+                                rel="noopener">
+                                <i class="far fa-file-alt"></i>
+                                <span>Ver venta original</span>
+                            </a>
+
+                            <a
+                                class="dropdown-item"
+                                href="sunat">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Abrir módulo SUNAT</span>
                             </a>
 
                         </div>

@@ -40,6 +40,271 @@ function responderCompanyJson(
     exit;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| LOGO DE LA EMPRESA
+|--------------------------------------------------------------------------
+*/
+function guardarLogoEmpresaSubido(
+    array $archivo,
+    int $idNegocio
+): array {
+    $error = (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE);
+
+    if ($error === UPLOAD_ERR_NO_FILE) {
+        return [];
+    }
+
+    if ($error !== UPLOAD_ERR_OK) {
+        $mensajes = [
+            UPLOAD_ERR_INI_SIZE =>
+                'El logo supera el tamaño permitido por el servidor.',
+            UPLOAD_ERR_FORM_SIZE =>
+                'El logo supera el tamaño permitido.',
+            UPLOAD_ERR_PARTIAL =>
+                'El logo se cargó de manera incompleta.',
+            UPLOAD_ERR_NO_TMP_DIR =>
+                'No existe el directorio temporal para cargar el logo.',
+            UPLOAD_ERR_CANT_WRITE =>
+                'No se pudo escribir el logo en el servidor.',
+            UPLOAD_ERR_EXTENSION =>
+                'Una extensión del servidor bloqueó la carga del logo.'
+        ];
+
+        throw new RuntimeException(
+            $mensajes[$error]
+            ?? 'No se pudo cargar el logo.'
+        );
+    }
+
+    $rutaTemporal = (string)($archivo['tmp_name'] ?? '');
+    $tamano = (int)($archivo['size'] ?? 0);
+
+    if (
+        $rutaTemporal === ''
+        || !is_uploaded_file($rutaTemporal)
+    ) {
+        throw new RuntimeException(
+            'El archivo recibido no es una carga válida.'
+        );
+    }
+
+    if (
+        $tamano <= 0
+        || $tamano > (2 * 1024 * 1024)
+    ) {
+        throw new RuntimeException(
+            'El logo debe pesar como máximo 2 MB.'
+        );
+    }
+
+    if (!function_exists('finfo_open')) {
+        throw new RuntimeException(
+            'La extensión Fileinfo de PHP no está disponible.'
+        );
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+
+    if ($finfo === false) {
+        throw new RuntimeException(
+            'No se pudo validar el tipo del logo.'
+        );
+    }
+
+    $mime = (string)finfo_file(
+        $finfo,
+        $rutaTemporal
+    );
+
+    finfo_close($finfo);
+
+    $formatos = [
+        'image/png' => 'png',
+        'image/jpeg' => 'jpg',
+        /*
+         * FPDF no procesa WEBP directamente.
+         * Se acepta, pero se guarda convertido a PNG.
+         */
+        'image/webp' => 'png'
+    ];
+
+    if (!isset($formatos[$mime])) {
+        throw new RuntimeException(
+            'El logo debe ser PNG, JPG o WEBP.'
+        );
+    }
+
+    $medidas = @getimagesize(
+        $rutaTemporal
+    );
+
+    if (!is_array($medidas)) {
+        throw new RuntimeException(
+            'El archivo seleccionado no es una imagen válida.'
+        );
+    }
+
+    $ancho = (int)($medidas[0] ?? 0);
+    $alto = (int)($medidas[1] ?? 0);
+
+    if (
+        $ancho < 80
+        || $alto < 80
+    ) {
+        throw new RuntimeException(
+            'El logo debe tener al menos 80 × 80 píxeles.'
+        );
+    }
+
+    if (
+        $ancho > 6000
+        || $alto > 6000
+    ) {
+        throw new RuntimeException(
+            'Las dimensiones del logo son demasiado grandes.'
+        );
+    }
+
+    $directorio =
+        dirname(__DIR__)
+        . '/Assets/img/company';
+
+    if (
+        !is_dir($directorio)
+        && !mkdir(
+            $directorio,
+            0755,
+            true
+        )
+        && !is_dir($directorio)
+    ) {
+        throw new RuntimeException(
+            'No se pudo crear el directorio de logos.'
+        );
+    }
+
+    if (!is_writable($directorio)) {
+        throw new RuntimeException(
+            'Assets/img/company no tiene permisos de escritura.'
+        );
+    }
+
+    $nombre =
+        'empresa_'
+        . $idNegocio
+        . '_'
+        . date('Ymd_His')
+        . '_'
+        . bin2hex(random_bytes(4))
+        . '.'
+        . $formatos[$mime];
+
+    $destino =
+        $directorio
+        . DIRECTORY_SEPARATOR
+        . $nombre;
+
+    if ($mime === 'image/webp') {
+        if (
+            !function_exists('imagecreatefromwebp')
+            || !function_exists('imagepng')
+        ) {
+            throw new RuntimeException(
+                'El servidor no puede convertir imágenes WEBP. '
+                . 'Utiliza un logo PNG o JPG.'
+            );
+        }
+
+        $imagenWebp = @imagecreatefromwebp(
+            $rutaTemporal
+        );
+
+        if ($imagenWebp === false) {
+            throw new RuntimeException(
+                'No se pudo leer el logo WEBP.'
+            );
+        }
+
+        imagealphablending(
+            $imagenWebp,
+            false
+        );
+
+        imagesavealpha(
+            $imagenWebp,
+            true
+        );
+
+        $guardadoWebp = imagepng(
+            $imagenWebp,
+            $destino,
+            6
+        );
+
+        imagedestroy(
+            $imagenWebp
+        );
+
+        if (!$guardadoWebp) {
+            throw new RuntimeException(
+                'No se pudo convertir el logo WEBP a PNG.'
+            );
+        }
+    } elseif (!move_uploaded_file(
+        $rutaTemporal,
+        $destino
+    )) {
+        throw new RuntimeException(
+            'No se pudo guardar el nuevo logo.'
+        );
+    }
+
+    @chmod(
+        $destino,
+        0644
+    );
+
+    return [
+        'nombre' => $nombre,
+        'ruta' => $destino
+    ];
+}
+
+function eliminarLogoEmpresaFisico(
+    string $nombreLogo
+): void {
+    $nombreLogo = basename(
+        trim($nombreLogo)
+    );
+
+    if (
+        $nombreLogo === ''
+        || $nombreLogo === 'default_logo.png'
+    ) {
+        return;
+    }
+
+    if (
+        !preg_match(
+            '/^[A-Za-z0-9._-]+\.(png|jpe?g|webp)$/i',
+            $nombreLogo
+        )
+    ) {
+        return;
+    }
+
+    $ruta =
+        dirname(__DIR__)
+        . '/Assets/img/company/'
+        . $nombreLogo;
+
+    if (is_file($ruta)) {
+        @unlink($ruta);
+    }
+}
+
 /*
 |--------------------------------------------------------------------------
 | Validar sesión
@@ -89,6 +354,20 @@ try {
                 $id_negocio =
                     $company->obtenerIdNegocioActivo();
             }
+
+            $logoActual =
+                $company->obtenerLogo(
+                    $id_negocio
+                );
+
+            $eliminarLogo =
+                (int)(
+                    $_POST['eliminar_logo']
+                    ?? 0
+                ) === 1;
+
+            $logoSubido = [];
+            $logoNuevo = $logoActual;
 
             $nombre = trim(
                 (string)(
@@ -379,6 +658,35 @@ try {
                 );
             }
 
+
+            /*
+             * El archivo se procesa recién después de validar
+             * todos los campos de configuración.
+             */
+            if (
+                isset($_FILES['logo'])
+                && is_array($_FILES['logo'])
+                && (int)(
+                    $_FILES['logo']['error']
+                    ?? UPLOAD_ERR_NO_FILE
+                ) !== UPLOAD_ERR_NO_FILE
+            ) {
+                $logoSubido =
+                    guardarLogoEmpresaSubido(
+                        $_FILES['logo'],
+                        $id_negocio
+                    );
+
+                $logoNuevo = (string)(
+                    $logoSubido['nombre']
+                    ?? $logoActual
+                );
+
+                $eliminarLogo = false;
+            } elseif ($eliminarLogo) {
+                $logoNuevo = '';
+            }
+
             $resultado = $company->editar(
                 $id_negocio,
                 $nombre,
@@ -403,10 +711,57 @@ try {
                 $venta_modo_envio_predeterminado
             );
 
-            echo $resultado
-                ? 'Datos actualizados correctamente'
-                : 'No se pudo actualizar la configuración';
+            if (!$resultado) {
+                if (
+                    isset($logoSubido['ruta'])
+                    && is_file(
+                        (string)$logoSubido['ruta']
+                    )
+                ) {
+                    @unlink(
+                        (string)$logoSubido['ruta']
+                    );
+                }
 
+                echo 'No se pudo actualizar la configuración';
+                exit;
+            }
+
+            if ($logoNuevo !== $logoActual) {
+                $logoActualizado =
+                    $company->actualizarLogo(
+                        $id_negocio,
+                        $logoNuevo
+                    );
+
+                if (!$logoActualizado) {
+                    if (
+                        isset($logoSubido['ruta'])
+                        && is_file(
+                            (string)$logoSubido['ruta']
+                        )
+                    ) {
+                        @unlink(
+                            (string)$logoSubido['ruta']
+                        );
+                    }
+
+                    throw new RuntimeException(
+                        'Los datos se guardaron, pero no se pudo actualizar el logo.'
+                    );
+                }
+
+                if (
+                    $logoActual !== ''
+                    && $logoActual !== $logoNuevo
+                ) {
+                    eliminarLogoEmpresaFisico(
+                        $logoActual
+                    );
+                }
+            }
+
+            echo 'Datos actualizados correctamente';
             exit;
 
         /*
@@ -673,6 +1028,17 @@ try {
     );
 
     if ($op === 'guardaryeditar') {
+        if (
+            isset($logoSubido['ruta'])
+            && is_file(
+                (string)$logoSubido['ruta']
+            )
+        ) {
+            @unlink(
+                (string)$logoSubido['ruta']
+            );
+        }
+
         http_response_code(500);
         echo $e->getMessage();
         exit;

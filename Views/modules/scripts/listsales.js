@@ -1,6 +1,7 @@
 // Views/modules/scripts/listsales.js
 
 let tabla = null;
+let tablaNotasCredito = null;
 
 /*
 |--------------------------------------------------------------------------
@@ -9,6 +10,8 @@ let tabla = null;
 */
 function init() {
   listar();
+  listarNotasCredito();
+  registrarEventosTabsDocumentos();
 }
 
 $(document).on("click", "#btnagregar", function () {
@@ -57,6 +60,20 @@ function listar() {
         type: "GET",
         dataType: "json",
 
+        dataSrc: function (respuesta) {
+          const registros =
+            respuesta &&
+            Array.isArray(respuesta.aaData)
+              ? respuesta.aaData
+              : [];
+
+          $("#contadorVentas").text(
+            registros.length
+          );
+
+          return registros;
+        },
+
         error: function (xhr) {
           console.error(
             "Error al listar ventas:",
@@ -92,6 +109,227 @@ function listar() {
         },
       ],
     });
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LISTADO DE NOTAS DE CRÉDITO
+|--------------------------------------------------------------------------
+*/
+function listarNotasCredito() {
+  tablaNotasCredito =
+    $("#tblNotasCredito")
+      .DataTable({
+        processing: true,
+        serverSide: false,
+        dom: "Bfrtip",
+
+        buttons: [
+          {
+            extend: "excelHtml5",
+            text:
+              '<i class="far fa-file-excel mr-1"></i> Excel',
+            className:
+              "btn btn-outline-secondary btn-sm",
+            titleAttr:
+              "Exportar notas de crédito a Excel",
+            title:
+              "Reporte de Notas de Crédito",
+            sheetName:
+              "Notas de crédito",
+            exportOptions: {
+              columns: [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+              ],
+            },
+          },
+          {
+            extend: "pdfHtml5",
+            text:
+              '<i class="far fa-file-pdf mr-1"></i> PDF',
+            className:
+              "btn btn-outline-secondary btn-sm",
+            titleAttr:
+              "Exportar notas de crédito a PDF",
+            title:
+              "Reporte de Notas de Crédito",
+            pageSize:
+              "A4",
+            orientation:
+              "landscape",
+            exportOptions: {
+              columns: [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+              ],
+            },
+          },
+        ],
+
+        ajax: {
+          url:
+            "Controllers/Sell.php" +
+            "?op=listarnotascredito",
+
+          type:
+            "GET",
+
+          dataType:
+            "json",
+
+          dataSrc: function (respuesta) {
+            const registros =
+              respuesta &&
+              Array.isArray(
+                respuesta.aaData
+              )
+                ? respuesta.aaData
+                : [];
+
+            $("#contadorNotasCredito")
+              .text(
+                registros.length
+              );
+
+            return registros;
+          },
+
+          error: function (xhr) {
+            console.error(
+              "Error al listar notas de crédito:",
+              xhr.responseText
+            );
+
+            $("#contadorNotasCredito")
+              .text("0");
+          },
+        },
+
+        destroy:
+          true,
+
+        responsive:
+          true,
+
+        autoWidth:
+          false,
+
+        pageLength:
+          10,
+
+        order:
+          [],
+
+        columnDefs: [
+          {
+            targets:
+              "_all",
+            className:
+              "align-middle",
+          },
+          {
+            targets:
+              5,
+            className:
+              "align-middle",
+          },
+          {
+            targets:
+              6,
+            className:
+              "text-right align-middle",
+          },
+          {
+            targets:
+              7,
+            className:
+              "text-center align-middle",
+          },
+          {
+            targets:
+              8,
+            orderable:
+              false,
+            searchable:
+              false,
+            className:
+              "text-right align-middle",
+          },
+        ],
+      });
+}
+
+/*
+|--------------------------------------------------------------------------
+| AJUSTAR TABLAS AL CAMBIAR DE PESTAÑA
+|--------------------------------------------------------------------------
+*/
+function registrarEventosTabsDocumentos() {
+  $(document)
+    .off(
+      "shown.bs.tab.documentosVentas",
+      '#ventasDocumentosTabs a[data-toggle="tab"]'
+    )
+    .on(
+      "shown.bs.tab.documentosVentas",
+      '#ventasDocumentosTabs a[data-toggle="tab"]',
+      function () {
+        if (
+          tabla &&
+          $.fn.DataTable.isDataTable(
+            "#tbllistado"
+          )
+        ) {
+          tabla
+            .columns
+            .adjust();
+
+          if (
+            tabla.responsive &&
+            typeof tabla.responsive.recalc
+              === "function"
+          ) {
+            tabla.responsive.recalc();
+          }
+        }
+
+        if (
+          tablaNotasCredito &&
+          $.fn.DataTable.isDataTable(
+            "#tblNotasCredito"
+          )
+        ) {
+          tablaNotasCredito
+            .columns
+            .adjust();
+
+          if (
+            tablaNotasCredito.responsive &&
+            typeof tablaNotasCredito
+              .responsive
+              .recalc === "function"
+          ) {
+            tablaNotasCredito
+              .responsive
+              .recalc();
+          }
+        }
+      }
+    );
 }
 
 /*
@@ -670,46 +908,6 @@ function obtenerBadgeCuota(estado) {
         </span>
       `;
   }
-}
-
-/*
-|--------------------------------------------------------------------------
-| GENERAR NOTA DE CRÉDITO
-|--------------------------------------------------------------------------
-*/
-function generarNotaCredito(idventa) {
-  const id = Number.parseInt(idventa, 10);
-
-  if (!id || id <= 0) {
-    Swal.fire({
-      icon: "error",
-      title: "Venta inválida",
-      text: "No se pudo determinar la venta seleccionada."
-    });
-
-    return;
-  }
-
-  Swal.fire({
-    icon: "question",
-    title: "Generar nota de crédito",
-    html:
-      '<div style="text-align:left">' +
-      '<p>Se abrirá una pantalla independiente para seleccionar el motivo, los productos y la forma de devolución.</p>' +
-      '<p>La venta original no será eliminada ni modificada.</p>' +
-      '</div>',
-    showCancelButton: true,
-    confirmButtonText: "Continuar",
-    cancelButtonText: "Cancelar",
-    reverseButtons: true
-  }).then(function (resultado) {
-    if (!resultado.isConfirmed) {
-      return;
-    }
-
-    window.location.href =
-      "notacredito?idventa=" + encodeURIComponent(id);
-  });
 }
 
 /*

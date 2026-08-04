@@ -88,6 +88,121 @@ function notaPdfTipoDocumentoSunat(string $tipo): string
     return '0';
 }
 
+
+/**
+ * Prepara un logo compatible con FPDF.
+ *
+ * @return array{ruta:string,temporal:?string}
+ */
+function notaPdfPrepararLogo(array $empresa): array
+{
+    $directorio = __DIR__ . '/../Assets/img/company/';
+    $nombre = basename(
+        trim((string)($empresa['logo'] ?? ''))
+    );
+
+    $ruta = $nombre !== ''
+        ? $directorio . $nombre
+        : '';
+
+    $rutaDefault =
+        $directorio . 'default_logo.png';
+
+    if (
+        $ruta === ''
+        || !is_file($ruta)
+    ) {
+        $ruta = is_file($rutaDefault)
+            ? $rutaDefault
+            : '';
+    }
+
+    if ($ruta === '') {
+        return [
+            'ruta' => '',
+            'temporal' => null
+        ];
+    }
+
+    $extension = strtolower(
+        pathinfo(
+            $ruta,
+            PATHINFO_EXTENSION
+        )
+    );
+
+    if (
+        in_array(
+            $extension,
+            ['png', 'jpg', 'jpeg'],
+            true
+        )
+        && @getimagesize($ruta) !== false
+    ) {
+        return [
+            'ruta' => $ruta,
+            'temporal' => null
+        ];
+    }
+
+    if (
+        $extension === 'webp'
+        && function_exists('imagecreatefromwebp')
+        && function_exists('imagepng')
+    ) {
+        $imagen = @imagecreatefromwebp(
+            $ruta
+        );
+
+        if ($imagen !== false) {
+            $temporal =
+                sys_get_temp_dir()
+                . '/logo_nota_'
+                . bin2hex(random_bytes(5))
+                . '.png';
+
+            imagealphablending(
+                $imagen,
+                false
+            );
+
+            imagesavealpha(
+                $imagen,
+                true
+            );
+
+            $convertido = imagepng(
+                $imagen,
+                $temporal,
+                6
+            );
+
+            imagedestroy(
+                $imagen
+            );
+
+            if (
+                $convertido
+                && is_file($temporal)
+            ) {
+                return [
+                    'ruta' => $temporal,
+                    'temporal' => $temporal
+                ];
+            }
+        }
+    }
+
+    return [
+        'ruta' =>
+            is_file($rutaDefault)
+                && @getimagesize($rutaDefault) !== false
+                    ? $rutaDefault
+                    : '',
+        'temporal' => null
+    ];
+}
+
 final class TiquePosNotaA4 extends FPDF
 {
     public string $empresaCorta = '';
@@ -337,10 +452,17 @@ $emailEmpresa = trim((string)($empresa['email'] ?? ''));
 $simbolo = trim((string)($empresa['simbolo'] ?? 'S/'));
 $monedaNombre = trim((string)($empresa['moneda'] ?? 'SOLES'));
 
-$logo = __DIR__ . '/../Assets/img/company/' . trim((string)($empresa['logo'] ?? ''));
-if (!is_file($logo)) {
-    $logo = __DIR__ . '/../Assets/img/company/default_logo.png';
-}
+$logoPreparado = notaPdfPrepararLogo(
+    $empresa
+);
+
+$logo = (string)(
+    $logoPreparado['ruta']
+    ?? ''
+);
+
+$logoTemporal = $logoPreparado['temporal']
+    ?? null;
 
 $serie = trim((string)($nota['serie_comprobante'] ?? ''));
 $numero = trim((string)($nota['num_comprobante'] ?? ''));
@@ -408,12 +530,12 @@ $pdf->SetAutoPageBreak(false);
 $pdf->AddPage();
 
 // CABECERA
-if (is_file($logo)) {
+if ($logo !== '' && is_file($logo)) {
     $pdf->Image($logo, 12, 12, 28, 22);
 }
 
-$xEmpresa = is_file($logo) ? 45 : 12;
-$wEmpresa = is_file($logo) ? 84 : 117;
+$xEmpresa = ($logo !== '' && is_file($logo)) ? 45 : 12;
+$wEmpresa = ($logo !== '' && is_file($logo)) ? 84 : 117;
 $pdf->SetXY($xEmpresa, 12.5);
 $pdf->SetFont('Helvetica', 'B', 13);
 $pdf->SetTextColor(37, 42, 47);
@@ -707,4 +829,12 @@ $pdf->Output('I', 'Nota_Credito_' . $serie . '_' . $numero . '.pdf');
 
 if (is_file($qrRuta)) {
     @unlink($qrRuta);
+}
+
+if (
+    is_string($logoTemporal)
+    && $logoTemporal !== ''
+    && is_file($logoTemporal)
+) {
+    @unlink($logoTemporal);
 }

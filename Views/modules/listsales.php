@@ -563,6 +563,155 @@ if (!isset($_SESSION['nombre'])) {
                     padding: 11px 14px;
                 }
             }
+
+            /* =========================================================
+               PESTAÑAS DE DOCUMENTOS
+            ========================================================== */
+            .ventas-documentos-tabs {
+                display: inline-flex;
+                flex-wrap: wrap;
+                gap: 7px;
+                margin-bottom: 18px;
+                padding: 5px;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                background: #f7f8fa;
+            }
+
+            .ventas-documentos-tabs .nav-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                min-height: 38px;
+                padding: 8px 14px;
+                border: 0;
+                border-radius: 8px;
+                color: #667085;
+                background: transparent;
+                font-size: .82rem;
+                font-weight: 650;
+            }
+
+            .ventas-documentos-tabs .nav-link:hover {
+                color: #344054;
+                background: #ffffff;
+            }
+
+            .ventas-documentos-tabs .nav-link.active {
+                color: #1f2937;
+                background: #ffffff;
+                box-shadow: 0 3px 10px rgba(15, 23, 42, .08);
+            }
+
+            .ventas-documentos-tabs .documento-contador {
+                min-width: 23px;
+                height: 21px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0 7px;
+                border-radius: 999px;
+                color: #667085;
+                background: #eaecf0;
+                font-size: .68rem;
+                font-weight: 750;
+            }
+
+            .ventas-documentos-tabs .nav-link.active .documento-contador {
+                color: #344054;
+                background: #f2f4f7;
+            }
+
+            .venta-numero-documento,
+            .nota-numero-celda,
+            .nota-motivo-celda {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            .venta-nota-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 3px 8px;
+                border: 1px solid #f2d4a8;
+                border-radius: 999px;
+                color: #8a5b16;
+                background: #fffaf0;
+                font-size: .67rem;
+                font-weight: 700;
+                white-space: nowrap;
+            }
+
+            .nota-tipo-label {
+                color: #667085;
+                font-size: .63rem;
+                font-weight: 750;
+                letter-spacing: .045em;
+            }
+
+            .nota-origen-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                color: #475467;
+                font-weight: 650;
+                text-decoration: none;
+                white-space: nowrap;
+            }
+
+            .nota-origen-link:hover {
+                color: #1d2939;
+                text-decoration: underline;
+            }
+
+            .nota-motivo-celda {
+                max-width: 310px;
+            }
+
+            .nota-motivo-celda strong {
+                color: #344054;
+                font-size: .78rem;
+                line-height: 1.25;
+            }
+
+            .nota-motivo-celda small {
+                width: 100%;
+                overflow: hidden;
+                color: #7b8491;
+                font-size: .7rem;
+                line-height: 1.25;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .nota-total-negativo {
+                color: #b42318;
+                font-weight: 750;
+                white-space: nowrap;
+            }
+
+            #tblNotasCredito tbody tr:hover {
+                background: #fffafa;
+            }
+
+            @media (max-width: 767.98px) {
+                .ventas-documentos-tabs {
+                    width: 100%;
+                }
+
+                .ventas-documentos-tabs .nav-item {
+                    flex: 1 1 0;
+                }
+
+                .ventas-documentos-tabs .nav-link {
+                    width: 100%;
+                    justify-content: center;
+                }
+            }
+
         </style>
 
         <!-- Main Content -->
@@ -579,24 +728,130 @@ if (!isset($_SESSION['nombre'])) {
                                 </div>
                                 <!--TABLA DE LISTADO DE REGISTROS-->
                                 <div class="card-body">
-                                    <div class="table-responsive" id="listadoregistros">
-                                        <table id="tbllistado" class="table table-striped table-hover text-nowrap"
-                                            style="width:100%;">
-                                            <thead>
-                                                <th>Fecha</th>
-                                                <th>Cliente</th>
-                                                <th>Usuario</th>
-                                                <th>Documento</th>
-                                                <th>Número</th>
-                                                <th class="text-right">Total venta</th>
-                                                <th class="text-center">Estado SUNAT</th>
-                                                <th class="text-right">Acciones</th>
-                                            </thead>
-                                            <tbody>
-                                            </tbody>
-                                        </table>
+                                    <ul
+                                        class="nav nav-pills ventas-documentos-tabs"
+                                        id="ventasDocumentosTabs"
+                                        role="tablist">
+
+                                        <li class="nav-item" role="presentation">
+                                            <a
+                                                class="nav-link active"
+                                                id="ventas-tab"
+                                                data-toggle="tab"
+                                                href="#ventas-panel"
+                                                role="tab"
+                                                aria-controls="ventas-panel"
+                                                aria-selected="true">
+
+                                                <i class="fas fa-shopping-bag"></i>
+                                                Ventas
+
+                                                <span
+                                                    id="contadorVentas"
+                                                    class="documento-contador">
+                                                    0
+                                                </span>
+                                            </a>
+                                        </li>
+
+                                        <li class="nav-item" role="presentation">
+                                            <a
+                                                class="nav-link"
+                                                id="notas-credito-tab"
+                                                data-toggle="tab"
+                                                href="#notas-credito-panel"
+                                                role="tab"
+                                                aria-controls="notas-credito-panel"
+                                                aria-selected="false">
+
+                                                <i class="fas fa-file-invoice-dollar"></i>
+                                                Notas de crédito
+
+                                                <span
+                                                    id="contadorNotasCredito"
+                                                    class="documento-contador">
+                                                    0
+                                                </span>
+                                            </a>
+                                        </li>
+                                    </ul>
+
+                                    <div class="tab-content">
+
+                                        <div
+                                            class="tab-pane fade show active"
+                                            id="ventas-panel"
+                                            role="tabpanel"
+                                            aria-labelledby="ventas-tab">
+
+                                            <div
+                                                class="table-responsive"
+                                                id="listadoregistros">
+
+                                                <table
+                                                    id="tbllistado"
+                                                    class="table table-striped table-hover text-nowrap"
+                                                    style="width:100%;">
+
+                                                    <thead>
+                                                        <th>Fecha</th>
+                                                        <th>Cliente</th>
+                                                        <th>Usuario</th>
+                                                        <th>Documento</th>
+                                                        <th>Número</th>
+                                                        <th class="text-right">
+                                                            Total venta
+                                                        </th>
+                                                        <th class="text-center">
+                                                            Estado SUNAT
+                                                        </th>
+                                                        <th class="text-right">
+                                                            Acciones
+                                                        </th>
+                                                    </thead>
+
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            class="tab-pane fade"
+                                            id="notas-credito-panel"
+                                            role="tabpanel"
+                                            aria-labelledby="notas-credito-tab">
+
+                                            <div class="table-responsive">
+
+                                                <table
+                                                    id="tblNotasCredito"
+                                                    class="table table-striped table-hover text-nowrap"
+                                                    style="width:100%;">
+
+                                                    <thead>
+                                                        <th>Fecha</th>
+                                                        <th>Cliente</th>
+                                                        <th>Usuario</th>
+                                                        <th>Nota de crédito</th>
+                                                        <th>Documento original</th>
+                                                        <th>Motivo</th>
+                                                        <th class="text-right">
+                                                            Total acreditado
+                                                        </th>
+                                                        <th class="text-center">
+                                                            Estado SUNAT
+                                                        </th>
+                                                        <th class="text-right">
+                                                            Acciones
+                                                        </th>
+                                                    </thead>
+
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <!--TABLA DE LISTADO DE REGISTROS FIN-->
+                                    <!--TABLAS DE DOCUMENTOS FIN-->
                                 </div>
                             </div>
                         </div>

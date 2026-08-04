@@ -23,6 +23,140 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
 }
 ?>
 
+
+<style>
+    .empresa-logo-panel {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #e8edf3;
+        border-radius: 20px;
+        background:
+            radial-gradient(circle at top right, rgba(103, 119, 239, .10), transparent 34%),
+            linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        padding: 22px;
+        box-shadow: 0 10px 28px rgba(31, 41, 55, .06);
+    }
+
+    .empresa-logo-panel::before {
+        content: "";
+        position: absolute;
+        width: 170px;
+        height: 170px;
+        border-radius: 50%;
+        background: rgba(103, 119, 239, .055);
+        right: -72px;
+        bottom: -92px;
+        pointer-events: none;
+    }
+
+    .empresa-logo-preview-wrap {
+        width: 170px;
+        height: 132px;
+        flex: 0 0 170px;
+        border: 1px solid #dfe6ee;
+        border-radius: 18px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-shadow: 0 8px 22px rgba(31, 41, 55, .08);
+    }
+
+    .empresa-logo-preview {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 12px;
+        display: none;
+    }
+
+    .empresa-logo-vacio {
+        text-align: center;
+        color: #98a2b3;
+    }
+
+    .empresa-logo-vacio i {
+        display: block;
+        font-size: 2.4rem;
+        margin-bottom: 8px;
+        color: #c4ccd6;
+    }
+
+    .empresa-logo-dropzone {
+        position: relative;
+        border: 1.5px dashed #cbd5e1;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, .78);
+        padding: 18px;
+        cursor: pointer;
+        transition:
+            border-color .18s ease,
+            background-color .18s ease,
+            transform .18s ease,
+            box-shadow .18s ease;
+    }
+
+    .empresa-logo-dropzone:hover,
+    .empresa-logo-dropzone.is-dragover {
+        border-color: #6777ef;
+        background: #f6f7ff;
+        box-shadow: 0 0 0 4px rgba(103, 119, 239, .08);
+        transform: translateY(-1px);
+    }
+
+    .empresa-logo-dropzone-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #eef0ff;
+        color: #6777ef;
+        font-size: 1.15rem;
+        flex: 0 0 42px;
+    }
+
+    .empresa-logo-status {
+        min-height: 22px;
+        font-size: .82rem;
+    }
+
+    .empresa-logo-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .empresa-logo-help {
+        border-left: 3px solid #6777ef;
+        background: rgba(103, 119, 239, .055);
+        border-radius: 0 12px 12px 0;
+        padding: 10px 12px;
+        color: #667085;
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    @media (max-width: 767.98px) {
+        .empresa-logo-panel {
+            padding: 17px;
+        }
+
+        .empresa-logo-layout {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+        .empresa-logo-preview-wrap {
+            width: 100%;
+            height: 150px;
+            flex-basis: auto;
+        }
+    }
+</style>
+
 <div class="main-content">
     <section class="section">
 
@@ -52,6 +186,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                     name="formulario"
                                     id="formulario"
                                     method="POST"
+                                    enctype="multipart/form-data"
                                     autocomplete="off">
                                     <div class="row">
 
@@ -66,6 +201,13 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                             id="ndocumento"
                                             value="RUC">
 
+                                        <input
+                                            type="hidden"
+                                            name="eliminar_logo"
+                                            id="eliminar_logo"
+                                            value="0">
+
+
                                         <!-- =========================
                                              DATOS DE LA EMPRESA
                                         ========================== -->
@@ -79,6 +221,121 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                 Información utilizada en los comprobantes
                                                 emitidos por el sistema.
                                             </p>
+                                        </div>
+
+
+                                        <!-- =========================
+                                             LOGO DE LA EMPRESA
+                                        ========================== -->
+
+                                        <div class="col-12 mb-4">
+                                            <div class="empresa-logo-panel">
+
+                                                <div class="d-flex empresa-logo-layout align-items-center" style="gap:22px;">
+
+                                                    <div class="empresa-logo-preview-wrap">
+                                                        <img
+                                                            src=""
+                                                            alt="Logo de la empresa"
+                                                            id="logoEmpresaPreview"
+                                                            class="empresa-logo-preview">
+
+                                                        <div
+                                                            id="logoEmpresaVacio"
+                                                            class="empresa-logo-vacio">
+                                                            <i class="far fa-image"></i>
+                                                            <div class="font-weight-bold">
+                                                                Sin logo
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="flex-grow-1 position-relative" style="z-index:1;">
+
+                                                        <div class="d-flex flex-wrap align-items-start justify-content-between mb-3" style="gap:12px;">
+                                                            <div>
+                                                                <h5 class="mb-1">
+                                                                    Logo de la empresa
+                                                                </h5>
+
+                                                                <p class="text-muted mb-0">
+                                                                    Se utilizará automáticamente en facturas,
+                                                                    boletas y notas de crédito.
+                                                                </p>
+                                                            </div>
+
+                                                            <span
+                                                                id="logoEmpresaBadge"
+                                                                class="badge badge-light border px-3 py-2">
+                                                                Sin cambios
+                                                            </span>
+                                                        </div>
+
+                                                        <input
+                                                            type="file"
+                                                            name="logo"
+                                                            id="logo"
+                                                            class="d-none"
+                                                            accept="image/png,image/jpeg,image/webp">
+
+                                                        <div
+                                                            id="logoEmpresaDropzone"
+                                                            class="empresa-logo-dropzone"
+                                                            role="button"
+                                                            tabindex="0"
+                                                            aria-label="Seleccionar logo de la empresa">
+
+                                                            <div class="d-flex align-items-center" style="gap:13px;">
+                                                                <span class="empresa-logo-dropzone-icon">
+                                                                    <i class="fas fa-cloud-upload-alt"></i>
+                                                                </span>
+
+                                                                <div>
+                                                                    <div class="font-weight-bold text-dark">
+                                                                        Arrastra tu logo aquí
+                                                                    </div>
+
+                                                                    <div class="small text-muted">
+                                                                        o haz clic para seleccionar una imagen
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div
+                                                            id="logoEmpresaEstado"
+                                                            class="empresa-logo-status text-muted mt-2">
+                                                            PNG o JPG. También acepta WEBP y lo convierte a PNG. Máximo 2 MB.
+                                                        </div>
+
+                                                        <div class="empresa-logo-actions mt-3">
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-outline-primary btn-sm"
+                                                                id="btnCambiarLogo">
+                                                                <i class="fas fa-pen mr-1"></i>
+                                                                Cambiar logo
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-outline-danger btn-sm"
+                                                                id="btnQuitarLogo"
+                                                                disabled>
+                                                                <i class="far fa-trash-alt mr-1"></i>
+                                                                Quitar logo
+                                                            </button>
+                                                        </div>
+
+                                                        <div class="empresa-logo-help mt-3">
+                                                            Para una mejor impresión usa un archivo PNG
+                                                            con fondo transparente, formato horizontal o cuadrado
+                                                            y buena resolución.
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div class="form-group col-lg-6">
@@ -789,6 +1046,19 @@ $versionGeneralSettingJs =
 
 <script
     src="Views/modules/scripts/generalsetting.js?v=<?= (int)$versionGeneralSettingJs ?>"></script>
+
+<?php
+$rutaLogoEmpresaJs =
+    __DIR__ . '/scripts/generalsetting-logo.js';
+
+$versionLogoEmpresaJs =
+    is_file($rutaLogoEmpresaJs)
+    ? filemtime($rutaLogoEmpresaJs)
+    : time();
+?>
+
+<script
+    src="Views/modules/scripts/generalsetting-logo.js?v=<?= (int)$versionLogoEmpresaJs ?>"></script>
 
 <?php
 ob_end_flush();

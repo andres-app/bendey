@@ -783,6 +783,92 @@ class CreditNote
         ];
     }
 
+
+    /**
+     * Lista las notas de crédito para integrarlas en la pantalla
+     * general de ventas.
+     */
+    public function listarParaVentas(): array
+    {
+        $sql = "
+            SELECT
+                nc.idnota_credito,
+                nc.idventa,
+
+                DATE_FORMAT(
+                    nc.fecha_hora,
+                    '%d/%m/%Y %H:%i'
+                ) AS fecha,
+
+                COALESCE(
+                    nc.cliente_nombre,
+                    'SIN CLIENTE'
+                ) AS cliente,
+
+                COALESCE(
+                    u.nombre,
+                    'SIN USUARIO'
+                ) AS usuario,
+
+                nc.serie_comprobante,
+                nc.num_comprobante,
+
+                nc.serie_documento_modificado,
+                nc.numero_documento_modificado,
+
+                nc.codigo_motivo,
+
+                COALESCE(
+                    ncm.descripcion,
+                    nc.sustento,
+                    'SIN MOTIVO'
+                ) AS motivo,
+
+                nc.sustento,
+                nc.total_nota,
+                nc.estado AS estado_local,
+
+                COALESCE(
+                    ncs.estado_sunat,
+                    'NO_ENVIADO'
+                ) AS estado_sunat,
+
+                COALESCE(
+                    ncs.mensaje_sunat,
+                    ''
+                ) AS mensaje_sunat,
+
+                COALESCE(
+                    ncs.document_id,
+                    ''
+                ) AS document_id
+
+            FROM nota_credito AS nc
+
+            LEFT JOIN usuario AS u
+                ON u.idusuario = nc.idusuario
+
+            LEFT JOIN nota_credito_motivo AS ncm
+                ON ncm.codigo = nc.codigo_motivo
+
+            LEFT JOIN nota_credito_sunat AS ncs
+                ON ncs.idnota_credito =
+                   nc.idnota_credito
+
+            ORDER BY
+                nc.fecha_hora DESC,
+                nc.idnota_credito DESC
+        ";
+
+        $resultado = $this->conexion->getDataAll(
+            $sql
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
+    }
+
     public function obtenerArchivo(
         int $idnotaCredito,
         string $tipo
