@@ -45,6 +45,65 @@
 
     <!-- ✅ Select2 de Stisla -->
     <script src="Assets/bundles/select2/dist/js/select2.full.min.js"></script>
+
+
+    <!-- Notificación de comprobantes pendientes SUNAT -->
+    <style>
+        .sunat-navbar-item {
+            position: relative;
+        }
+
+        .sunat-navbar-link {
+            position: relative;
+            min-width: 46px;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            padding-right: 12px !important;
+            padding-left: 12px !important;
+        }
+
+        .sunat-navbar-link > i {
+            font-size: 19px;
+        }
+
+        .sunat-navbar-counter {
+            position: absolute;
+            top: 5px;
+            right: 2px;
+            min-width: 19px;
+            height: 19px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+            border: 2px solid #6777ef;
+            border-radius: 999px;
+            color: #ffffff;
+            background: #fc544b;
+            box-shadow: 0 3px 8px rgba(252, 84, 75, .35);
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .sunat-navbar-counter.is-hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 575.98px) {
+            .sunat-navbar-link {
+                min-width: 42px;
+                padding-right: 8px !important;
+                padding-left: 8px !important;
+            }
+
+            .sunat-navbar-counter {
+                top: 6px;
+                right: -1px;
+            }
+        }
+    </style>
 </head>
 
 <?php
@@ -84,6 +143,9 @@ $tieneCajaSesion = $idCajaMostrar > 0;
 $textoCajaSesion = $tieneCajaSesion
     ? 'Caja #' . $idCajaMostrar
     : 'Sin caja seleccionada';
+
+$puedeVerSunatNavbar =
+    (int)($_SESSION['ventas'] ?? 0) === 1;
 ?>
 
 <body class="<?php echo $class; ?>">
@@ -122,6 +184,27 @@ $textoCajaSesion = $tieneCajaSesion
                     </div>
                 </div>
                 <ul class="navbar-nav navbar-right">
+                    <?php if ($puedeVerSunatNavbar): ?>
+                        <li class="nav-item sunat-navbar-item">
+                            <a
+                                href="sunat"
+                                class="nav-link nav-link-lg sunat-navbar-link"
+                                title="Comprobantes pendientes de enviar a SUNAT"
+                                aria-label="Ver comprobantes pendientes de enviar a SUNAT">
+
+                                <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
+
+                                <span
+                                    id="contadorPendientesSunat"
+                                    class="sunat-navbar-counter is-hidden"
+                                    aria-live="polite"
+                                    aria-label="Sin comprobantes pendientes">
+                                    0
+                                </span>
+                            </a>
+                        </li>
+                    <?php endif; ?>
+
                     <li class="dropdown">
                         <a href="#" data-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
                             <img alt="image" src="Assets/img/users/<?php echo $_SESSION['imagen']; ?>"
@@ -144,3 +227,147 @@ $textoCajaSesion = $tieneCajaSesion
                     </li>
                 </ul>
             </nav>
+
+            <?php if ($puedeVerSunatNavbar): ?>
+                <script>
+                    (function (window, document, $) {
+                        'use strict';
+
+                        const endpointContadorSunat =
+                            'Controllers/Sunat.php?op=contarPendientes';
+
+                        const contador = document.getElementById(
+                            'contadorPendientesSunat'
+                        );
+
+                        if (!contador) {
+                            return;
+                        }
+
+                        let consultaEnCurso = false;
+
+                        function mostrarCantidadSunat(cantidad) {
+                            const total = Number.parseInt(cantidad, 10);
+                            const cantidadValida = Number.isFinite(total)
+                                ? Math.max(total, 0)
+                                : 0;
+
+                            if (cantidadValida === 0) {
+                                contador.textContent = '0';
+                                contador.classList.add('is-hidden');
+                                contador.setAttribute(
+                                    'aria-label',
+                                    'Sin comprobantes pendientes'
+                                );
+                                return;
+                            }
+
+                            contador.textContent = cantidadValida > 99
+                                ? '99+'
+                                : String(cantidadValida);
+
+                            contador.classList.remove('is-hidden');
+                            contador.setAttribute(
+                                'aria-label',
+                                cantidadValida === 1
+                                    ? '1 comprobante pendiente de envío a SUNAT'
+                                    : cantidadValida
+                                        + ' comprobantes pendientes de envío a SUNAT'
+                            );
+                        }
+
+                        async function actualizarContadorSunatNavbar() {
+                            if (consultaEnCurso) {
+                                return;
+                            }
+
+                            consultaEnCurso = true;
+
+                            try {
+                                const respuesta = await fetch(
+                                    endpointContadorSunat,
+                                    {
+                                        method: 'GET',
+                                        credentials: 'same-origin',
+                                        cache: 'no-store',
+                                        headers: {
+                                            'Accept': 'application/json',
+                                            'X-Requested-With': 'XMLHttpRequest'
+                                        }
+                                    }
+                                );
+
+                                if (!respuesta.ok) {
+                                    throw new Error(
+                                        'No se pudo consultar el contador SUNAT.'
+                                    );
+                                }
+
+                                const datos = await respuesta.json();
+
+                                if (datos.status !== true) {
+                                    throw new Error(
+                                        datos.message
+                                        || 'La respuesta del contador SUNAT no es válida.'
+                                    );
+                                }
+
+                                mostrarCantidadSunat(datos.cantidad);
+                            } catch (error) {
+                                console.error(
+                                    '[SUNAT NAVBAR]',
+                                    error
+                                );
+                            } finally {
+                                consultaEnCurso = false;
+                            }
+                        }
+
+                        window.actualizarContadorSunatNavbar =
+                            actualizarContadorSunatNavbar;
+
+                        actualizarContadorSunatNavbar();
+
+                        window.setInterval(
+                            actualizarContadorSunatNavbar,
+                            60000
+                        );
+
+                        document.addEventListener(
+                            'visibilitychange',
+                            function () {
+                                if (!document.hidden) {
+                                    actualizarContadorSunatNavbar();
+                                }
+                            }
+                        );
+
+                        if ($ && typeof $.fn !== 'undefined') {
+                            $(document).ajaxComplete(
+                                function (_evento, _xhr, opciones) {
+                                    const url = String(
+                                        opciones && opciones.url
+                                            ? opciones.url
+                                            : ''
+                                    );
+
+                                    const esOperacionSunat =
+                                        url.indexOf('Controllers/Sunat.php') !== -1
+                                        && (
+                                            url.indexOf('op=enviarsunat') !== -1
+                                            || url.indexOf('op=consultar') !== -1
+                                            || url.indexOf('op=getStatus') !== -1
+                                        );
+
+                                    if (esOperacionSunat) {
+                                        window.setTimeout(
+                                            actualizarContadorSunatNavbar,
+                                            350
+                                        );
+                                    }
+                                }
+                            );
+                        }
+                    })(window, document, window.jQuery);
+                </script>
+            <?php endif; ?>

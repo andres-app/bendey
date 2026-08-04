@@ -2375,6 +2375,79 @@ switch ($op) {
                     . $id
             );
 
+            $tipoComprobanteVenta = trim(
+                (string)($reg['tipo_comprobante'] ?? '')
+            );
+            $estadoVenta = trim((string)($reg['estado'] ?? ''));
+            $estadoSunatVenta = strtoupper(
+                trim((string)($reg['estado_sunat'] ?? ''))
+            );
+            $totalVenta = round(
+                (float)($reg['total_venta'] ?? 0),
+                2
+            );
+            $totalNotas = round(
+                (float)($reg['total_notas_credito'] ?? 0),
+                2
+            );
+            $saldoNota = max(
+                round($totalVenta - $totalNotas, 2),
+                0.00
+            );
+
+            $esComprobanteElectronico = in_array(
+                $tipoComprobanteVenta,
+                ['Factura Electrónica', 'Boleta Electrónica'],
+                true
+            );
+
+            $puedeGenerarNota =
+                $esComprobanteElectronico
+                && $estadoVenta === 'Aceptado'
+                && $estadoSunatVenta === 'ACEPTADO'
+                && $saldoNota > 0.009;
+
+            if ($puedeGenerarNota) {
+                $accionNotaCredito = '
+                    <button
+                        type="button"
+                        class="dropdown-item"
+                        onclick="generarNotaCredito(' . $id . ')">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>Generar nota de crédito</span>
+                    </button>
+                ';
+            } else {
+                if (!$esComprobanteElectronico) {
+                    $motivoNotaBloqueada =
+                        'Disponible solo para facturas y boletas electrónicas.';
+                } elseif ($estadoVenta !== 'Aceptado') {
+                    $motivoNotaBloqueada =
+                        'La venta original no se encuentra activa.';
+                } elseif ($estadoSunatVenta !== 'ACEPTADO') {
+                    $motivoNotaBloqueada =
+                        'El comprobante debe estar aceptado por SUNAT.';
+                } else {
+                    $motivoNotaBloqueada =
+                        'La venta ya no tiene saldo disponible para acreditar.';
+                }
+
+                $accionNotaCredito = '
+                    <button
+                        type="button"
+                        class="dropdown-item text-muted"
+                        title="' . htmlspecialchars(
+                            $motivoNotaBloqueada,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) . '"
+                        disabled>
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>Generar nota de crédito</span>
+                    </button>
+                ';
+            }
+
             $data[] = [
                 '0' => $reg['fecha'],
                 '1' => $reg['cliente'],
@@ -2425,6 +2498,8 @@ switch ($op) {
                                 <i class="far fa-copy"></i>
                                 <span>Duplicar venta</span>
                             </button>
+
+                            ' . $accionNotaCredito . '
 
                             <div class="dropdown-divider"></div>
                             <h6 class="dropdown-header">Comprobante</h6>

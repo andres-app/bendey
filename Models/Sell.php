@@ -568,6 +568,21 @@ class Sell
             /* Estado local de la venta */
             v.estado,
 
+            /* Notas de crédito ya registradas para la venta */
+            COALESCE((
+                SELECT SUM(nc.total_nota)
+                FROM nota_credito nc
+                WHERE nc.idventa = v.idventa
+                  AND nc.estado <> 'ANULADA'
+            ), 0) AS total_notas_credito,
+
+            COALESCE((
+                SELECT COUNT(*)
+                FROM nota_credito nc
+                WHERE nc.idventa = v.idventa
+                  AND nc.estado <> 'ANULADA'
+            ), 0) AS cantidad_notas_credito,
+
             /* Datos registrados por APISUNAT */
             vs.idventa_sunat,
             vs.document_id,

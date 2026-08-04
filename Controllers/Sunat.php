@@ -70,7 +70,8 @@ function escaparSunat(
 | - Consultar estado
 */
 function generarAccionPrincipalSunat(
-    int $idventa,
+    string $tipoOrigen,
+    int $idreferencia,
     string $estadoSunat,
     bool $tieneDocumentId
 ): string {
@@ -111,7 +112,9 @@ function generarAccionPrincipalSunat(
             type="button"
             class="btn btn-outline-secondary btn-sm sunat-action-btn"
             title="' . escaparSunat($titulo) . '"
-            onclick="' . $funcion . '(' . $idventa . ')">
+            onclick="' . $funcion . '(\''
+                . escaparSunat($tipoOrigen)
+                . '\',' . $idreferencia . ')">
 
             <i class="fas ' . $icono . ' mr-1"></i>
             ' . escaparSunat($texto) . '
@@ -123,16 +126,30 @@ function generarAccionPrincipalSunat(
 try {
     switch ($op) {
 
+        case 'contarPendientes':
+
+            responderSunat([
+                'status' => true,
+                'cantidad' =>
+                    $sunat->contarPendientesEnvio()
+            ]);
+
+            break;
+
         case 'listar':
 
             $registros = $sunat->listar();
             $data = [];
 
             foreach ($registros as $reg) {
-                $idventa = (int)(
-                    $reg['idventa']
-                    ?? 0
+                $tipoOrigen = strtoupper(
+                    trim((string)($reg['tipo_origen'] ?? 'VENTA'))
                 );
+                $idreferencia = (int)($reg['idreferencia'] ?? 0);
+
+                if (!in_array($tipoOrigen, ['VENTA', 'NOTA_CREDITO'], true)) {
+                    $tipoOrigen = 'VENTA';
+                }
 
                 $documentId = trim(
                     (string)(
@@ -152,11 +169,20 @@ try {
                     !empty($reg['cdr'])
                     || !empty($reg['cdr_local']);
 
+                if ($tipoOrigen === 'NOTA_CREDITO') {
+                    $urlXml = 'Controllers/CreditNote.php?op=descargar&tipo=xml&idnota_credito='
+                        . $idreferencia;
+                    $urlCdr = 'Controllers/CreditNote.php?op=descargar&tipo=cdr&idnota_credito='
+                        . $idreferencia;
+                } else {
+                    $urlXml = 'Controllers/Sunat.php?op=descargar&tipo=xml&idventa='
+                        . $idreferencia;
+                    $urlCdr = 'Controllers/Sunat.php?op=descargar&tipo=cdr&idventa='
+                        . $idreferencia;
+                }
+
                 $xml = $tieneXml
-                    ? '<a
-                            href="Controllers/Sunat.php?op=descargar&tipo=xml&idventa='
-                        . $idventa
-                        . '"
+                    ? '<a href="' . $urlXml . '"
                             class="sunat-file-link"
                             title="Descargar XML">
                             <i class="far fa-file-code mr-1"></i>
@@ -165,10 +191,7 @@ try {
                     : '<span class="sunat-file-empty">—</span>';
 
                 $cdr = $tieneCdr
-                    ? '<a
-                            href="Controllers/Sunat.php?op=descargar&tipo=cdr&idventa='
-                        . $idventa
-                        . '"
+                    ? '<a href="' . $urlCdr . '"
                             class="sunat-file-link"
                             title="Descargar CDR">
                             <i class="far fa-file-archive mr-1"></i>
@@ -254,22 +277,27 @@ try {
 
                 $accion =
                     generarAccionPrincipalSunat(
-                        $idventa,
+                        $tipoOrigen,
+                        $idreferencia,
                         $estadoSunat,
                         $tieneDocumentId
                     );
+
+                $comprobanteTexto = escaparSunat(
+                    (string)($reg['comprobante'] ?? '')
+                );
+
+                $comprobante = $tipoOrigen === 'NOTA_CREDITO'
+                    ? '<div><strong>' . $comprobanteTexto . '</strong>'
+                        . '<small class="d-block text-muted">Nota de crédito</small></div>'
+                    : $comprobanteTexto;
 
                 /*
                  * Acciones se devuelve en la última posición,
                  * para que aparezca al extremo derecho.
                  */
                 $data[] = [
-                    '0' => escaparSunat(
-                        (string)(
-                            $reg['comprobante']
-                            ?? ''
-                        )
-                    ),
+                    '0' => $comprobante,
                     '1' => escaparSunat(
                         (string)(
                             $reg['cliente']

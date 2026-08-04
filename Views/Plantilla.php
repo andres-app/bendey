@@ -18,6 +18,7 @@ if (isset($_GET["url"])) {
         || $_GET["url"] == "newsale2"
         || $_GET["url"] == "newsale3"
         || $_GET["url"] == "listsales"
+        || $_GET["url"] == "notacredito"
 
         // MÓDULO DE COBRANZAS
         || $_GET["url"] == "cobranzas"

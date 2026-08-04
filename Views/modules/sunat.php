@@ -32,7 +32,7 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
                             </h4>
 
                             <p class="text-muted mb-0 sunat-subtitle">
-                                Consulta, envía o reintenta cada comprobante
+                                Consulta, envía o reintenta facturas, boletas y notas de crédito
                                 según su estado actual.
                             </p>
                         </div>

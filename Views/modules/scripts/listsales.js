@@ -674,6 +674,46 @@ function obtenerBadgeCuota(estado) {
 
 /*
 |--------------------------------------------------------------------------
+| GENERAR NOTA DE CRÉDITO
+|--------------------------------------------------------------------------
+*/
+function generarNotaCredito(idventa) {
+  const id = Number.parseInt(idventa, 10);
+
+  if (!id || id <= 0) {
+    Swal.fire({
+      icon: "error",
+      title: "Venta inválida",
+      text: "No se pudo determinar la venta seleccionada."
+    });
+
+    return;
+  }
+
+  Swal.fire({
+    icon: "question",
+    title: "Generar nota de crédito",
+    html:
+      '<div style="text-align:left">' +
+      '<p>Se abrirá una pantalla independiente para seleccionar el motivo, los productos y la forma de devolución.</p>' +
+      '<p>La venta original no será eliminada ni modificada.</p>' +
+      '</div>',
+    showCancelButton: true,
+    confirmButtonText: "Continuar",
+    cancelButtonText: "Cancelar",
+    reverseButtons: true
+  }).then(function (resultado) {
+    if (!resultado.isConfirmed) {
+      return;
+    }
+
+    window.location.href =
+      "notacredito?idventa=" + encodeURIComponent(id);
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
 | UTILIDADES
 |--------------------------------------------------------------------------
 */
