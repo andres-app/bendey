@@ -703,7 +703,19 @@ class CreditNote
                 ncs.fecha_envio,
                 ncs.fecha_respuesta,
                 v.tipo_pago AS tipo_pago_original,
-                v.total_venta AS total_venta_original
+                CASE
+                    WHEN UPPER(TRIM(CAST(v.tipo_pago AS CHAR))) IN ('1', 'CONTADO')
+                        THEN 'CONTADO'
+                    WHEN UPPER(TRIM(CAST(v.tipo_pago AS CHAR))) IN ('4', 'CREDITO', 'CRÉDITO')
+                        THEN 'CRÉDITO'
+                    ELSE UPPER(TRIM(CAST(v.tipo_pago AS CHAR)))
+                END AS condicion_pago_original,
+                v.total_venta AS total_venta_original,
+                v.fecha_hora AS fecha_documento_original,
+                u.nombre AS usuario_emisor,
+                s.nombre AS sucursal_nombre,
+                cf.codigo AS caja_codigo,
+                cf.nombre AS caja_nombre
              FROM nota_credito nc
              INNER JOIN nota_credito_motivo ncm
                 ON ncm.codigo = nc.codigo_motivo
@@ -711,6 +723,12 @@ class CreditNote
                 ON ncs.idnota_credito = nc.idnota_credito
              INNER JOIN venta v
                 ON v.idventa = nc.idventa
+             LEFT JOIN usuario u
+                ON u.idusuario = nc.idusuario
+             LEFT JOIN sucursal s
+                ON s.idsucursal = nc.idsucursal
+             LEFT JOIN caja_fisica cf
+                ON cf.idcaja = nc.idcaja
              WHERE nc.idnota_credito = ?
              LIMIT 1",
             [$idnotaCredito]

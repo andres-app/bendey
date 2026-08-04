@@ -8,10 +8,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-if (
-    !isset($_SESSION['nombre'])
-    || (int)($_SESSION['ventas'] ?? 0) !== 1
-) {
+if (!isset($_SESSION['nombre']) || (int)($_SESSION['ventas'] ?? 0) !== 1) {
     echo 'No tiene permiso';
     exit;
 }
@@ -25,21 +22,22 @@ if ($idnota <= 0) {
 
 require_once __DIR__ . '/../Models/CreditNote.php';
 require_once __DIR__ . '/../Models/Company.php';
+require_once __DIR__ . '/../Libraries/NumeroALetras.php';
 require_once __DIR__ . '/../Libraries/fpdf182/fpdf.php';
 require_once __DIR__ . '/../Libraries/phpqrcode/qrlib.php';
 
-function ncPdfTexto(string $texto): string
+function notaPdfTexto(string $texto): string
 {
     $convertido = iconv(
         'UTF-8',
-        'windows-1252//TRANSLIT',
+        'windows-1252//TRANSLIT//IGNORE',
         $texto
     );
 
     return $convertido !== false ? $convertido : $texto;
 }
 
-function ncPdfCantidad(float $cantidad): string
+function notaPdfCantidad(float $cantidad): string
 {
     if (abs($cantidad - round($cantidad)) < 0.0001) {
         return number_format($cantidad, 0, '.', '');
@@ -51,276 +49,661 @@ function ncPdfCantidad(float $cantidad): string
     );
 }
 
-$notas = new CreditNote();
-$notaCompleta = $notas->obtenerNota($idnota);
+function notaPdfMonedaLetras(float $monto, string $moneda): string
+{
+    $entero = (int)floor($monto);
+    $centimos = (int)round(($monto - $entero) * 100);
 
-if (!$notaCompleta) {
+    if ($centimos >= 100) {
+        $entero++;
+        $centimos = 0;
+    }
+
+    $formatter = new NumeroALetras();
+    $texto = strtoupper(trim((string)$formatter->toWords($entero)));
+
+    return $texto
+        . ' CON '
+        . str_pad((string)$centimos, 2, '0', STR_PAD_LEFT)
+        . '/100 '
+        . strtoupper($moneda !== '' ? $moneda : 'SOLES');
+}
+
+function notaPdfTipoDocumentoSunat(string $tipo): string
+{
+    $tipo = strtoupper(trim($tipo));
+
+    if ($tipo === 'DNI' || $tipo === '1') {
+        return '1';
+    }
+
+    if ($tipo === 'RUC' || $tipo === '6') {
+        return '6';
+    }
+
+    if ($tipo === 'CE' || $tipo === '4') {
+        return '4';
+    }
+
+    return '0';
+}
+
+final class TiquePosNotaA4 extends FPDF
+{
+    public string $empresaCorta = '';
+    public string $documentoCorto = '';
+
+    public function Header(): void
+    {
+        if ($this->PageNo() <= 1) {
+            return;
+        }
+
+        $this->SetFont('Helvetica', 'B', 8);
+        $this->SetTextColor(55, 61, 68);
+        $this->SetXY(12, 10);
+        $this->Cell(105, 5, notaPdfTexto($this->empresaCorta), 0, 0, 'L');
+        $this->SetFont('Helvetica', '', 7);
+        $this->Cell(81, 5, notaPdfTexto($this->documentoCorto . ' - continuación'), 0, 1, 'R');
+        $this->SetDrawColor(205, 209, 214);
+        $this->Line(12, 17, 198, 17);
+        $this->SetY(21);
+        $this->SetTextColor(0, 0, 0);
+    }
+
+    public function Footer(): void
+    {
+        // Sin pie de página por solicitud del usuario.
+    }
+
+    public function cantidadLineas(float $ancho, string $texto): int
+    {
+        $cw = &$this->CurrentFont['cw'];
+        $wmax = ($ancho - 2 * $this->cMargin) * 1000 / $this->FontSize;
+        $texto = str_replace("\r", '', $texto);
+        $nb = strlen($texto);
+
+        if ($nb > 0 && $texto[$nb - 1] === "\n") {
+            $nb--;
+        }
+
+        $sep = -1;
+        $i = 0;
+        $j = 0;
+        $l = 0;
+        $nl = 1;
+
+        while ($i < $nb) {
+            $c = $texto[$i];
+
+            if ($c === "\n") {
+                $i++;
+                $sep = -1;
+                $j = $i;
+                $l = 0;
+                $nl++;
+                continue;
+            }
+
+            if ($c === ' ') {
+                $sep = $i;
+            }
+
+            $l += $cw[$c] ?? 0;
+
+            if ($l > $wmax) {
+                if ($sep === -1) {
+                    if ($i === $j) {
+                        $i++;
+                    }
+                } else {
+                    $i = $sep + 1;
+                }
+
+                $sep = -1;
+                $j = $i;
+                $l = 0;
+                $nl++;
+            } else {
+                $i++;
+            }
+        }
+
+        return $nl;
+    }
+
+    public function tituloSeccion(string $titulo): void
+    {
+        $this->SetFont('Helvetica', 'B', 7.4);
+        $this->SetTextColor(70, 76, 83);
+        $this->Cell(0, 4.5, notaPdfTexto(strtoupper($titulo)), 0, 1, 'L');
+        $this->SetDrawColor(210, 214, 218);
+        $this->Line(12, $this->GetY(), 198, $this->GetY());
+        $this->Ln(2.2);
+        $this->SetTextColor(0, 0, 0);
+    }
+
+    public function dato(
+        float $x,
+        float $y,
+        float $ancho,
+        string $etiqueta,
+        string $valor,
+        float $altoValor = 4.2
+    ): void {
+        $this->SetXY($x, $y);
+        $this->SetFont('Helvetica', 'B', 6.3);
+        $this->SetTextColor(116, 121, 127);
+        $this->Cell($ancho, 3.2, notaPdfTexto(strtoupper($etiqueta)), 0, 1, 'L');
+        $this->SetX($x);
+        $this->SetFont('Helvetica', '', 7.7);
+        $this->SetTextColor(36, 41, 46);
+        $this->MultiCell(
+            $ancho,
+            $altoValor,
+            notaPdfTexto(trim($valor) !== '' ? $valor : '-'),
+            0,
+            'L'
+        );
+        $this->SetTextColor(0, 0, 0);
+    }
+
+    public function cabeceraTabla(): void
+    {
+        $anchos = [20, 92, 24, 22, 28];
+        $titulos = ['CANT.', 'CÓDIGO / DESCRIPCIÓN', 'P. UNIT.', 'DESC.', 'IMPORTE'];
+
+        $this->SetFillColor(242, 244, 246);
+        $this->SetDrawColor(203, 207, 211);
+        $this->SetTextColor(62, 68, 74);
+        $this->SetFont('Helvetica', 'B', 6.8);
+
+        foreach ($anchos as $indice => $ancho) {
+            $alineacion = $indice === 1 ? 'L' : 'C';
+            $this->Cell(
+                $ancho,
+                8,
+                notaPdfTexto($titulos[$indice]),
+                1,
+                $indice === count($anchos) - 1 ? 1 : 0,
+                $alineacion,
+                true
+            );
+        }
+
+        $this->SetTextColor(0, 0, 0);
+    }
+
+    public function filaProducto(
+        string $cantidad,
+        string $codigo,
+        string $descripcion,
+        float $precio,
+        float $descuento,
+        float $importe,
+        bool $alternar
+    ): void {
+        $anchos = [20, 92, 24, 22, 28];
+
+        $this->SetFont('Helvetica', '', 7.1);
+        $lineasDescripcion = max(
+            1,
+            $this->cantidadLineas(88, notaPdfTexto($descripcion))
+        );
+        $alto = max(11.5, 5.4 + ($lineasDescripcion * 3.8));
+
+        if ($this->GetY() + $alto > 262) {
+            $this->AddPage();
+            $this->cabeceraTabla();
+        }
+
+        $x = $this->GetX();
+        $y = $this->GetY();
+
+        if ($alternar) {
+            $this->SetFillColor(250, 251, 252);
+            $this->Rect($x, $y, array_sum($anchos), $alto, 'F');
+        }
+
+        $this->SetDrawColor(218, 221, 224);
+        $this->Rect($x, $y, array_sum($anchos), $alto);
+
+        $acumulado = 0.0;
+        foreach (array_slice($anchos, 0, -1) as $ancho) {
+            $acumulado += $ancho;
+            $this->Line($x + $acumulado, $y, $x + $acumulado, $y + $alto);
+        }
+
+        $this->SetXY($x, $y);
+        $this->SetFont('Helvetica', 'B', 6.8);
+        $this->SetTextColor(55, 61, 68);
+        $this->Cell($anchos[0], $alto, notaPdfTexto($cantidad), 0, 0, 'C');
+
+        $xDescripcion = $x + $anchos[0] + 2;
+        $this->SetXY($xDescripcion, $y + 1.8);
+        $this->SetFont('Helvetica', 'B', 6.5);
+        $this->SetTextColor(103, 109, 115);
+        $this->Cell($anchos[1] - 4, 3.5, notaPdfTexto($codigo !== '' ? $codigo : 'SIN CÓDIGO'), 0, 1, 'L');
+        $this->SetX($xDescripcion);
+        $this->SetFont('Helvetica', '', 7.2);
+        $this->SetTextColor(35, 40, 45);
+        $this->MultiCell(
+            $anchos[1] - 4,
+            3.8,
+            notaPdfTexto($descripcion !== '' ? $descripcion : 'SIN DESCRIPCIÓN'),
+            0,
+            'L'
+        );
+
+        $xNumeros = $x + $anchos[0] + $anchos[1];
+        $this->SetXY($xNumeros, $y);
+        $this->SetFont('Helvetica', '', 7.2);
+        $this->SetTextColor(35, 40, 45);
+        $this->Cell($anchos[2], $alto, number_format($precio, 2), 0, 0, 'R');
+        $this->Cell($anchos[3], $alto, number_format($descuento, 2), 0, 0, 'R');
+        $this->SetFont('Helvetica', 'B', 7.2);
+        $this->Cell($anchos[4] - 1.5, $alto, number_format($importe, 2), 0, 0, 'R');
+
+        $this->SetTextColor(0, 0, 0);
+        $this->SetY($y + $alto);
+    }
+}
+
+$modelo = new CreditNote();
+$completo = $modelo->obtenerNota($idnota);
+
+if (!$completo) {
     echo 'No se encontró la nota de crédito';
     exit;
 }
 
-$nota = $notaCompleta['cabecera'];
-$detalles = $notaCompleta['detalles'];
-$pagos = $notaCompleta['pagos'];
+$nota = $completo['cabecera'];
+$detalles = is_array($completo['detalles'] ?? null) ? $completo['detalles'] : [];
+$pagos = is_array($completo['pagos'] ?? null) ? $completo['pagos'] : [];
+$ajustesCuotas = is_array($completo['ajustes_cuotas'] ?? null) ? $completo['ajustes_cuotas'] : [];
 
 $empresaListado = (new Company())->listar();
 $empresa = is_array($empresaListado) && isset($empresaListado[0])
     ? $empresaListado[0]
     : [];
 
-$nombreEmpresa = trim((string)($empresa['nombre'] ?? ''));
-$ruc = trim((string)($empresa['documento'] ?? $empresa['ndocumento'] ?? ''));
-$direccion = trim((string)($empresa['direccion'] ?? ''));
-$telefono = trim((string)($empresa['telefono'] ?? ''));
+$nombreEmpresa = trim((string)($empresa['nombre'] ?? 'EMPRESA'));
+$razonSocial = trim((string)($empresa['razon_social'] ?? $empresa['nombre_legal'] ?? ''));
+$ruc = preg_replace('/\D/', '', (string)($empresa['documento'] ?? $empresa['ndocumento'] ?? ''));
+$direccionEmpresa = trim((string)($empresa['direccion'] ?? ''));
+$telefonoEmpresa = trim((string)($empresa['telefono'] ?? ''));
+$ciudadEmpresa = trim((string)($empresa['ciudad'] ?? ''));
 $emailEmpresa = trim((string)($empresa['email'] ?? ''));
 $simbolo = trim((string)($empresa['simbolo'] ?? 'S/'));
+$monedaNombre = trim((string)($empresa['moneda'] ?? 'SOLES'));
 
 $logo = __DIR__ . '/../Assets/img/company/' . trim((string)($empresa['logo'] ?? ''));
 if (!is_file($logo)) {
     $logo = __DIR__ . '/../Assets/img/company/default_logo.png';
 }
 
-$serie = (string)$nota['serie_comprobante'];
-$numero = (string)$nota['num_comprobante'];
+$serie = trim((string)($nota['serie_comprobante'] ?? ''));
+$numero = trim((string)($nota['num_comprobante'] ?? ''));
 $comprobante = $serie . '-' . $numero;
-$origen = (string)$nota['serie_documento_modificado']
+$documentoOrigen = trim((string)($nota['serie_documento_modificado'] ?? ''))
     . '-'
-    . (string)$nota['numero_documento_modificado'];
+    . trim((string)($nota['numero_documento_modificado'] ?? ''));
+$fechaHora = (string)($nota['fecha_hora'] ?? date('Y-m-d H:i:s'));
+$fechaEmision = date('d/m/Y H:i:s', strtotime($fechaHora));
+$usuarioEmisor = trim((string)($nota['usuario_emisor'] ?? $_SESSION['nombre'] ?? ''));
+$condicionOriginal = trim((string)($nota['condicion_pago_original'] ?? $nota['tipo_pago_original'] ?? ''));
+$estadoSunat = strtoupper(trim((string)($nota['estado_sunat'] ?? 'NO_ENVIADO')));
+$monedaCodigo = strtoupper(trim((string)($nota['moneda'] ?? 'PEN')));
+
+$nombresPago = [];
+foreach ($pagos as $pago) {
+    $nombre = trim((string)($pago['forma_pago'] ?? $pago['nombre'] ?? ''));
+    if ($nombre !== '' && !in_array($nombre, $nombresPago, true)) {
+        $nombresPago[] = $nombre;
+    }
+}
+
+if (count($nombresPago) > 1) {
+    $formaDevolucion = 'Mixto';
+} elseif (count($nombresPago) === 1) {
+    $formaDevolucion = $nombresPago[0];
+} elseif ((int)($nota['afecta_cuentas_cobrar'] ?? 0) === 1) {
+    $formaDevolucion = 'Aplicación contra saldo o cuotas';
+} else {
+    $formaDevolucion = 'Sin devolución monetaria';
+}
+
+$cantidadTotal = 0.0;
+foreach ($detalles as $detalle) {
+    $cantidadTotal += (float)($detalle['cantidad_nota'] ?? 0);
+}
 
 $qrRuta = sys_get_temp_dir()
-    . '/nc_'
+    . '/nota_a4_'
     . preg_replace('/[^A-Za-z0-9_-]/', '_', $comprobante)
-    . '_' . bin2hex(random_bytes(4)) . '.png';
+    . '_'
+    . bin2hex(random_bytes(4))
+    . '.png';
 
 $contenidoQr = implode('|', [
-    preg_replace('/\D/', '', $ruc),
+    $ruc,
     '07',
     $serie,
     $numero,
-    number_format((float)$nota['igv'], 2, '.', ''),
-    number_format((float)$nota['total_nota'], 2, '.', ''),
-    date('Y-m-d', strtotime((string)$nota['fecha_hora'])),
-    (string)$nota['cliente_tipo_documento'],
-    (string)$nota['cliente_num_documento']
+    number_format((float)($nota['igv'] ?? 0), 2, '.', ''),
+    number_format((float)($nota['total_nota'] ?? 0), 2, '.', ''),
+    date('Y-m-d', strtotime($fechaHora)),
+    notaPdfTipoDocumentoSunat((string)($nota['cliente_tipo_documento'] ?? '')),
+    preg_replace('/\D/', '', (string)($nota['cliente_num_documento'] ?? '')),
 ]);
 
-QRcode::png($contenidoQr, $qrRuta, QR_ECLEVEL_L, 3);
+QRcode::png($contenidoQr, $qrRuta, QR_ECLEVEL_L, 4);
 
-$pdf = new FPDF('P', 'mm', 'A4');
-$pdf->SetMargins(12, 12, 12);
-$pdf->SetAutoPageBreak(true, 18);
+$pdf = new TiquePosNotaA4('P', 'mm', 'A4');
+$pdf->AliasNbPages();
+$pdf->empresaCorta = $nombreEmpresa;
+$pdf->documentoCorto = 'NOTA DE CRÉDITO ' . $comprobante;
+$pdf->SetMargins(12, 11, 12);
+$pdf->SetAutoPageBreak(false);
 $pdf->AddPage();
 
+// CABECERA
 if (is_file($logo)) {
-    $pdf->Image($logo, 12, 12, 27);
+    $pdf->Image($logo, 12, 12, 28, 22);
 }
 
-$pdf->SetXY(43, 13);
-$pdf->SetFont('Helvetica', 'B', 12);
-$pdf->Cell(92, 6, ncPdfTexto($nombreEmpresa), 0, 1);
-$pdf->SetX(43);
-$pdf->SetFont('Helvetica', '', 8);
-$pdf->Cell(92, 4, ncPdfTexto('RUC: ' . $ruc), 0, 1);
-$pdf->SetX(43);
-$pdf->MultiCell(92, 4, ncPdfTexto($direccion), 0, 'L');
-$pdf->SetX(43);
-$pdf->Cell(92, 4, ncPdfTexto('Teléfono: ' . $telefono), 0, 1);
-if ($emailEmpresa !== '') {
-    $pdf->SetX(43);
-    $pdf->Cell(92, 4, ncPdfTexto('Email: ' . $emailEmpresa), 0, 1);
+$xEmpresa = is_file($logo) ? 45 : 12;
+$wEmpresa = is_file($logo) ? 84 : 117;
+$pdf->SetXY($xEmpresa, 12.5);
+$pdf->SetFont('Helvetica', 'B', 13);
+$pdf->SetTextColor(37, 42, 47);
+$pdf->Cell($wEmpresa, 6, notaPdfTexto($nombreEmpresa), 0, 1, 'L');
+
+if ($razonSocial !== '') {
+    $pdf->SetX($xEmpresa);
+    $pdf->SetFont('Helvetica', '', 8.2);
+    $pdf->SetTextColor(82, 88, 94);
+    $pdf->Cell($wEmpresa, 4.2, notaPdfTexto($razonSocial), 0, 1, 'L');
 }
 
-$boxX = 139;
-$boxY = 12;
-$boxW = 59;
-$boxH = 31;
-$pdf->Rect($boxX, $boxY, $boxW, $boxH);
-$pdf->SetXY($boxX, $boxY + 3);
-$pdf->SetFont('Helvetica', 'B', 9);
-$pdf->MultiCell($boxW, 5, ncPdfTexto('NOTA DE CRÉDITO\nELECTRÓNICA'), 0, 'C');
-$pdf->SetXY($boxX, $boxY + 17);
-$pdf->SetFont('Helvetica', 'B', 11);
-$pdf->Cell($boxW, 6, ncPdfTexto($comprobante), 0, 1, 'C');
-$pdf->SetXY($boxX, $boxY + 24);
-$pdf->SetFont('Helvetica', '', 7);
-$pdf->Cell(
-    $boxW,
-    4,
-    ncPdfTexto('SUNAT: ' . strtoupper((string)$nota['estado_sunat'])),
-    0,
-    1,
-    'C'
-);
-
-$pdf->SetY(50);
-$pdf->SetFont('Helvetica', 'B', 8);
-$pdf->Cell(0, 5, ncPdfTexto('DATOS DEL CLIENTE'), 0, 1);
-$pdf->SetFont('Helvetica', '', 8);
-$pdf->Cell(25, 5, ncPdfTexto('Cliente:'), 0, 0);
-$pdf->MultiCell(0, 5, ncPdfTexto((string)$nota['cliente_nombre']), 0, 'L');
-$pdf->Cell(25, 5, ncPdfTexto('Documento:'), 0, 0);
-$pdf->Cell(
-    0,
-    5,
-    ncPdfTexto(
-        (string)$nota['cliente_tipo_documento']
-        . ': '
-        . (string)$nota['cliente_num_documento']
-    ),
-    0,
-    1
-);
-$pdf->Cell(25, 5, ncPdfTexto('Dirección:'), 0, 0);
+$pdf->SetX($xEmpresa);
+$pdf->SetFont('Helvetica', '', 7.4);
+$pdf->SetTextColor(92, 98, 104);
 $pdf->MultiCell(
-    0,
-    5,
-    ncPdfTexto((string)($nota['cliente_direccion'] ?? '-')),
+    $wEmpresa,
+    3.8,
+    notaPdfTexto($direccionEmpresa !== '' ? $direccionEmpresa : '-'),
     0,
     'L'
 );
 
-$pdf->Ln(2);
-$pdf->SetFont('Helvetica', 'B', 8);
-$pdf->Cell(0, 5, ncPdfTexto('INFORMACIÓN DE LA NOTA'), 0, 1);
-$pdf->SetFont('Helvetica', '', 8);
-$pdf->Cell(40, 5, ncPdfTexto('Fecha de emisión:'), 0, 0);
-$pdf->Cell(
-    50,
-    5,
-    ncPdfTexto(date('d/m/Y H:i', strtotime((string)$nota['fecha_hora']))),
-    0,
-    0
-);
-$pdf->Cell(42, 5, ncPdfTexto('Documento modificado:'), 0, 0);
-$pdf->Cell(0, 5, ncPdfTexto($origen), 0, 1);
-$pdf->Cell(40, 5, ncPdfTexto('Código de motivo:'), 0, 0);
-$pdf->Cell(
-    0,
-    5,
-    ncPdfTexto(
-        (string)$nota['codigo_motivo']
-        . ' - '
-        . (string)$nota['motivo_descripcion']
-    ),
-    0,
-    1
-);
-$pdf->Cell(40, 5, ncPdfTexto('Sustento:'), 0, 0);
-$pdf->MultiCell(0, 5, ncPdfTexto((string)$nota['sustento']), 0, 'L');
-
-$pdf->Ln(3);
-
-$col = [23, 85, 16, 28, 28];
-$pdf->SetFont('Helvetica', 'B', 7);
-$pdf->SetFillColor(242, 244, 247);
-$pdf->Cell($col[0], 7, ncPdfTexto('CÓDIGO'), 1, 0, 'C', true);
-$pdf->Cell($col[1], 7, ncPdfTexto('DESCRIPCIÓN'), 1, 0, 'C', true);
-$pdf->Cell($col[2], 7, ncPdfTexto('CANT.'), 1, 0, 'C', true);
-$pdf->Cell($col[3], 7, ncPdfTexto('P. UNIT.'), 1, 0, 'C', true);
-$pdf->Cell($col[4], 7, ncPdfTexto('IMPORTE'), 1, 1, 'C', true);
-
-$pdf->SetFont('Helvetica', '', 7);
-
-foreach ($detalles as $detalle) {
-    $descripcion = (string)$detalle['descripcion_articulo'];
-    $lineasDescripcion = max(1, (int)ceil(mb_strlen($descripcion, 'UTF-8') / 48));
-    $alto = max(6, $lineasDescripcion * 4);
-    $x = $pdf->GetX();
-    $y = $pdf->GetY();
-
-    if ($y + $alto > 270) {
-        $pdf->AddPage();
-        $y = $pdf->GetY();
-    }
-
-    $pdf->SetXY($x, $y);
-    $pdf->Cell($col[0], $alto, ncPdfTexto((string)$detalle['codigo_articulo']), 1, 0);
-    $pdf->SetXY($x + $col[0], $y);
-    $pdf->MultiCell($col[1], 4, ncPdfTexto($descripcion), 1, 'L');
-    $pdf->SetXY($x + $col[0] + $col[1], $y);
-    $pdf->Cell($col[2], $alto, ncPdfCantidad((float)$detalle['cantidad_nota']), 1, 0, 'R');
-    $pdf->Cell(
-        $col[3],
-        $alto,
-        number_format((float)$detalle['precio_unitario_con_igv'], 2),
-        1,
-        0,
-        'R'
-    );
-    $pdf->Cell(
-        $col[4],
-        $alto,
-        number_format((float)$detalle['total_linea'], 2),
-        1,
-        0,
-        'R'
-    );
-    $pdf->SetY($y + $alto);
+$contacto = [];
+if ($telefonoEmpresa !== '') {
+    $contacto[] = 'Tel. ' . $telefonoEmpresa;
+}
+if ($ciudadEmpresa !== '') {
+    $contacto[] = $ciudadEmpresa;
+}
+if ($emailEmpresa !== '') {
+    $contacto[] = $emailEmpresa;
+}
+if ($contacto) {
+    $pdf->SetX($xEmpresa);
+    $pdf->SetFont('Helvetica', '', 6.9);
+    $pdf->MultiCell($wEmpresa, 3.5, notaPdfTexto(implode('  |  ', $contacto)), 0, 'L');
 }
 
-$pdf->Ln(4);
-$totX = 132;
-$pdf->SetX($totX);
-$pdf->SetFont('Helvetica', '', 8);
-$pdf->Cell(35, 6, ncPdfTexto('VALOR DE VENTA'), 0, 0, 'R');
-$pdf->Cell(31, 6, ncPdfTexto($simbolo . ' ' . number_format((float)$nota['valor_venta'], 2)), 0, 1, 'R');
-$pdf->SetX($totX);
-$pdf->Cell(35, 6, ncPdfTexto('IGV 18%'), 0, 0, 'R');
-$pdf->Cell(31, 6, ncPdfTexto($simbolo . ' ' . number_format((float)$nota['igv'], 2)), 0, 1, 'R');
-$pdf->SetX($totX);
-$pdf->SetFont('Helvetica', 'B', 10);
-$pdf->Cell(35, 7, ncPdfTexto('TOTAL NOTA'), 0, 0, 'R');
-$pdf->Cell(31, 7, ncPdfTexto($simbolo . ' ' . number_format((float)$nota['total_nota'], 2)), 0, 1, 'R');
+$boxX = 138;
+$boxY = 11;
+$boxW = 60;
+$boxH = 37;
+$pdf->SetDrawColor(92, 98, 104);
+$pdf->SetLineWidth(0.35);
+$pdf->Rect($boxX, $boxY, $boxW, $boxH);
+$pdf->SetXY($boxX, $boxY + 3);
+$pdf->SetFont('Helvetica', 'B', 8.8);
+$pdf->SetTextColor(58, 64, 70);
+$pdf->Cell($boxW, 4.5, notaPdfTexto('R.U.C. N° ' . $ruc), 0, 1, 'C');
+$pdf->SetXY($boxX + 2, $boxY + 11);
+$pdf->SetFont('Helvetica', 'B', 9.6);
+$pdf->MultiCell($boxW - 4, 4.8, notaPdfTexto("NOTA DE CREDITO\nELECTRONICA"), 0, 'C');
+$pdf->SetXY($boxX, $boxY + 26);
+$pdf->SetFont('Helvetica', 'B', 11);
+$pdf->Cell($boxW, 5, notaPdfTexto($comprobante), 0, 1, 'C');
+$pdf->SetTextColor(0, 0, 0);
 
-if (count($pagos) > 0) {
-    $pdf->Ln(2);
-    $pdf->SetFont('Helvetica', 'B', 8);
-    $pdf->Cell(0, 5, ncPdfTexto('FORMA DE DEVOLUCIÓN'), 0, 1);
-    $pdf->SetFont('Helvetica', '', 8);
+$pdf->SetDrawColor(217, 220, 223);
+$pdf->Line(12, 52, 198, 52);
+$pdf->SetY(58);
+
+// TARJETAS DE INFORMACIÓN
+$pdf->tituloSeccion('Cliente y datos de la nota');
+$yTarjetas = $pdf->GetY();
+$altoTarjeta = 38;
+$pdf->SetFillColor(249, 250, 251);
+$pdf->SetDrawColor(222, 225, 228);
+$pdf->Rect(12, $yTarjetas, 116, $altoTarjeta, 'DF');
+$pdf->Rect(132, $yTarjetas, 66, $altoTarjeta, 'DF');
+
+$pdf->dato(16, $yTarjetas + 4, 108, 'Nombre / Razón social', (string)($nota['cliente_nombre'] ?? 'CLIENTE VARIOS'));
+$pdf->dato(
+    16,
+    $yTarjetas + 14,
+    51,
+    strtoupper((string)($nota['cliente_tipo_documento'] ?? 'Documento')),
+    (string)($nota['cliente_num_documento'] ?? '-')
+);
+$pdf->dato(70, $yTarjetas + 14, 54, 'Dirección', (string)($nota['cliente_direccion'] ?? '-'));
+$pdf->dato(136, $yTarjetas + 4, 58, 'Emisión', $fechaEmision);
+$pdf->dato(136, $yTarjetas + 13, 27, 'Moneda', $monedaCodigo);
+$pdf->dato(166, $yTarjetas + 13, 28, 'Atendió', $usuarioEmisor);
+$pdf->dato(136, $yTarjetas + 22, 58, 'Documento modificado', $documentoOrigen);
+$pdf->dato(136, $yTarjetas + 31, 58, 'Forma de devolución', $formaDevolucion);
+
+$pdf->SetY($yTarjetas + $altoTarjeta + 5);
+
+// MOTIVO Y SUSTENTO
+$pdf->tituloSeccion('Motivo y sustento');
+$motivoTexto = trim(
+    (string)($nota['codigo_motivo'] ?? '')
+    . ' - '
+    . (string)($nota['motivo_descripcion'] ?? '')
+);
+$sustentoTexto = trim((string)($nota['sustento'] ?? ''));
+
+$pdf->SetFillColor(249, 250, 251);
+$pdf->SetDrawColor(222, 225, 228);
+$pdf->SetFont('Helvetica', 'B', 6.3);
+$pdf->SetTextColor(116, 121, 127);
+$pdf->Cell(31, 8, notaPdfTexto('MOTIVO'), 1, 0, 'L', true);
+$pdf->SetFont('Helvetica', '', 7.4);
+$pdf->SetTextColor(38, 43, 48);
+$pdf->Cell(155, 8, notaPdfTexto($motivoTexto !== '' ? $motivoTexto : '-'), 1, 1, 'L', true);
+
+$lineasSustento = max(1, $pdf->cantidadLineas(151, notaPdfTexto($sustentoTexto !== '' ? $sustentoTexto : '-')));
+$altoSustento = max(10, $lineasSustento * 4.2 + 2);
+$xSustento = $pdf->GetX();
+$ySustento = $pdf->GetY();
+$pdf->SetFont('Helvetica', 'B', 6.3);
+$pdf->SetTextColor(116, 121, 127);
+$pdf->Cell(31, $altoSustento, notaPdfTexto('SUSTENTO'), 1, 0, 'L', true);
+$pdf->SetXY($xSustento + 31, $ySustento);
+$pdf->SetFont('Helvetica', '', 7.4);
+$pdf->SetTextColor(38, 43, 48);
+$pdf->MultiCell(155, 4.2, notaPdfTexto($sustentoTexto !== '' ? $sustentoTexto : '-'), 1, 'L', true);
+$pdf->SetY($ySustento + $altoSustento + 6);
+$pdf->SetTextColor(0, 0, 0);
+
+$pdf->tituloSeccion('Detalle afectado');
+$pdf->cabeceraTabla();
+
+foreach ($detalles as $indice => $detalle) {
+    $codigo = trim((string)($detalle['codigo_articulo'] ?? ''));
+    $descripcion = trim((string)($detalle['descripcion_articulo'] ?? ''));
+    $unidad = trim((string)($detalle['unidad_codigo'] ?? 'NIU'));
+    $cantidad = notaPdfCantidad((float)($detalle['cantidad_nota'] ?? 0)) . ' ' . strtoupper($unidad !== '' ? $unidad : 'NIU');
+
+    $pdf->filaProducto(
+        $cantidad,
+        $codigo,
+        $descripcion,
+        (float)($detalle['precio_unitario_con_igv'] ?? 0),
+        (float)($detalle['descuento_linea'] ?? 0),
+        (float)($detalle['total_linea'] ?? 0),
+        $indice % 2 === 1
+    );
+}
+
+if ($pdf->GetY() > 208) {
+    $pdf->AddPage();
+}
+
+$pdf->Ln(6);
+$yResumen = $pdf->GetY();
+$filasDetalle = count($pagos) + count($ajustesCuotas);
+$altoResumen = $filasDetalle > 0 ? max(47, 27 + $filasDetalle * 5) : 47;
+
+// RESUMEN IZQUIERDO
+$pdf->SetFillColor(249, 250, 251);
+$pdf->SetDrawColor(222, 225, 228);
+$pdf->Rect(12, $yResumen, 108, $altoResumen, 'DF');
+$pdf->SetXY(16, $yResumen + 4);
+$pdf->SetFont('Helvetica', 'B', 7.1);
+$pdf->SetTextColor(75, 81, 87);
+$pdf->Cell(100, 4, notaPdfTexto('RESUMEN DE LA NOTA'), 0, 1, 'L');
+$pdf->dato(16, $yResumen + 10, 48, 'Venta original', $simbolo . ' ' . number_format((float)($nota['total_venta_original'] ?? 0), 2));
+$pdf->dato(67, $yResumen + 10, 49, 'Cantidad afectada', notaPdfCantidad($cantidadTotal));
+$pdf->dato(16, $yResumen + 21, 48, 'Condición original', $condicionOriginal !== '' ? $condicionOriginal : '-');
+$pdf->dato(67, $yResumen + 21, 49, 'Afecta stock', (int)($nota['afecta_stock'] ?? 0) === 1 ? 'Sí' : 'No');
+$pdf->dato(16, $yResumen + 32, 48, 'Sucursal', trim((string)($nota['sucursal_nombre'] ?? '')));
+
+$cajaTexto = trim((string)($nota['caja_codigo'] ?? ''));
+if (trim((string)($nota['caja_nombre'] ?? '')) !== '') {
+    $cajaTexto .= ($cajaTexto !== '' ? ' - ' : '') . trim((string)$nota['caja_nombre']);
+}
+$pdf->dato(67, $yResumen + 32, 49, 'Caja', $cajaTexto);
+
+if ($filasDetalle > 0) {
+    $pdf->SetXY(16, $yResumen + 43);
+    $pdf->SetFont('Helvetica', 'B', 6.2);
+    $pdf->SetTextColor(116, 121, 127);
+    $pdf->Cell(100, 3.5, notaPdfTexto('DEVOLUCIÓN / APLICACIÓN'), 0, 1, 'L');
+    $pdf->SetFont('Helvetica', '', 7);
+    $pdf->SetTextColor(45, 50, 55);
 
     foreach ($pagos as $pago) {
-        $pdf->Cell(65, 5, ncPdfTexto((string)$pago['forma_pago']), 0, 0);
-        $pdf->Cell(
-            35,
-            5,
-            ncPdfTexto($simbolo . ' ' . number_format((float)$pago['monto'], 2)),
-            0,
-            1,
-            'R'
-        );
+        $nombre = trim((string)($pago['forma_pago'] ?? $pago['nombre'] ?? 'Devolución'));
+        $pdf->SetX(16);
+        $pdf->Cell(68, 4.5, notaPdfTexto($nombre !== '' ? $nombre : 'Devolución'), 0, 0, 'L');
+        $pdf->Cell(32, 4.5, notaPdfTexto($simbolo . ' ' . number_format((float)($pago['monto'] ?? 0), 2)), 0, 1, 'R');
+    }
+
+    foreach ($ajustesCuotas as $ajuste) {
+        $codigoCuota = trim((string)($ajuste['codigo'] ?? $ajuste['numero_cuota'] ?? ''));
+        $pdf->SetX(16);
+        $pdf->Cell(68, 4.5, notaPdfTexto('Ajuste de cuota ' . $codigoCuota), 0, 0, 'L');
+        $pdf->Cell(32, 4.5, notaPdfTexto($simbolo . ' ' . number_format((float)($ajuste['monto_reducido'] ?? 0), 2)), 0, 1, 'R');
     }
 }
 
+// TOTALES DERECHA
+$xTot = 126;
+$wTot = 72;
+$pdf->Rect($xTot, $yResumen, $wTot, $altoResumen, 'D');
+$pdf->SetXY($xTot + 4, $yResumen + 4);
+$pdf->SetFont('Helvetica', 'B', 7.1);
+$pdf->SetTextColor(75, 81, 87);
+$pdf->Cell($wTot - 8, 4, notaPdfTexto('TOTALES'), 0, 1, 'L');
+
+$yLinea = $yResumen + 11;
+$pdf->SetFont('Helvetica', '', 7.5);
+$pdf->SetTextColor(55, 61, 67);
+$pdf->SetXY($xTot + 4, $yLinea);
+$pdf->Cell(40, 5, notaPdfTexto('Op. gravada'), 0, 0, 'L');
+$pdf->Cell(24, 5, number_format((float)($nota['valor_venta'] ?? 0), 2), 0, 1, 'R');
+$yLinea += 5;
+
+if ((float)($nota['descuento_total'] ?? 0) > 0) {
+    $pdf->SetXY($xTot + 4, $yLinea);
+    $pdf->Cell(40, 5, notaPdfTexto('Descuento'), 0, 0, 'L');
+    $pdf->Cell(24, 5, '- ' . number_format((float)$nota['descuento_total'], 2), 0, 1, 'R');
+    $yLinea += 5;
+}
+
+$pdf->SetXY($xTot + 4, $yLinea);
+$pdf->Cell(40, 5, notaPdfTexto('IGV 18%'), 0, 0, 'L');
+$pdf->Cell(24, 5, number_format((float)($nota['igv'] ?? 0), 2), 0, 1, 'R');
+$yLinea += 6;
+$pdf->SetDrawColor(190, 194, 198);
+$pdf->Line($xTot + 4, $yLinea, $xTot + $wTot - 4, $yLinea);
+$pdf->SetXY($xTot + 4, $yLinea + 2);
+$pdf->SetFont('Helvetica', 'B', 9.2);
+$pdf->SetTextColor(35, 40, 45);
+$pdf->Cell(40, 7, notaPdfTexto('TOTAL ' . $simbolo), 0, 0, 'L');
+$pdf->Cell(24, 7, number_format((float)($nota['total_nota'] ?? 0), 2), 0, 1, 'R');
+
+$pdf->SetTextColor(0, 0, 0);
+$pdf->SetY($yResumen + $altoResumen + 5);
+
+// IMPORTE EN LETRAS
+$pdf->SetFillColor(249, 250, 251);
+$pdf->SetDrawColor(222, 225, 228);
+$pdf->SetFont('Helvetica', 'B', 6.4);
+$pdf->SetTextColor(107, 112, 118);
+$pdf->Cell(18, 8, notaPdfTexto('SON:'), 1, 0, 'L', true);
+$pdf->SetFont('Helvetica', '', 7.2);
+$pdf->SetTextColor(43, 48, 53);
+$pdf->MultiCell(
+    168,
+    4,
+    notaPdfTexto(notaPdfMonedaLetras((float)($nota['total_nota'] ?? 0), $monedaNombre)),
+    1,
+    'L',
+    true
+);
+$pdf->SetTextColor(0, 0, 0);
+
+// QR Y TEXTO LEGAL
+if ($pdf->GetY() + 41 > 276) {
+    $pdf->AddPage();
+}
+
+$yQr = $pdf->GetY() + 6;
 if (is_file($qrRuta)) {
-    $yQr = max($pdf->GetY() + 4, 230);
-    if ($yQr > 250) {
-        $pdf->AddPage();
-        $yQr = 20;
-    }
-    $pdf->Image($qrRuta, 12, $yQr, 28, 28);
-    $pdf->SetXY(44, $yQr + 3);
-    $pdf->SetFont('Helvetica', '', 7);
-    $pdf->MultiCell(
-        150,
-        4,
-        ncPdfTexto(
-            "Esta es una representación impresa de la Nota de Crédito Electrónica.\n"
-            . 'Documento modificado: ' . $origen . '.\n'
-            . 'Estado SUNAT: ' . strtoupper((string)$nota['estado_sunat']) . '.'
-        ),
-        0,
-        'L'
-    );
+    $pdf->Image($qrRuta, 12, $yQr, 27, 27);
+}
+$pdf->SetXY(44, $yQr + 1);
+$pdf->SetFont('Helvetica', 'B', 7.3);
+$pdf->SetTextColor(65, 71, 77);
+$pdf->Cell(150, 4, notaPdfTexto('Nota de crédito electrónica'), 0, 1, 'L');
+$pdf->SetX(44);
+$pdf->SetFont('Helvetica', '', 6.9);
+$pdf->SetTextColor(100, 106, 112);
+$pdf->MultiCell(
+    150,
+    3.8,
+    notaPdfTexto(
+        'Representación impresa de la NOTA DE CREDITO ELECTRONICA. '
+        . 'Documento modificado: ' . $documentoOrigen . '. '
+        . 'Consulte su validez en SUNAT o con su proveedor electrónico.'
+    ),
+    0,
+    'L'
+);
+
+$documentId = trim((string)($nota['document_id'] ?? ''));
+if ($documentId !== '') {
+    $pdf->SetX(44);
+    $pdf->SetFont('Helvetica', '', 6.1);
+    $pdf->SetTextColor(125, 130, 135);
+    $pdf->MultiCell(150, 3.3, notaPdfTexto('Document ID: ' . $documentId), 0, 'L');
 }
 
 if (ob_get_length()) {
     ob_end_clean();
 }
 
-$pdf->Output(
-    'I',
-    'Nota_Credito_' . $serie . '_' . $numero . '.pdf'
-);
+$pdf->Output('I', 'Nota_Credito_' . $serie . '_' . $numero . '.pdf');
 
 if (is_file($qrRuta)) {
     @unlink($qrRuta);

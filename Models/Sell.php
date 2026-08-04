@@ -667,12 +667,23 @@ class Sell
             v.serie_comprobante,
             v.num_comprobante,
             DATE(v.fecha_hora) AS fecha,
+            DATE_FORMAT(v.fecha_hora, '%Y-%m-%d %H:%i:%s') AS fecha_hora,
             v.impuesto,
             v.total_venta,
-            v.descuento_total,        -- 👈 AQUI
-            v.descuento_porcentaje,   -- 👈 AQUI
+            v.descuento_total,
+            v.descuento_porcentaje,
             v.tipo_pago,
-            v.idforma_pago
+            CASE
+                WHEN UPPER(TRIM(CAST(v.tipo_pago AS CHAR))) IN ('1', 'CONTADO')
+                    THEN 'CONTADO'
+                WHEN UPPER(TRIM(CAST(v.tipo_pago AS CHAR))) IN ('4', 'CREDITO', 'CRÉDITO')
+                    THEN 'CRÉDITO'
+                ELSE UPPER(TRIM(CAST(v.tipo_pago AS CHAR)))
+            END AS condicion_pago,
+            v.idforma_pago,
+            v.idsucursal,
+            v.idcaja,
+            v.idapertura
         FROM venta v
         INNER JOIN persona p ON v.idcliente = p.idpersona
         INNER JOIN usuario u ON v.idusuario = u.idusuario
