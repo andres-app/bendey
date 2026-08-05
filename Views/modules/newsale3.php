@@ -1096,7 +1096,7 @@ if ($_SESSION['ventas'] == 1) {
         .venta-form-footer {
             min-height: 66px;
             display: grid;
-            grid-template-columns: 30% 70%;
+            grid-template-columns: minmax(0, 40%) minmax(0, 60%);
             align-items: center;
             gap: 0;
             margin: 0;
@@ -1112,23 +1112,27 @@ if ($_SESSION['ventas'] == 1) {
             width: 100%;
             min-width: 0;
             display: flex;
-            align-items: baseline;
-            gap: 9px;
-            padding-right: 12px;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 3px;
+            padding-right: 14px;
         }
 
         .venta-footer-total-label {
             color: #78847e;
-            font-size: .76rem;
+            font-size: .68rem;
             font-weight: 700;
+            line-height: 1;
             text-transform: uppercase;
-            letter-spacing: .04em;
+            letter-spacing: .05em;
         }
 
         .venta-footer-total-monto {
+            max-width: 100%;
             overflow: hidden;
             color: #26332c;
-            font-size: 1.72rem;
+            font-size: 1.82rem;
             font-weight: 800;
             line-height: 1;
             text-overflow: ellipsis;
@@ -1447,7 +1451,7 @@ if ($_SESSION['ventas'] == 1) {
             }
 
             .venta-form-footer {
-                grid-template-columns: 30% 70%;
+                grid-template-columns: minmax(0, 40%) minmax(0, 60%);
                 align-items: center;
                 gap: 0;
                 padding: 10px 14px;
@@ -1455,8 +1459,9 @@ if ($_SESSION['ventas'] == 1) {
             }
 
             .venta-footer-total {
-                justify-content: flex-start;
-                padding-right: 8px;
+                align-items: flex-start;
+                justify-content: center;
+                padding-right: 10px;
             }
 
             .venta-procesar-btn {
@@ -1718,18 +1723,21 @@ if ($_SESSION['ventas'] == 1) {
 
             .venta-form-footer {
                 bottom: calc(66px + env(safe-area-inset-bottom, 0px));
-                gap: 6px;
+                grid-template-columns: minmax(0, 40%) minmax(0, 60%);
+                gap: 0;
                 padding: 7px 10px;
                 border-radius: 0 0 12px 12px;
+                background: #ffffff !important;
+                background-color: #ffffff !important;
             }
 
             .venta-footer-total-label {
-                font-size: 10px;
+                font-size: 9px;
                 font-weight: 600;
             }
 
             .venta-footer-total-monto {
-                font-size: 21px;
+                font-size: 23px;
                 font-weight: 700;
             }
 
