@@ -1198,29 +1198,31 @@ if ($_SESSION['ventas'] == 1) {
 
         @media (min-width: 1200px) {
             /*
-             * Separación visual entre la barra superior y el POS.
-             * Se limita a escritorio para conservar intacta la versión móvil.
+             * Escritorio: separación real y visible bajo el navbar.
+             * El navbar de Stisla ocupa 70 px; después se dejan 24 px,
+             * equivalentes al aire lateral usado entre los paneles.
              */
             .venta-pos-main-content {
-                padding-top: 86px !important;
+                padding-top: 70px !important;
             }
 
-            .venta-pos-layout {
-                min-height: calc(100vh - 102px);
+            .venta-pos-main-content .venta-pos-layout {
+                margin-top: 24px !important;
+                min-height: calc(100vh - 118px);
             }
 
             .venta-panel-card-formulario {
-                min-height: calc(100vh - 102px);
+                min-height: calc(100vh - 118px);
             }
 
             .venta-panel-col-pedido {
                 position: sticky;
-                top: 86px;
+                top: 94px;
                 align-self: flex-start;
             }
 
             .venta-panel-card-pedido {
-                height: calc(100vh - 102px);
+                height: calc(100vh - 118px);
                 min-height: 510px;
                 display: flex;
                 flex-direction: column;
