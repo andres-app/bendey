@@ -373,29 +373,20 @@ switch ($op) {
             }
 
             // =================================================
-            // 3. IMPUESTO CONFIGURADO
+            // 3. CONFIGURACIÓN TRIBUTARIA EFECTIVA
             // =================================================
-            $datosNegocio = $conexionVenta->getData(
-                "SELECT monto_impuesto
-                 FROM datos_negocio
-                 WHERE condicion = 1
-                 ORDER BY id_negocio DESC
-                 LIMIT 1"
+            $configuracionTributariaVenta =
+                $sell->obtenerConfiguracionTributariaEfectiva(
+                    $idsucursalVenta
+                );
+
+            $impuesto = round(
+                (float)(
+                    $configuracionTributariaVenta['porcentaje_igv']
+                    ?? 18.00
+                ),
+                2
             );
-
-            $impuesto = 18.00;
-
-            if (
-                is_array($datosNegocio)
-                && isset($datosNegocio['monto_impuesto'])
-            ) {
-                $impuestoConfigurado =
-                    (float)$datosNegocio['monto_impuesto'];
-
-                if ($impuestoConfigurado > 0) {
-                    $impuesto = $impuestoConfigurado;
-                }
-            }
 
             // =================================================
             // 4. CLIENTE
@@ -659,6 +650,7 @@ switch ($op) {
             $cantidades = $_POST['cantidad'] ?? [];
             $preciosCompra = $_POST['precio_compra'] ?? [];
             $preciosVenta = $_POST['precio_venta'] ?? [];
+            $descuentosItems = $_POST['descuento'] ?? [];
 
             if (
                 !is_array($idarticulos)
@@ -681,41 +673,53 @@ switch ($op) {
                 );
             }
 
-            // =================================================
-            // 6. CALCULAR SUBTOTAL
-            // =================================================
-            $subtotal = 0.00;
-
-            for ($i = 0; $i < $cantidadProductos; $i++) {
-                $idArticulo = (int)$idarticulos[$i];
-                $cantidad = (float)$cantidades[$i];
-                $precioVenta = (float)$preciosVenta[$i];
-
-                if ($idArticulo <= 0) {
-                    throw new Exception(
-                        'Se encontró un producto inválido.'
-                    );
-                }
-
-                if ($cantidad <= 0) {
-                    throw new Exception(
-                        'La cantidad de los productos debe ser mayor que cero.'
-                    );
-                }
-
-                if ($precioVenta < 0) {
-                    throw new Exception(
-                        'El precio de venta no puede ser negativo.'
-                    );
-                }
-
-                $subtotal += $cantidad * $precioVenta;
+            if (
+                !is_array($descuentosItems)
+                || count($descuentosItems) !== $cantidadProductos
+            ) {
+                $descuentosItems = array_fill(
+                    0,
+                    $cantidadProductos,
+                    0.00
+                );
             }
 
-            $subtotal = round($subtotal, 2);
+            // =================================================
+            // 6. PREVISUALIZAR TOTAL TRIBUTARIO SIN DESCUENTO GLOBAL
+            // =================================================
+            $tipoOperacionSolicitada = trim(
+                (string)(
+                    $_POST['tipo_operacion_sunat']
+                    ?? ''
+                )
+            );
+
+            $tributacionPrevia = $sell->calcularTributacionVenta(
+                $idarticulos,
+                $cantidades,
+                $preciosVenta,
+                $descuentosItems,
+                0.00,
+                $idsucursalVenta,
+                $tipoOperacionSolicitada
+            );
+
+            $subtotal = round(
+                (float)(
+                    $tributacionPrevia['subtotal_documento']
+                    ?? 0
+                ),
+                2
+            );
+
+            if ($subtotal <= 0) {
+                throw new Exception(
+                    'El total de los productos debe ser mayor que cero.'
+                );
+            }
 
             // =================================================
-            // 7. DESCUENTO
+            // 7. DESCUENTO Y CÁLCULO TRIBUTARIO DEFINITIVO
             // =================================================
             $descuento_total = round(
                 (float)($_POST['descuento_total'] ?? 0),
@@ -727,23 +731,12 @@ switch ($op) {
                 2
             );
 
-            if ($descuento_total < 0) {
-                $descuento_total = 0;
-            }
+            $descuento_total = max($descuento_total, 0.00);
+            $descuento_porcentaje = min(
+                max($descuento_porcentaje, 0.00),
+                100.00
+            );
 
-            if ($descuento_porcentaje < 0) {
-                $descuento_porcentaje = 0;
-            }
-
-            if ($descuento_porcentaje > 100) {
-                $descuento_porcentaje = 100;
-            }
-
-            /*
-             * Compatibilidad:
-             * si no llegó descuento_total pero sí porcentaje,
-             * se calcula en el servidor.
-             */
             if (
                 $descuento_total <= 0
                 && $descuento_porcentaje > 0
@@ -754,17 +747,13 @@ switch ($op) {
                 );
             }
 
-            if ($descuento_total > $subtotal) {
-                $descuento_total = $subtotal;
-            }
+            $descuento_total = min(
+                $descuento_total,
+                $subtotal
+            );
 
-            /*
-             * Si se aplicó descuento fijo en soles,
-             * calcular el porcentaje equivalente para registro.
-             */
             if (
                 $descuento_total > 0
-                && $subtotal > 0
                 && $descuento_porcentaje <= 0
             ) {
                 $descuento_porcentaje = round(
@@ -773,13 +762,33 @@ switch ($op) {
                 );
             }
 
+            $tributacion = $sell->calcularTributacionVenta(
+                $idarticulos,
+                $cantidades,
+                $preciosVenta,
+                $descuentosItems,
+                $descuento_total,
+                $idsucursalVenta,
+                $tipoOperacionSolicitada
+            );
+
             $total_venta = round(
-                $subtotal - $descuento_total,
+                (float)($tributacion['total_venta'] ?? 0),
                 2
             );
 
-            if ($total_venta < 0) {
-                $total_venta = 0;
+            $impuesto = round(
+                (float)(
+                    $tributacion['porcentaje_igv_predeterminado']
+                    ?? $impuesto
+                ),
+                2
+            );
+
+            if ($total_venta <= 0) {
+                throw new Exception(
+                    'El total final de la venta debe ser mayor que cero.'
+                );
             }
 
             /*
@@ -1083,7 +1092,8 @@ switch ($op) {
                 $preciosVenta,
                 $idsucursalVenta,
                 $idcajaVenta,
-                $idaperturaVenta
+                $idaperturaVenta,
+                $tributacion
             );
             if (!$idventa) {
                 throw new Exception(
@@ -1799,44 +1809,13 @@ switch ($op) {
 
         $company = new Company();
         $negocio = $company->listar();
-
-        $simbolo = 'S/';
-        $nombreImpuesto = 'IGV';
-        $tasaImpuesto = 18.00;
-
-        if (!empty($negocio)) {
-            $simbolo = trim(
-                (string)($negocio[0]['simbolo'] ?? 'S/')
-            );
-
-            $nombreImpuesto = trim(
-                (string)(
-                    $negocio[0]['nombre_impuesto']
-                    ?? 'IGV'
-                )
-            );
-
-            $tasaConfigurada = (float)(
-                $negocio[0]['monto_impuesto']
-                ?? 18
-            );
-
-            if ($tasaConfigurada > 0) {
-                $tasaImpuesto = $tasaConfigurada;
-            }
-        }
-
+        $simbolo = trim((string)($negocio[0]['simbolo'] ?? 'S/'));
+        $nombreImpuesto = trim((string)($negocio[0]['nombre_impuesto'] ?? 'IGV'));
         $id = (int)($_GET['id'] ?? 0);
         $detalles = $sell->listarDetalle($id);
 
         $simboloHtml = htmlspecialchars(
             $simbolo !== '' ? $simbolo : 'S/',
-            ENT_QUOTES,
-            'UTF-8'
-        );
-
-        $nombreImpuestoHtml = htmlspecialchars(
-            $nombreImpuesto !== '' ? $nombreImpuesto : 'IGV',
             ENT_QUOTES,
             'UTF-8'
         );
@@ -1863,138 +1842,92 @@ switch ($op) {
                 </tr>
                 </tbody>
             ';
-
             break;
         }
 
         $subtotalProductos = 0.00;
-        $descuentoDetalle = 0.00;
 
         foreach ($detalles as $reg) {
             $cantidad = (float)($reg['cantidad'] ?? 0);
-            $precioVenta = (float)($reg['precio_venta'] ?? 0);
+            $precioUnitario = (float)(
+                $reg['precio_unitario_con_impuesto']
+                ?? $reg['precio_venta']
+                ?? 0
+            );
             $descuentoLinea = (float)($reg['descuento'] ?? 0);
+            $importeLinea = round((float)($reg['subtotal'] ?? 0), 2);
+            $subtotalProductos += $importeLinea;
 
-            $importeBruto = round(
-                $cantidad * $precioVenta,
-                2
-            );
-
-            $importeLinea = round(
-                $importeBruto - $descuentoLinea,
-                2
-            );
-
-            $subtotalProductos += $importeBruto;
-            $descuentoDetalle += $descuentoLinea;
-
-            $cantidadTexto = abs(
-                $cantidad - round($cantidad)
-            ) < 0.00001
+            $cantidadTexto = abs($cantidad - round($cantidad)) < 0.00001
                 ? number_format($cantidad, 0, '.', '')
-                : number_format($cantidad, 2, '.', '');
+                : rtrim(rtrim(number_format($cantidad, 3, '.', ''), '0'), '.');
+
+            $afectacion = trim((string)($reg['afectacion_descripcion'] ?? ''));
+            $tasa = (float)($reg['porcentaje_igv'] ?? 0);
+            if ((string)($reg['codigo_afectacion_igv'] ?? '10') === '10') {
+                $afectacion = 'Gravado ' . rtrim(rtrim(number_format($tasa, 2, '.', ''), '0'), '.') . '%';
+            }
 
             echo '
                 <tr>
                     <td>
                         <div class="venta-producto-nombre">' .
-                htmlspecialchars(
-                    (string)($reg['nombre'] ?? 'Producto'),
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) .
-                '</div>
+                            htmlspecialchars((string)($reg['nombre'] ?? 'Producto'), ENT_QUOTES, 'UTF-8') .
+                        '</div>
+                        <small class="text-muted">' .
+                            htmlspecialchars($afectacion, ENT_QUOTES, 'UTF-8') .
+                        '</small>
                     </td>
-                    <td class="text-center venta-cantidad">' .
-                $cantidadTexto .
-                '</td>
-                    <td class="text-right">' .
-                $simboloHtml . ' ' .
-                number_format($precioVenta, 2, '.', ',') .
-                '</td>
-                    <td class="text-right">' .
-                $simboloHtml . ' ' .
-                number_format($descuentoLinea, 2, '.', ',') .
-                '</td>
-                    <td class="text-right venta-importe">' .
-                $simboloHtml . ' ' .
-                number_format($importeLinea, 2, '.', ',') .
-                '</td>
+                    <td class="text-center venta-cantidad">' . $cantidadTexto . '</td>
+                    <td class="text-right">' . $simboloHtml . ' ' . number_format($precioUnitario, 2, '.', ',') . '</td>
+                    <td class="text-right">' . $simboloHtml . ' ' . number_format($descuentoLinea, 2, '.', ',') . '</td>
+                    <td class="text-right venta-importe">' . $simboloHtml . ' ' . number_format($importeLinea, 2, '.', ',') . '</td>
                 </tr>
             ';
         }
 
-        $subtotalProductos = round(
-            $subtotalProductos,
-            2
-        );
+        $cabeceraDetalle = $detalles[0];
+        $totalVenta = round((float)($cabeceraDetalle['total_venta'] ?? $subtotalProductos), 2);
+        $descuentoTotal = round((float)($cabeceraDetalle['descuento_total'] ?? 0), 2);
+        $totalGravado = round((float)($cabeceraDetalle['total_gravado'] ?? 0), 2);
+        $totalExonerado = round((float)($cabeceraDetalle['total_exonerado'] ?? 0), 2);
+        $totalInafecto = round((float)($cabeceraDetalle['total_inafecto'] ?? 0), 2);
+        $totalExportacion = round((float)($cabeceraDetalle['total_exportacion'] ?? 0), 2);
+        $totalIgv = round((float)($cabeceraDetalle['total_igv'] ?? 0), 2);
 
-        $descuentoCabecera = round(
-            (float)($detalles[0]['descuento_total'] ?? 0),
-            2
-        );
+        echo '</tbody><tfoot>';
 
-        $totalVentaRegistrado = round(
-            (float)($detalles[0]['total_venta'] ?? 0),
-            2
-        );
-
-        $totalCalculado = round(
-            $subtotalProductos
-                - $descuentoDetalle
-                - $descuentoCabecera,
-            2
-        );
-
-        $totalVenta = $totalVentaRegistrado > 0
-            ? $totalVentaRegistrado
-            : max($totalCalculado, 0);
-
-        $descuentoTotal = max(
-            round(
-                $subtotalProductos - $totalVenta,
-                2
-            ),
-            0
-        );
-
-        $factor = 1 + ($tasaImpuesto / 100);
-
-        $baseImponible = $factor > 0
-            ? round($totalVenta / $factor, 2)
-            : $totalVenta;
-
-        $importeImpuesto = round(
-            $totalVenta - $baseImponible,
-            2
-        );
-
-        echo '
-            </tbody>
-            <tfoot>
-                <tr class="venta-resumen-fila">
-                    <th colspan="4" class="text-right">
-                        Subtotal de productos
-                    </th>
-                    <th class="text-right">' .
-            $simboloHtml . ' ' .
-            number_format($subtotalProductos, 2, '.', ',') .
-            '</th>
-                </tr>
-        ';
-
-        if ($descuentoTotal > 0) {
+        if ($descuentoTotal > 0.009) {
             echo '
                 <tr class="venta-resumen-fila venta-resumen-descuento">
-                    <th colspan="4" class="text-right">
-                        Descuento aplicado
-                    </th>
-                    <th class="text-right">
-                        − ' .
-                $simboloHtml . ' ' .
-                number_format($descuentoTotal, 2, '.', ',') .
-                '
-                    </th>
+                    <th colspan="4" class="text-right">Descuento aplicado</th>
+                    <th class="text-right">− ' . $simboloHtml . ' ' . number_format($descuentoTotal, 2, '.', ',') . '</th>
+                </tr>
+            ';
+        }
+
+        $filasTributarias = [
+            'Operación gravada' => $totalGravado,
+            'Operación exonerada' => $totalExonerado,
+            'Operación inafecta' => $totalInafecto,
+            'Exportación' => $totalExportacion,
+            $nombreImpuesto => $totalIgv
+        ];
+
+        foreach ($filasTributarias as $etiqueta => $importe) {
+            if ($importe <= 0.009 && $etiqueta !== $nombreImpuesto) {
+                continue;
+            }
+            if ($etiqueta === $nombreImpuesto && $importe <= 0.009 && $totalGravado <= 0.009) {
+                continue;
+            }
+
+            echo '
+                <tr class="venta-resumen-fila">
+                    <th colspan="4" class="text-right">' .
+                        htmlspecialchars($etiqueta, ENT_QUOTES, 'UTF-8') .
+                    '</th>
+                    <th class="text-right">' . $simboloHtml . ' ' . number_format($importe, 2, '.', ',') . '</th>
                 </tr>
             ';
         }
@@ -2003,20 +1936,9 @@ switch ($op) {
                 <tr class="venta-resumen-total">
                     <th colspan="4" class="text-right">
                         <span>Total de la venta</span>
-                        <small>
-                            Incluye ' .
-            $nombreImpuestoHtml . ' ' .
-            number_format($tasaImpuesto, 2, '.', '') .
-            '%: ' .
-            $simboloHtml . ' ' .
-            number_format($importeImpuesto, 2, '.', ',') .
-            '
-                        </small>
+                        <small>Resumen tributario guardado con el comprobante</small>
                     </th>
-                    <th class="text-right">' .
-            $simboloHtml . ' ' .
-            number_format($totalVenta, 2, '.', ',') .
-            '</th>
+                    <th class="text-right">' . $simboloHtml . ' ' . number_format($totalVenta, 2, '.', ',') . '</th>
                 </tr>
             </tfoot>
         ';
@@ -3147,6 +3069,37 @@ switch ($op) {
                 '">' .
                 $nombre .
                 '</option>';
+        }
+
+        break;
+
+    // =========================================================
+    // CONFIGURACIÓN TRIBUTARIA DE LA VENTA
+    // =========================================================
+    case 'configuracionTributariaVenta':
+
+        try {
+            $idsucursalTributaria = (int)(
+                $_SESSION['idsucursal_activa']
+                ?? 0
+            );
+
+            responderJson([
+                'success' => true,
+                'configuracion' =>
+                    $sell->obtenerConfiguracionTributariaEfectiva(
+                        $idsucursalTributaria > 0
+                            ? $idsucursalTributaria
+                            : null
+                    ),
+                'tipos_operacion' =>
+                    $sell->listarTiposOperacionSunat()
+            ]);
+        } catch (Throwable $errorTributario) {
+            responderJson([
+                'success' => false,
+                'mensaje' => $errorTributario->getMessage()
+            ]);
         }
 
         break;

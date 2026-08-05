@@ -477,6 +477,18 @@ $condicionOriginal = trim((string)($nota['condicion_pago_original'] ?? $nota['ti
 $estadoSunat = strtoupper(trim((string)($nota['estado_sunat'] ?? 'NO_ENVIADO')));
 $monedaCodigo = strtoupper(trim((string)($nota['moneda'] ?? 'PEN')));
 
+$opGravadaNota = round((float)($nota['total_gravado'] ?? $nota['valor_venta'] ?? 0), 2);
+$opExoneradaNota = round((float)($nota['total_exonerado'] ?? 0), 2);
+$opInafectaNota = round((float)($nota['total_inafecto'] ?? 0), 2);
+$opExportacionNota = round((float)($nota['total_exportacion'] ?? 0), 2);
+$igvNota = round((float)($nota['igv'] ?? 0), 2);
+$filasTributariasNota = [];
+if ($opGravadaNota > 0.009) $filasTributariasNota[] = ['Operación gravada', $opGravadaNota];
+if ($opExoneradaNota > 0.009) $filasTributariasNota[] = ['Operación exonerada', $opExoneradaNota];
+if ($opInafectaNota > 0.009) $filasTributariasNota[] = ['Operación inafecta', $opInafectaNota];
+if ($opExportacionNota > 0.009) $filasTributariasNota[] = ['Exportación', $opExportacionNota];
+if ($igvNota > 0.009 || $opGravadaNota > 0.009) $filasTributariasNota[] = ['IGV', $igvNota];
+
 $nombresPago = [];
 foreach ($pagos as $pago) {
     $nombre = trim((string)($pago['forma_pago'] ?? $pago['nombre'] ?? ''));
@@ -683,7 +695,7 @@ if ($pdf->GetY() > 208) {
 $pdf->Ln(6);
 $yResumen = $pdf->GetY();
 $filasDetalle = count($pagos) + count($ajustesCuotas);
-$altoResumen = $filasDetalle > 0 ? max(47, 27 + $filasDetalle * 5) : 47;
+$altoResumen = max(52, 25 + count($filasTributariasNota) * 5 + ((float)($nota['descuento_total'] ?? 0) > 0 ? 5 : 0), $filasDetalle > 0 ? 27 + $filasDetalle * 5 : 47);
 
 // RESUMEN IZQUIERDO
 $pdf->SetFillColor(249, 250, 251);
@@ -740,22 +752,22 @@ $pdf->Cell($wTot - 8, 4, notaPdfTexto('TOTALES'), 0, 1, 'L');
 $yLinea = $yResumen + 11;
 $pdf->SetFont('Helvetica', '', 7.5);
 $pdf->SetTextColor(55, 61, 67);
-$pdf->SetXY($xTot + 4, $yLinea);
-$pdf->Cell(40, 5, notaPdfTexto('Op. gravada'), 0, 0, 'L');
-$pdf->Cell(24, 5, number_format((float)($nota['valor_venta'] ?? 0), 2), 0, 1, 'R');
-$yLinea += 5;
 
-if ((float)($nota['descuento_total'] ?? 0) > 0) {
+foreach ($filasTributariasNota as $filaTributaria) {
     $pdf->SetXY($xTot + 4, $yLinea);
-    $pdf->Cell(40, 5, notaPdfTexto('Descuento'), 0, 0, 'L');
-    $pdf->Cell(24, 5, '- ' . number_format((float)$nota['descuento_total'], 2), 0, 1, 'R');
+    $pdf->Cell(40, 5, notaPdfTexto((string)$filaTributaria[0]), 0, 0, 'L');
+    $pdf->Cell(24, 5, number_format((float)$filaTributaria[1], 2), 0, 1, 'R');
     $yLinea += 5;
 }
 
-$pdf->SetXY($xTot + 4, $yLinea);
-$pdf->Cell(40, 5, notaPdfTexto('IGV 18%'), 0, 0, 'L');
-$pdf->Cell(24, 5, number_format((float)($nota['igv'] ?? 0), 2), 0, 1, 'R');
-$yLinea += 6;
+if ((float)($nota['descuento_total'] ?? 0) > 0) {
+    $pdf->SetXY($xTot + 4, $yLinea);
+    $pdf->Cell(40, 5, notaPdfTexto('Descuento relacionado'), 0, 0, 'L');
+    $pdf->Cell(24, 5, number_format((float)$nota['descuento_total'], 2), 0, 1, 'R');
+    $yLinea += 5;
+}
+
+$yLinea += 1;
 $pdf->SetDrawColor(190, 194, 198);
 $pdf->Line($xTot + 4, $yLinea, $xTot + $wTot - 4, $yLinea);
 $pdf->SetXY($xTot + 4, $yLinea + 2);

@@ -160,30 +160,41 @@ foreach ($rsptad as $regd) {
 }
 
 // Sumatorio de los productos y el IVA
-$total_venta = $reg['total_venta']; // Ejemplo: 20.00
-$igv = round($total_venta * 18 / 100, 2); // Calcula el IGV
-$subtotal = round($total_venta - $igv, 2); // Calcula el subtotal sin IGV
+$total_venta = (float)($reg['total_venta'] ?? 0);
+$opGravada = round((float)($reg['total_gravado'] ?? 0), 2);
+$opExonerada = round((float)($reg['total_exonerado'] ?? 0), 2);
+$opInafecta = round((float)($reg['total_inafecto'] ?? 0), 2);
+$opExportacion = round((float)($reg['total_exportacion'] ?? 0), 2);
+$igv = round((float)($reg['total_igv'] ?? 0), 2);
+if ($total_venta > 0 && $opGravada <= 0 && $opExonerada <= 0 && $opInafecta <= 0 && $opExportacion <= 0) {
+    $factor = 1 + (((float)($reg['impuesto'] ?? 18)) / 100);
+    $opGravada = round($total_venta / $factor, 2);
+    $igv = round($total_venta - $opGravada, 2);
+}
+$subtotal = round($opGravada + $opExonerada + $opInafecta + $opExportacion, 2);
 
 // Formato de los valores en el PDF
 $pdf->setX(2);
 $pdf->Cell(54, 0, '', 'T');  
 $pdf->Ln(0);
 
-// Impresión del subtotal
-$pdf->setX(2);    
-$pdf->Cell(25, 10, 'SUBTOTAL');    
-$pdf->Cell(20, 10, '', 0);
-$pdf->setX(42);
-$pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($subtotal, 2, '.', ','), 0, 0, 'R');
-$pdf->Ln(3);
-
-// Impresión del IGV
-$pdf->setX(2);    
-$pdf->Cell(25, 10, $nombre_impuesto . ' 18%', 0);    
-$pdf->Cell(20, 10, '', 0);
-$pdf->setX(42);
-$pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($igv, 2, '.', ','), 0, 0, 'R');
-$pdf->Ln(3);
+// Impresión del resumen tributario
+$totalesTributarios = [
+    'OP. GRAVADA' => $opGravada,
+    'OP. EXONERADA' => $opExonerada,
+    'OP. INAFECTA' => $opInafecta,
+    'EXPORTACIÓN' => $opExportacion,
+    'IGV' => $igv,
+];
+foreach ($totalesTributarios as $etiqueta => $importe) {
+    if ($importe <= 0.009 && $etiqueta !== 'IGV') continue;
+    if ($etiqueta === 'IGV' && $importe <= 0.009 && $opGravada <= 0.009) continue;
+    $pdf->setX(2);
+    $pdf->Cell(25, 10, utf8_decode($etiqueta));
+    $pdf->setX(42);
+    $pdf->Cell(15, 10, $new_simbolo . ' ' . number_format($importe, 2, '.', ','), 0, 0, 'R');
+    $pdf->Ln(3);
+}
 
 // Impresión del total
 $pdf->setX(2);

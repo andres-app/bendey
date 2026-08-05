@@ -21,6 +21,18 @@ let temporizadorBusquedaPedido = null;
 let indiceResultadoBusquedaPedido = -1;
 let configuracionVentaPredeterminadaCache = null;
 let configuracionVentaPredeterminadaCargada = false;
+let configuracionTributariaVentaCache = {
+    tipo_operacion_sunat: '0101',
+    codigo_afectacion_igv: '10',
+    porcentaje_igv: 18,
+    unidad_medida_sunat: 'NIU',
+    permitir_cambio_afectacion_venta: 0,
+    precios_incluyen_impuesto: 1,
+    moneda_codigo: 'PEN',
+    simbolo: 'S/'
+};
+let tiposOperacionSunatCache = [];
+let configuracionTributariaVentaCargada = false;
 
 const MODO_DUPLICACION_INICIAL = (() => {
     const parametros = new URLSearchParams(
@@ -273,6 +285,7 @@ $(document).ready(function () {
     cargarFormasPagoMixto();
     inicializarBuscadorPedido();
     inicializarConfiguracionVentaPredeterminada();
+    inicializarConfiguracionTributariaVenta();
     inicializarSwitchVentaResponsive();
 
 });
@@ -497,6 +510,183 @@ function inicializarSwitchVentaResponsive() {
 }
 
 
+
+/*
+|--------------------------------------------------------------------------
+| CONFIGURACIÓN TRIBUTARIA EFECTIVA
+|--------------------------------------------------------------------------
+*/
+function inicializarConfiguracionTributariaVenta() {
+    $.ajax({
+        url: 'Controllers/Sell.php?op=configuracionTributariaVenta',
+        type: 'GET',
+        dataType: 'json',
+        cache: false
+    }).done(function (respuesta) {
+        if (!respuesta || respuesta.success !== true) {
+            console.warn(
+                'No se pudo cargar la configuración tributaria:',
+                respuesta && respuesta.mensaje
+            );
+            return;
+        }
+
+        const configuracion = respuesta.configuracion || {};
+
+        configuracionTributariaVentaCache = {
+            ...configuracionTributariaVentaCache,
+            ...configuracion,
+            porcentaje_igv: Number(
+                configuracion.porcentaje_igv
+                ?? configuracionTributariaVentaCache.porcentaje_igv
+            ),
+            permitir_cambio_afectacion_venta: Number(
+                configuracion.permitir_cambio_afectacion_venta || 0
+            ),
+            precios_incluyen_impuesto: Number(
+                configuracion.precios_incluyen_impuesto ?? 1
+            ) === 1 ? 1 : 0
+        };
+
+        tiposOperacionSunatCache = Array.isArray(respuesta.tipos_operacion)
+            ? respuesta.tipos_operacion
+            : [];
+
+        configuracionTributariaVentaCargada = true;
+
+        renderizarTiposOperacionSunat();
+        actualizarVistaConfiguracionTributaria();
+        calcularTotales();
+    }).fail(function (xhr) {
+        console.warn(
+            'No se pudo cargar la configuración tributaria de la venta:',
+            xhr.status,
+            xhr.responseText
+        );
+    });
+
+    $(document).on('change', '#tipo_operacion_sunat', function () {
+        const opcion = $(this).find('option:selected');
+        $('#ayudaTipoOperacionSunat').text(
+            opcion.data('descripcion')
+            || 'Tipo de operación que se declarará en el comprobante electrónico.'
+        );
+    });
+}
+
+function renderizarTiposOperacionSunat() {
+    const $select = $('#tipo_operacion_sunat');
+
+    if (!$select.length) {
+        return;
+    }
+
+    $select.empty();
+
+    const lista = tiposOperacionSunatCache.length > 0
+        ? tiposOperacionSunatCache
+        : [{
+            codigo: configuracionTributariaVentaCache.tipo_operacion_sunat || '0101',
+            descripcion: 'Venta interna'
+        }];
+
+    lista.forEach(function (tipo) {
+        const codigo = String(tipo.codigo || '').trim();
+        const descripcion = String(tipo.descripcion || '').trim();
+
+        if (!codigo) {
+            return;
+        }
+
+        $select.append(
+            $('<option>', {
+                value: codigo,
+                text: codigo + ' — ' + descripcion
+            }).attr('data-descripcion', descripcion)
+        );
+    });
+
+    const predeterminado = String(
+        configuracionTributariaVentaCache.tipo_operacion_sunat || '0101'
+    );
+
+    if ($select.find(`option[value="${predeterminado}"]`).length) {
+        $select.val(predeterminado);
+    }
+
+    const permiteCambio = Number(
+        configuracionTributariaVentaCache.permitir_cambio_afectacion_venta || 0
+    ) === 1;
+
+    $select.prop('disabled', !permiteCambio);
+
+    if (!permiteCambio) {
+        $('#ayudaTipoOperacionSunat').text(
+            'Valor administrado desde Configuración tributaria de la empresa o sucursal.'
+        );
+    } else {
+        $select.trigger('change');
+    }
+}
+
+function actualizarVistaConfiguracionTributaria() {
+    const incluye = Number(
+        configuracionTributariaVentaCache.precios_incluyen_impuesto ?? 1
+    ) === 1;
+
+    $('#precios_incluyen_impuesto').val(incluye ? '1' : '0');
+
+    const afectacion = etiquetaAfectacionIgv(
+        configuracionTributariaVentaCache.codigo_afectacion_igv,
+        configuracionTributariaVentaCache.porcentaje_igv
+    );
+
+    $('#resumenConfiguracionTributaria strong').text(
+        (incluye
+            ? 'Precios con impuesto incluido'
+            : 'Precios sin impuesto incluido')
+        + ' · '
+        + afectacion
+    );
+}
+
+function etiquetaAfectacionIgv(codigo, porcentaje) {
+    const codigoNormalizado = String(codigo || '10');
+    const tasa = Number(porcentaje || 0);
+
+    switch (codigoNormalizado) {
+        case '20':
+            return 'Exonerado';
+        case '30':
+            return 'Inafecto';
+        case '40':
+            return 'Exportación';
+        case '10':
+        default:
+            return 'Gravado ' + tasa.toFixed(2).replace(/\.00$/, '') + '%';
+    }
+}
+
+function claseAfectacionIgv(codigo) {
+    return 'tax-' + String(codigo || '10').replace(/[^0-9]/g, '');
+}
+
+function calcularImporteBrutoTributario(cantidad, precio, codigo, porcentaje) {
+    const importeEntrada = Math.max(
+        Number(cantidad || 0) * Number(precio || 0),
+        0
+    );
+
+    const incluye = Number(
+        configuracionTributariaVentaCache.precios_incluyen_impuesto ?? 1
+    ) === 1;
+
+    if (!incluye && String(codigo) === '10') {
+        return importeEntrada * (1 + (Number(porcentaje || 0) / 100));
+    }
+
+    return importeEntrada;
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -1047,6 +1237,9 @@ function guardarVenta() {
                     aplicarConfiguracionVentaPredeterminada({
                         despuesDeGuardar: true
                     });
+
+                    renderizarTiposOperacionSunat();
+                    calcularTotales();
                 }, 50);
 
                 /*
@@ -1134,42 +1327,184 @@ function sincronizarTotalRecibido() {
 
 // 6. CALCULA TOTALES (puedes adaptar según tus campos)
 function calcularTotales() {
+    const lineas = [];
     let subtotal = 0;
 
-    $("span[name='subtotal']").each(function () {
-        subtotal += parseFloat($(this).text()) || 0;
+    $('#detallesCards .filas').each(function () {
+        const $fila = $(this);
+        const cantidad = Number(
+            $fila.find("input[name='cantidad[]']").val()
+        ) || 0;
+        const precio = Number(
+            $fila.find("input[name='precio_venta[]']").val()
+        ) || 0;
+        const codigo = String(
+            $fila.find("input[name='codigo_afectacion_igv[]']").val()
+            || configuracionTributariaVentaCache.codigo_afectacion_igv
+            || '10'
+        );
+        const porcentaje = codigo === '10'
+            ? Number(
+                $fila.find("input[name='porcentaje_igv[]']").val()
+                || configuracionTributariaVentaCache.porcentaje_igv
+                || 0
+            )
+            : 0;
+        const bruto = redondearVenta(
+            calcularImporteBrutoTributario(
+                cantidad,
+                precio,
+                codigo,
+                porcentaje
+            ),
+            2
+        );
+
+        const idSubtotal = $fila.find("span[name='subtotal']");
+        idSubtotal.text(bruto.toFixed(2));
+
+        lineas.push({
+            codigo: codigo,
+            porcentaje: porcentaje,
+            bruto: bruto
+        });
+
+        subtotal += bruto;
     });
 
-    let descuento = 0;
-    let valor = parseFloat($('#descuentoPorcentaje').val()) || 0;
-    let esPorcentaje = $('#descuentoSwitch').is(':checked');
+    subtotal = redondearVenta(subtotal, 2);
 
-    if (valor > 0) {
-        if (esPorcentaje) {
-            // ✅ DESCUENTO EN %
-            descuento = subtotal * (valor / 100);
-        } else {
-            // ✅ DESCUENTO EN SOLES
-            descuento = valor;
-        }
+    let valorDescuento = Number.parseFloat(
+        $('#descuentoPorcentaje').val()
+    ) || 0;
+    const esPorcentaje = $('#descuentoSwitch').is(':checked');
+
+    let descuento = 0;
+
+    if (valorDescuento > 0) {
+        descuento = esPorcentaje
+            ? subtotal * (valorDescuento / 100)
+            : valorDescuento;
     }
 
-    if (descuento > subtotal) descuento = subtotal;
+    descuento = redondearVenta(
+        Math.min(Math.max(descuento, 0), subtotal),
+        2
+    );
 
-    let totalFinal = subtotal - descuento;
-    if (totalFinal < 0) totalFinal = 0;
+    let descuentoAsignado = 0;
+    let totalGravado = 0;
+    let totalExonerado = 0;
+    let totalInafecto = 0;
+    let totalExportacion = 0;
+    let totalIgv = 0;
+    let totalFinal = 0;
 
-    $("#totalGeneral").text("S/" + totalFinal.toFixed(2));
-    $("#totalPedidoHeader").text("S/ " + totalFinal.toFixed(2));
+    lineas.forEach(function (linea, indice) {
+        let descuentoLinea = 0;
 
-    // 🔒 BACKEND (SIEMPRE CLARO)
+        if (indice === lineas.length - 1) {
+            descuentoLinea = redondearVenta(
+                descuento - descuentoAsignado,
+                2
+            );
+        } else if (subtotal > 0) {
+            descuentoLinea = redondearVenta(
+                descuento * (linea.bruto / subtotal),
+                2
+            );
+            descuentoAsignado += descuentoLinea;
+        }
+
+        descuentoLinea = Math.min(
+            Math.max(descuentoLinea, 0),
+            linea.bruto
+        );
+
+        const totalLinea = redondearVenta(
+            linea.bruto - descuentoLinea,
+            2
+        );
+
+        if (linea.codigo === '10' && linea.porcentaje > 0) {
+            const factor = 1 + (linea.porcentaje / 100);
+            const base = redondearVenta(totalLinea / factor, 2);
+            const igv = redondearVenta(totalLinea - base, 2);
+
+            totalGravado += base;
+            totalIgv += igv;
+        } else if (linea.codigo === '20') {
+            totalExonerado += totalLinea;
+        } else if (linea.codigo === '30') {
+            totalInafecto += totalLinea;
+        } else if (linea.codigo === '40') {
+            totalExportacion += totalLinea;
+        }
+
+        totalFinal += totalLinea;
+    });
+
+    totalGravado = redondearVenta(totalGravado, 2);
+    totalExonerado = redondearVenta(totalExonerado, 2);
+    totalInafecto = redondearVenta(totalInafecto, 2);
+    totalExportacion = redondearVenta(totalExportacion, 2);
+    totalIgv = redondearVenta(totalIgv, 2);
+    totalFinal = redondearVenta(totalFinal, 2);
+
+    $('#totalGeneral').text('S/' + totalFinal.toFixed(2));
+    $('#totalPedidoHeader').text('S/ ' + totalFinal.toFixed(2));
+
     $('#descuento_total').val(descuento.toFixed(2));
-    $('#descuento_porcentaje').val(esPorcentaje ? valor : 0);
+    $('#descuento_porcentaje').val(
+        esPorcentaje ? valorDescuento : 0
+    );
 
-    sincronizarTotalRecibido?.();
-    recalcularCuotasCredito?.();
+    $('#total_gravado').val(totalGravado.toFixed(2));
+    $('#total_exonerado').val(totalExonerado.toFixed(2));
+    $('#total_inafecto').val(totalInafecto.toFixed(2));
+    $('#total_exportacion').val(totalExportacion.toFixed(2));
+    $('#total_igv').val(totalIgv.toFixed(2));
+
+    $('#resumenOperacionGravada').text(monedaTributaria(totalGravado));
+    $('#resumenOperacionExonerada').text(monedaTributaria(totalExonerado));
+    $('#resumenOperacionInafecta').text(monedaTributaria(totalInafecto));
+    $('#resumenOperacionExportacion').text(monedaTributaria(totalExportacion));
+    $('#resumenIgvVenta').text(monedaTributaria(totalIgv));
+
+    const clasificaciones = lineas.reduce(function (acumulado, linea) {
+        acumulado.add(linea.codigo);
+        return acumulado;
+    }, new Set());
+
+    $('#mensajeTributarioVenta').text(
+        lineas.length === 0
+            ? 'Agrega productos para visualizar el resumen tributario.'
+            : clasificaciones.size > 1
+                ? 'Venta mixta: el sistema separará automáticamente las operaciones por afectación al IGV.'
+                : 'La tributación se obtuvo de la configuración registrada en los productos.'
+    );
+
+    if (typeof sincronizarTotalRecibido === 'function') {
+        sincronizarTotalRecibido();
+    }
+
+    if (typeof recalcularCuotasCredito === 'function') {
+        recalcularCuotasCredito();
+    }
 }
 
+function redondearVenta(numero, decimales = 2) {
+    const factor = Math.pow(10, decimales);
+    return Math.round((Number(numero || 0) + Number.EPSILON) * factor) / factor;
+}
+
+function monedaTributaria(valor) {
+    const simbolo = String(
+        configuracionTributariaVentaCache.simbolo || 'S/'
+    );
+
+    return simbolo + ' ' + Number(valor || 0).toFixed(2);
+}
 
 
 function recalcularCuotasCredito() {
@@ -1771,7 +2106,11 @@ function agregarProductoDesdeBusquedaPedido(indice) {
         Number.parseFloat(producto.precio_compra) || 0,
         Number.parseFloat(producto.precio_venta) || 0,
         stock,
-        1
+        1,
+        String(producto.codigo_afectacion_igv || '10'),
+        Number(producto.porcentaje_igv ?? 18),
+        String(producto.unidad_medida_sunat || 'NIU'),
+        String(producto.codigo_producto_sunat || '')
     );
 
     limpiarBuscadorPedido(true);
@@ -2530,7 +2869,11 @@ function guardarProductoRapido() {
                 Number.parseFloat(producto.precio_compra) || 0,
                 Number.parseFloat(producto.precio_venta) || 0,
                 Number.parseInt(producto.stock, 10) || 1,
-                1
+                1,
+                String(producto.codigo_afectacion_igv || '10'),
+                Number(producto.porcentaje_igv ?? 18),
+                String(producto.unidad_medida_sunat || 'NIU'),
+                String(producto.codigo_producto_sunat || '')
             );
 
             Swal.fire({
@@ -2712,6 +3055,16 @@ function renderProductos(data) {
             const precioCompra = Number.parseFloat(prod.precio_compra) || 0;
             const precioVenta = Number.parseFloat(prod.precio_venta) || 0;
             const stock = Number.parseInt(prod.stock, 10) || 0;
+            const codigoAfectacion = String(prod.codigo_afectacion_igv || '10');
+            const porcentajeIgv = codigoAfectacion === '10'
+                ? Number(prod.porcentaje_igv ?? 18)
+                : 0;
+            const unidadSunat = String(prod.unidad_medida_sunat || 'NIU');
+            const codigoProductoSunat = String(prod.codigo_producto_sunat || '');
+            const etiquetaImpuesto = etiquetaAfectacionIgv(
+                codigoAfectacion,
+                porcentajeIgv
+            );
 
             const codigoHtml = escaparHtmlProducto(codigo);
             const nombreHtml = escaparHtmlProducto(nombre);
@@ -2732,7 +3085,11 @@ function renderProductos(data) {
                         data-nombre="${nombreHtml}"
                         data-precio-compra="${precioCompra}"
                         data-precio-venta="${precioVenta}"
-                        data-stock="${stock}">
+                        data-stock="${stock}"
+                        data-codigo-afectacion="${codigoAfectacion}"
+                        data-porcentaje-igv="${porcentajeIgv}"
+                        data-unidad-sunat="${unidadSunat}"
+                        data-codigo-producto-sunat="${escaparHtmlProducto(codigoProductoSunat)}">
 
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex align-items-start" style="gap:13px;">
@@ -2748,6 +3105,9 @@ function renderProductos(data) {
                                     <div class="producto-codigo mt-1" title="${codigoHtml}">
                                         Código: ${codigoHtml || 'Sin código'}
                                     </div>
+                                    <span class="venta-product-tax-badge ${claseAfectacionIgv(codigoAfectacion)}">
+                                        ${escaparHtmlProducto(etiquetaImpuesto)}
+                                    </span>
                                 </div>
                             </div>
 
@@ -2799,7 +3159,11 @@ $(document).on(
                 $producto.attr('data-precio-venta')
             ) || 0,
             Number.parseInt($producto.attr('data-stock'), 10) || 0,
-            1
+            1,
+            String($producto.attr('data-codigo-afectacion') || '10'),
+            Number($producto.attr('data-porcentaje-igv') || 18),
+            String($producto.attr('data-unidad-sunat') || 'NIU'),
+            String($producto.attr('data-codigo-producto-sunat') || '')
         );
     }
 );
@@ -2953,7 +3317,11 @@ function agregarDetalle(
     precio_compra,
     precio_venta,
     stock,
-    op
+    op,
+    codigo_afectacion_igv = '10',
+    porcentaje_igv = 18,
+    unidad_medida_sunat = 'NIU',
+    codigo_producto_sunat = ''
 ) {
     if (!idarticulo || idarticulo === 0) {
         Swal.fire("Error", "Artículo inválido", "error");
@@ -3010,7 +3378,40 @@ function agregarDetalle(
 
     let cantidad = 1;
     let descuento = 0;
-    let subtotal = cantidad * precio_venta;
+
+    codigo_afectacion_igv = String(
+        codigo_afectacion_igv
+        || configuracionTributariaVentaCache.codigo_afectacion_igv
+        || '10'
+    );
+
+    porcentaje_igv = codigo_afectacion_igv === '10'
+        ? Number(
+            porcentaje_igv
+            ?? configuracionTributariaVentaCache.porcentaje_igv
+            ?? 18
+        )
+        : 0;
+
+    unidad_medida_sunat = String(
+        unidad_medida_sunat
+        || configuracionTributariaVentaCache.unidad_medida_sunat
+        || 'NIU'
+    ).toUpperCase();
+
+    codigo_producto_sunat = String(codigo_producto_sunat || '');
+
+    let subtotal = calcularImporteBrutoTributario(
+        cantidad,
+        precio_venta,
+        codigo_afectacion_igv,
+        porcentaje_igv
+    );
+
+    const etiquetaTributaria = etiquetaAfectacionIgv(
+        codigo_afectacion_igv,
+        porcentaje_igv
+    );
 
     let card = `
         <div class="card border-0 shadow-sm mb-3 bg-white filas" id="fila${cont}">
@@ -3021,12 +3422,20 @@ function agregarDetalle(
                 <input type="hidden" name="idarticulo[]" value="${idarticulo}">
                 <input type="hidden" name="precio_compra[]" value="${precio_compra}">
                 <input type="hidden" name="descuento[]" value="${descuento}">
+                <input type="hidden" name="codigo_afectacion_igv[]" value="${codigo_afectacion_igv}">
+                <input type="hidden" name="porcentaje_igv[]" value="${porcentaje_igv}">
+                <input type="hidden" name="unidad_medida_sunat[]" value="${unidad_medida_sunat}">
+                <input type="hidden" name="codigo_producto_sunat[]" value="${codigo_producto_sunat}">
 
                 <!-- INFO PRODUCTO -->
                 <div>
                     <div class="fw-bold fs-6 mb-1 text-dark">${articulo}</div>
                     <div class="text-muted small">Almacén: Principal</div>
                     <div class="text-muted small">SKU: ${codigo}</div>
+                    <span class="venta-product-tax-badge ${claseAfectacionIgv(codigo_afectacion_igv)}">
+                        <i class="fas fa-receipt"></i>
+                        ${etiquetaTributaria}
+                    </span>
 
                     <div class="text-muted small">
                         Precio Unitario:
@@ -3487,7 +3896,11 @@ function agregarProductoEncontradoPorCodigo(producto, codigoLimpio) {
         Number.parseFloat(producto.precio_compra) || 0,
         Number.parseFloat(producto.precio_venta) || 0,
         stock,
-        1
+        1,
+        String(producto.codigo_afectacion_igv || '10'),
+        Number(producto.porcentaje_igv ?? 18),
+        String(producto.unidad_medida_sunat || 'NIU'),
+        String(producto.codigo_producto_sunat || '')
     );
 
     return true;

@@ -687,16 +687,18 @@ $descuentoPorcentaje = (float) (
 );
 
 // Subtotal antes del descuento
-$subtotal = round(
-    $total + $descuentoTotal,
-    2
-);
+$subtotal = round($total + $descuentoTotal, 2);
+$opGravada = round((float)($reg['total_gravado'] ?? 0), 2);
+$opExonerada = round((float)($reg['total_exonerado'] ?? 0), 2);
+$opInafecta = round((float)($reg['total_inafecto'] ?? 0), 2);
+$opExportacion = round((float)($reg['total_exportacion'] ?? 0), 2);
+$igv = round((float)($reg['total_igv'] ?? 0), 2);
 
-// Conserva el cálculo usado actualmente por el sistema
-$igv = round(
-    $total * $porcIgv / 100,
-    2
-);
+if ($total > 0 && $opGravada <= 0 && $opExonerada <= 0 && $opInafecta <= 0 && $opExportacion <= 0) {
+    $factor = $porcIgv > 0 ? 1 + ($porcIgv / 100) : 1;
+    $opGravada = $factor > 1 ? round($total / $factor, 2) : $total;
+    $igv = round($total - $opGravada, 2);
+}
 
 // ===============================
 // LÍNEA ANTES DE TOTALES
@@ -713,129 +715,30 @@ $pdf->Cell(
 $pdf->Ln(2);
 
 // ===============================
-// SUBTOTAL
+// RESUMEN TRIBUTARIO
 // ===============================
-$pdf->SetFont(
-    'Helvetica',
-    '',
-    8
-);
+$pdf->SetFont('Helvetica', '', 8);
 
-$pdf->Cell(
-    40,
-    5,
-    textoPdf('SUBTOTAL'),
-    0,
-    0,
-    'L'
-);
-
-$pdf->Cell(
-    36,
-    5,
-    textoPdf(
-        $simbolo .
-        ' ' .
-        number_format(
-            $subtotal,
-            2
-        )
-    ),
-    0,
-    1,
-    'R'
-);
-
-// ===============================
-// DESCUENTO
-// ===============================
 if ($descuentoTotal > 0) {
-
-    $porcentajeDescuentoTexto = rtrim(
-        rtrim(
-            number_format(
-                $descuentoPorcentaje,
-                2
-            ),
-            '0'
-        ),
-        '.'
-    );
-
-    $pdf->Cell(
-        40,
-        5,
-        textoPdf(
-            'DESCUENTO ' .
-            $porcentajeDescuentoTexto .
-            '%'
-        ),
-        0,
-        0,
-        'L'
-    );
-
-    $pdf->Cell(
-        36,
-        5,
-        textoPdf(
-            '- ' .
-            $simbolo .
-            ' ' .
-            number_format(
-                $descuentoTotal,
-                2
-            )
-        ),
-        0,
-        1,
-        'R'
-    );
+    $pdf->Cell(40, 5, textoPdf('SUBTOTAL'), 0, 0, 'L');
+    $pdf->Cell(36, 5, textoPdf($simbolo . ' ' . number_format($subtotal, 2)), 0, 1, 'R');
+    $pdf->Cell(40, 5, textoPdf('DESCUENTO'), 0, 0, 'L');
+    $pdf->Cell(36, 5, textoPdf('- ' . $simbolo . ' ' . number_format($descuentoTotal, 2)), 0, 1, 'R');
 }
 
-// ===============================
-// IGV
-// ===============================
-$porcentajeIgvTexto = rtrim(
-    rtrim(
-        number_format(
-            $porcIgv,
-            2
-        ),
-        '0'
-    ),
-    '.'
-);
-
-$pdf->Cell(
-    40,
-    5,
-    textoPdf(
-        $impuesto .
-        ' ' .
-        $porcentajeIgvTexto .
-        '%'
-    ),
-    0,
-    0,
-    'L'
-);
-
-$pdf->Cell(
-    36,
-    5,
-    textoPdf(
-        $simbolo .
-        ' ' .
-        number_format(
-            $igv,
-            2
-        )
-    ),
-    0,
-    1,
-    'R'
-);
+$totalesTributarios = [
+    'OP. GRAVADA' => $opGravada,
+    'OP. EXONERADA' => $opExonerada,
+    'OP. INAFECTA' => $opInafecta,
+    'EXPORTACIÓN' => $opExportacion,
+    $impuesto . ' ' . rtrim(rtrim(number_format($porcIgv, 2, '.', ''), '0'), '.') . '%' => $igv,
+];
+foreach ($totalesTributarios as $etiqueta => $importe) {
+    if ($importe <= 0.009 && !str_starts_with($etiqueta, $impuesto)) continue;
+    if (str_starts_with($etiqueta, $impuesto) && $importe <= 0.009 && $opGravada <= 0.009) continue;
+    $pdf->Cell(40, 5, textoPdf($etiqueta), 0, 0, 'L');
+    $pdf->Cell(36, 5, textoPdf($simbolo . ' ' . number_format($importe, 2)), 0, 1, 'R');
+}
 
 // ===============================
 // TOTAL

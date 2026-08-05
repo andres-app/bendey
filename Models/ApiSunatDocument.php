@@ -8,9 +8,6 @@ class ApiSunatDocument
 {
     private Conexion $conexion;
 
-    private const MONEDA = 'PEN';
-    private const TASA_IGV = 18.00;
-    private const FACTOR_IGV = 1.18;
 
     public function __construct(?Conexion $conexion = null)
     {
@@ -19,9 +16,10 @@ class ApiSunatDocument
             : new Conexion();
     }
 
+
     /**
      * Construye el payload tributario de una factura o boleta.
-     * Este método NO envía nada a APISUNAT.
+     * Utiliza el historial tributario guardado en detalle_venta.
      */
     public function construir(int $idventa): array
     {
@@ -44,152 +42,71 @@ class ApiSunatDocument
         $tipoSunat = $this->obtenerTipoSunat(
             (string)$venta['tipo_comprobante']
         );
-
-        $serie = strtoupper(
-            trim((string)$venta['serie_comprobante'])
-        );
-
+        $serie = strtoupper(trim((string)$venta['serie_comprobante']));
         $numero = str_pad(
             (string)(int)$venta['num_comprobante'],
             8,
             '0',
             STR_PAD_LEFT
         );
+        $this->validarSerie($tipoSunat, $serie);
 
-        $this->validarSerie(
-            $tipoSunat,
-            $serie
+        $moneda = strtoupper(
+            trim((string)($venta['moneda_codigo'] ?? 'PEN'))
         );
+        if (!preg_match('/^[A-Z]{3}$/', $moneda)) {
+            $moneda = 'PEN';
+        }
 
-        $rucEmisor = $this->obtenerRucEmpresa(
-            $empresa
+        $tipoOperacion = trim(
+            (string)($venta['tipo_operacion_sunat'] ?? '0101')
         );
+        if (!preg_match('/^\d{4}$/', $tipoOperacion)) {
+            $tipoOperacion = '0101';
+        }
 
-        $razonSocial = trim(
-            (string)($empresa['nombre'] ?? '')
-        );
+        $rucEmisor = $this->obtenerRucEmpresa($empresa);
+        $razonSocial = trim((string)($empresa['nombre'] ?? ''));
+        $direccionEmpresa = trim((string)($empresa['direccion'] ?? ''));
 
-        $direccionEmpresa = trim(
-            (string)($empresa['direccion'] ?? '')
-        );
-
-        if ($razonSocial === '') {
+        if ($razonSocial === '' || $direccionEmpresa === '') {
             throw new RuntimeException(
-                'Falta la razón social en datos_negocio.'
+                'Complete la razón social y dirección del negocio.'
             );
         }
 
-        if ($direccionEmpresa === '') {
-            throw new RuntimeException(
-                'Falta la dirección del negocio.'
-            );
-        }
-
-        $descuentoTotal = round(
-            (float)($venta['descuento_total'] ?? 0),
-            2
-        );
-
-        /*
-         * El descuento registrado en venta.descuento_total es global
-         * y está expresado en el precio final, incluido IGV.
-         *
-         * Más adelante se convertirá a valor de venta sin IGV para
-         * declararlo mediante cac:AllowanceCharge con el código 02
-         * del catálogo SUNAT N.° 53.
-         */
-        if ($descuentoTotal < 0) {
-            throw new RuntimeException(
-                'El descuento total de la venta no puede ser negativo.'
-            );
-        }
-
-        /*
-|--------------------------------------------------------------------------
-| CONDICIÓN DE PAGO SUNAT
-|--------------------------------------------------------------------------
-| tipo_pago puede almacenarse como:
-| 1 = Contado
-| 4 = Crédito
-| o directamente como texto.
-|
-| La forma de pago Efectivo, Yape, Tarjeta, etc. es diferente
-| de la condición tributaria Contado/Crédito.
-*/
-        /*
-|--------------------------------------------------------------------------
-| CONDICIÓN DE PAGO
-|--------------------------------------------------------------------------
-| Valores admitidos:
-| - 1 o Contado
-| - 4 o Crédito
-*/
         $tipoPago = $this->normalizarTexto(
-            (string)(
-                $venta['tipo_pago']
-                ?? ''
-            )
+            (string)($venta['tipo_pago'] ?? '')
         );
-
-        $esContado = (
-            $tipoPago === '1'
+        $esContado = $tipoPago === '1'
             || $tipoPago === 'CONTADO'
-            || str_contains(
-                $tipoPago,
-                'CONTADO'
-            )
-        );
-
-        $esCredito = (
-            $tipoPago === '4'
+            || str_contains($tipoPago, 'CONTADO');
+        $esCredito = $tipoPago === '4'
             || $tipoPago === 'CREDITO'
-            || str_contains(
-                $tipoPago,
-                'CREDITO'
-            )
-        );
+            || str_contains($tipoPago, 'CREDITO');
 
         if (!$esContado && !$esCredito) {
             throw new RuntimeException(
-                'No se pudo determinar si la venta es al contado o al crédito.'
+                'No se pudo determinar la condición de pago.'
             );
         }
-
-        if (
-            $esCredito
-            && $tipoSunat !== '01'
-        ) {
+        if ($esCredito && $tipoSunat !== '01') {
             throw new RuntimeException(
                 'El pago al crédito está habilitado únicamente para facturas electrónicas.'
             );
         }
 
         $cliente = [
-            'tipo_documento' => trim(
-                (string)($venta['tipo_documento'] ?? '')
-            ),
-            'num_documento' => preg_replace(
-                '/\D/',
-                '',
-                (string)($venta['num_documento'] ?? '')
-            ),
-            'nombre' => trim(
-                (string)($venta['cliente'] ?? '')
-            ),
-            'direccion' => trim(
-                (string)($venta['direccion_cliente'] ?? '')
-            ),
-            'email' => trim(
-                (string)($venta['email_cliente'] ?? '')
-            )
+            'tipo_documento' => trim((string)($venta['tipo_documento'] ?? '')),
+            'num_documento' => preg_replace('/\D/', '', (string)($venta['num_documento'] ?? '')),
+            'nombre' => trim((string)($venta['cliente'] ?? '')),
+            'direccion' => trim((string)($venta['direccion_cliente'] ?? '')),
+            'email' => trim((string)($venta['email_cliente'] ?? ''))
         ];
-
-        $tipoDocumentoCliente =
-            $this->obtenerTipoDocumentoCliente(
-                $cliente['tipo_documento'],
-                $cliente['num_documento']
-            );
-
+        $tipoDocumentoCliente = $this->obtenerTipoDocumentoCliente(
+            $cliente['tipo_documento'],
+            $cliente['num_documento']
+        );
         $this->validarCliente(
             $tipoSunat,
             $tipoDocumentoCliente,
@@ -202,699 +119,344 @@ class ApiSunatDocument
         );
 
         $lineas = [];
-        $totalBase = 0.00;
+        $gruposTributo = [];
+        $totalExtension = 0.00;
         $totalIgv = 0.00;
-        $totalDocumentoCalculado = 0.00;
-
+        $totalDocumento = 0.00;
         $numeroLinea = 1;
 
         foreach ($detalles as $detalle) {
-            $cantidad = (float)$detalle['cantidad'];
-            $precioConIgv = round(
-                (float)$detalle['precio_venta'],
-                2
-            );
-
+            $cantidad = round((float)($detalle['cantidad'] ?? 0), 3);
             if ($cantidad <= 0) {
                 throw new RuntimeException(
                     'Existe un producto con cantidad inválida.'
                 );
             }
 
-            if ($precioConIgv < 0) {
-                throw new RuntimeException(
-                    'Existe un producto con precio inválido.'
-                );
+            $afectacion = trim((string)($detalle['codigo_afectacion_igv'] ?? '10'));
+            if (!in_array($afectacion, ['10','20','30','40'], true)) {
+                $afectacion = '10';
             }
 
-            $importeConIgv = round(
-                $cantidad * $precioConIgv,
-                2
-            );
+            $porcentaje = $afectacion === '10'
+                ? round((float)($detalle['porcentaje_igv'] ?? $venta['impuesto'] ?? 18), 2)
+                : 0.00;
 
-            $baseLinea = round(
-                $importeConIgv / self::FACTOR_IGV,
-                2
-            );
+            $baseLinea = round((float)($detalle['base_imponible'] ?? 0), 2);
+            $igvLinea = round((float)($detalle['monto_igv'] ?? 0), 2);
+            $totalLinea = round((float)($detalle['total_linea'] ?? 0), 2);
 
-            $igvLinea = round(
-                $importeConIgv - $baseLinea,
-                2
-            );
+            // Compatibilidad con ventas anteriores a la migración.
+            if ($totalLinea <= 0) {
+                $totalLinea = round(
+                    $cantidad * (float)($detalle['precio_venta'] ?? 0)
+                    - (float)($detalle['descuento'] ?? 0),
+                    2
+                );
+            }
+            if ($baseLinea <= 0 && $totalLinea > 0) {
+                if ($afectacion === '10' && $porcentaje > 0) {
+                    $baseLinea = round(
+                        $totalLinea / (1 + ($porcentaje / 100)),
+                        2
+                    );
+                    $igvLinea = round($totalLinea - $baseLinea, 2);
+                } else {
+                    $baseLinea = $totalLinea;
+                    $igvLinea = 0.00;
+                }
+            }
 
-            $precioUnitarioSinIgv = round(
-                $precioConIgv / self::FACTOR_IGV,
+            $valorUnitario = round(
+                (float)($detalle['valor_unitario_sin_igv'] ?? 0),
                 6
             );
+            if ($valorUnitario <= 0) {
+                $valorUnitario = round($baseLinea / $cantidad, 6);
+            }
+            $precioConImpuesto = round($totalLinea / $cantidad, 6);
 
             $unidad = $this->normalizarUnidadSunat(
-                (string)($detalle['unidad_codigo'] ?? '')
+                (string)($detalle['unidad_medida_sunat'] ?? $detalle['unidad_codigo'] ?? '')
             );
-
-            $descripcion = trim(
-                (string)($detalle['nombre_articulo'] ?? '')
-            );
-
+            $descripcion = trim((string)($detalle['nombre_articulo'] ?? ''));
             if ($descripcion === '') {
                 throw new RuntimeException(
                     'Existe un producto sin descripción.'
                 );
             }
 
+            $tributo = $this->datosTributoPorAfectacion($afectacion);
+            $claveGrupo = $afectacion . '|' . $tributo['codigo'];
+            if (!isset($gruposTributo[$claveGrupo])) {
+                $gruposTributo[$claveGrupo] = [
+                    'afectacion' => $afectacion,
+                    'porcentaje' => $porcentaje,
+                    'codigo' => $tributo['codigo'],
+                    'nombre' => $tributo['nombre'],
+                    'tipo' => $tributo['tipo'],
+                    'base' => 0.00,
+                    'impuesto' => 0.00
+                ];
+            }
+            $gruposTributo[$claveGrupo]['base'] += $baseLinea;
+            $gruposTributo[$claveGrupo]['impuesto'] += $igvLinea;
+
+            $item = [
+                'cbc:Description' => ['_text' => $descripcion]
+            ];
+            $codigoArticulo = trim((string)($detalle['codigo'] ?? ''));
+            if ($codigoArticulo !== '') {
+                $item['cac:SellersItemIdentification'] = [
+                    'cbc:ID' => ['_text' => $codigoArticulo]
+                ];
+            }
+            $codigoProductoSunat = trim((string)($detalle['codigo_producto_sunat'] ?? ''));
+            if ($codigoProductoSunat !== '') {
+                $item['cac:CommodityClassification'] = [
+                    'cbc:ItemClassificationCode' => [
+                        '_attributes' => ['listID' => 'UNSPSC'],
+                        '_text' => $codigoProductoSunat
+                    ]
+                ];
+            }
+
             $lineas[] = [
-                'cbc:ID' => [
-                    '_text' => $numeroLinea
-                ],
-
+                'cbc:ID' => ['_text' => $numeroLinea],
                 'cbc:InvoicedQuantity' => [
-                    '_attributes' => [
-                        'unitCode' => $unidad
-                    ],
-                    '_text' => $this->numeroJson(
-                        $cantidad,
-                        2
-                    )
+                    '_attributes' => ['unitCode' => $unidad],
+                    '_text' => $this->numeroJson($cantidad, 3)
                 ],
-
                 'cbc:LineExtensionAmount' => [
-                    '_attributes' => [
-                        'currencyID' => self::MONEDA
-                    ],
-                    '_text' => $this->numeroJson(
-                        $baseLinea,
-                        2
-                    )
+                    '_attributes' => ['currencyID' => $moneda],
+                    '_text' => $this->numeroJson($baseLinea, 2)
                 ],
-
                 'cac:PricingReference' => [
                     'cac:AlternativeConditionPrice' => [
                         'cbc:PriceAmount' => [
-                            '_attributes' => [
-                                'currencyID' => self::MONEDA
-                            ],
-                            '_text' => $this->numeroJson(
-                                $precioConIgv,
-                                2
-                            )
+                            '_attributes' => ['currencyID' => $moneda],
+                            '_text' => $this->numeroJson($precioConImpuesto, 6)
                         ],
-
-                        'cbc:PriceTypeCode' => [
-                            '_text' => '01'
-                        ]
+                        'cbc:PriceTypeCode' => ['_text' => '01']
                     ]
                 ],
-
                 'cac:TaxTotal' => [
                     'cbc:TaxAmount' => [
-                        '_attributes' => [
-                            'currencyID' => self::MONEDA
-                        ],
-                        '_text' => $this->numeroJson(
-                            $igvLinea,
-                            2
-                        )
+                        '_attributes' => ['currencyID' => $moneda],
+                        '_text' => $this->numeroJson($igvLinea, 2)
                     ],
-
-                    'cac:TaxSubtotal' => [
-                        [
-                            'cbc:TaxableAmount' => [
-                                '_attributes' => [
-                                    'currencyID' => self::MONEDA
-                                ],
-                                '_text' => $this->numeroJson(
-                                    $baseLinea,
-                                    2
-                                )
-                            ],
-
-                            'cbc:TaxAmount' => [
-                                '_attributes' => [
-                                    'currencyID' => self::MONEDA
-                                ],
-                                '_text' => $this->numeroJson(
-                                    $igvLinea,
-                                    2
-                                )
-                            ],
-
-                            'cac:TaxCategory' => [
-                                'cbc:Percent' => [
-                                    '_text' => self::TASA_IGV
-                                ],
-
-                                'cbc:TaxExemptionReasonCode' => [
-                                    '_text' => '10'
-                                ],
-
-                                'cac:TaxScheme' => [
-                                    'cbc:ID' => [
-                                        '_text' => '1000'
-                                    ],
-
-                                    'cbc:Name' => [
-                                        '_text' => 'IGV'
-                                    ],
-
-                                    'cbc:TaxTypeCode' => [
-                                        '_text' => 'VAT'
-                                    ]
-                                ]
+                    'cac:TaxSubtotal' => [[
+                        'cbc:TaxableAmount' => [
+                            '_attributes' => ['currencyID' => $moneda],
+                            '_text' => $this->numeroJson($baseLinea, 2)
+                        ],
+                        'cbc:TaxAmount' => [
+                            '_attributes' => ['currencyID' => $moneda],
+                            '_text' => $this->numeroJson($igvLinea, 2)
+                        ],
+                        'cac:TaxCategory' => [
+                            'cbc:Percent' => ['_text' => $this->numeroJson($porcentaje, 2)],
+                            'cbc:TaxExemptionReasonCode' => ['_text' => $afectacion],
+                            'cac:TaxScheme' => [
+                                'cbc:ID' => ['_text' => $tributo['codigo']],
+                                'cbc:Name' => ['_text' => $tributo['nombre']],
+                                'cbc:TaxTypeCode' => ['_text' => $tributo['tipo']]
                             ]
                         ]
-                    ]
+                    ]]
                 ],
-
-                'cac:Item' => [
-                    'cbc:Description' => [
-                        '_text' => $descripcion
-                    ]
-                ],
-
+                'cac:Item' => $item,
                 'cac:Price' => [
                     'cbc:PriceAmount' => [
-                        '_attributes' => [
-                            'currencyID' => self::MONEDA
-                        ],
-                        '_text' => $this->numeroJson(
-                            $precioUnitarioSinIgv,
-                            6
-                        )
+                        '_attributes' => ['currencyID' => $moneda],
+                        '_text' => $this->numeroJson($valorUnitario, 6)
                     ]
                 ]
             ];
 
-            $totalBase += $baseLinea;
+            $totalExtension += $baseLinea;
             $totalIgv += $igvLinea;
-            $totalDocumentoCalculado += $importeConIgv;
-
+            $totalDocumento += $totalLinea;
             $numeroLinea++;
         }
 
-        $totalBase = round($totalBase, 2);
+        $totalExtension = round($totalExtension, 2);
         $totalIgv = round($totalIgv, 2);
-        $totalDocumentoCalculado = round(
-            $totalDocumentoCalculado,
-            2
-        );
+        $totalDocumento = round($totalDocumento, 2);
+        $totalVentaGuardado = round((float)$venta['total_venta'], 2);
 
-        $totalVenta = round(
-            (float)$venta['total_venta'],
-            2
-        );
-
-        /*
-|--------------------------------------------------------------------------
-| DESCUENTO GLOBAL E IGV
-|--------------------------------------------------------------------------
-| Los precios de venta incluyen IGV.
-|
-| - totalBaseAntesDescuento: suma del valor de venta de las líneas sin IGV.
-| - descuentoBase: descuento global sin IGV.
-| - totalBaseGravada: base imponible final luego del descuento.
-| - totalIgv: IGV correspondiente al importe final.
-|--------------------------------------------------------------------------
-*/
-        $subtotalBrutoConIgv = $totalDocumentoCalculado;
-
-        if ($descuentoTotal > $subtotalBrutoConIgv) {
+        if (abs($totalDocumento - $totalVentaGuardado) > 0.05) {
             throw new RuntimeException(
-                'El descuento total supera el subtotal de la venta.'
+                'El detalle tributario no coincide con el total guardado. '
+                . 'Detalle: S/ ' . number_format($totalDocumento, 2)
+                . ', venta: S/ ' . number_format($totalVentaGuardado, 2) . '.'
             );
         }
+        $totalDocumento = $totalVentaGuardado;
 
-        $totalEsperado = round(
-            $subtotalBrutoConIgv - $descuentoTotal,
-            2
-        );
-
-        if (abs($totalEsperado - $totalVenta) > 0.02) {
-            throw new RuntimeException(
-                'El subtotal, el descuento y el total de la venta no coinciden. '
-                . 'Subtotal: S/ '
-                . number_format($subtotalBrutoConIgv, 2, '.', '')
-                . ', descuento: S/ '
-                . number_format($descuentoTotal, 2, '.', '')
-                . ', total guardado: S/ '
-                . number_format($totalVenta, 2, '.', '')
-                . '.'
-            );
+        $subtotalesTributo = [];
+        foreach ($gruposTributo as $grupo) {
+            $subtotalesTributo[] = [
+                'cbc:TaxableAmount' => [
+                    '_attributes' => ['currencyID' => $moneda],
+                    '_text' => $this->numeroJson(round((float)$grupo['base'], 2), 2)
+                ],
+                'cbc:TaxAmount' => [
+                    '_attributes' => ['currencyID' => $moneda],
+                    '_text' => $this->numeroJson(round((float)$grupo['impuesto'], 2), 2)
+                ],
+                'cac:TaxCategory' => [
+                    'cbc:Percent' => ['_text' => $this->numeroJson((float)$grupo['porcentaje'], 2)],
+                    'cac:TaxScheme' => [
+                        'cbc:ID' => ['_text' => $grupo['codigo']],
+                        'cbc:Name' => ['_text' => $grupo['nombre']],
+                        'cbc:TaxTypeCode' => ['_text' => $grupo['tipo']]
+                    ]
+                ]
+            ];
         }
 
-        $totalBaseAntesDescuento = $totalBase;
-        $descuentoBase = 0.00;
-        $factorDescuento = 0.00;
-
-        if ($descuentoTotal > 0) {
-            /*
-             * Se obtiene la base final desde el total que realmente pagará
-             * el cliente. Así el total final siempre cuadra exactamente.
-             */
-            $totalBaseGravada = round(
-                $totalVenta / self::FACTOR_IGV,
-                2
-            );
-
-            $descuentoBase = round(
-                $totalBaseAntesDescuento - $totalBaseGravada,
-                2
-            );
-
-            if ($descuentoBase <= 0) {
-                throw new RuntimeException(
-                    'No se pudo calcular la base imponible del descuento global.'
-                );
-            }
-
-            /*
-             * SUNAT valida MultiplierFactorNumeric con un máximo
-             * de 5 decimales. Se calcula usando exactamente los
-             * mismos importes sin IGV que se informarán en Amount
-             * y BaseAmount, para evitar diferencias por redondeo.
-             */
-            $factorDescuento = $totalBaseAntesDescuento > 0
-                ? round(
-                    $descuentoBase / $totalBaseAntesDescuento,
-                    5
-                )
-                : 0.00;
-
-            if ($factorDescuento <= 0) {
-                throw new RuntimeException(
-                    'El factor del descuento global no es válido para SUNAT.'
-                );
-            }
-        } else {
-            $totalBaseGravada = $totalBaseAntesDescuento;
-        }
-
-        $totalIgv = round(
-            $totalVenta - $totalBaseGravada,
-            2
-        );
-
-        if ($totalBaseGravada < 0 || $totalIgv < 0) {
-            throw new RuntimeException(
-                'Los importes tributarios calculados no son válidos.'
-            );
-        }
-
-        /*
-|--------------------------------------------------------------------------
-| TÉRMINOS DE PAGO SUNAT
-|--------------------------------------------------------------------------
-*/
+        // Términos de pago para factura.
         $paymentTerms = null;
         $fechaUltimaCuota = null;
         $resumenCuotas = [];
 
-        if ($tipoSunat === '01') {
-            /*
-    |--------------------------------------------------------------------------
-    | FACTURA AL CONTADO
-    |--------------------------------------------------------------------------
-    */
-            if ($esContado) {
-                $paymentTerms = [
-                    'cbc:ID' => [
-                        '_text' => 'FormaPago'
-                    ],
-
-                    'cbc:PaymentMeansID' => [
-                        '_text' => 'Contado'
-                    ]
-                ];
-            }
-
-            /*
-    |--------------------------------------------------------------------------
-    | FACTURA AL CRÉDITO
-    |--------------------------------------------------------------------------
-    */
-            if ($esCredito) {
-                $cuotas = $this->obtenerCuotas(
-                    $idventa
-                );
-
-                if (empty($cuotas)) {
-                    throw new RuntimeException(
-                        'La factura al crédito no tiene un cronograma de cuotas.'
-                    );
-                }
-
-                $paymentTerms = [];
-
-                /*
-         * En esta implementación no existen detracciones,
-         * retenciones u otras deducciones.
-         * Por eso el monto neto pendiente es el total.
-         */
-                $paymentTerms[] = [
-                    'cbc:ID' => [
-                        '_text' => 'FormaPago'
-                    ],
-
-                    'cbc:PaymentMeansID' => [
-                        '_text' => 'Credito'
-                    ],
-
-                    'cbc:Amount' => [
-                        '_attributes' => [
-                            'currencyID' => self::MONEDA
-                        ],
-
-                        '_text' => $this->numeroJson(
-                            $totalVenta,
-                            2
-                        )
-                    ]
-                ];
-
-                $sumaCuotas = 0.00;
-                $numeroEsperado = 1;
-
-                foreach ($cuotas as $cuota) {
-                    $numeroCuota = (int)(
-                        $cuota['numero_cuota']
-                        ?? 0
-                    );
-
-                    if (
-                        $numeroCuota
-                        !== $numeroEsperado
-                    ) {
-                        throw new RuntimeException(
-                            'El cronograma de cuotas no es correlativo.'
-                        );
-                    }
-
-                    $codigoCuota = trim(
-                        (string)(
-                            $cuota['codigo']
-                            ?? ''
-                        )
-                    );
-
-                    if ($codigoCuota === '') {
-                        $codigoCuota = 'Cuota'
-                            . str_pad(
-                                (string)$numeroCuota,
-                                3,
-                                '0',
-                                STR_PAD_LEFT
-                            );
-                    }
-
-                    if (
-                        !preg_match(
-                            '/^Cuota\d{3}$/',
-                            $codigoCuota
-                        )
-                    ) {
-                        throw new RuntimeException(
-                            'Código de cuota inválido: '
-                                . $codigoCuota
-                        );
-                    }
-
-                    $montoCuota = round(
-                        (float)(
-                            $cuota['monto']
-                            ?? 0
-                        ),
-                        2
-                    );
-
-                    if ($montoCuota <= 0) {
-                        throw new RuntimeException(
-                            $codigoCuota
-                                . ' tiene un monto inválido.'
-                        );
-                    }
-
-                    $fechaVencimiento = trim(
-                        (string)(
-                            $cuota['fecha_vencimiento']
-                            ?? ''
-                        )
-                    );
-
-                    if (
-                        !preg_match(
-                            '/^\d{4}-\d{2}-\d{2}$/',
-                            $fechaVencimiento
-                        )
-                    ) {
-                        throw new RuntimeException(
-                            $codigoCuota
-                                . ' no tiene una fecha válida.'
-                        );
-                    }
-
-                    try {
-                        $fechaCuota =
-                            new DateTimeImmutable(
-                                $fechaVencimiento,
-                                new DateTimeZone(
-                                    'America/Lima'
-                                )
-                            );
-                    } catch (Throwable $errorFecha) {
-                        throw new RuntimeException(
-                            $codigoCuota
-                                . ' tiene una fecha inválida.'
-                        );
-                    }
-
-                    if (
-                        $fechaCuota->format('Y-m-d')
-                        !== $fechaVencimiento
-                    ) {
-                        throw new RuntimeException(
-                            $codigoCuota
-                                . ' tiene una fecha inválida.'
-                        );
-                    }
-
-                    $paymentTerms[] = [
-                        'cbc:ID' => [
-                            '_text' => 'FormaPago'
-                        ],
-
-                        'cbc:PaymentMeansID' => [
-                            '_text' => $codigoCuota
-                        ],
-
-                        'cbc:Amount' => [
-                            '_attributes' => [
-                                'currencyID' => self::MONEDA
-                            ],
-
-                            '_text' => $this->numeroJson(
-                                $montoCuota,
-                                2
-                            )
-                        ],
-
-                        'cbc:PaymentDueDate' => [
-                            '_text' => $fechaVencimiento
-                        ]
-                    ];
-
-                    $resumenCuotas[] = [
-                        'codigo' =>
-                        $codigoCuota,
-
-                        'monto' =>
-                        $montoCuota,
-
-                        'fecha_vencimiento' =>
-                        $fechaVencimiento
-                    ];
-
-                    $sumaCuotas += $montoCuota;
-
-                    $fechaUltimaCuota =
-                        $fechaVencimiento;
-
-                    $numeroEsperado++;
-                }
-
-                $sumaCuotas = round(
-                    $sumaCuotas,
-                    2
-                );
-
-                if (
-                    abs(
-                        $sumaCuotas - $totalVenta
-                    ) > 0.01
-                ) {
-                    throw new RuntimeException(
-                        'La suma de las cuotas no coincide con el total de la factura.'
-                    );
-                }
-            }
-        }
-
-        $fileName = $rucEmisor
-            . '-'
-            . $tipoSunat
-            . '-'
-            . $serie
-            . '-'
-            . $numero;
-
-        $legalMonetaryTotal = [
-            'cbc:LineExtensionAmount' => [
-                '_attributes' => [
-                    'currencyID' => self::MONEDA
-                ],
-                '_text' => $this->numeroJson(
-                    $totalBaseAntesDescuento,
-                    2
-                )
-            ],
-
-            'cbc:TaxExclusiveAmount' => [
-                '_attributes' => [
-                    'currencyID' => self::MONEDA
-                ],
-                '_text' => $this->numeroJson(
-                    $totalBaseGravada,
-                    2
-                )
-            ],
-
-            'cbc:TaxInclusiveAmount' => [
-                '_attributes' => [
-                    'currencyID' => self::MONEDA
-                ],
-                '_text' => $this->numeroJson(
-                    $totalVenta,
-                    2
-                )
-            ]
-        ];
-
-        if ($descuentoBase > 0) {
-            $legalMonetaryTotal['cbc:AllowanceTotalAmount'] = [
-                '_attributes' => [
-                    'currencyID' => self::MONEDA
-                ],
-                '_text' => $this->numeroJson(
-                    $descuentoBase,
-                    2
-                )
+        if ($tipoSunat === '01' && $esContado) {
+            $paymentTerms = [
+                'cbc:ID' => ['_text' => 'FormaPago'],
+                'cbc:PaymentMeansID' => ['_text' => 'Contado']
             ];
         }
 
-        $legalMonetaryTotal['cbc:PayableAmount'] = [
-            '_attributes' => [
-                'currencyID' => self::MONEDA
+        if ($tipoSunat === '01' && $esCredito) {
+            $cuotas = $this->obtenerCuotas($idventa);
+            if (empty($cuotas)) {
+                throw new RuntimeException(
+                    'La factura al crédito no tiene un cronograma de cuotas.'
+                );
+            }
+            $paymentTerms = [[
+                'cbc:ID' => ['_text' => 'FormaPago'],
+                'cbc:PaymentMeansID' => ['_text' => 'Credito'],
+                'cbc:Amount' => [
+                    '_attributes' => ['currencyID' => $moneda],
+                    '_text' => $this->numeroJson($totalDocumento, 2)
+                ]
+            ]];
+
+            $sumaCuotas = 0.00;
+            $numeroEsperado = 1;
+            foreach ($cuotas as $cuota) {
+                $numeroCuota = (int)($cuota['numero_cuota'] ?? 0);
+                if ($numeroCuota !== $numeroEsperado) {
+                    throw new RuntimeException(
+                        'El cronograma de cuotas no es correlativo.'
+                    );
+                }
+                $codigoCuota = trim((string)($cuota['codigo'] ?? ''));
+                if ($codigoCuota === '') {
+                    $codigoCuota = 'Cuota' . str_pad((string)$numeroCuota, 3, '0', STR_PAD_LEFT);
+                }
+                $montoCuota = round((float)($cuota['monto'] ?? 0), 2);
+                $fechaVencimiento = trim((string)($cuota['fecha_vencimiento'] ?? ''));
+                if ($montoCuota <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaVencimiento)) {
+                    throw new RuntimeException(
+                        'Existe una cuota con monto o fecha inválida.'
+                    );
+                }
+                $paymentTerms[] = [
+                    'cbc:ID' => ['_text' => 'FormaPago'],
+                    'cbc:PaymentMeansID' => ['_text' => $codigoCuota],
+                    'cbc:Amount' => [
+                        '_attributes' => ['currencyID' => $moneda],
+                        '_text' => $this->numeroJson($montoCuota, 2)
+                    ],
+                    'cbc:PaymentDueDate' => ['_text' => $fechaVencimiento]
+                ];
+                $resumenCuotas[] = [
+                    'codigo' => $codigoCuota,
+                    'monto' => $montoCuota,
+                    'fecha_vencimiento' => $fechaVencimiento
+                ];
+                $sumaCuotas += $montoCuota;
+                $fechaUltimaCuota = $fechaVencimiento;
+                $numeroEsperado++;
+            }
+            if (abs(round($sumaCuotas, 2) - $totalDocumento) > 0.01) {
+                throw new RuntimeException(
+                    'La suma de las cuotas no coincide con el total de la factura.'
+                );
+            }
+        }
+
+        $fileName = $rucEmisor . '-' . $tipoSunat . '-' . $serie . '-' . $numero;
+        $legalMonetaryTotal = [
+            'cbc:LineExtensionAmount' => [
+                '_attributes' => ['currencyID' => $moneda],
+                '_text' => $this->numeroJson($totalExtension, 2)
             ],
-            '_text' => $this->numeroJson(
-                $totalVenta,
-                2
-            )
+            'cbc:TaxExclusiveAmount' => [
+                '_attributes' => ['currencyID' => $moneda],
+                '_text' => $this->numeroJson($totalExtension, 2)
+            ],
+            'cbc:TaxInclusiveAmount' => [
+                '_attributes' => ['currencyID' => $moneda],
+                '_text' => $this->numeroJson($totalDocumento, 2)
+            ],
+            'cbc:PayableAmount' => [
+                '_attributes' => ['currencyID' => $moneda],
+                '_text' => $this->numeroJson($totalDocumento, 2)
+            ]
         ];
 
         $documentBody = [
-            'cbc:UBLVersionID' => [
-                '_text' => '2.1'
-            ],
-
-            'cbc:CustomizationID' => [
-                '_text' => '2.0'
-            ],
-
-            'cbc:ID' => [
-                '_text' => $serie . '-' . $numero
-            ],
-
-            'cbc:IssueDate' => [
-                '_text' => $fechaHora->format('Y-m-d')
-            ],
-
-            'cbc:IssueTime' => [
-                '_text' => $fechaHora->format('H:i:s')
-            ],
-
+            'cbc:UBLVersionID' => ['_text' => '2.1'],
+            'cbc:CustomizationID' => ['_text' => '2.0'],
+            'cbc:ID' => ['_text' => $serie . '-' . $numero],
+            'cbc:IssueDate' => ['_text' => $fechaHora->format('Y-m-d')],
+            'cbc:IssueTime' => ['_text' => $fechaHora->format('H:i:s')],
             'cbc:InvoiceTypeCode' => [
-                '_attributes' => [
-                    'listID' => '0101'
-                ],
+                '_attributes' => ['listID' => $tipoOperacion],
                 '_text' => $tipoSunat
             ],
-
-            'cbc:Note' => [
-                [
-                    '_text' => $this->importeEnLetras(
-                        $totalVenta
-                    ),
-                    '_attributes' => [
-                        'languageLocaleID' => '1000'
-                    ]
-                ]
-            ],
-
-            'cbc:DocumentCurrencyCode' => [
-                '_text' => self::MONEDA
-            ],
-
+            'cbc:Note' => [[
+                '_text' => $this->importeEnLetras($totalDocumento),
+                '_attributes' => ['languageLocaleID' => '1000']
+            ]],
+            'cbc:DocumentCurrencyCode' => ['_text' => $moneda],
             'cac:AccountingSupplierParty' => [
                 'cac:Party' => [
                     'cac:PartyIdentification' => [
                         'cbc:ID' => [
-                            '_attributes' => [
-                                'schemeID' => '6'
-                            ],
+                            '_attributes' => ['schemeID' => '6'],
                             '_text' => $rucEmisor
                         ]
                     ],
-
                     'cac:PartyLegalEntity' => [
-                        'cbc:RegistrationName' => [
-                            '_text' => $razonSocial
-                        ],
-
+                        'cbc:RegistrationName' => ['_text' => $razonSocial],
                         'cac:RegistrationAddress' => [
-                            'cbc:AddressTypeCode' => [
-                                '_text' => '0000'
-                            ],
-
+                            'cbc:AddressTypeCode' => ['_text' => '0000'],
                             'cac:AddressLine' => [
-                                'cbc:Line' => [
-                                    '_text' => $direccionEmpresa
-                                ]
+                                'cbc:Line' => ['_text' => $direccionEmpresa]
                             ]
                         ]
                     ]
                 ]
             ],
-
             'cac:AccountingCustomerParty' => [
                 'cac:Party' => [
                     'cac:PartyIdentification' => [
                         'cbc:ID' => [
-                            '_attributes' => [
-                                'schemeID' =>
-                                $tipoDocumentoCliente
-                            ],
-                            '_text' =>
-                            $cliente['num_documento']
+                            '_attributes' => ['schemeID' => $tipoDocumentoCliente],
+                            '_text' => $cliente['num_documento']
                         ]
                     ],
-
                     'cac:PartyLegalEntity' => [
-                        'cbc:RegistrationName' => [
-                            '_text' => $cliente['nombre']
-                        ],
-
+                        'cbc:RegistrationName' => ['_text' => $cliente['nombre']],
                         'cac:RegistrationAddress' => [
                             'cac:AddressLine' => [
                                 'cbc:Line' => [
-                                    '_text' =>
-                                    $cliente['direccion'] !== ''
+                                    '_text' => $cliente['direccion'] !== ''
                                         ? $cliente['direccion']
                                         : '-'
                                 ]
@@ -903,159 +465,31 @@ class ApiSunatDocument
                     ]
                 ]
             ],
-
             'cac:TaxTotal' => [
                 'cbc:TaxAmount' => [
-                    '_attributes' => [
-                        'currencyID' => self::MONEDA
-                    ],
-                    '_text' => $this->numeroJson(
-                        $totalIgv,
-                        2
-                    )
+                    '_attributes' => ['currencyID' => $moneda],
+                    '_text' => $this->numeroJson($totalIgv, 2)
                 ],
-
-                'cac:TaxSubtotal' => [
-                    [
-                        'cbc:TaxableAmount' => [
-                            '_attributes' => [
-                                'currencyID' => self::MONEDA
-                            ],
-                            '_text' => $this->numeroJson(
-                                $totalBaseGravada,
-                                2
-                            )
-                        ],
-
-                        'cbc:TaxAmount' => [
-                            '_attributes' => [
-                                'currencyID' => self::MONEDA
-                            ],
-                            '_text' => $this->numeroJson(
-                                $totalIgv,
-                                2
-                            )
-                        ],
-
-                        'cac:TaxCategory' => [
-                            'cac:TaxScheme' => [
-                                'cbc:ID' => [
-                                    '_text' => '1000'
-                                ],
-
-                                'cbc:Name' => [
-                                    '_text' => 'IGV'
-                                ],
-
-                                'cbc:TaxTypeCode' => [
-                                    '_text' => 'VAT'
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
+                'cac:TaxSubtotal' => $subtotalesTributo
             ],
-
             'cac:LegalMonetaryTotal' => $legalMonetaryTotal,
-
             'cac:InvoiceLine' => $lineas
         ];
 
-        /*
-|--------------------------------------------------------------------------
-| FORMA DE PAGO DE LA FACTURA
-|--------------------------------------------------------------------------
-| SUNAT exige obligatoriamente FormaPago + Contado/Credito
-| para las facturas electrónicas.
-|
-| Se inserta antes de cac:TaxTotal para mantener el orden UBL.
-*/
-        /*
-|--------------------------------------------------------------------------
-| FECHA DE VENCIMIENTO GENERAL
-|--------------------------------------------------------------------------
-| En factura al crédito se usa la fecha de la última cuota.
-*/
-        if (
-            $tipoSunat === '01'
-            && $esCredito
-            && $fechaUltimaCuota !== null
-        ) {
+        if ($tipoSunat === '01' && $esCredito && $fechaUltimaCuota !== null) {
             $documentBody = $this->insertarAntesDeClave(
                 $documentBody,
                 'cbc:InvoiceTypeCode',
                 'cbc:DueDate',
-                [
-                    '_text' => $fechaUltimaCuota
-                ]
+                ['_text' => $fechaUltimaCuota]
             );
         }
-
-        /*
-|--------------------------------------------------------------------------
-| FORMA DE PAGO Y CUOTAS
-|--------------------------------------------------------------------------
-*/
-        if (
-            $tipoSunat === '01'
-            && $paymentTerms !== null
-        ) {
+        if ($tipoSunat === '01' && $paymentTerms !== null) {
             $documentBody = $this->insertarAntesDeClave(
                 $documentBody,
                 'cac:TaxTotal',
                 'cac:PaymentTerms',
                 $paymentTerms
-            );
-        }
-
-        /*
-|--------------------------------------------------------------------------
-| DESCUENTO GLOBAL SUNAT
-|--------------------------------------------------------------------------
-| Catálogo N.° 53:
-| 02 = Descuentos globales que afectan la base imponible del IGV/IVAP.
-|--------------------------------------------------------------------------
-*/
-        if ($descuentoBase > 0) {
-            $documentBody = $this->insertarAntesDeClave(
-                $documentBody,
-                'cac:TaxTotal',
-                'cac:AllowanceCharge',
-                [
-                    'cbc:ChargeIndicator' => [
-                        '_text' => 'false'
-                    ],
-
-                    'cbc:AllowanceChargeReasonCode' => [
-                        '_text' => '02'
-                    ],
-
-                    'cbc:MultiplierFactorNumeric' => [
-                        '_text' => $this->factorDescuentoSunat(
-                            $factorDescuento
-                        )
-                    ],
-
-                    'cbc:Amount' => [
-                        '_attributes' => [
-                            'currencyID' => self::MONEDA
-                        ],
-                        '_text' => $this->numeroJson(
-                            $descuentoBase,
-                            2
-                        )
-                    ],
-
-                    'cbc:BaseAmount' => [
-                        '_attributes' => [
-                            'currencyID' => self::MONEDA
-                        ],
-                        '_text' => $this->numeroJson(
-                            $totalBaseAntesDescuento,
-                            2
-                        )
-                    ]
-                ]
             );
         }
 
@@ -1065,39 +499,25 @@ class ApiSunatDocument
             'tipoSunat' => $tipoSunat,
             'serie' => $serie,
             'numero' => $numero,
-            'formaPagoSunat' =>
-            $tipoSunat === '01'
-                ? (
-                    $esCredito
-                    ? 'Credito'
-                    : 'Contado'
-                )
+            'formaPagoSunat' => $tipoSunat === '01'
+                ? ($esCredito ? 'Credito' : 'Contado')
                 : null,
-
-            'cuotas' =>
-            $esCredito
-                ? $resumenCuotas
-                : [],
-            'customerEmail' => filter_var(
-                $cliente['email'],
-                FILTER_VALIDATE_EMAIL
-            )
+            'cuotas' => $esCredito ? $resumenCuotas : [],
+            'customerEmail' => filter_var($cliente['email'], FILTER_VALIDATE_EMAIL)
                 ? $cliente['email']
                 : null,
             'documentBody' => $documentBody,
             'totales' => [
-                'valor_venta_antes_descuento' =>
-                    $totalBaseAntesDescuento,
-                'descuento_global_sin_igv' =>
-                    $descuentoBase,
-                'descuento_global_con_igv' =>
-                    $descuentoTotal,
-                'gravada' => $totalBaseGravada,
+                'gravada' => round((float)($venta['total_gravado'] ?? 0), 2),
+                'exonerada' => round((float)($venta['total_exonerado'] ?? 0), 2),
+                'inafecta' => round((float)($venta['total_inafecto'] ?? 0), 2),
+                'exportacion' => round((float)($venta['total_exportacion'] ?? 0), 2),
                 'igv' => $totalIgv,
-                'total' => $totalVenta
+                'total' => $totalDocumento
             ]
         ];
     }
+
 
     private function obtenerVenta(int $idventa): array
     {
@@ -1109,6 +529,13 @@ class ApiSunatDocument
                 v.num_comprobante,
                 v.fecha_hora,
                 v.impuesto,
+                v.tipo_operacion_sunat,
+                v.moneda_codigo,
+                v.total_gravado,
+                v.total_exonerado,
+                v.total_inafecto,
+                v.total_exportacion,
+                v.total_igv,
                 v.total_venta,
                 v.descuento_total,
                 v.descuento_porcentaje,
@@ -1211,6 +638,17 @@ class ApiSunatDocument
                 dv.cantidad,
                 dv.precio_venta,
                 dv.descuento,
+                dv.codigo_afectacion_igv,
+                dv.porcentaje_igv,
+                dv.unidad_medida_sunat,
+                dv.codigo_producto_sunat,
+                dv.codigo_tributo,
+                dv.nombre_tributo,
+                dv.tipo_tributo,
+                dv.valor_unitario_sin_igv,
+                dv.base_imponible,
+                dv.monto_igv,
+                dv.total_linea,
 
                 a.codigo,
                 a.nombre AS nombre_articulo,
@@ -1411,6 +849,34 @@ class ApiSunatDocument
         }
 
         return $resultado;
+    }
+
+
+    private function datosTributoPorAfectacion(
+        string $afectacion
+    ): array {
+        return match ($afectacion) {
+            '20' => [
+                'codigo' => '9997',
+                'nombre' => 'EXO',
+                'tipo' => 'VAT'
+            ],
+            '30' => [
+                'codigo' => '9998',
+                'nombre' => 'INA',
+                'tipo' => 'FRE'
+            ],
+            '40' => [
+                'codigo' => '9995',
+                'nombre' => 'EXP',
+                'tipo' => 'FRE'
+            ],
+            default => [
+                'codigo' => '1000',
+                'nombre' => 'IGV',
+                'tipo' => 'VAT'
+            ]
+        };
     }
 
     private function normalizarUnidadSunat(

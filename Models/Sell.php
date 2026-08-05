@@ -15,7 +15,8 @@ class Sell
         $this->conexion = new Conexion();
     }
 
-    //metodo insertar registro
+
+    // Método insertar registro con historial tributario por línea.
     public function insertar(
         $idcliente,
         $idusuario,
@@ -36,44 +37,80 @@ class Sell
         $precio_venta,
         $idsucursal = null,
         $idcaja = null,
-        $idapertura = null
+        $idapertura = null,
+        array $tributacion = []
     ) {
         date_default_timezone_set('America/Lima');
         $fecha_hora = date('Y-m-d H:i:s');
+
         $idsucursal = (int)$idsucursal > 0
             ? (int)$idsucursal
             : null;
-
         $idcaja = (int)$idcaja > 0
             ? (int)$idcaja
             : null;
-
         $idapertura = (int)$idapertura > 0
             ? (int)$idapertura
             : null;
 
-        // ===============================
-        // INSERT VENTA (CABECERA)
-        // ===============================
-        $sql = "INSERT INTO $this->tableName (
-        idcliente,
-        idusuario,
-        idsucursal,
-        idcaja,
-        idapertura,
-        tipo_comprobante,
-        serie_comprobante,
-        num_comprobante,
-        fecha_hora,
-        impuesto,
-        total_venta,
-        descuento_total,
-        descuento_porcentaje,
-        tipo_pago,
-        num_transac,
-        estado,
-        idforma_pago
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        $descuentosItem = array_fill(
+            0,
+            is_array($idarticulo) ? count($idarticulo) : 0,
+            0.00
+        );
+
+        if (
+            !isset($tributacion['lineas'])
+            || !is_array($tributacion['lineas'])
+            || count($tributacion['lineas']) !== count($idarticulo)
+        ) {
+            $tributacion = $this->calcularTributacionVenta(
+                is_array($idarticulo) ? $idarticulo : [],
+                is_array($cantidad) ? $cantidad : [],
+                is_array($precio_venta) ? $precio_venta : [],
+                $descuentosItem,
+                (float)$descuento_total,
+                $idsucursal,
+                null
+            );
+        }
+
+        $total_venta = round(
+            (float)($tributacion['total_venta'] ?? $total_venta),
+            2
+        );
+        $impuesto = round(
+            (float)($tributacion['porcentaje_igv_predeterminado'] ?? $impuesto),
+            2
+        );
+
+        $sql = "INSERT INTO {$this->tableName} (
+            idcliente,
+            idusuario,
+            idsucursal,
+            idcaja,
+            idapertura,
+            tipo_operacion_sunat,
+            tipo_comprobante,
+            serie_comprobante,
+            num_comprobante,
+            fecha_hora,
+            impuesto,
+            moneda_codigo,
+            total_gravado,
+            total_exonerado,
+            total_inafecto,
+            total_exportacion,
+            total_igv,
+            precios_incluyen_impuesto,
+            total_venta,
+            descuento_total,
+            descuento_porcentaje,
+            tipo_pago,
+            num_transac,
+            estado,
+            idforma_pago
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $arrData = [
             $idcliente,
@@ -81,156 +118,206 @@ class Sell
             $idsucursal,
             $idcaja,
             $idapertura,
+            (string)($tributacion['tipo_operacion_sunat'] ?? '0101'),
             $tipo_comprobante,
             $serie_comprobante,
             $num_comprobante,
             $fecha_hora,
             $impuesto,
+            (string)($tributacion['moneda_codigo'] ?? 'PEN'),
+            round((float)($tributacion['total_gravado'] ?? 0), 2),
+            round((float)($tributacion['total_exonerado'] ?? 0), 2),
+            round((float)($tributacion['total_inafecto'] ?? 0), 2),
+            round((float)($tributacion['total_exportacion'] ?? 0), 2),
+            round((float)($tributacion['total_igv'] ?? 0), 2),
+            (int)($tributacion['precios_incluyen_impuesto'] ?? 1),
             $total_venta,
-            $descuento_total,
-            $descuento_porcentaje,
+            round((float)$descuento_total, 2),
+            round((float)$descuento_porcentaje, 2),
             $tipo_pago,
             $num_transac,
             'Aceptado',
             $idforma_pago
         ];
 
-
-        $idventanew = $this->conexion->setDataReturnId($sql, $arrData);
+        $idventanew = $this->conexion->setDataReturnId(
+            $sql,
+            $arrData
+        );
 
         if (!$idventanew) {
             return false;
         }
 
-        $detalle = $tipo_comprobante . ' ' . $serie_comprobante . '-' . $num_comprobante;
-        $num_elementos = 0;
+        $detalleComprobante = $tipo_comprobante
+            . ' '
+            . $serie_comprobante
+            . '-'
+            . $num_comprobante;
         $sw = true;
 
-        // ===============================
-        // INSERT DETALLE VENTA
-        // ===============================
-        while ($num_elementos < count($idarticulo)) {
+        foreach ($tributacion['lineas'] as $indice => $linea) {
+            $sqlDetalle = "INSERT INTO {$this->tableNameDetalle} (
+                idventa,
+                idarticulo,
+                cantidad,
+                precio_compra,
+                precio_venta,
+                descuento,
+                codigo_afectacion_igv,
+                porcentaje_igv,
+                unidad_medida_sunat,
+                codigo_producto_sunat,
+                codigo_tributo,
+                nombre_tributo,
+                tipo_tributo,
+                valor_unitario_sin_igv,
+                base_imponible,
+                monto_igv,
+                total_linea,
+                estado
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
-            $sql_detalle = "INSERT INTO $this->tableNameDetalle
-        (idventa,idarticulo,cantidad,precio_compra,precio_venta,descuento,estado)
-        VALUES (?,?,?,?,?,?,?)";
-
-            $arrDatadet = [
-                $idventanew,                        // ✅ ID correcto
-                $idarticulo[$num_elementos],
-                $cantidad[$num_elementos],
-                $precio_compra[$num_elementos],     // ✅ faltaba
-                $precio_venta[$num_elementos],
-                0,                                  // ✅ descuento por ítem
-                '1'
+            $arrDetalle = [
+                $idventanew,
+                (int)$idarticulo[$indice],
+                (float)$cantidad[$indice],
+                round((float)$precio_compra[$indice], 6),
+                round((float)$precio_venta[$indice], 6),
+                round((float)($linea['descuento_linea'] ?? 0), 2),
+                (string)($linea['codigo_afectacion_igv'] ?? '10'),
+                round((float)($linea['porcentaje_igv'] ?? 0), 2),
+                (string)($linea['unidad_medida_sunat'] ?? 'NIU'),
+                (string)($linea['codigo_producto_sunat'] ?? ''),
+                (string)($linea['codigo_tributo'] ?? '1000'),
+                (string)($linea['nombre_tributo'] ?? 'IGV'),
+                (string)($linea['tipo_tributo'] ?? 'VAT'),
+                round((float)($linea['valor_unitario_sin_igv'] ?? 0), 6),
+                round((float)($linea['base_imponible'] ?? 0), 2),
+                round((float)($linea['monto_igv'] ?? 0), 2),
+                round((float)($linea['total_linea'] ?? 0), 2),
+                1
             ];
 
-            $this->conexion->setData($sql_detalle, $arrDatadet) or $sw = false;
-            $num_elementos++;
+            if (!$this->conexion->setData($sqlDetalle, $arrDetalle)) {
+                $sw = false;
+            }
         }
 
-        // ===============================
-        // ACTUALIZAR STOCK ARTICULO
-        // ===============================
-        $sql_stock = "SELECT idarticulo, cantidad
-                      FROM $this->tableNameDetalle
-                      WHERE idventa='$idventanew'";
+        // Actualizar stock de artículo.
+        $sqlStock = "SELECT idarticulo, cantidad
+                     FROM {$this->tableNameDetalle}
+                     WHERE idventa = ?";
+        $res = $this->conexion->getDataAll(
+            $sqlStock,
+            [$idventanew]
+        );
 
-        $res = $this->conexion->getDataAll($sql_stock);
-        $idart = 0;
-
-        foreach ($res as $reg) {
-            $cantidad[$idart]   = $reg['cantidad'];
-            $idarticulo[$idart] = $reg['idarticulo'];
-
-            $sql_update = "UPDATE articulo
-                           SET stock = stock - ?
-                           WHERE idarticulo = ?";
-
-            $this->conexion->setData($sql_update, [
-                $cantidad[$idart],
-                $idarticulo[$idart]
-            ]) or $sw = false;
-
-            $idart++;
+        foreach (is_array($res) ? $res : [] as $reg) {
+            if (!$this->conexion->setData(
+                "UPDATE articulo
+                 SET stock = stock - ?
+                 WHERE idarticulo = ?",
+                [
+                    (float)$reg['cantidad'],
+                    (int)$reg['idarticulo']
+                ]
+            )) {
+                $sw = false;
+            }
         }
 
-        // ===============================
-        // KARDEX (TU LÓGICA ORIGINAL)
-        // ===============================
-        $num_elementos = 0;
+        // Kardex: conserva la lógica FIFO existente.
+        foreach ($idarticulo as $indice => $idArticuloActual) {
+            $cantidadPendiente = (int)($cantidad[$indice] ?? 0);
 
-        while ($num_elementos < count($idarticulo)) {
+            while ($cantidadPendiente > 0) {
+                $lote = $this->conexion->getData(
+                    "SELECT
+                        iddetalle_ingreso,
+                        stock_venta,
+                        precio_compra
+                     FROM detalle_ingreso
+                     WHERE idarticulo = ?
+                       AND COALESCE(stock_venta, 0) > 0
+                     ORDER BY
+                        CASE WHEN stock_estado = '1' THEN 0 ELSE 1 END,
+                        iddetalle_ingreso ASC
+                     LIMIT 1",
+                    [(int)$idArticuloActual]
+                );
 
-            $sqlIdViejo = "SELECT iddetalle_ingreso
-                           FROM detalle_ingreso
-                           WHERE idarticulo=? AND stock_estado='1'
-                           ORDER BY iddetalle_ingreso ASC
-                           LIMIT 1";
+                if (!is_array($lote)) {
+                    break;
+                }
 
-            $idIn = $this->conexion->getData($sqlIdViejo, [$idarticulo[$num_elementos]]);
-            $idViejo = $idIn['iddetalle_ingreso'] ?? null;
+                $stockDisponible = (int)($lote['stock_venta'] ?? 0);
+                $idDetalleIngreso = (int)($lote['iddetalle_ingreso'] ?? 0);
+                $costoUnitario = (float)($lote['precio_compra'] ?? 0);
 
-            $sqlStockViejo = "SELECT stock_venta, precio_compra
-                              FROM detalle_ingreso
-                              WHERE iddetalle_ingreso=?";
+                if ($stockDisponible <= 0 || $idDetalleIngreso <= 0) {
+                    break;
+                }
 
-            $stockVenta = $this->conexion->getData($sqlStockViejo, [$idViejo]);
+                $cantidadSalida = min(
+                    $cantidadPendiente,
+                    $stockDisponible
+                );
 
-            $sotckDisponible = (int)($stockVenta['stock_venta'] ?? 0);
-            $stPrecioCompra  = $stockVenta['precio_compra'] ?? 0;
-
-            $cantVenta = (int)$cantidad[$num_elementos];
-
-            while ($cantVenta > 0 && $sotckDisponible > 0) {
-
-                $ventaActual = min($cantVenta, $sotckDisponible);
-
-                $this->conexion->setData(
+                if (!$this->conexion->setData(
                     "UPDATE detalle_ingreso
                      SET stock_venta = stock_venta - ?
                      WHERE iddetalle_ingreso = ?",
-                    [$ventaActual, $idViejo]
-                );
+                    [$cantidadSalida, $idDetalleIngreso]
+                )) {
+                    $sw = false;
+                }
 
-                $cantidadExistente = $sotckDisponible - $ventaActual;
-                $totalKardex = $ventaActual * $stPrecioCompra;
-                $totalex     = $cantidadExistente * $stPrecioCompra;
+                $cantidadExistente = $stockDisponible - $cantidadSalida;
+                $totalSalida = $cantidadSalida * $costoUnitario;
+                $totalExistencia = $cantidadExistente * $costoUnitario;
 
-                $this->conexion->setData(
-                    "INSERT INTO $this->tableNameKardex
-                    (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,
-                     cantidadex,costouex,totalex,tipo,estado)
-                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                if (!$this->conexion->setData(
+                    "INSERT INTO {$this->tableNameKardex} (
+                        iddetalle,
+                        idarticulo,
+                        fecha,
+                        detalle,
+                        cantidads,
+                        costous,
+                        totals,
+                        cantidadex,
+                        costouex,
+                        totalex,
+                        tipo,
+                        estado
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                     [
                         $idventanew,
-                        $idarticulo[$num_elementos],
+                        (int)$idArticuloActual,
                         $fecha_hora,
-                        $detalle,
-                        $ventaActual,
-                        $stPrecioCompra,
-                        $totalKardex,
+                        $detalleComprobante,
+                        $cantidadSalida,
+                        $costoUnitario,
+                        $totalSalida,
                         $cantidadExistente,
-                        $stPrecioCompra,
-                        $totalex,
+                        $costoUnitario,
+                        $totalExistencia,
                         'Salida',
                         'Activo'
                     ]
-                );
+                )) {
+                    $sw = false;
+                }
 
-                $cantVenta -= $ventaActual;
-                $sotckDisponible -= $ventaActual;
+                $cantidadPendiente -= $cantidadSalida;
             }
-
-            $num_elementos++;
         }
 
-        // ===============================
-        // RETORNO FINAL
-        // ===============================
-        return ($sw && $idventanew) ? $idventanew : false;
+        return ($sw && $idventanew)
+            ? $idventanew
+            : false;
     }
-
 
 
     //FUNCION PARA EDITAR
@@ -512,21 +599,46 @@ class Sell
                     dv.precio_compra,
                     dv.precio_venta,
                     dv.descuento,
-                    (
-                        dv.cantidad * dv.precio_venta
-                        - dv.descuento
-                    ) AS subtotal,
+                    dv.codigo_afectacion_igv,
+                    dv.porcentaje_igv,
+                    dv.base_imponible,
+                    dv.monto_igv,
+                    CASE
+                        WHEN dv.total_linea > 0 THEN dv.total_linea
+                        ELSE GREATEST(dv.cantidad * dv.precio_venta - dv.descuento, 0)
+                    END AS subtotal,
+                    CASE
+                        WHEN dv.cantidad > 0 AND dv.total_linea > 0
+                        THEN dv.total_linea / dv.cantidad
+                        ELSE dv.precio_venta
+                    END AS precio_unitario_con_impuesto,
+                    COALESCE(
+                        NULLIF(cat.descripcion, ''),
+                        CASE dv.codigo_afectacion_igv
+                            WHEN '20' THEN 'Exonerado'
+                            WHEN '30' THEN 'Inafecto'
+                            WHEN '40' THEN 'Exportación'
+                            ELSE 'Gravado'
+                        END
+                    ) AS afectacion_descripcion,
                     v.total_venta,
                     v.descuento_total,
                     v.descuento_porcentaje,
-                    v.impuesto
+                    v.impuesto,
+                    v.total_gravado,
+                    v.total_exonerado,
+                    v.total_inafecto,
+                    v.total_exportacion,
+                    v.total_igv
                 FROM detalle_venta dv
                 INNER JOIN articulo a
                     ON a.idarticulo = dv.idarticulo
                 INNER JOIN venta v
                     ON v.idventa = dv.idventa
+                LEFT JOIN sunat_catalogo_07_afectacion_igv cat
+                    ON cat.codigo = dv.codigo_afectacion_igv
                 WHERE dv.idventa = ?
-                ORDER BY dv.idarticulo";
+                ORDER BY dv.iddetalle_venta ASC";
 
         return $this->conexion->getDataAll(
             $sql,
@@ -649,9 +761,10 @@ class Sell
 
 
 
+
     public function ventacabecera($idventa)
     {
-        $sql = "SELECT 
+        $sql = "SELECT
             v.estado,
             v.idventa,
             v.idcliente,
@@ -667,39 +780,88 @@ class Sell
             v.serie_comprobante,
             v.num_comprobante,
             DATE(v.fecha_hora) AS fecha,
+            v.fecha_hora,
+            v.tipo_operacion_sunat,
             v.impuesto,
+            v.moneda_codigo,
+            v.precios_incluyen_impuesto,
+            v.total_gravado,
+            v.total_exonerado,
+            v.total_inafecto,
+            v.total_exportacion,
+            v.total_igv,
             v.total_venta,
-            v.descuento_total,        -- 👈 AQUI
-            v.descuento_porcentaje,   -- 👈 AQUI
+            v.descuento_total,
+            v.descuento_porcentaje,
             v.tipo_pago,
-            v.idforma_pago
+            v.idforma_pago,
+            COALESCE(vs.estado_sunat, 'NO_APLICA') AS estado_sunat,
+            COALESCE(vs.mensaje_sunat, '') AS mensaje_sunat
         FROM venta v
         INNER JOIN persona p ON v.idcliente = p.idpersona
         INNER JOIN usuario u ON v.idusuario = u.idusuario
+        LEFT JOIN venta_sunat vs ON vs.idventa = v.idventa
         WHERE v.idventa = ?";
 
-        return $this->conexion->getDataAll($sql, [$idventa]);
+        return $this->conexion->getDataAll(
+            $sql,
+            [(int)$idventa]
+        );
     }
 
 
 
     public function ventadetalles($idventa)
     {
-        $sql = "
-            SELECT 
+        $sql = "SELECT
                 a.nombre AS articulo,
                 a.codigo AS sku,
                 d.cantidad,
                 d.precio_venta,
                 d.descuento,
-                (d.cantidad * d.precio_venta - d.descuento) AS subtotal
+                d.codigo_afectacion_igv,
+                d.porcentaje_igv,
+                d.unidad_medida_sunat,
+                d.codigo_producto_sunat,
+                d.codigo_tributo,
+                d.nombre_tributo,
+                d.tipo_tributo,
+                d.valor_unitario_sin_igv,
+                d.base_imponible,
+                d.monto_igv,
+                d.total_linea,
+                COALESCE(
+                    NULLIF(cat.descripcion, ''),
+                    CASE d.codigo_afectacion_igv
+                        WHEN '10' THEN 'Gravado'
+                        WHEN '20' THEN 'Exonerado'
+                        WHEN '30' THEN 'Inafecto'
+                        WHEN '40' THEN 'Exportación'
+                        ELSE 'Sin clasificación'
+                    END
+                ) AS afectacion_descripcion,
+                CASE
+                    WHEN d.total_linea > 0 THEN d.total_linea
+                    ELSE (d.cantidad * d.precio_venta - d.descuento)
+                END AS subtotal,
+                CASE
+                    WHEN d.cantidad > 0 AND d.total_linea > 0
+                    THEN d.total_linea / d.cantidad
+                    ELSE d.precio_venta
+                END AS precio_unitario_con_impuesto
             FROM {$this->tableNameDetalle} d
             INNER JOIN articulo a ON d.idarticulo = a.idarticulo
-            WHERE d.idventa = '$idventa'
-        ";
+            LEFT JOIN sunat_catalogo_07_afectacion_igv cat
+                ON cat.codigo = d.codigo_afectacion_igv
+            WHERE d.idventa = ?
+            ORDER BY d.iddetalle_venta ASC";
 
-        return $this->conexion->getDataAll($sql);
+        return $this->conexion->getDataAll(
+            $sql,
+            [(int)$idventa]
+        );
     }
+
 
     public function listarCotizaciones()
     {
@@ -787,6 +949,10 @@ class Sell
                 dv.precio_compra AS precio_compra_original,
                 dv.precio_venta,
                 dv.descuento,
+                dv.codigo_afectacion_igv,
+                dv.porcentaje_igv,
+                dv.unidad_medida_sunat,
+                dv.codigo_producto_sunat,
 
                 a.codigo,
                 a.nombre AS articulo,
@@ -934,6 +1100,10 @@ class Sell
                     a.nombre,
                     di.precio_compra,
                     di.precio_venta,
+                    a.codigo_afectacion_igv,
+                    a.porcentaje_igv,
+                    a.unidad_medida_sunat,
+                    a.codigo_producto_sunat,
                     di.stock_venta AS stock
                 FROM articulo a
                 INNER JOIN detalle_ingreso di
@@ -984,6 +1154,494 @@ class Sell
 			FROM articulo a 
 			WHERE a.condicion = 1 AND a.stock > 0";
         return $this->conexion->getData($sql);
+    }
+
+
+    /**
+     * Configuración tributaria efectiva de empresa/sucursal.
+     */
+    public function obtenerConfiguracionTributariaEfectiva(
+        ?int $idsucursal = null
+    ): array {
+        $empresa = $this->conexion->getData(
+            "SELECT
+                id_negocio,
+                monto_impuesto,
+                moneda,
+                simbolo,
+                tipo_operacion_sunat_predeterminado,
+                codigo_afectacion_igv_predeterminado,
+                porcentaje_igv_predeterminado,
+                unidad_medida_sunat_predeterminada,
+                permitir_cambio_afectacion_venta,
+                precios_incluyen_impuesto
+             FROM datos_negocio
+             WHERE condicion = 1
+             ORDER BY id_negocio DESC
+             LIMIT 1"
+        );
+
+        if (!is_array($empresa)) {
+            throw new RuntimeException(
+                'No existe una configuración tributaria activa.'
+            );
+        }
+
+        $configuracion = [
+            'tipo_operacion_sunat' => trim(
+                (string)(
+                    $empresa['tipo_operacion_sunat_predeterminado']
+                    ?? '0101'
+                )
+            ),
+            'codigo_afectacion_igv' => trim(
+                (string)(
+                    $empresa['codigo_afectacion_igv_predeterminado']
+                    ?? '10'
+                )
+            ),
+            'porcentaje_igv' => round(
+                (float)(
+                    $empresa['porcentaje_igv_predeterminado']
+                    ?? $empresa['monto_impuesto']
+                    ?? 18
+                ),
+                2
+            ),
+            'unidad_medida_sunat' => strtoupper(
+                trim(
+                    (string)(
+                        $empresa['unidad_medida_sunat_predeterminada']
+                        ?? 'NIU'
+                    )
+                )
+            ),
+            'permitir_cambio_afectacion_venta' =>
+                (int)($empresa['permitir_cambio_afectacion_venta'] ?? 0),
+            'precios_incluyen_impuesto' =>
+                (int)($empresa['precios_incluyen_impuesto'] ?? 1),
+            'moneda_codigo' => 'PEN',
+            'moneda' => trim((string)($empresa['moneda'] ?? 'SOLES')),
+            'simbolo' => trim((string)($empresa['simbolo'] ?? 'S/'))
+        ];
+
+        $idsucursal = (int)$idsucursal;
+
+        if ($idsucursal > 0) {
+            $sucursal = $this->conexion->getData(
+                "SELECT
+                    hereda_configuracion_tributaria,
+                    tipo_operacion_sunat,
+                    codigo_afectacion_igv_predeterminada,
+                    porcentaje_igv_predeterminado,
+                    unidad_medida_sunat_predeterminada
+                 FROM sucursal
+                 WHERE idsucursal = ?
+                   AND activo = 1
+                 LIMIT 1",
+                [$idsucursal]
+            );
+
+            if (
+                is_array($sucursal)
+                && (int)($sucursal['hereda_configuracion_tributaria'] ?? 1) === 0
+            ) {
+                $configuracion['tipo_operacion_sunat'] = trim(
+                    (string)(
+                        $sucursal['tipo_operacion_sunat']
+                        ?? $configuracion['tipo_operacion_sunat']
+                    )
+                );
+                $configuracion['codigo_afectacion_igv'] = trim(
+                    (string)(
+                        $sucursal['codigo_afectacion_igv_predeterminada']
+                        ?? $configuracion['codigo_afectacion_igv']
+                    )
+                );
+                $configuracion['porcentaje_igv'] = round(
+                    (float)(
+                        $sucursal['porcentaje_igv_predeterminado']
+                        ?? $configuracion['porcentaje_igv']
+                    ),
+                    2
+                );
+                $configuracion['unidad_medida_sunat'] = strtoupper(
+                    trim(
+                        (string)(
+                            $sucursal['unidad_medida_sunat_predeterminada']
+                            ?? $configuracion['unidad_medida_sunat']
+                        )
+                    )
+                );
+            }
+        }
+
+        if ($configuracion['tipo_operacion_sunat'] === '') {
+            $configuracion['tipo_operacion_sunat'] = '0101';
+        }
+        if (!in_array($configuracion['codigo_afectacion_igv'], ['10','20','30','40'], true)) {
+            $configuracion['codigo_afectacion_igv'] = '10';
+        }
+        if ($configuracion['codigo_afectacion_igv'] !== '10') {
+            $configuracion['porcentaje_igv'] = 0.00;
+        }
+        if ($configuracion['unidad_medida_sunat'] === '') {
+            $configuracion['unidad_medida_sunat'] = 'NIU';
+        }
+
+        return $configuracion;
+    }
+
+    public function listarTiposOperacionSunat(): array
+    {
+        $resultado = $this->conexion->getDataAll(
+            "SELECT codigo, descripcion, comprobantes
+             FROM sunat_catalogo_51_tipo_operacion
+             WHERE activo = 1
+             ORDER BY orden ASC, codigo ASC"
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
+    }
+
+    /**
+     * Calcula y valida los importes tributarios de la venta.
+     * La clasificación siempre se obtiene del producto en base de datos.
+     */
+    public function calcularTributacionVenta(
+        array $idarticulos,
+        array $cantidades,
+        array $preciosVenta,
+        array $descuentosItem,
+        float $descuentoGlobal,
+        ?int $idsucursal = null,
+        ?string $tipoOperacionSolicitada = null
+    ): array {
+        $cantidadLineas = count($idarticulos);
+
+        if (
+            $cantidadLineas === 0
+            || count($cantidades) !== $cantidadLineas
+            || count($preciosVenta) !== $cantidadLineas
+        ) {
+            throw new RuntimeException(
+                'Los datos tributarios del detalle están incompletos.'
+            );
+        }
+
+        if (count($descuentosItem) !== $cantidadLineas) {
+            $descuentosItem = array_fill(0, $cantidadLineas, 0.00);
+        }
+
+        $configuracion = $this->obtenerConfiguracionTributariaEfectiva(
+            $idsucursal
+        );
+
+        $tipoOperacion = trim((string)$tipoOperacionSolicitada);
+
+        if (
+            $tipoOperacion === ''
+            || (int)$configuracion['permitir_cambio_afectacion_venta'] !== 1
+        ) {
+            $tipoOperacion = (string)$configuracion['tipo_operacion_sunat'];
+        }
+
+        $tipoExiste = $this->conexion->getData(
+            "SELECT codigo
+             FROM sunat_catalogo_51_tipo_operacion
+             WHERE codigo = ?
+               AND activo = 1
+             LIMIT 1",
+            [$tipoOperacion]
+        );
+
+        if (!is_array($tipoExiste)) {
+            throw new RuntimeException(
+                'El tipo de operación SUNAT seleccionado no es válido.'
+            );
+        }
+
+        $idsUnicos = array_values(
+            array_unique(
+                array_filter(
+                    array_map('intval', $idarticulos),
+                    static fn(int $id): bool => $id > 0
+                )
+            )
+        );
+
+        if (count($idsUnicos) !== count(array_unique(array_map('intval', $idarticulos)))) {
+            throw new RuntimeException('Existe un producto inválido en la venta.');
+        }
+
+        $placeholders = implode(',', array_fill(0, count($idsUnicos), '?'));
+        $productos = $this->conexion->getDataAll(
+            "SELECT
+                a.idarticulo,
+                a.codigo,
+                a.nombre,
+                a.condicion,
+                a.codigo_afectacion_igv,
+                a.porcentaje_igv,
+                a.unidad_medida_sunat,
+                a.codigo_producto_sunat,
+                c.codigo_tributo,
+                c.nombre_tributo,
+                c.tipo_tributo
+             FROM articulo a
+             LEFT JOIN sunat_catalogo_07_afectacion_igv c
+                ON c.codigo = a.codigo_afectacion_igv
+             WHERE a.idarticulo IN ({$placeholders})",
+            $idsUnicos
+        );
+
+        $mapaProductos = [];
+        foreach (is_array($productos) ? $productos : [] as $producto) {
+            $mapaProductos[(int)$producto['idarticulo']] = $producto;
+        }
+
+        $preciosIncluyen = (int)$configuracion['precios_incluyen_impuesto'] === 1;
+        $lineasPrevias = [];
+        $subtotalDocumento = 0.00;
+
+        foreach ($idarticulos as $indice => $idArticulo) {
+            $idArticulo = (int)$idArticulo;
+            $producto = $mapaProductos[$idArticulo] ?? null;
+
+            if (!is_array($producto) || (int)($producto['condicion'] ?? 0) !== 1) {
+                throw new RuntimeException(
+                    'Uno de los productos ya no se encuentra activo.'
+                );
+            }
+
+            $cantidad = round((float)$cantidades[$indice], 3);
+            $precio = round((float)$preciosVenta[$indice], 6);
+            $descuentoItem = max(
+                round((float)$descuentosItem[$indice], 2),
+                0.00
+            );
+
+            if ($cantidad <= 0 || $precio < 0) {
+                throw new RuntimeException(
+                    'Existe una cantidad o precio de venta inválido.'
+                );
+            }
+
+            $afectacion = trim((string)($producto['codigo_afectacion_igv'] ?? ''));
+            if (!in_array($afectacion, ['10','20','30','40'], true)) {
+                $afectacion = (string)$configuracion['codigo_afectacion_igv'];
+            }
+
+            $porcentaje = $afectacion === '10'
+                ? round((float)($producto['porcentaje_igv'] ?? $configuracion['porcentaje_igv']), 2)
+                : 0.00;
+
+            if ($afectacion === '10' && $porcentaje <= 0) {
+                $porcentaje = max((float)$configuracion['porcentaje_igv'], 0.00);
+            }
+
+            $factor = $afectacion === '10' && $porcentaje > 0
+                ? 1 + ($porcentaje / 100)
+                : 1.00;
+
+            $importeEntrada = round($cantidad * $precio, 6);
+            $descuentoItem = min($descuentoItem, round($importeEntrada, 2));
+            $importeEntradaNeto = max($importeEntrada - $descuentoItem, 0.00);
+
+            $importeAntesDescuento = $preciosIncluyen
+                ? $importeEntrada
+                : ($afectacion === '10' ? $importeEntrada * $factor : $importeEntrada);
+            $importeDespuesItem = $preciosIncluyen
+                ? $importeEntradaNeto
+                : ($afectacion === '10' ? $importeEntradaNeto * $factor : $importeEntradaNeto);
+
+            $importeAntesDescuento = round($importeAntesDescuento, 2);
+            $importeDespuesItem = round($importeDespuesItem, 2);
+            $subtotalDocumento += $importeDespuesItem;
+
+            $unidad = strtoupper(trim((string)($producto['unidad_medida_sunat'] ?? '')));
+            if ($unidad === '') {
+                $unidad = (string)$configuracion['unidad_medida_sunat'];
+            }
+
+            $tributo = $this->datosTributoPorAfectacion(
+                $afectacion,
+                $producto
+            );
+
+            $lineasPrevias[] = [
+                'indice' => $indice,
+                'idarticulo' => $idArticulo,
+                'codigo_articulo' => trim((string)($producto['codigo'] ?? '')),
+                'descripcion_articulo' => trim((string)($producto['nombre'] ?? '')),
+                'cantidad' => $cantidad,
+                'precio_entrada' => $precio,
+                'importe_antes_descuento' => $importeAntesDescuento,
+                'importe_despues_item' => $importeDespuesItem,
+                'codigo_afectacion_igv' => $afectacion,
+                'porcentaje_igv' => $porcentaje,
+                'factor' => $factor,
+                'unidad_medida_sunat' => $unidad,
+                'codigo_producto_sunat' => trim((string)($producto['codigo_producto_sunat'] ?? '')),
+                'codigo_tributo' => $tributo['codigo_tributo'],
+                'nombre_tributo' => $tributo['nombre_tributo'],
+                'tipo_tributo' => $tributo['tipo_tributo']
+            ];
+        }
+
+        $subtotalDocumento = round($subtotalDocumento, 2);
+        $descuentoGlobal = max(round($descuentoGlobal, 2), 0.00);
+        $descuentoGlobal = min($descuentoGlobal, $subtotalDocumento);
+
+        $lineas = [];
+        $descuentoAsignado = 0.00;
+        $totalGravado = 0.00;
+        $totalExonerado = 0.00;
+        $totalInafecto = 0.00;
+        $totalExportacion = 0.00;
+        $totalIgv = 0.00;
+        $totalVenta = 0.00;
+        $ultimaLinea = count($lineasPrevias) - 1;
+
+        foreach ($lineasPrevias as $posicion => $linea) {
+            if ($posicion === $ultimaLinea) {
+                $descuentoGlobalLinea = round(
+                    $descuentoGlobal - $descuentoAsignado,
+                    2
+                );
+            } else {
+                $descuentoGlobalLinea = $subtotalDocumento > 0
+                    ? round(
+                        $descuentoGlobal
+                        * ((float)$linea['importe_despues_item'] / $subtotalDocumento),
+                        2
+                    )
+                    : 0.00;
+                $descuentoAsignado += $descuentoGlobalLinea;
+            }
+
+            $descuentoGlobalLinea = min(
+                max($descuentoGlobalLinea, 0.00),
+                (float)$linea['importe_despues_item']
+            );
+
+            $totalLinea = round(
+                (float)$linea['importe_despues_item'] - $descuentoGlobalLinea,
+                2
+            );
+
+            $afectacion = (string)$linea['codigo_afectacion_igv'];
+            $factor = (float)$linea['factor'];
+
+            if ($afectacion === '10' && $factor > 1) {
+                $base = round($totalLinea / $factor, 2);
+                $igv = round($totalLinea - $base, 2);
+                $totalGravado += $base;
+            } else {
+                $base = $totalLinea;
+                $igv = 0.00;
+
+                if ($afectacion === '20') {
+                    $totalExonerado += $base;
+                } elseif ($afectacion === '30') {
+                    $totalInafecto += $base;
+                } elseif ($afectacion === '40') {
+                    $totalExportacion += $base;
+                }
+            }
+
+            $cantidad = (float)$linea['cantidad'];
+            $descuentoLinea = round(
+                (float)$linea['importe_antes_descuento'] - $totalLinea,
+                2
+            );
+
+            $linea['descuento_global_linea'] = $descuentoGlobalLinea;
+            $linea['descuento_linea'] = max($descuentoLinea, 0.00);
+            $linea['base_imponible'] = $base;
+            $linea['monto_igv'] = $igv;
+            $linea['total_linea'] = $totalLinea;
+            $linea['valor_unitario_sin_igv'] = $cantidad > 0
+                ? round($base / $cantidad, 6)
+                : 0.00;
+            $linea['precio_unitario_con_impuesto'] = $cantidad > 0
+                ? round($totalLinea / $cantidad, 6)
+                : 0.00;
+
+            $lineas[] = $linea;
+            $totalIgv += $igv;
+            $totalVenta += $totalLinea;
+        }
+
+        $esOperacionExportacion = str_starts_with(
+            $tipoOperacion,
+            '02'
+        );
+
+        if ($totalExportacion > 0.009 && !$esOperacionExportacion) {
+            throw new RuntimeException(
+                'Los productos configurados como exportación requieren un tipo de operación SUNAT de exportación.'
+            );
+        }
+
+        if (
+            $esOperacionExportacion
+            && (
+                $totalGravado > 0.009
+                || $totalExonerado > 0.009
+                || $totalInafecto > 0.009
+            )
+        ) {
+            throw new RuntimeException(
+                'Una operación de exportación no puede mezclar productos de venta interna.'
+            );
+        }
+
+        if ($esOperacionExportacion && $totalExportacion <= 0.009) {
+            throw new RuntimeException(
+                'El tipo de operación seleccionado es de exportación, pero la venta no contiene productos configurados como exportación.'
+            );
+        }
+
+        return [
+            'tipo_operacion_sunat' => $tipoOperacion,
+            'moneda_codigo' => (string)$configuracion['moneda_codigo'],
+            'precios_incluyen_impuesto' => $preciosIncluyen ? 1 : 0,
+            'porcentaje_igv_predeterminado' => round((float)$configuracion['porcentaje_igv'], 2),
+            'subtotal_documento' => $subtotalDocumento,
+            'descuento_global' => $descuentoGlobal,
+            'total_gravado' => round($totalGravado, 2),
+            'total_exonerado' => round($totalExonerado, 2),
+            'total_inafecto' => round($totalInafecto, 2),
+            'total_exportacion' => round($totalExportacion, 2),
+            'total_igv' => round($totalIgv, 2),
+            'total_venta' => round($totalVenta, 2),
+            'lineas' => $lineas,
+            'configuracion' => $configuracion
+        ];
+    }
+
+    private function datosTributoPorAfectacion(
+        string $afectacion,
+        array $producto = []
+    ): array {
+        $predeterminados = [
+            '10' => ['1000', 'IGV', 'VAT'],
+            '20' => ['9997', 'EXO', 'VAT'],
+            '30' => ['9998', 'INA', 'FRE'],
+            '40' => ['9995', 'EXP', 'FRE']
+        ];
+
+        $datos = $predeterminados[$afectacion]
+            ?? $predeterminados['10'];
+
+        return [
+            'codigo_tributo' => trim((string)($producto['codigo_tributo'] ?? $datos[0])) ?: $datos[0],
+            'nombre_tributo' => trim((string)($producto['nombre_tributo'] ?? $datos[1])) ?: $datos[1],
+            'tipo_tributo' => trim((string)($producto['tipo_tributo'] ?? $datos[2])) ?: $datos[2]
+        ];
     }
 
     public function getConexion()

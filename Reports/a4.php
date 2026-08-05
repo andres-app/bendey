@@ -545,9 +545,48 @@ $fechaEmision = date('d/m/Y H:i:s', strtotime($fechaHora));
 $total = round((float)($reg['total_venta'] ?? 0), 2);
 $descuentoTotal = round((float)($reg['descuento_total'] ?? 0), 2);
 $subtotalAntesDescuento = round($total + $descuentoTotal, 2);
-$factorIgv = $porcentajeIgv > 0 ? 1 + ($porcentajeIgv / 100) : 1;
-$opGravada = $factorIgv > 1 ? round($total / $factorIgv, 2) : $total;
-$igv = round($total - $opGravada, 2);
+$opGravada = round((float)($reg['total_gravado'] ?? 0), 2);
+$opExonerada = round((float)($reg['total_exonerado'] ?? 0), 2);
+$opInafecta = round((float)($reg['total_inafecto'] ?? 0), 2);
+$opExportacion = round((float)($reg['total_exportacion'] ?? 0), 2);
+$igv = round((float)($reg['total_igv'] ?? 0), 2);
+
+// Compatibilidad con ventas anteriores a la migración tributaria.
+if (
+    $total > 0
+    && $opGravada <= 0
+    && $opExonerada <= 0
+    && $opInafecta <= 0
+    && $opExportacion <= 0
+) {
+    $factorIgv = $porcentajeIgv > 0
+        ? 1 + ($porcentajeIgv / 100)
+        : 1;
+    $opGravada = $factorIgv > 1
+        ? round($total / $factorIgv, 2)
+        : $total;
+    $igv = round($total - $opGravada, 2);
+}
+
+$filasTributarias = [];
+if ($opGravada > 0.009) {
+    $filasTributarias[] = ['Operación gravada', $opGravada];
+}
+if ($opExonerada > 0.009) {
+    $filasTributarias[] = ['Operación exonerada', $opExonerada];
+}
+if ($opInafecta > 0.009) {
+    $filasTributarias[] = ['Operación inafecta', $opInafecta];
+}
+if ($opExportacion > 0.009) {
+    $filasTributarias[] = ['Exportación', $opExportacion];
+}
+if ($igv > 0.009 || $opGravada > 0.009) {
+    $filasTributarias[] = [
+        $nombreImpuesto . ' ' . rtrim(rtrim(number_format($porcentajeIgv, 2, '.', ''), '0'), '.') . '%',
+        $igv
+    ];
+}
 
 $nombresPago = [];
 foreach ($pagos as $pago) {
@@ -720,7 +759,7 @@ foreach ($detalles as $indice => $detalle) {
         $cantidad,
         $codigo,
         $descripcion,
-        (float)($detalle['precio_venta'] ?? 0),
+        (float)($detalle['precio_unitario_con_impuesto'] ?? $detalle['precio_venta'] ?? 0),
         (float)($detalle['descuento'] ?? 0),
         (float)($detalle['subtotal'] ?? 0),
         $indice % 2 === 1
@@ -733,7 +772,7 @@ if ($pdf->GetY() > 214) {
 
 $pdf->Ln(6);
 $yResumen = $pdf->GetY();
-$altoResumen = count($pagos) > 1 ? max(42, 21 + count($pagos) * 5) : 42;
+$altoResumen = max(48, 24 + count($filasTributarias) * 5 + ($descuentoTotal > 0 ? 10 : 0), count($pagos) > 1 ? 21 + count($pagos) * 5 : 42);
 
 // RESUMEN IZQUIERDO
 $pdf->SetFillColor(249, 250, 251);
@@ -792,14 +831,14 @@ if ($descuentoTotal > 0) {
     $yLinea += 5;
 }
 
-$pdf->SetXY($xTot + 4, $yLinea);
-$pdf->Cell(40, 5, ventaPdfTexto('Op. gravada'), 0, 0, 'L');
-$pdf->Cell(24, 5, number_format($opGravada, 2), 0, 1, 'R');
-$yLinea += 5;
-$pdf->SetXY($xTot + 4, $yLinea);
-$pdf->Cell(40, 5, ventaPdfTexto($nombreImpuesto . ' ' . rtrim(rtrim(number_format($porcentajeIgv, 2, '.', ''), '0'), '.') . '%'), 0, 0, 'L');
-$pdf->Cell(24, 5, number_format($igv, 2), 0, 1, 'R');
-$yLinea += 6;
+foreach ($filasTributarias as $filaTributaria) {
+    $pdf->SetXY($xTot + 4, $yLinea);
+    $pdf->Cell(40, 5, ventaPdfTexto((string)$filaTributaria[0]), 0, 0, 'L');
+    $pdf->Cell(24, 5, number_format((float)$filaTributaria[1], 2), 0, 1, 'R');
+    $yLinea += 5;
+}
+
+$yLinea += 1;
 $pdf->SetDrawColor(190, 194, 198);
 $pdf->Line($xTot + 4, $yLinea, $xTot + $wTot - 4, $yLinea);
 $pdf->SetXY($xTot + 4, $yLinea + 2);

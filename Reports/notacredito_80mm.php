@@ -171,10 +171,19 @@ foreach ($detalles as $detalle) {
 $pdf->Cell(0, 0, '', 'T');
 $pdf->Ln(2);
 $pdf->SetFont('Helvetica', '', 8);
-$pdf->Cell(40, 5, nc80Texto('VALOR DE VENTA'), 0, 0);
-$pdf->Cell(34, 5, nc80Texto($simbolo . ' ' . number_format((float)$nota['valor_venta'], 2)), 0, 1, 'R');
-$pdf->Cell(40, 5, nc80Texto('IGV 18%'), 0, 0);
-$pdf->Cell(34, 5, nc80Texto($simbolo . ' ' . number_format((float)$nota['igv'], 2)), 0, 1, 'R');
+$totalesTributariosNc = [
+    'OP. GRAVADA' => (float)($nota['total_gravado'] ?? 0),
+    'OP. EXONERADA' => (float)($nota['total_exonerado'] ?? 0),
+    'OP. INAFECTA' => (float)($nota['total_inafecto'] ?? 0),
+    'EXPORTACIÓN' => (float)($nota['total_exportacion'] ?? 0),
+    'IGV' => (float)($nota['igv'] ?? 0),
+];
+foreach ($totalesTributariosNc as $etiqueta => $importe) {
+    if ($importe <= 0.009 && $etiqueta !== 'IGV') continue;
+    if ($etiqueta === 'IGV' && $importe <= 0.009 && (float)($nota['total_gravado'] ?? 0) <= 0.009) continue;
+    $pdf->Cell(40, 5, nc80Texto($etiqueta), 0, 0);
+    $pdf->Cell(34, 5, nc80Texto($simbolo . ' ' . number_format($importe, 2)), 0, 1, 'R');
+}
 $pdf->SetFont('Helvetica', 'B', 9);
 $pdf->Cell(40, 6, nc80Texto('TOTAL NOTA'), 0, 0);
 $pdf->Cell(34, 6, nc80Texto($simbolo . ' ' . number_format((float)$nota['total_nota'], 2)), 0, 1, 'R');

@@ -6,6 +6,10 @@ const ncState = {
   pagosOriginales: [],
   totalNota: 0,
   valorVenta: 0,
+  totalGravado: 0,
+  totalExonerado: 0,
+  totalInafecto: 0,
+  totalExportacion: 0,
   igv: 0,
   montoCuotas: 0,
   montoDevolver: 0,
@@ -280,7 +284,12 @@ function renderizarProductos() {
         data-disponible="${disponible}"
         data-original="${parseFloat(detalle.cantidad_original) || 0}"
         data-precio="${parseFloat(detalle.precio_venta) || 0}"
-        data-descuento="${parseFloat(detalle.descuento) || 0}">
+        data-descuento="${parseFloat(detalle.descuento) || 0}"
+        data-afectacion="${escaparHtml(detalle.codigo_afectacion_igv || "10")}"
+        data-porcentaje-igv="${parseFloat(detalle.porcentaje_igv) || 0}"
+        data-base-original="${parseFloat(detalle.base_imponible) || 0}"
+        data-igv-original="${parseFloat(detalle.monto_igv) || 0}"
+        data-total-original="${parseFloat(detalle.total_linea) || 0}">
         <td class="text-center">
           <input
             type="checkbox"
@@ -290,6 +299,9 @@ function renderizarProductos() {
         <td>
           <span class="nc-product-name">${escaparHtml(detalle.descripcion_articulo)}</span>
           <span class="nc-product-code">${escaparHtml(detalle.codigo_articulo || "Sin código")}</span>
+          <span class="nc-tax-badge tax-${escaparHtml(detalle.codigo_afectacion_igv || "10")}">
+            ${escaparHtml(etiquetaAfectacionIgv(detalle.codigo_afectacion_igv, detalle.porcentaje_igv))}
+          </span>
         </td>
         <td class="text-center">${formatearCantidad(detalle.cantidad_original)}</td>
         <td class="text-center">
@@ -369,65 +381,127 @@ function recalcularNota() {
   }
 
   const venta = ncState.data.venta || {};
-  const detalles = Array.isArray(ncState.data.detalles)
-    ? ncState.data.detalles
-    : [];
-
-  let brutoOriginal = 0;
-  detalles.forEach(function (detalle) {
-    brutoOriginal +=
-      (parseFloat(detalle.cantidad_original) || 0) *
-      (parseFloat(detalle.precio_venta) || 0) -
-      (parseFloat(detalle.descuento) || 0);
-  });
-
-  const descuentoOriginal = parseFloat(venta.descuento_total) || 0;
-  const factorDescuento = brutoOriginal > 0
-    ? Math.min(descuentoOriginal / brutoOriginal, 1)
-    : 0;
-
   let total = 0;
+  let gravada = 0;
+  let exonerada = 0;
+  let inafecta = 0;
+  let exportacion = 0;
+  let igv = 0;
   let seleccionados = 0;
 
   $("#ncDetalleProductos tr[data-detalle]").each(function () {
     const $fila = $(this);
     const seleccionado = $fila.find(".nc-item-check").is(":checked");
+    const cantidadOriginal = Math.max(parseFloat($fila.data("original")) || 0, 0.001);
     const cantidad = seleccionado
-      ? parseFloat($fila.find(".nc-quantity-input").val()) || 0
+      ? Math.min(parseFloat($fila.find(".nc-quantity-input").val()) || 0, parseFloat($fila.data("disponible")) || 0)
       : 0;
-    const precio = parseFloat($fila.data("precio")) || 0;
-    const descuentoItemOriginal = parseFloat($fila.data("descuento")) || 0;
-    const cantidadOriginal = parseFloat($fila.data("original")) || 0;
-    const descuentoItem = cantidadOriginal > 0
-      ? descuentoItemOriginal * (cantidad / cantidadOriginal)
+    const proporcion = Math.min(Math.max(cantidad / cantidadOriginal, 0), 1);
+    const afectacion = String($fila.data("afectacion") || "10");
+    const tasa = afectacion === "10"
+      ? parseFloat($fila.data("porcentaje-igv")) || 0
       : 0;
-    const bruto = Math.max(cantidad * precio - descuentoItem, 0);
-    const linea = redondear(bruto - bruto * factorDescuento, 2);
+
+    let totalOriginal = parseFloat($fila.data("total-original")) || 0;
+    let baseOriginal = parseFloat($fila.data("base-original")) || 0;
+    let igvOriginal = parseFloat($fila.data("igv-original")) || 0;
+
+    // Compatibilidad con comprobantes históricos incompletos.
+    if (totalOriginal <= 0) {
+      const precio = parseFloat($fila.data("precio")) || 0;
+      const descuento = parseFloat($fila.data("descuento")) || 0;
+      totalOriginal = Math.max(cantidadOriginal * precio - descuento, 0);
+    }
+
+    if (baseOriginal <= 0 && totalOriginal > 0) {
+      if (afectacion === "10" && tasa > 0) {
+        baseOriginal = redondear(totalOriginal / (1 + tasa / 100), 2);
+        igvOriginal = redondear(totalOriginal - baseOriginal, 2);
+      } else {
+        baseOriginal = totalOriginal;
+        igvOriginal = 0;
+      }
+    }
+
+    let totalLinea = redondear(totalOriginal * proporcion, 2);
+    let baseLinea = redondear(baseOriginal * proporcion, 2);
+    let igvLinea = redondear(igvOriginal * proporcion, 2);
+
+    if (afectacion !== "10") {
+      baseLinea = totalLinea;
+      igvLinea = 0;
+    } else if (Math.abs(baseLinea + igvLinea - totalLinea) > 0.01) {
+      igvLinea = redondear(totalLinea - baseLinea, 2);
+    }
 
     if (cantidad > 0) {
       seleccionados += 1;
-      total += linea;
+      total += totalLinea;
+      igv += igvLinea;
+
+      if (afectacion === "20") {
+        exonerada += baseLinea;
+      } else if (afectacion === "30") {
+        inafecta += baseLinea;
+      } else if (afectacion === "40") {
+        exportacion += baseLinea;
+      } else {
+        gravada += baseLinea;
+      }
     }
 
-    $fila.find(".nc-line-total").text(moneda(linea));
+    $fila.find(".nc-line-total").text(moneda(totalLinea));
   });
 
   total = redondear(total, 2);
+  gravada = redondear(gravada, 2);
+  exonerada = redondear(exonerada, 2);
+  inafecta = redondear(inafecta, 2);
+  exportacion = redondear(exportacion, 2);
+  igv = redondear(igv, 2);
 
   const motivo = String($("#codigo_motivo").val() || "");
   const esTotal = motivo === "01" || motivo === "06";
 
   if (esTotal && seleccionados > 0) {
-    total = redondear(parseFloat(venta.saldo_acreditable) || 0, 2);
+    const saldo = redondear(parseFloat(venta.saldo_acreditable) || 0, 2);
+    const diferencia = redondear(saldo - total, 2);
+
+    if (Math.abs(diferencia) <= 0.05) {
+      total = saldo;
+      // El servidor hará el ajuste final por redondeo manteniendo la afectación.
+      if (gravada > 0) {
+        igv = redondear(igv + diferencia, 2);
+      } else if (exonerada > 0) {
+        exonerada = redondear(exonerada + diferencia, 2);
+      } else if (inafecta > 0) {
+        inafecta = redondear(inafecta + diferencia, 2);
+      } else if (exportacion > 0) {
+        exportacion = redondear(exportacion + diferencia, 2);
+      }
+    }
   }
 
   ncState.totalNota = total;
-  ncState.valorVenta = redondear(total / 1.18, 2);
-  ncState.igv = redondear(total - ncState.valorVenta, 2);
+  ncState.totalGravado = gravada;
+  ncState.totalExonerado = exonerada;
+  ncState.totalInafecto = inafecta;
+  ncState.totalExportacion = exportacion;
+  ncState.valorVenta = redondear(gravada + exonerada + inafecta + exportacion, 2);
+  ncState.igv = igv;
 
-  $("#ncValorVenta").text(moneda(ncState.valorVenta));
+  $("#ncTotalGravado").text(moneda(ncState.totalGravado));
+  $("#ncTotalExonerado").text(moneda(ncState.totalExonerado));
+  $("#ncTotalInafecto").text(moneda(ncState.totalInafecto));
+  $("#ncTotalExportacion").text(moneda(ncState.totalExportacion));
   $("#ncIgv").text(moneda(ncState.igv));
   $("#ncTotalNota").text(moneda(ncState.totalNota));
+
+  $("#ncFilaGravada").toggle(ncState.totalGravado > 0.009 || ncState.igv > 0.009);
+  $("#ncFilaExonerada").toggle(ncState.totalExonerado > 0.009);
+  $("#ncFilaInafecta").toggle(ncState.totalInafecto > 0.009);
+  $("#ncFilaExportacion").toggle(ncState.totalExportacion > 0.009);
+  $("#ncFilaIgv").toggle(ncState.igv > 0.009 || ncState.totalGravado > 0.009);
 
   recalcularAplicacionFinanciera();
 }
@@ -845,6 +919,32 @@ function obtenerMensajeAjax(xhr, predeterminado) {
   }
 
   return predeterminado;
+}
+
+function etiquetaAfectacionIgv(codigo, porcentaje) {
+  const afectacion = String(codigo || "10");
+  const tasa = parseFloat(porcentaje) || 0;
+
+  if (afectacion === "20") {
+    return "Exonerado";
+  }
+
+  if (afectacion === "30") {
+    return "Inafecto";
+  }
+
+  if (afectacion === "40") {
+    return "Exportación";
+  }
+
+  return "Gravado " + formatearPorcentaje(tasa) + "%";
+}
+
+function formatearPorcentaje(valor) {
+  const numero = parseFloat(valor) || 0;
+  return Number.isInteger(numero)
+    ? String(numero)
+    : numero.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function moneda(valor) {

@@ -15,8 +15,6 @@ class CreditNote
 {
     private Conexion $conexion;
 
-    private const TASA_IGV = 18.00;
-    private const FACTOR_IGV = 1.18;
 
     public function __construct(?Conexion $conexion = null)
     {
@@ -83,6 +81,13 @@ class CreditNote
                     2
                 ),
                 'impuesto' => round((float)$venta['impuesto'], 2),
+                'tipo_operacion_sunat' => (string)($venta['tipo_operacion_sunat'] ?? '0101'),
+                'moneda_codigo' => (string)($venta['moneda_codigo'] ?? 'PEN'),
+                'total_gravado' => round((float)($venta['total_gravado'] ?? 0), 2),
+                'total_exonerado' => round((float)($venta['total_exonerado'] ?? 0), 2),
+                'total_inafecto' => round((float)($venta['total_inafecto'] ?? 0), 2),
+                'total_exportacion' => round((float)($venta['total_exportacion'] ?? 0), 2),
+                'total_igv' => round((float)($venta['total_igv'] ?? 0), 2),
                 'tipo_pago' => (string)$venta['tipo_pago'],
                 'condicion_pago' => $this->normalizarCondicionPago(
                     (string)$venta['tipo_pago']
@@ -356,10 +361,15 @@ class CreditNote
                     codigo_motivo,
                     sustento,
                     tipo_afectacion,
+                    tipo_operacion_sunat,
                     fecha_hora,
                     moneda,
                     impuesto,
                     valor_venta,
+                    total_gravado,
+                    total_exonerado,
+                    total_inafecto,
+                    total_exportacion,
                     descuento_total,
                     igv,
                     total_nota,
@@ -377,7 +387,7 @@ class CreditNote
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     'Nota de Crédito Electrónica',
-                    ?, ?, ?, ?, ?, ?, 'PEN', ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     'REGISTRADA', ?, ?, ?, ?, ?, ?
                 )",
                 [
@@ -396,9 +406,15 @@ class CreditNote
                     $codigoMotivo,
                     $sustento,
                     $tipoAfectacion,
+                    (string)($venta['tipo_operacion_sunat'] ?? '0101'),
                     $fechaHora,
-                    self::TASA_IGV,
+                    (string)($venta['moneda_codigo'] ?? 'PEN'),
+                    round((float)($calculo['porcentaje_igv_referencial'] ?? $venta['impuesto'] ?? 0), 2),
                     $calculo['valor_venta'],
+                    $calculo['total_gravado'],
+                    $calculo['total_exonerado'],
+                    $calculo['total_inafecto'],
+                    $calculo['total_exportacion'],
                     $calculo['descuento_total'],
                     $calculo['igv'],
                     $calculo['total_nota'],
@@ -430,6 +446,12 @@ class CreditNote
                         codigo_articulo,
                         descripcion_articulo,
                         unidad_codigo,
+                        codigo_afectacion_igv,
+                        porcentaje_igv,
+                        codigo_producto_sunat,
+                        codigo_tributo,
+                        nombre_tributo,
+                        tipo_tributo,
                         cantidad_original,
                         cantidad_nota,
                         costo_unitario,
@@ -440,7 +462,7 @@ class CreditNote
                         igv,
                         total_linea,
                         devuelve_stock
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     [
                         $idnota,
                         $linea['iddetalle_venta'],
@@ -448,6 +470,12 @@ class CreditNote
                         $linea['codigo_articulo'],
                         $linea['descripcion_articulo'],
                         $linea['unidad_codigo'],
+                        $linea['codigo_afectacion_igv'],
+                        $linea['porcentaje_igv'],
+                        $linea['codigo_producto_sunat'],
+                        $linea['codigo_tributo'],
+                        $linea['nombre_tributo'],
+                        $linea['tipo_tributo'],
                         $linea['cantidad_original'],
                         $linea['cantidad_nota'],
                         $linea['costo_unitario'],
@@ -986,6 +1014,14 @@ class CreditNote
                     DATE_FORMAT(v.fecha_hora, '%d/%m/%Y %H:%i') AS fecha,
                     CONCAT(v.serie_comprobante, '-', v.num_comprobante) AS comprobante,
                     v.impuesto,
+                    v.tipo_operacion_sunat,
+                    v.moneda_codigo,
+                    v.total_gravado,
+                    v.total_exonerado,
+                    v.total_inafecto,
+                    v.total_exportacion,
+                    v.total_igv,
+                    v.precios_incluyen_impuesto,
                     v.descuento_total,
                     v.total_venta,
                     v.tipo_pago,
@@ -1086,9 +1122,24 @@ class CreditNote
                     dv.precio_compra,
                     dv.precio_venta,
                     dv.descuento,
+                    dv.codigo_afectacion_igv,
+                    dv.porcentaje_igv,
+                    dv.unidad_medida_sunat,
+                    dv.codigo_producto_sunat,
+                    dv.codigo_tributo,
+                    dv.nombre_tributo,
+                    dv.tipo_tributo,
+                    dv.valor_unitario_sin_igv,
+                    dv.base_imponible,
+                    dv.monto_igv,
+                    dv.total_linea,
                     a.codigo AS codigo_articulo,
                     a.nombre AS descripcion_articulo,
-                    COALESCE(NULLIF(UPPER(TRIM(m.codigo)), ''), 'NIU') AS unidad_codigo,
+                    COALESCE(
+                        NULLIF(UPPER(TRIM(dv.unidad_medida_sunat)), ''),
+                        NULLIF(UPPER(TRIM(m.codigo)), ''),
+                        'NIU'
+                    ) AS unidad_codigo,
                     COALESCE((
                         SELECT SUM(ncd.cantidad_nota)
                         FROM nota_credito_detalle ncd
@@ -1137,6 +1188,10 @@ class CreditNote
             $fila['precio_compra'] = round((float)$fila['precio_compra'], 2);
             $fila['precio_venta'] = round((float)$fila['precio_venta'], 2);
             $fila['descuento'] = round((float)$fila['descuento'], 2);
+            $fila['porcentaje_igv'] = round((float)($fila['porcentaje_igv'] ?? 0), 2);
+            $fila['base_imponible'] = round((float)($fila['base_imponible'] ?? 0), 2);
+            $fila['monto_igv'] = round((float)($fila['monto_igv'] ?? 0), 2);
+            $fila['total_linea'] = round((float)($fila['total_linea'] ?? 0), 2);
 
             $salida[] = $fila;
         }
@@ -1269,39 +1324,16 @@ class CreditNote
         array $venta,
         array $seleccion
     ): array {
-        $detallesVenta = $this->conexion->getDataAll(
-            "SELECT cantidad, precio_venta, descuento
-             FROM detalle_venta
-             WHERE idventa = ?
-               AND estado = 1",
-            [(int)$venta['idventa']]
-        );
-
-        $subtotalBrutoOriginal = 0.00;
-
-        foreach (is_array($detallesVenta) ? $detallesVenta : [] as $detalle) {
-            $subtotalBrutoOriginal += round(
-                (float)$detalle['cantidad']
-                * (float)$detalle['precio_venta']
-                - (float)$detalle['descuento'],
-                2
-            );
-        }
-
-        $descuentoGlobal = max(
-            round((float)$venta['descuento_total'], 2),
-            0.00
-        );
-
-        $factorDescuento = $subtotalBrutoOriginal > 0
-            ? min($descuentoGlobal / $subtotalBrutoOriginal, 1)
-            : 0.00;
-
         $lineas = [];
-        $totalNota = 0.00;
         $valorVenta = 0.00;
         $igvTotal = 0.00;
+        $totalNota = 0.00;
         $descuentoNota = 0.00;
+        $totalGravado = 0.00;
+        $totalExonerado = 0.00;
+        $totalInafecto = 0.00;
+        $totalExportacion = 0.00;
+        $porcentajeReferencial = 0.00;
 
         foreach ($seleccion as $detalle) {
             $cantidad = round((float)$detalle['cantidad_nota'], 3);
@@ -1309,52 +1341,97 @@ class CreditNote
                 round((float)$detalle['cantidad_original'], 3),
                 0.001
             );
-            $precioOriginal = round((float)$detalle['precio_venta'], 6);
-            $brutoAntesDescuentos = round($cantidad * $precioOriginal, 2);
-            $descuentoItemOriginal = round(
-                (float)$detalle['descuento']
-                * ($cantidad / $cantidadOriginal),
-                2
-            );
-            $bruto = max(
-                round($brutoAntesDescuentos - $descuentoItemOriginal, 2),
-                0.00
-            );
-            $descuentoGlobalLinea = round($bruto * $factorDescuento, 2);
+            $proporcion = min($cantidad / $cantidadOriginal, 1.00);
+
+            $afectacion = trim((string)($detalle['codigo_afectacion_igv'] ?? '10'));
+            if (!in_array($afectacion, ['10','20','30','40'], true)) {
+                $afectacion = '10';
+            }
+            $porcentaje = $afectacion === '10'
+                ? round((float)($detalle['porcentaje_igv'] ?? $venta['impuesto'] ?? 18), 2)
+                : 0.00;
+            $porcentajeReferencial = max($porcentajeReferencial, $porcentaje);
+
+            $totalOriginalLinea = round((float)($detalle['total_linea'] ?? 0), 2);
+            $baseOriginalLinea = round((float)($detalle['base_imponible'] ?? 0), 2);
+            $igvOriginalLinea = round((float)($detalle['monto_igv'] ?? 0), 2);
+
+            // Compatibilidad con ventas históricas migradas o incompletas.
+            if ($totalOriginalLinea <= 0) {
+                $totalOriginalLinea = max(
+                    round(
+                        (float)$detalle['cantidad_original']
+                        * (float)$detalle['precio_venta']
+                        - (float)$detalle['descuento'],
+                        2
+                    ),
+                    0.00
+                );
+            }
+            if ($baseOriginalLinea <= 0 && $totalOriginalLinea > 0) {
+                if ($afectacion === '10' && $porcentaje > 0) {
+                    $baseOriginalLinea = round(
+                        $totalOriginalLinea / (1 + ($porcentaje / 100)),
+                        2
+                    );
+                    $igvOriginalLinea = round(
+                        $totalOriginalLinea - $baseOriginalLinea,
+                        2
+                    );
+                } else {
+                    $baseOriginalLinea = $totalOriginalLinea;
+                    $igvOriginalLinea = 0.00;
+                }
+            }
+
+            $totalLinea = round($totalOriginalLinea * $proporcion, 2);
+            $baseLinea = round($baseOriginalLinea * $proporcion, 2);
+            $igvLinea = round($igvOriginalLinea * $proporcion, 2);
+
+            // Cuadrar el total por redondeo proporcional.
+            if (abs(($baseLinea + $igvLinea) - $totalLinea) > 0.01) {
+                if ($afectacion === '10') {
+                    $igvLinea = round($totalLinea - $baseLinea, 2);
+                } else {
+                    $baseLinea = $totalLinea;
+                    $igvLinea = 0.00;
+                }
+            }
+
             $descuentoLinea = round(
-                $descuentoItemOriginal + $descuentoGlobalLinea,
+                (float)($detalle['descuento'] ?? 0) * $proporcion,
                 2
             );
-            $totalLinea = max(
-                round($bruto - $descuentoGlobalLinea, 2),
-                0.00
-            );
-            $baseLinea = round($totalLinea / self::FACTOR_IGV, 2);
-            $igvLinea = round($totalLinea - $baseLinea, 2);
-            $precioAjustadoConIgv = $cantidad > 0
+            $precioConImpuesto = $cantidad > 0
                 ? round($totalLinea / $cantidad, 6)
                 : 0.00;
             $valorUnitario = $cantidad > 0
                 ? round($baseLinea / $cantidad, 6)
                 : 0.00;
 
+            $tributo = $this->datosTributoPorAfectacion(
+                $afectacion,
+                $detalle
+            );
+
             $lineas[] = [
                 'iddetalle_venta' => (int)$detalle['iddetalle_venta'],
                 'idarticulo' => (int)$detalle['idarticulo'],
-                'codigo_articulo' =>
-                    trim((string)($detalle['codigo_articulo'] ?? '')),
-                'descripcion_articulo' =>
-                    trim((string)$detalle['descripcion_articulo']),
-                'unidad_codigo' =>
-                    $this->normalizarUnidad(
-                        (string)($detalle['unidad_codigo'] ?? '')
-                    ),
-                'cantidad_original' =>
-                    round((float)$detalle['cantidad_original'], 3),
+                'codigo_articulo' => trim((string)($detalle['codigo_articulo'] ?? '')),
+                'descripcion_articulo' => trim((string)$detalle['descripcion_articulo']),
+                'unidad_codigo' => $this->normalizarUnidad(
+                    (string)($detalle['unidad_codigo'] ?? 'NIU')
+                ),
+                'codigo_afectacion_igv' => $afectacion,
+                'porcentaje_igv' => $porcentaje,
+                'codigo_producto_sunat' => trim((string)($detalle['codigo_producto_sunat'] ?? '')),
+                'codigo_tributo' => $tributo['codigo_tributo'],
+                'nombre_tributo' => $tributo['nombre_tributo'],
+                'tipo_tributo' => $tributo['tipo_tributo'],
+                'cantidad_original' => round((float)$detalle['cantidad_original'], 3),
                 'cantidad_nota' => $cantidad,
-                'costo_unitario' =>
-                    round((float)$detalle['precio_compra'], 6),
-                'precio_unitario_con_igv' => $precioAjustadoConIgv,
+                'costo_unitario' => round((float)$detalle['precio_compra'], 6),
+                'precio_unitario_con_igv' => $precioConImpuesto,
                 'valor_unitario_sin_igv' => $valorUnitario,
                 'descuento_linea' => $descuentoLinea,
                 'valor_venta' => $baseLinea,
@@ -1362,22 +1439,33 @@ class CreditNote
                 'total_linea' => $totalLinea
             ];
 
+            if ($afectacion === '10') {
+                $totalGravado += $baseLinea;
+            } elseif ($afectacion === '20') {
+                $totalExonerado += $baseLinea;
+            } elseif ($afectacion === '30') {
+                $totalInafecto += $baseLinea;
+            } elseif ($afectacion === '40') {
+                $totalExportacion += $baseLinea;
+            }
+
             $totalNota += $totalLinea;
             $valorVenta += $baseLinea;
             $igvTotal += $igvLinea;
             $descuentoNota += $descuentoLinea;
         }
 
-        $totalNota = round($totalNota, 2);
-        $valorVenta = round($valorVenta, 2);
-        $igvTotal = round($igvTotal, 2);
-
         return [
             'lineas' => $lineas,
-            'valor_venta' => $valorVenta,
+            'valor_venta' => round($valorVenta, 2),
+            'total_gravado' => round($totalGravado, 2),
+            'total_exonerado' => round($totalExonerado, 2),
+            'total_inafecto' => round($totalInafecto, 2),
+            'total_exportacion' => round($totalExportacion, 2),
             'descuento_total' => round($descuentoNota, 2),
-            'igv' => $igvTotal,
-            'total_nota' => $totalNota
+            'igv' => round($igvTotal, 2),
+            'total_nota' => round($totalNota, 2),
+            'porcentaje_igv_referencial' => round($porcentajeReferencial, 2)
         ];
     }
 
@@ -1403,14 +1491,25 @@ class CreditNote
                 (float)$linea['total_linea'] + $diferencia,
                 2
             );
-            $linea['valor_venta'] = round(
-                $linea['total_linea'] / self::FACTOR_IGV,
-                2
-            );
-            $linea['igv'] = round(
-                $linea['total_linea'] - $linea['valor_venta'],
-                2
-            );
+
+            $afectacion = (string)($linea['codigo_afectacion_igv'] ?? '10');
+            $porcentaje = (float)($linea['porcentaje_igv'] ?? 0);
+
+            if ($afectacion === '10' && $porcentaje > 0) {
+                $factor = 1 + ($porcentaje / 100);
+                $linea['valor_venta'] = round(
+                    $linea['total_linea'] / $factor,
+                    2
+                );
+                $linea['igv'] = round(
+                    $linea['total_linea'] - $linea['valor_venta'],
+                    2
+                );
+            } else {
+                $linea['valor_venta'] = $linea['total_linea'];
+                $linea['igv'] = 0.00;
+            }
+
             $linea['precio_unitario_con_igv'] = round(
                 $linea['total_linea'] / $linea['cantidad_nota'],
                 6
@@ -1423,26 +1522,45 @@ class CreditNote
         }
 
         $calculo['total_nota'] = round($saldoAcreditable, 2);
-        $calculo['valor_venta'] = round(
-            array_sum(
-                array_map(
-                    static fn(array $linea): float =>
-                        (float)$linea['valor_venta'],
-                    $calculo['lineas']
-                )
-            ),
-            2
-        );
-        $calculo['igv'] = round(
-            array_sum(
-                array_map(
-                    static fn(array $linea): float =>
-                        (float)$linea['igv'],
-                    $calculo['lineas']
-                )
-            ),
-            2
-        );
+        $calculo['valor_venta'] = 0.00;
+        $calculo['igv'] = 0.00;
+        $calculo['total_gravado'] = 0.00;
+        $calculo['total_exonerado'] = 0.00;
+        $calculo['total_inafecto'] = 0.00;
+        $calculo['total_exportacion'] = 0.00;
+
+        foreach ($calculo['lineas'] as $linea) {
+            $base = (float)$linea['valor_venta'];
+            $calculo['valor_venta'] += $base;
+            $calculo['igv'] += (float)$linea['igv'];
+
+            switch ((string)$linea['codigo_afectacion_igv']) {
+                case '20':
+                    $calculo['total_exonerado'] += $base;
+                    break;
+                case '30':
+                    $calculo['total_inafecto'] += $base;
+                    break;
+                case '40':
+                    $calculo['total_exportacion'] += $base;
+                    break;
+                case '10':
+                default:
+                    $calculo['total_gravado'] += $base;
+                    break;
+            }
+        }
+
+        foreach ([
+            'valor_venta',
+            'igv',
+            'total_gravado',
+            'total_exonerado',
+            'total_inafecto',
+            'total_exportacion'
+        ] as $clave) {
+            $calculo[$clave] = round((float)$calculo[$clave], 2);
+        }
 
         return $calculo;
     }
@@ -2048,6 +2166,26 @@ class CreditNote
         );
 
         return strtoupper($ascii !== false ? $ascii : $texto);
+    }
+
+
+    private function datosTributoPorAfectacion(
+        string $afectacion,
+        array $origen = []
+    ): array {
+        $mapa = [
+            '10' => ['1000', 'IGV', 'VAT'],
+            '20' => ['9997', 'EXO', 'VAT'],
+            '30' => ['9998', 'INA', 'FRE'],
+            '40' => ['9995', 'EXP', 'FRE']
+        ];
+        $base = $mapa[$afectacion] ?? $mapa['10'];
+
+        return [
+            'codigo_tributo' => trim((string)($origen['codigo_tributo'] ?? $base[0])) ?: $base[0],
+            'nombre_tributo' => trim((string)($origen['nombre_tributo'] ?? $base[1])) ?: $base[1],
+            'tipo_tributo' => trim((string)($origen['tipo_tributo'] ?? $base[2])) ?: $base[2]
+        ];
     }
 
     private function normalizarUnidad(string $codigo): string

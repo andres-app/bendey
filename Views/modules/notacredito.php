@@ -302,11 +302,23 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
                                         <span>Saldo acreditable</span>
                                         <strong id="ncSaldoAcreditable">S/ 0.00</strong>
                                     </div>
-                                    <div class="nc-summary-line">
-                                        <span>Valor de venta</span>
-                                        <strong id="ncValorVenta">S/ 0.00</strong>
+                                    <div class="nc-summary-line nc-tax-summary-line" id="ncFilaGravada">
+                                        <span>Operación gravada</span>
+                                        <strong id="ncTotalGravado">S/ 0.00</strong>
                                     </div>
-                                    <div class="nc-summary-line">
+                                    <div class="nc-summary-line nc-tax-summary-line" id="ncFilaExonerada" style="display:none;">
+                                        <span>Operación exonerada</span>
+                                        <strong id="ncTotalExonerado">S/ 0.00</strong>
+                                    </div>
+                                    <div class="nc-summary-line nc-tax-summary-line" id="ncFilaInafecta" style="display:none;">
+                                        <span>Operación inafecta</span>
+                                        <strong id="ncTotalInafecto">S/ 0.00</strong>
+                                    </div>
+                                    <div class="nc-summary-line nc-tax-summary-line" id="ncFilaExportacion" style="display:none;">
+                                        <span>Exportación</span>
+                                        <strong id="ncTotalExportacion">S/ 0.00</strong>
+                                    </div>
+                                    <div class="nc-summary-line nc-tax-summary-line" id="ncFilaIgv">
                                         <span>IGV</span>
                                         <strong id="ncIgv">S/ 0.00</strong>
                                     </div>
@@ -601,6 +613,47 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
             min-height: 46px;
             border-radius: 10px;
             font-weight: 800;
+        }
+
+
+
+        .nc-tax-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 5px;
+            padding: 3px 7px;
+            border: 1px solid #e1e5ea;
+            border-radius: 999px;
+            color: #657080;
+            background: #f8f9fb;
+            font-size: .62rem;
+            font-weight: 750;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .nc-tax-badge.tax-10 {
+            border-color: #cfe2ff;
+            color: #315b94;
+            background: #f0f6ff;
+        }
+
+        .nc-tax-badge.tax-20 {
+            border-color: #cfe9d8;
+            color: #317347;
+            background: #f1faf4;
+        }
+
+        .nc-tax-badge.tax-30 {
+            border-color: #ddd8f4;
+            color: #62518c;
+            background: #f6f4fc;
+        }
+
+        .nc-tax-badge.tax-40 {
+            border-color: #f0d8b7;
+            color: #8b5f1d;
+            background: #fff8ee;
         }
 
         @media (max-width: 991.98px) {

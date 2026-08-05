@@ -225,6 +225,15 @@ if ($_SESSION['ventas'] == 1) {
                                                     name="descuento_porcentaje"
                                                     value="0.00">
 
+
+                                                <!-- RESUMEN TRIBUTARIO CALCULADO -->
+                                                <input type="hidden" id="total_gravado" name="total_gravado" value="0.00">
+                                                <input type="hidden" id="total_exonerado" name="total_exonerado" value="0.00">
+                                                <input type="hidden" id="total_inafecto" name="total_inafecto" value="0.00">
+                                                <input type="hidden" id="total_exportacion" name="total_exportacion" value="0.00">
+                                                <input type="hidden" id="total_igv" name="total_igv" value="0.00">
+                                                <input type="hidden" id="precios_incluyen_impuesto" name="precios_incluyen_impuesto" value="1">
+
                                             </div>
 
                                         </div>
@@ -376,6 +385,94 @@ if ($_SESSION['ventas'] == 1) {
                                                 </small>
                                             </div>
 
+                                        </div>
+
+
+                                        <!-- =====================================
+                                             DATOS TRIBUTARIOS
+                                        ====================================== -->
+                                        <div class="venta-tributaria-panel mb-4" id="ventaTributariaPanel">
+                                            <div class="venta-tributaria-header">
+                                                <div class="venta-tributaria-title-wrap">
+                                                    <span class="venta-tributaria-icon">
+                                                        <i class="fas fa-file-invoice"></i>
+                                                    </span>
+                                                    <div>
+                                                        <h5>Datos tributarios</h5>
+                                                        <small>
+                                                            Se calculan según la configuración de cada producto.
+                                                        </small>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-light btn-sm venta-tributaria-toggle"
+                                                    data-toggle="collapse"
+                                                    data-target="#ventaTributariaContenido"
+                                                    aria-expanded="true"
+                                                    aria-controls="ventaTributariaContenido">
+                                                    <i class="fas fa-chevron-up"></i>
+                                                </button>
+                                            </div>
+
+                                            <div class="collapse show" id="ventaTributariaContenido">
+                                                <div class="venta-tributaria-body">
+                                                    <div class="row g-3 align-items-end">
+                                                        <div class="col-lg-8 col-md-7 col-12">
+                                                            <label for="tipo_operacion_sunat">
+                                                                Tipo de operación SUNAT
+                                                            </label>
+                                                            <select
+                                                                class="form-control form-select"
+                                                                id="tipo_operacion_sunat"
+                                                                name="tipo_operacion_sunat"
+                                                                required>
+                                                                <option value="0101">
+                                                                    0101 — Venta interna
+                                                                </option>
+                                                            </select>
+                                                            <small class="form-text text-muted" id="ayudaTipoOperacionSunat">
+                                                                Se utilizará la configuración tributaria de la empresa o sucursal.
+                                                            </small>
+                                                        </div>
+
+                                                        <div class="col-lg-4 col-md-5 col-12">
+                                                            <div class="venta-tributaria-config" id="resumenConfiguracionTributaria">
+                                                                <span>Configuración</span>
+                                                                <strong>Precios con impuesto incluido</strong>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="venta-tributaria-summary" aria-live="polite">
+                                                        <div class="venta-tax-item venta-tax-gravada">
+                                                            <span>Op. gravada</span>
+                                                            <strong id="resumenOperacionGravada">S/ 0.00</strong>
+                                                        </div>
+                                                        <div class="venta-tax-item">
+                                                            <span>Op. exonerada</span>
+                                                            <strong id="resumenOperacionExonerada">S/ 0.00</strong>
+                                                        </div>
+                                                        <div class="venta-tax-item">
+                                                            <span>Op. inafecta</span>
+                                                            <strong id="resumenOperacionInafecta">S/ 0.00</strong>
+                                                        </div>
+                                                        <div class="venta-tax-item">
+                                                            <span>Exportación</span>
+                                                            <strong id="resumenOperacionExportacion">S/ 0.00</strong>
+                                                        </div>
+                                                        <div class="venta-tax-item venta-tax-igv">
+                                                            <span>IGV</span>
+                                                            <strong id="resumenIgvVenta">S/ 0.00</strong>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="venta-tributaria-message" id="mensajeTributarioVenta">
+                                                        Los productos nuevos heredan la afectación configurada en la empresa; cada producto puede tener su propia clasificación.
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <!-- =====================================
@@ -2897,6 +2994,206 @@ if ($_SESSION['ventas'] == 1) {
             }
         }
 
+
+        /* =========================================================
+           DATOS TRIBUTARIOS DE LA VENTA
+        ========================================================== */
+        .venta-tributaria-panel {
+            overflow: visible;
+            border: 1px solid #e3e8ee;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, .045);
+        }
+
+        .venta-tributaria-header {
+            min-height: 66px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 13px 15px;
+            border-bottom: 1px solid #edf0f3;
+            background: linear-gradient(180deg, #fff 0%, #fbfcfd 100%);
+        }
+
+        .venta-tributaria-title-wrap {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 11px;
+        }
+
+        .venta-tributaria-icon {
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 11px;
+            color: #238553;
+            background: #edf8f2;
+        }
+
+        .venta-tributaria-title-wrap h5 {
+            margin: 0 0 2px;
+            color: #303a47;
+            font-size: .88rem;
+            font-weight: 800;
+        }
+
+        .venta-tributaria-title-wrap small {
+            color: #818b98;
+            font-size: .7rem;
+        }
+
+        .venta-tributaria-toggle {
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border: 1px solid #e2e7ec;
+            border-radius: 9px;
+            color: #707b88;
+            background: #fff;
+        }
+
+        .venta-tributaria-toggle[aria-expanded="false"] i {
+            transform: rotate(180deg);
+        }
+
+        .venta-tributaria-toggle i {
+            transition: transform .18s ease;
+        }
+
+        .venta-tributaria-body {
+            padding: 15px;
+        }
+
+        .venta-tributaria-config {
+            min-height: 39px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 7px 11px;
+            border: 1px solid #e3e8ee;
+            border-radius: 10px;
+            background: #f8fafb;
+        }
+
+        .venta-tributaria-config span {
+            color: #98a2b3;
+            font-size: .58rem;
+            font-weight: 750;
+            letter-spacing: .045em;
+            text-transform: uppercase;
+        }
+
+        .venta-tributaria-config strong {
+            margin-top: 2px;
+            color: #475467;
+            font-size: .69rem;
+            font-weight: 700;
+        }
+
+        .venta-tributaria-summary {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .venta-tax-item {
+            min-width: 0;
+            padding: 9px 10px;
+            border: 1px solid #e5e9ee;
+            border-radius: 10px;
+            background: #fafbfc;
+        }
+
+        .venta-tax-item span {
+            display: block;
+            overflow: hidden;
+            color: #8b95a3;
+            font-size: .59rem;
+            font-weight: 700;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .venta-tax-item strong {
+            display: block;
+            margin-top: 4px;
+            color: #364152;
+            font-size: .76rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .venta-tax-gravada {
+            border-color: #cee8d9;
+            background: #f4fbf7;
+        }
+
+        .venta-tax-igv {
+            border-color: #d9def5;
+            background: #f7f8ff;
+        }
+
+        .venta-tributaria-message {
+            margin-top: 10px;
+            padding: 8px 10px;
+            border-left: 3px solid #35a56f;
+            border-radius: 0 8px 8px 0;
+            color: #6c7683;
+            background: #f5faf7;
+            font-size: .67rem;
+            line-height: 1.4;
+        }
+
+        .venta-product-tax-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 5px;
+            padding: 3px 7px;
+            border: 1px solid #dfe5ea;
+            border-radius: 999px;
+            color: #657080;
+            background: #f8fafb;
+            font-size: .62rem;
+            font-weight: 700;
+        }
+
+        .venta-product-tax-badge.tax-10 {
+            border-color: #cde7d8;
+            color: #237a4a;
+            background: #f2faf5;
+        }
+
+        .venta-product-tax-badge.tax-20,
+        .venta-product-tax-badge.tax-30,
+        .venta-product-tax-badge.tax-40 {
+            border-color: #d9def2;
+            color: #5360a9;
+            background: #f6f7fd;
+        }
+
+        @media (max-width: 991.98px) {
+            .venta-tributaria-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .venta-tributaria-summary {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .venta-tax-igv {
+                grid-column: 1 / -1;
+            }
+        }
     </style>
 
     <!-- =========================================================
