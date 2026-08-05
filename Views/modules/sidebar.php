@@ -95,12 +95,8 @@
             object-fit: contain;
         }
 
-        /* Drawer móvil: más delgado, logo menor y opciones compactas. */
+        /* Drawer móvil: conserva el ancho y posicionamiento nativos de Stisla. */
         @media (max-width: 1024px) {
-            body:not(.sidebar-mini) .main-sidebar {
-                width: min(242px, 88vw);
-            }
-
             body:not(.sidebar-mini) .main-sidebar .tiquepos-sidebar-brand {
                 height: 86px !important;
                 padding: 8px 9px !important;

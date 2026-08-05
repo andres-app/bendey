@@ -2542,7 +2542,6 @@ if ($_SESSION['ventas'] == 1) {
             .venta-pos-main-content {
                 padding-top: 78px !important;
                 padding-right: 8px !important;
-                padding-left: 8px !important;
             }
 
             .venta-pos-main-content .venta-pos-section,
@@ -2551,6 +2550,28 @@ if ($_SESSION['ventas'] == 1) {
                 margin: 0 !important;
                 padding-right: 0 !important;
                 padding-left: 0 !important;
+            }
+        }
+
+        /*
+         * Entre 1025 y 1199 px el sidebar sigue siendo lateral, no flotante.
+         * Se reserva su ancho tanto abierto como colapsado para impedir que
+         * el menú cubra el POS al pulsar el botón de navegación.
+         */
+        @media (min-width: 1025px) and (max-width: 1199.98px) {
+            body.sidebar-mini .venta-pos-main-content {
+                padding-left: 78px !important;
+            }
+
+            body:not(.sidebar-mini) .venta-pos-main-content {
+                padding-left: 258px !important;
+            }
+        }
+
+        /* En móvil Stisla usa el menú como drawer y el contenido ocupa el ancho. */
+        @media (max-width: 1024px) {
+            .venta-pos-main-content {
+                padding-left: 8px !important;
             }
         }
 
