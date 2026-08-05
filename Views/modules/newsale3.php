@@ -1139,7 +1139,7 @@ if ($_SESSION['ventas'] == 1) {
             white-space: nowrap;
         }
 
-        .venta-procesar-btn {
+        #btnProcesarVenta.venta-procesar-btn {
             width: 100%;
             min-width: 0;
             min-height: 46px;
@@ -1148,21 +1148,51 @@ if ($_SESSION['ventas'] == 1) {
             justify-content: center;
             gap: 8px;
             padding: 9px 18px;
-            border: 1px solid #4daf45;
+            border: 1px solid #4daf45 !important;
             border-radius: 10px;
             color: #ffffff !important;
-            background: #52b848;
+            background: #52b848 !important;
+            background-color: #52b848 !important;
             box-shadow: 0 7px 15px rgba(82, 184, 72, .16);
             font-size: .9rem;
-            font-weight: 800;
+            font-weight: 400;
+            text-shadow: none;
+            transition:
+                background-color .18s ease,
+                border-color .18s ease,
+                box-shadow .18s ease,
+                transform .18s ease;
         }
 
-        .venta-procesar-btn:hover,
-        .venta-procesar-btn:focus {
+        #btnProcesarVenta.venta-procesar-btn:hover,
+        #btnProcesarVenta.venta-procesar-btn:focus,
+        #btnProcesarVenta.venta-procesar-btn:focus-visible {
             color: #ffffff !important;
-            background: #469f3e;
-            border-color: #469f3e;
-            box-shadow: 0 0 0 .18rem rgba(82, 184, 72, .15);
+            background: #469f3e !important;
+            background-color: #469f3e !important;
+            border-color: #469f3e !important;
+            box-shadow: 0 0 0 .18rem rgba(82, 184, 72, .18);
+            outline: 0;
+        }
+
+        #btnProcesarVenta.venta-procesar-btn:active,
+        #btnProcesarVenta.venta-procesar-btn.active {
+            color: #ffffff !important;
+            background: #3f9138 !important;
+            background-color: #3f9138 !important;
+            border-color: #3f9138 !important;
+            box-shadow: 0 3px 8px rgba(63, 145, 56, .22) !important;
+            transform: translateY(1px);
+        }
+
+        #btnProcesarVenta.venta-procesar-btn:disabled,
+        #btnProcesarVenta.venta-procesar-btn.disabled {
+            color: #ffffff !important;
+            background: #52b848 !important;
+            background-color: #52b848 !important;
+            border-color: #4daf45 !important;
+            opacity: .72;
+            cursor: not-allowed;
         }
 
         .venta-pedido-footer {
@@ -1751,12 +1781,12 @@ if ($_SESSION['ventas'] == 1) {
                 font-weight: 700;
             }
 
-            .venta-procesar-btn {
+            #btnProcesarVenta.venta-procesar-btn {
                 min-height: 40px;
                 padding: 7px 12px;
                 border-radius: 9px;
                 font-size: 13px;
-                font-weight: 600;
+                font-weight: 400;
             }
 
             .venta-pedido-body {
