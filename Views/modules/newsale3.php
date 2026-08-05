@@ -1197,22 +1197,30 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         @media (min-width: 1200px) {
+            /*
+             * Separación visual entre la barra superior y el POS.
+             * Se limita a escritorio para conservar intacta la versión móvil.
+             */
+            .venta-pos-main-content {
+                padding-top: 86px !important;
+            }
+
             .venta-pos-layout {
-                min-height: calc(100vh - 70px);
+                min-height: calc(100vh - 102px);
             }
 
             .venta-panel-card-formulario {
-                min-height: calc(100vh - 66px);
+                min-height: calc(100vh - 102px);
             }
 
             .venta-panel-col-pedido {
                 position: sticky;
-                top: 62px;
+                top: 86px;
                 align-self: flex-start;
             }
 
             .venta-panel-card-pedido {
-                height: calc(100vh - 66px);
+                height: calc(100vh - 102px);
                 min-height: 510px;
                 display: flex;
                 flex-direction: column;
