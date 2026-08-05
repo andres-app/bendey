@@ -1362,9 +1362,13 @@ if ($_SESSION['ventas'] == 1) {
                 opacity: .88;
             }
 
-            .venta-mobile-switch-btn:focus-visible {
-                outline: 2px solid rgba(82, 184, 72, .4);
-                outline-offset: -2px;
+            .venta-mobile-switch-btn:hover,
+            .venta-mobile-switch-btn:focus,
+            .venta-mobile-switch-btn:focus-visible,
+            .venta-mobile-switch-btn:active {
+                border: 0 !important;
+                outline: 0 !important;
+                box-shadow: none !important;
             }
 
             .venta-pos-layout {
@@ -1475,6 +1479,336 @@ if ($_SESSION['ventas'] == 1) {
 
             .venta-cobro-row > .col-md-6:first-child {
                 margin-bottom: 8px;
+            }
+        }
+
+        /* =========================================================
+           AJUSTE COMPACTO PARA IPHONE 13 Y MÓVILES SIMILARES
+           Mantiene 16px en campos para impedir el zoom automático de iOS,
+           pero reduce alturas, espacios, cabeceras y elementos secundarios.
+        ========================================================== */
+        @media (max-width: 430px) {
+            body.venta-switch-responsive-activo {
+                padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .main-content .section {
+                padding-right: 8px;
+                padding-left: 8px;
+            }
+
+            .main-content .section .section-body {
+                padding-right: 0;
+                padding-left: 0;
+            }
+
+            .venta-mobile-switch-wrap {
+                width: calc(100vw - 18px);
+                bottom: calc(7px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .venta-mobile-switch {
+                padding: 3px;
+                border-color: #dce6df;
+                box-shadow: 0 8px 22px rgba(15, 23, 42, .14);
+            }
+
+            .venta-mobile-switch-slider {
+                top: 3px;
+                bottom: 3px;
+                left: 3px;
+                width: calc(50% - 3px);
+                box-shadow: 0 4px 10px rgba(82, 184, 72, .2);
+            }
+
+            .venta-mobile-switch-btn {
+                min-height: 40px;
+                padding: 7px 9px;
+                font-size: 13px;
+                font-weight: 400;
+            }
+
+            .venta-panel-card {
+                margin-bottom: 10px;
+                border-radius: 12px;
+                box-shadow: 0 5px 14px rgba(15, 23, 42, .055);
+            }
+
+            .venta-panel-header {
+                min-height: 46px;
+                padding: 8px 11px;
+            }
+
+            .venta-panel-header h4 {
+                font-size: 14px;
+                font-weight: 700;
+            }
+
+            .venta-pedido-contador {
+                margin-top: 1px;
+                font-size: 10px;
+                font-weight: 500;
+            }
+
+            .venta-pedido-total-cabecera span {
+                margin-bottom: 2px;
+                font-size: 9px;
+                font-weight: 600;
+            }
+
+            .venta-pedido-total-cabecera strong {
+                font-size: 15px;
+                font-weight: 700;
+            }
+
+            .venta-form-scroll {
+                padding: 10px 10px 7px !important;
+            }
+
+            .venta-form-scroll > .row,
+            .venta-form-scroll > #bloque_credito {
+                margin-right: -4px;
+                margin-left: -4px;
+            }
+
+            .venta-form-scroll > .row > [class*="col-"],
+            .venta-form-scroll > #bloque_credito > [class*="col-"] {
+                padding-right: 4px;
+                padding-left: 4px;
+            }
+
+            .venta-form-scroll > .row.mb-4,
+            .venta-form-scroll > #bloque_credito.mb-4,
+            .venta-form-scroll > .row.mb-5 {
+                margin-bottom: 8px !important;
+            }
+
+            .venta-form-scroll label,
+            .venta-form-scroll .form-label {
+                margin-bottom: 3px !important;
+                font-size: 11px;
+                font-weight: 500;
+                line-height: 1.2;
+            }
+
+            /* 16px evita que Safari amplíe la pantalla al enfocar campos. */
+            .venta-form-scroll input.form-control,
+            .venta-form-scroll select.form-control,
+            .venta-form-scroll select.form-select,
+            .venta-form-scroll textarea.form-control {
+                min-height: 36px;
+                height: 36px;
+                padding: 6px 9px;
+                border-radius: 8px;
+                font-size: 16px;
+                line-height: 1.15;
+            }
+
+            .venta-form-scroll textarea.form-control {
+                height: 52px;
+                min-height: 52px;
+                padding-top: 7px;
+                padding-bottom: 7px;
+            }
+
+            .venta-form-scroll .input-group-text,
+            .venta-form-scroll .input-group .btn {
+                min-height: 36px;
+                height: 36px;
+                padding: 5px 10px;
+                border-radius: 8px;
+                font-size: 13px;
+            }
+
+            .venta-form-scroll .input-group-prepend .input-group-text,
+            .venta-form-scroll .input-group-prepend .btn {
+                border-radius: 8px 0 0 8px;
+            }
+
+            .venta-form-scroll .input-group-append .input-group-text,
+            .venta-form-scroll .input-group-append .btn {
+                border-radius: 0 8px 8px 0;
+            }
+
+            #nombre_cliente,
+            #mensajeModoEnvio,
+            #bloque_credito small,
+            #bloque_pago_mixto small,
+            .buscador-pedido-ayuda {
+                font-size: 10px;
+                line-height: 1.22;
+            }
+
+            #nombre_cliente {
+                min-height: 12px;
+                margin-top: 3px !important;
+            }
+
+            .venta-descuento-row {
+                margin-bottom: 7px !important;
+            }
+
+            .venta-descuento-row > .col-12 > .d-flex {
+                min-height: 36px;
+                padding: 4px 8px;
+                border-radius: 9px;
+            }
+
+            .venta-descuento-row .custom-switch-description {
+                font-size: 11px;
+                font-weight: 500;
+            }
+
+            #descuentoPorcentaje {
+                width: 68px !important;
+                min-height: 31px !important;
+                height: 31px !important;
+                margin-left: 10px !important;
+                padding: 4px 6px !important;
+                font-size: 16px !important;
+                font-weight: 500;
+            }
+
+            .venta-cobro-row {
+                margin-bottom: 7px !important;
+                padding: 6px 4px;
+                border-radius: 10px;
+            }
+
+            .venta-cobro-row > .col-md-6:first-child {
+                margin-bottom: 5px;
+            }
+
+            .venta-cobro-row label {
+                margin-bottom: 2px !important;
+                font-size: 10px;
+            }
+
+            .venta-cobro-row .total-display {
+                min-height: 34px !important;
+                height: 34px !important;
+                font-size: 16px !important;
+                font-weight: 600;
+            }
+
+            #bloque_pago_mixto {
+                margin-bottom: 8px !important;
+                padding: 8px;
+                border-radius: 10px;
+            }
+
+            .venta-fila-final .venta-observacion {
+                margin-bottom: 8px;
+            }
+
+            #mensajeModoEnvio {
+                min-height: 22px;
+                margin-top: 3px !important;
+            }
+
+            .venta-form-footer {
+                bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+                gap: 6px;
+                padding: 7px 10px;
+                border-radius: 0 0 12px 12px;
+            }
+
+            .venta-footer-total-label {
+                font-size: 10px;
+                font-weight: 600;
+            }
+
+            .venta-footer-total-monto {
+                font-size: 21px;
+                font-weight: 700;
+            }
+
+            .venta-procesar-btn {
+                min-height: 40px;
+                padding: 7px 12px;
+                border-radius: 9px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+
+            .venta-pedido-body {
+                padding: 10px 10px 5px;
+            }
+
+            .buscador-pedido-wrap {
+                margin-bottom: 8px !important;
+            }
+
+            .buscador-pedido-input-group,
+            .buscador-pedido-input-group .input-group-text,
+            .buscador-pedido-input-group .form-control,
+            .buscador-pedido-input-group .btn {
+                min-height: 40px;
+            }
+
+            .buscador-pedido-input-group .form-control {
+                font-size: 16px;
+            }
+
+            #btnLimpiarBusquedaPedido {
+                min-width: 40px;
+                padding: 0 10px;
+                font-size: 21px;
+            }
+
+            #detallesCards .filas {
+                margin-bottom: 8px !important;
+                border-radius: 10px;
+            }
+
+            #detallesCards .filas .card-body {
+                padding: 10px !important;
+                font-size: 12px;
+                line-height: 1.25;
+            }
+
+            #detallesCards .filas .fw-bold.fs-6 {
+                margin-bottom: 3px !important;
+                font-size: 13px !important;
+            }
+
+            #detallesCards .filas .small {
+                font-size: 10px;
+            }
+
+            #detallesCards .filas .btn-sm {
+                min-width: 32px;
+                min-height: 30px;
+                padding: 3px 7px !important;
+                border-radius: 7px;
+            }
+
+            .venta-pedido-footer {
+                min-height: 54px;
+                padding: 7px 10px !important;
+            }
+
+            .venta-pedido-footer .btn {
+                width: 48px !important;
+                height: 40px !important;
+                border-radius: 11px !important;
+            }
+
+            .venta-pedido-footer .btn i {
+                font-size: 1.2rem !important;
+            }
+
+            #pedidoVacio i {
+                margin-bottom: 8px !important;
+                font-size: 2.8rem !important;
+            }
+
+            #pedidoVacio .fw-semibold {
+                font-size: 13px !important;
+            }
+
+            #pedidoVacio .mt-1 {
+                font-size: 11px !important;
             }
         }
 

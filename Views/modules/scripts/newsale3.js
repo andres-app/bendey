@@ -433,9 +433,21 @@ function inicializarSwitchVentaResponsive() {
             'click.switchVentaResponsive',
             '.venta-mobile-switch-btn[data-venta-panel]',
             function () {
+                const botonSwitch = this;
                 const panelSolicitado = String(
-                    $(this).attr('data-venta-panel') || 'datos'
+                    $(botonSwitch).attr('data-venta-panel') || 'datos'
                 );
+
+                /*
+                 * iOS/Safari puede conservar el foco visual después del toque.
+                 * Se retira inmediatamente porque el deslizador ya comunica
+                 * cuál opción está seleccionada.
+                 */
+                window.setTimeout(function () {
+                    if (typeof botonSwitch.blur === 'function') {
+                        botonSwitch.blur();
+                    }
+                }, 0);
 
                 if (
                     MEDIA_SWITCH_VENTA.matches
