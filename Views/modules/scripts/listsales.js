@@ -5,6 +5,7 @@ let tablaNotasCredito = null;
 let tipoDocumentoActivo = "ventas";
 let filtroPremiumRegistrado = false;
 let temporizadorBusquedaDocumentos = null;
+let tipoComprobanteFiltro = "TODOS";
 
 /*
 |--------------------------------------------------------------------------
@@ -20,10 +21,23 @@ function init() {
   const tipoInicial =
     obtenerTipoDocumentoDesdeUrl();
 
-  cambiarTipoDocumento(
-    tipoInicial,
-    false
-  );
+  if (tipoInicial === "notas") {
+    seleccionarTipoComprobante(
+      "NOTA_CREDITO",
+      "Nota de crédito electrónica",
+      "notas",
+      "fa-file-invoice-dollar",
+      false
+    );
+  } else {
+    seleccionarTipoComprobante(
+      "TODOS",
+      "Todos los documentos de venta",
+      "ventas",
+      "fa-layer-group",
+      false
+    );
+  }
 }
 
 $(document).on("click", "#btnagregar", function () {
@@ -317,20 +331,84 @@ function listarNotasCredito() {
 |--------------------------------------------------------------------------
 */
 function registrarEventosFiltrosPremium() {
+  $("#filtroTipoDocumentoBtn")
+    .off("click.tipoDocumento")
+    .on(
+      "click.tipoDocumento",
+      function (evento) {
+        evento.preventDefault();
+        evento.stopPropagation();
+
+        alternarSelectorTipoDocumento();
+      }
+    );
+
   $(document)
     .off(
-      "click.filtroDocumentoVentas",
-      "[data-documento]"
+      "click.tipoDocumento",
+      ".ventas-document-type-option"
     )
     .on(
-      "click.filtroDocumentoVentas",
-      "[data-documento]",
+      "click.tipoDocumento",
+      ".ventas-document-type-option",
       function () {
-        cambiarTipoDocumento(
+        seleccionarTipoComprobante(
           String(
-            $(this).data("documento") || "ventas"
+            $(this).data("tipo-comprobante")
+            || "TODOS"
+          ),
+          String(
+            $(this).data("etiqueta")
+            || "Todos los documentos de venta"
+          ),
+          String(
+            $(this).data("destino")
+            || "ventas"
+          ),
+          String(
+            $(this).data("icono")
+            || "fa-layer-group"
           )
         );
+      }
+    );
+
+  $("#buscarTipoDocumento")
+    .off("input.tipoDocumento")
+    .on(
+      "input.tipoDocumento",
+      function () {
+        filtrarOpcionesTipoDocumento(
+          String($(this).val() || "")
+        );
+      }
+    );
+
+  $(document)
+    .off("click.cerrarTipoDocumento")
+    .on(
+      "click.cerrarTipoDocumento",
+      function (evento) {
+        if (
+          $(evento.target)
+            .closest(
+              "#ventasDocumentTypeSelect"
+            )
+            .length === 0
+        ) {
+          cerrarSelectorTipoDocumento();
+        }
+      }
+    );
+
+  $(document)
+    .off("keydown.tipoDocumento")
+    .on(
+      "keydown.tipoDocumento",
+      function (evento) {
+        if (evento.key === "Escape") {
+          cerrarSelectorTipoDocumento();
+        }
       }
     );
 
@@ -393,6 +471,247 @@ function registrarEventosFiltrosPremium() {
         limpiarFiltrosPremium();
       }
     );
+}
+
+function alternarSelectorTipoDocumento() {
+  const contenedor =
+    $("#ventasDocumentTypeSelect");
+
+  const abierto =
+    contenedor.hasClass("is-open");
+
+  if (abierto) {
+    cerrarSelectorTipoDocumento();
+    return;
+  }
+
+  contenedor.addClass(
+    "is-open"
+  );
+
+  $("#filtroTipoDocumentoBtn")
+    .attr(
+      "aria-expanded",
+      "true"
+    );
+
+  $("#buscarTipoDocumento")
+    .val("");
+
+  filtrarOpcionesTipoDocumento(
+    ""
+  );
+
+  window.setTimeout(
+    function () {
+      $("#buscarTipoDocumento")
+        .trigger("focus");
+    },
+    40
+  );
+}
+
+function cerrarSelectorTipoDocumento() {
+  $("#ventasDocumentTypeSelect")
+    .removeClass(
+      "is-open"
+    );
+
+  $("#filtroTipoDocumentoBtn")
+    .attr(
+      "aria-expanded",
+      "false"
+    );
+}
+
+function filtrarOpcionesTipoDocumento(
+  termino
+) {
+  const busqueda =
+    normalizarTextoFiltro(
+      termino
+    );
+
+  let visibles = 0;
+
+  $(".ventas-document-type-option")
+    .each(function () {
+      const opcion =
+        $(this);
+
+      const texto =
+        normalizarTextoFiltro(
+          opcion.text()
+        );
+
+      const mostrar =
+        busqueda === ""
+        || texto.includes(
+          busqueda
+        );
+
+      opcion.toggle(
+        mostrar
+      );
+
+      if (mostrar) {
+        visibles++;
+      }
+    });
+
+  $(".ventas-document-type-group")
+    .each(function () {
+      const grupo =
+        $(this);
+
+      let siguiente =
+        grupo.next();
+
+      let tieneVisible =
+        false;
+
+      while (
+        siguiente.length
+        && !siguiente.hasClass(
+          "ventas-document-type-group"
+        )
+      ) {
+        if (
+          siguiente.hasClass(
+            "ventas-document-type-option"
+          )
+          && siguiente.is(":visible")
+        ) {
+          tieneVisible = true;
+          break;
+        }
+
+        siguiente =
+          siguiente.next();
+      }
+
+      grupo.toggle(
+        tieneVisible
+      );
+    });
+
+  $("#sinTiposDocumento")
+    .toggle(
+      visibles === 0
+    );
+}
+
+function seleccionarTipoComprobante(
+  tipo,
+  etiqueta,
+  destino,
+  icono,
+  actualizarUrl = true
+) {
+  tipoComprobanteFiltro =
+    String(tipo || "TODOS");
+
+  destino =
+    destino === "notas"
+      ? "notas"
+      : "ventas";
+
+  $("#filtroTipoDocumentoTexto")
+    .text(
+      etiqueta
+      || "Todos los documentos de venta"
+    );
+
+  $("#filtroTipoDocumentoIcono")
+    .attr(
+      "class",
+      "fas " +
+      String(
+        icono || "fa-layer-group"
+      )
+    );
+
+  $(".ventas-document-type-option")
+    .removeClass("active")
+    .filter(
+      '[data-tipo-comprobante="' +
+      tipoComprobanteFiltro +
+      '"]'
+    )
+    .addClass("active");
+
+  cerrarSelectorTipoDocumento();
+
+  cambiarTipoDocumento(
+    destino,
+    actualizarUrl
+  );
+
+  aplicarFiltrosPremium();
+
+  if (actualizarUrl) {
+    actualizarTipoComprobanteUrl(
+      tipoComprobanteFiltro
+    );
+  }
+}
+
+function actualizarTipoComprobanteUrl(
+  tipo
+) {
+  try {
+    const url =
+      new URL(
+        window.location.href
+      );
+
+    if (tipo === "TODOS") {
+      url.searchParams.delete(
+        "tipo"
+      );
+    } else {
+      url.searchParams.set(
+        "tipo",
+        String(tipo)
+          .toLowerCase()
+      );
+    }
+
+    window.history.replaceState(
+      {},
+      "",
+      url.toString()
+    );
+  } catch (error) {
+    console.warn(
+      "No se pudo actualizar el tipo en la URL:",
+      error
+    );
+  }
+}
+
+function obtenerBusquedaTipoComprobante() {
+  switch (
+    tipoComprobanteFiltro
+  ) {
+    case "FACTURA":
+      return "FACTURA";
+
+    case "BOLETA":
+      return "BOLETA";
+
+    case "NOTA_VENTA":
+      return "NOTA DE VENTA";
+
+    case "RECIBO":
+      return "RECIBO";
+
+    case "COTIZACION":
+      return "COTIZ";
+
+    default:
+      return "";
+  }
 }
 
 function obtenerTipoDocumentoDesdeUrl() {
@@ -461,23 +780,10 @@ function cambiarTipoDocumento(
       mostrandoVentas
     );
 
-  $("[data-documento]")
-    .removeClass(
-      "active is-active"
-    )
-    .filter(
-      '[data-documento="' +
-      tipoDocumentoActivo +
-      '"]'
-    )
-    .addClass(function () {
-      return $(this)
-        .hasClass(
-          "ventas-summary-card"
-        )
-          ? "is-active"
-          : "active";
-    });
+  /*
+   * El documento activo se controla desde el selector desplegable.
+   * Las tarjetas superiores fueron retiradas.
+   */
 
   if (actualizarUrl) {
     actualizarParametroDocumentoUrl(
@@ -813,6 +1119,12 @@ function aplicarFiltrosPremium() {
 
   if (tabla) {
     tabla
+      .column(3)
+      .search(
+        obtenerBusquedaTipoComprobante()
+      );
+
+    tabla
       .search(
         busqueda
       )
@@ -851,7 +1163,12 @@ function limpiarFiltrosPremium() {
     ""
   );
 
-  aplicarFiltrosPremium();
+  seleccionarTipoComprobante(
+    "TODOS",
+    "Todos los documentos de venta",
+    "ventas",
+    "fa-layer-group"
+  );
 }
 
 function moverExportadoresDataTable(

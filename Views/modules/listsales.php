@@ -1239,6 +1239,360 @@ if (!isset($_SESSION['nombre'])) {
                 }
             }
 
+
+            /* =========================================================
+               SELECTOR BUSCABLE DE TIPO DE DOCUMENTO
+            ========================================================== */
+            .ventas-document-type-select {
+                position: relative;
+            }
+
+            .ventas-document-type-trigger {
+                width: 100%;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 4px 11px 4px 7px;
+                border: 1px solid #dfe4ea;
+                border-radius: 10px;
+                color: #344054;
+                background: #ffffff;
+                box-shadow: none;
+                cursor: pointer;
+                text-align: left;
+                transition:
+                    border-color .16s ease,
+                    box-shadow .16s ease,
+                    background-color .16s ease;
+            }
+
+            .ventas-document-type-trigger:hover {
+                border-color: #c6ced8;
+                background: #fcfcfd;
+            }
+
+            .ventas-document-type-select.is-open
+            .ventas-document-type-trigger {
+                border-color: #9aa7f0;
+                box-shadow: 0 0 0 3px rgba(103, 119, 239, .09);
+            }
+
+            .ventas-document-type-trigger-icon {
+                width: 29px;
+                height: 29px;
+                flex: 0 0 29px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                color: #5969d9;
+                background: #eef0ff;
+                font-size: .72rem;
+            }
+
+            .ventas-document-type-trigger-copy {
+                min-width: 0;
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                line-height: 1.1;
+            }
+
+            .ventas-document-type-trigger-copy small {
+                margin-bottom: 2px;
+                color: #98a2b3;
+                font-size: .56rem;
+                font-weight: 650;
+                letter-spacing: .035em;
+                text-transform: uppercase;
+            }
+
+            .ventas-document-type-trigger-copy strong {
+                overflow: hidden;
+                color: #344054;
+                font-size: .72rem;
+                font-weight: 700;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .ventas-document-type-chevron {
+                color: #98a2b3;
+                font-size: .66rem;
+                transition: transform .16s ease;
+            }
+
+            .ventas-document-type-select.is-open
+            .ventas-document-type-chevron {
+                transform: rotate(180deg);
+            }
+
+            .ventas-document-type-menu {
+                position: absolute;
+                z-index: 1080;
+                top: calc(100% + 7px);
+                left: 0;
+                width: 360px;
+                max-width: min(90vw, 360px);
+                display: none;
+                overflow: hidden;
+                border: 1px solid #dfe4ea;
+                border-radius: 13px;
+                background: #ffffff;
+                box-shadow: 0 18px 45px rgba(15, 23, 42, .16);
+            }
+
+            .ventas-document-type-select.is-open
+            .ventas-document-type-menu {
+                display: block;
+                animation: ventasDocumentMenuIn .15s ease-out;
+            }
+
+            @keyframes ventasDocumentMenuIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-4px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .ventas-document-type-search {
+                position: relative;
+                padding: 10px;
+                border-bottom: 1px solid #edf0f3;
+                background: #fbfcfd;
+            }
+
+            .ventas-document-type-search i {
+                position: absolute;
+                top: 50%;
+                left: 22px;
+                color: #98a2b3;
+                font-size: .72rem;
+                transform: translateY(-50%);
+            }
+
+            .ventas-document-type-search input {
+                width: 100%;
+                height: 37px;
+                padding: 0 12px 0 34px;
+                border: 1px solid #dfe4ea;
+                border-radius: 8px;
+                color: #344054;
+                background: #ffffff;
+                outline: none;
+                font-size: .75rem;
+            }
+
+            .ventas-document-type-search input:focus {
+                border-color: #9aa7f0;
+                box-shadow: 0 0 0 3px rgba(103, 119, 239, .08);
+            }
+
+            .ventas-document-type-list {
+                max-height: 340px;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                padding: 6px;
+            }
+
+            .ventas-document-type-group {
+                padding: 9px 9px 5px;
+            }
+
+            .ventas-document-type-group span {
+                color: #98a2b3;
+                font-size: .61rem;
+                font-weight: 750;
+                letter-spacing: .055em;
+                text-transform: uppercase;
+            }
+
+            .ventas-document-type-option {
+                width: 100%;
+                min-height: 51px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 7px 9px;
+                border: 0;
+                border-radius: 9px;
+                color: #475467;
+                background: transparent;
+                cursor: pointer;
+                text-align: left;
+                transition:
+                    color .14s ease,
+                    background-color .14s ease;
+            }
+
+            .ventas-document-type-option:hover,
+            .ventas-document-type-option:focus {
+                color: #1d2939;
+                background: #f5f7fa;
+                outline: none;
+            }
+
+            .ventas-document-type-option.active {
+                color: #344054;
+                background: #f0f2ff;
+            }
+
+            .ventas-document-option-icon {
+                width: 33px;
+                height: 33px;
+                flex: 0 0 33px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 9px;
+                color: #667085;
+                background: #f2f4f7;
+                font-size: .74rem;
+            }
+
+            .ventas-document-type-option.active
+            .ventas-document-option-icon {
+                color: #5969d9;
+                background: #e5e8ff;
+            }
+
+            .ventas-document-option-copy {
+                min-width: 0;
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+
+            .ventas-document-option-copy strong {
+                overflow: hidden;
+                color: inherit;
+                font-size: .76rem;
+                font-weight: 700;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .ventas-document-option-copy small {
+                overflow: hidden;
+                color: #98a2b3;
+                font-size: .65rem;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .ventas-document-option-code {
+                min-width: 28px;
+                height: 23px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0 6px;
+                border: 1px solid #e4e7ec;
+                border-radius: 999px;
+                color: #667085;
+                background: #ffffff;
+                font-size: .61rem;
+                font-weight: 750;
+            }
+
+            .ventas-document-type-option.active
+            .ventas-document-option-code {
+                border-color: #d7dbfb;
+                color: #4f5fd1;
+                background: #ffffff;
+            }
+
+            .ventas-document-type-empty {
+                padding: 24px 15px;
+                color: #98a2b3;
+                font-size: .72rem;
+                text-align: center;
+            }
+
+            @media (max-width: 767.98px) {
+                .ventas-document-type-menu {
+                    position: fixed;
+                    top: auto;
+                    right: 12px;
+                    bottom: 12px;
+                    left: 12px;
+                    width: auto;
+                    max-width: none;
+                    border-radius: 16px;
+                }
+
+                .ventas-document-type-list {
+                    max-height: 55vh;
+                }
+            }
+
+
+            /* =========================================================
+               AJUSTE FINAL DE LA BARRA DE FILTROS
+            ========================================================== */
+            .ventas-control-panel {
+                overflow: visible;
+            }
+
+            .ventas-filter-grid {
+                border-radius: 15px 15px 0 0;
+            }
+
+            .ventas-filter-field .form-control {
+                padding-left: 12px !important;
+                padding-right: 32px;
+                line-height: 1.2;
+            }
+
+            .ventas-filter-field input.form-control {
+                padding-right: 12px;
+            }
+
+            .ventas-input-icon {
+                position: static;
+            }
+
+            .ventas-input-icon > i {
+                display: none !important;
+            }
+
+            .ventas-input-icon .form-control {
+                padding-left: 12px !important;
+            }
+
+            .ventas-document-type-trigger {
+                padding-left: 7px;
+            }
+
+            .ventas-export-copy span {
+                color: #344054;
+                font-size: .78rem;
+                font-weight: 750;
+            }
+
+            .ventas-export-copy small {
+                color: #98a2b3;
+            }
+
+            @media (max-width: 1199.98px) {
+                .ventas-filter-grid {
+                    grid-template-columns:
+                        repeat(3, minmax(0, 1fr));
+                }
+            }
+
+            @media (max-width: 767.98px) {
+                .ventas-filter-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
         </style>
 
         <!-- Main Content -->
@@ -1276,55 +1630,6 @@ if (!isset($_SESSION['nombre'])) {
                                 <div class="card-body">
                                                                         <div class="ventas-control-panel">
 
-                                        <div class="ventas-control-summary">
-
-                                            <div class="ventas-summary-copy">
-                                                <span class="ventas-summary-eyebrow">
-                                                    Documentos registrados
-                                                </span>
-
-                                                <strong id="resumenFiltroActual">
-                                                    Cargando información...
-                                                </strong>
-                                            </div>
-
-                                            <div class="ventas-summary-cards">
-
-                                                <button
-                                                    type="button"
-                                                    class="ventas-summary-card is-active"
-                                                    id="selectorVentas"
-                                                    data-documento="ventas">
-
-                                                    <span class="ventas-summary-icon">
-                                                        <i class="fas fa-shopping-bag"></i>
-                                                    </span>
-
-                                                    <span class="ventas-summary-data">
-                                                        <small>Ventas</small>
-                                                        <strong id="contadorVentas">0</strong>
-                                                    </span>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    class="ventas-summary-card"
-                                                    id="selectorNotasCredito"
-                                                    data-documento="notas">
-
-                                                    <span class="ventas-summary-icon">
-                                                        <i class="fas fa-file-invoice-dollar"></i>
-                                                    </span>
-
-                                                    <span class="ventas-summary-data">
-                                                        <small>Notas de crédito</small>
-                                                        <strong id="contadorNotasCredito">0</strong>
-                                                    </span>
-                                                </button>
-
-                                            </div>
-                                        </div>
-
                                         <div class="ventas-filter-grid">
 
                                             <div class="ventas-filter-field ventas-filter-documento">
@@ -1333,25 +1638,205 @@ if (!isset($_SESSION['nombre'])) {
                                                 </label>
 
                                                 <div
-                                                    class="ventas-segmented-control"
-                                                    role="group"
-                                                    aria-label="Tipo de documento">
+                                                    class="ventas-document-type-select"
+                                                    id="ventasDocumentTypeSelect">
 
                                                     <button
                                                         type="button"
-                                                        class="ventas-segmented-option active"
-                                                        data-documento="ventas">
-                                                        <i class="fas fa-receipt"></i>
-                                                        Ventas
+                                                        class="ventas-document-type-trigger"
+                                                        id="filtroTipoDocumentoBtn"
+                                                        aria-haspopup="listbox"
+                                                        aria-expanded="false">
+
+                                                        <span class="ventas-document-type-trigger-icon">
+                                                            <i
+                                                                id="filtroTipoDocumentoIcono"
+                                                                class="fas fa-layer-group"></i>
+                                                        </span>
+
+                                                        <span class="ventas-document-type-trigger-copy">
+                                                            <small>Seleccionado</small>
+
+                                                            <strong id="filtroTipoDocumentoTexto">
+                                                                Todos los documentos de venta
+                                                            </strong>
+                                                        </span>
+
+                                                        <i class="fas fa-chevron-down ventas-document-type-chevron"></i>
                                                     </button>
 
-                                                    <button
-                                                        type="button"
-                                                        class="ventas-segmented-option"
-                                                        data-documento="notas">
-                                                        <i class="fas fa-file-invoice-dollar"></i>
-                                                        Notas de crédito
-                                                    </button>
+                                                    <div
+                                                        class="ventas-document-type-menu"
+                                                        id="filtroTipoDocumentoMenu"
+                                                        role="listbox"
+                                                        aria-label="Tipos de documento">
+
+                                                        <div class="ventas-document-type-search">
+                                                            <i class="fas fa-search"></i>
+
+                                                            <input
+                                                                type="search"
+                                                                id="buscarTipoDocumento"
+                                                                placeholder="Buscar tipo de documento"
+                                                                autocomplete="off">
+                                                        </div>
+
+                                                        <div class="ventas-document-type-list">
+
+                                                            <div class="ventas-document-type-group">
+                                                                <span>Comprobantes de venta</span>
+                                                            </div>
+
+                                                            <button
+                                                                type="button"
+                                                                class="ventas-document-type-option active"
+                                                                data-tipo-comprobante="TODOS"
+                                                                data-destino="ventas"
+                                                                data-etiqueta="Todos los documentos de venta"
+                                                                data-icono="fa-layer-group">
+
+                                                                <span class="ventas-document-option-icon">
+                                                                    <i class="fas fa-layer-group"></i>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-copy">
+                                                                    <strong>Todos los documentos</strong>
+                                                                    <small>Facturas, boletas y documentos internos</small>
+                                                                </span>
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                class="ventas-document-type-option"
+                                                                data-tipo-comprobante="FACTURA"
+                                                                data-destino="ventas"
+                                                                data-etiqueta="Factura electrónica"
+                                                                data-icono="fa-file-invoice">
+
+                                                                <span class="ventas-document-option-icon">
+                                                                    <i class="fas fa-file-invoice"></i>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-copy">
+                                                                    <strong>Factura electrónica</strong>
+                                                                    <small>Documento SUNAT código 01</small>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-code">01</span>
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                class="ventas-document-type-option"
+                                                                data-tipo-comprobante="BOLETA"
+                                                                data-destino="ventas"
+                                                                data-etiqueta="Boleta de venta electrónica"
+                                                                data-icono="fa-receipt">
+
+                                                                <span class="ventas-document-option-icon">
+                                                                    <i class="fas fa-receipt"></i>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-copy">
+                                                                    <strong>Boleta de venta electrónica</strong>
+                                                                    <small>Documento SUNAT código 03</small>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-code">03</span>
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                class="ventas-document-type-option"
+                                                                data-tipo-comprobante="NOTA_VENTA"
+                                                                data-destino="ventas"
+                                                                data-etiqueta="Nota de venta"
+                                                                data-icono="fa-file-alt">
+
+                                                                <span class="ventas-document-option-icon">
+                                                                    <i class="far fa-file-alt"></i>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-copy">
+                                                                    <strong>Nota de venta</strong>
+                                                                    <small>Documento comercial interno</small>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-code">NV</span>
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                class="ventas-document-type-option"
+                                                                data-tipo-comprobante="RECIBO"
+                                                                data-destino="ventas"
+                                                                data-etiqueta="Recibo"
+                                                                data-icono="fa-file-invoice-dollar">
+
+                                                                <span class="ventas-document-option-icon">
+                                                                    <i class="fas fa-file-invoice-dollar"></i>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-copy">
+                                                                    <strong>Recibo</strong>
+                                                                    <small>Constancia interna de la operación</small>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-code">R</span>
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                class="ventas-document-type-option"
+                                                                data-tipo-comprobante="COTIZACION"
+                                                                data-destino="ventas"
+                                                                data-etiqueta="Cotización"
+                                                                data-icono="fa-file-signature">
+
+                                                                <span class="ventas-document-option-icon">
+                                                                    <i class="fas fa-file-signature"></i>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-copy">
+                                                                    <strong>Cotización</strong>
+                                                                    <small>Propuesta comercial registrada</small>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-code">C</span>
+                                                            </button>
+
+                                                            <div class="ventas-document-type-group">
+                                                                <span>Documentos de ajuste</span>
+                                                            </div>
+
+                                                            <button
+                                                                type="button"
+                                                                class="ventas-document-type-option"
+                                                                data-tipo-comprobante="NOTA_CREDITO"
+                                                                data-destino="notas"
+                                                                data-etiqueta="Nota de crédito electrónica"
+                                                                data-icono="fa-file-invoice-dollar">
+
+                                                                <span class="ventas-document-option-icon">
+                                                                    <i class="fas fa-file-invoice-dollar"></i>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-copy">
+                                                                    <strong>Nota de crédito electrónica</strong>
+                                                                    <small>Documento SUNAT código 07</small>
+                                                                </span>
+
+                                                                <span class="ventas-document-option-code">07</span>
+                                                            </button>
+
+                                                            <div
+                                                                class="ventas-document-type-empty"
+                                                                id="sinTiposDocumento"
+                                                                style="display:none;">
+                                                                No se encontraron tipos de documento.
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -1360,12 +1845,9 @@ if (!isset($_SESSION['nombre'])) {
                                                     Periodo
                                                 </label>
 
-                                                <div class="ventas-input-icon">
-                                                    <i class="far fa-calendar-alt"></i>
-
-                                                    <select
-                                                        class="form-control"
-                                                        id="filtroPeriodo">
+                                                <select
+                                                    class="form-control"
+                                                    id="filtroPeriodo">
                                                         <option value="todos">
                                                             Todo el historial
                                                         </option>
@@ -1382,7 +1864,6 @@ if (!isset($_SESSION['nombre'])) {
                                                             Personalizado
                                                         </option>
                                                     </select>
-                                                </div>
                                             </div>
 
                                             <div class="ventas-filter-field">
@@ -1412,12 +1893,9 @@ if (!isset($_SESSION['nombre'])) {
                                                     Estado SUNAT
                                                 </label>
 
-                                                <div class="ventas-input-icon">
-                                                    <i class="fas fa-cloud"></i>
-
-                                                    <select
-                                                        class="form-control"
-                                                        id="filtroEstadoSunat">
+                                                <select
+                                                    class="form-control"
+                                                    id="filtroEstadoSunat">
                                                         <option value="">
                                                             Todos los estados
                                                         </option>
@@ -1440,7 +1918,6 @@ if (!isset($_SESSION['nombre'])) {
                                                             Anulado
                                                         </option>
                                                     </select>
-                                                </div>
                                             </div>
 
                                             <div class="ventas-filter-field ventas-filter-search">
@@ -1448,15 +1925,11 @@ if (!isset($_SESSION['nombre'])) {
                                                     Buscar
                                                 </label>
 
-                                                <div class="ventas-input-icon">
-                                                    <i class="fas fa-search"></i>
-
-                                                    <input
-                                                        type="search"
-                                                        class="form-control"
-                                                        id="filtroBusquedaDocumentos"
-                                                        placeholder="Cliente, número, usuario...">
-                                                </div>
+                                                <input
+                                                    type="search"
+                                                    class="form-control"
+                                                    id="filtroBusquedaDocumentos"
+                                                    placeholder="Cliente, número o usuario">
                                             </div>
 
                                             <div class="ventas-filter-actions">
@@ -1474,12 +1947,12 @@ if (!isset($_SESSION['nombre'])) {
                                         <div class="ventas-export-row">
 
                                             <div class="ventas-export-copy">
-                                                <span>
-                                                    Exportar resultados visibles
+                                                <span id="resumenFiltroActual">
+                                                    Cargando resultados...
                                                 </span>
 
                                                 <small>
-                                                    El archivo respetará la búsqueda y los filtros aplicados.
+                                                    Exporta exactamente los registros visibles.
                                                 </small>
                                             </div>
 
