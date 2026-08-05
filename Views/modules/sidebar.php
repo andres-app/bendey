@@ -9,14 +9,15 @@
 
     <style>
         /* =========================================================
-       LOGO DEL SIDEBAR
-       Evita que la imagen sobresalga al colapsar el menú.
-       ========================================================= */
+           MENÚ LATERAL MÁS COMPACTO
+           Reduce el espacio vacío del logo y acerca las opciones a
+           los bordes sin alterar el comportamiento de Stisla.
+        ========================================================== */
         .main-sidebar .tiquepos-sidebar-brand {
             box-sizing: border-box;
             width: 100%;
-            height: 150px !important;
-            padding: 20px 12px !important;
+            height: 106px !important;
+            padding: 12px 10px !important;
             display: flex !important;
             align-items: center;
             justify-content: center;
@@ -24,7 +25,7 @@
             transition: height .25s ease, padding .25s ease;
         }
 
-        .main-sidebar .tiquepos-sidebar-brand>a {
+        .main-sidebar .tiquepos-sidebar-brand > a {
             width: 100%;
             height: 100%;
             display: flex;
@@ -36,43 +37,101 @@
         .main-sidebar .tiquepos-sidebar-logo {
             display: block;
             width: auto;
-            height: 105px;
+            height: 76px;
             max-width: 100%;
             object-fit: contain;
             object-position: center;
             transition: width .25s ease, height .25s ease, max-width .25s ease;
         }
 
-        /* Estado colapsado de Stisla */
-        body.sidebar-mini .main-sidebar .tiquepos-sidebar-brand {
-            height: 78px !important;
-            padding: 11px 7px !important;
+        body:not(.sidebar-mini) .main-sidebar .sidebar-menu {
+            padding: 0 6px 14px !important;
         }
 
-        body.sidebar-mini .main-sidebar .tiquepos-sidebar-brand>a {
-            width: 50px !important;
-            height: 50px !important;
+        body:not(.sidebar-mini) .main-sidebar .sidebar-menu > li > a {
+            height: 44px;
+            margin: 2px 0;
+            padding: 0 13px !important;
+            border-radius: 9px;
+        }
+
+        body:not(.sidebar-mini) .sidebar-style-2 .sidebar-menu > li.active > a {
+            padding-left: 13px !important;
+        }
+
+        body:not(.sidebar-mini) .main-sidebar .sidebar-menu li a i {
+            width: 24px;
+            margin-right: 8px;
+        }
+
+        body:not(.sidebar-mini) .main-sidebar .sidebar-menu li.menu-header {
+            padding: 8px 10px 4px !important;
+        }
+
+        body:not(.sidebar-mini) .main-sidebar .sidebar-menu li ul.dropdown-menu li a {
+            height: 34px;
+            padding-left: 40px !important;
+            font-size: 12px;
+        }
+
+        /* Estado colapsado del POS/escritorio. */
+        body.sidebar-mini .main-sidebar .tiquepos-sidebar-brand {
+            height: 70px !important;
+            padding: 10px 7px !important;
+        }
+
+        body.sidebar-mini .main-sidebar .tiquepos-sidebar-brand > a {
+            width: 46px !important;
+            height: 46px !important;
             max-width: 100%;
             margin: 0 auto;
         }
 
         body.sidebar-mini .main-sidebar .tiquepos-sidebar-logo {
-            width: 46px !important;
-            height: 46px !important;
-            max-width: 46px !important;
-            max-height: 46px !important;
+            width: 42px !important;
+            height: 42px !important;
+            max-width: 42px !important;
+            max-height: 42px !important;
             object-fit: contain;
         }
 
-        /* Protección adicional para pantallas pequeñas */
-        @media (max-width: 767.98px) {
+        /* Drawer móvil: más delgado, logo menor y opciones compactas. */
+        @media (max-width: 1024px) {
+            body:not(.sidebar-mini) .main-sidebar {
+                width: min(242px, 88vw);
+            }
+
             body:not(.sidebar-mini) .main-sidebar .tiquepos-sidebar-brand {
-                height: 130px !important;
-                padding: 15px 12px !important;
+                height: 86px !important;
+                padding: 8px 9px !important;
             }
 
             body:not(.sidebar-mini) .main-sidebar .tiquepos-sidebar-logo {
-                height: 92px;
+                height: 60px;
+            }
+
+            body:not(.sidebar-mini) .main-sidebar .sidebar-menu {
+                padding-right: 4px !important;
+                padding-left: 4px !important;
+            }
+
+            body:not(.sidebar-mini) .main-sidebar .sidebar-menu > li > a {
+                height: 42px;
+                margin: 1px 0;
+                padding-right: 11px !important;
+                padding-left: 11px !important;
+                border-radius: 8px;
+                font-size: 13px;
+            }
+
+            body:not(.sidebar-mini) .sidebar-style-2 .sidebar-menu > li.active > a {
+                padding-left: 11px !important;
+            }
+
+            body:not(.sidebar-mini) .main-sidebar .sidebar-menu li ul.dropdown-menu li a {
+                height: 32px;
+                padding-left: 36px !important;
+                font-size: 11.5px;
             }
         }
     </style>

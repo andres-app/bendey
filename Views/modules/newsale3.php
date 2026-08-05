@@ -25,8 +25,8 @@ require 'sidebar.php';
 
 if ($_SESSION['ventas'] == 1) {
 ?>
-    <div class="main-content">
-        <section class="section">
+    <div class="main-content venta-pos-main-content">
+        <section class="section venta-pos-section">
             <div class="section-body">
 
                 <!-- =====================================================
@@ -2530,6 +2530,261 @@ if ($_SESSION['ventas'] == 1) {
 
             #modalProductos .lector-status {
                 display: none;
+            }
+        }
+
+        /* =========================================================
+           POS Y MODAL APROVECHANDO EL ANCHO REAL DE MÓVIL/TABLET
+           Reduce márgenes duplicados de Stisla + Bootstrap sin
+           dejar los controles pegados completamente al borde.
+        ========================================================== */
+        @media (max-width: 1199.98px) {
+            .venta-pos-main-content {
+                padding-top: 78px !important;
+                padding-right: 8px !important;
+                padding-left: 8px !important;
+            }
+
+            .venta-pos-main-content .venta-pos-section,
+            .venta-pos-main-content .section-body {
+                width: 100%;
+                margin: 0 !important;
+                padding-right: 0 !important;
+                padding-left: 0 !important;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .venta-pos-main-content {
+                padding-top: 70px !important;
+                padding-right: 4px !important;
+                padding-left: 4px !important;
+            }
+
+            .venta-pos-main-content .venta-panel-card {
+                border-radius: 10px;
+            }
+
+            /* Cabecera más baja y cercana a los bordes. */
+            #modalProductos .modal-productos-header {
+                min-height: 52px;
+                padding: 7px 8px;
+            }
+
+            #modalProductos .modal-productos-title-icon {
+                width: 34px;
+                height: 34px;
+                flex: 0 0 34px;
+                border-radius: 10px;
+                font-size: 1rem;
+            }
+
+            #modalProductos .modal-productos-header .ml-3 {
+                margin-left: 8px !important;
+            }
+
+            #modalProductos .modal-productos-title {
+                font-size: 1rem;
+                line-height: 1.15;
+            }
+
+            #modalProductos .modal-productos-close {
+                width: 34px;
+                height: 34px;
+                flex: 0 0 34px;
+                border-radius: 9px;
+                font-size: 1.25rem;
+            }
+
+            /* Categorías: menos altura y menos espacio lateral. */
+            #modalProductos .modal-productos-categorias {
+                grid-template-columns: 28px minmax(0, 1fr) 28px;
+                gap: 3px;
+                padding: 5px 4px 3px;
+            }
+
+            #modalProductos .categoria-nav-btn {
+                width: 28px;
+                height: 28px;
+                border-radius: 8px;
+                font-size: .72rem;
+            }
+
+            #modalProductos #catList {
+                gap: 5px;
+                padding: 0 0 3px;
+                scrollbar-width: none;
+            }
+
+            #modalProductos #catList::-webkit-scrollbar {
+                display: none;
+            }
+
+            #modalProductos .categoria-chip {
+                min-height: 32px;
+                gap: 0;
+                padding: 6px 10px;
+                font-size: .75rem;
+                font-weight: 600;
+            }
+
+            #modalProductos .categoria-chip i {
+                display: none;
+            }
+
+            /* Buscador y registro rápido en una misma fila. */
+            #modalProductos .modal-productos-buscador {
+                padding: 4px 6px 6px;
+            }
+
+            #modalProductos .modal-productos-buscador > .d-flex {
+                min-width: 0;
+                flex-direction: row !important;
+                align-items: stretch !important;
+                gap: 6px !important;
+            }
+
+            #modalProductos .buscador-productos-box {
+                width: auto !important;
+                min-width: 0;
+                flex: 1 1 auto !important;
+            }
+
+            #modalProductos .buscador-productos-box .input-group-text,
+            #modalProductos .buscador-productos-box .form-control,
+            #modalProductos .buscador-productos-box .btn {
+                min-height: 42px;
+                height: 42px;
+            }
+
+            #modalProductos .buscador-productos-box .form-control {
+                min-width: 0;
+                padding-right: 7px;
+                padding-left: 7px;
+                font-size: 16px;
+            }
+
+            #modalProductos .buscador-productos-box .input-group-text {
+                padding-right: 8px;
+                padding-left: 9px;
+                border-radius: 10px 0 0 10px;
+            }
+
+            #modalProductos .buscador-productos-box .btn {
+                width: 40px;
+                padding: 0;
+                border-radius: 0 10px 10px 0;
+            }
+
+            #modalProductos .busqueda-ayuda {
+                display: none !important;
+            }
+
+            #modalProductos #btnMostrarProductoRapido {
+                width: 42px !important;
+                min-width: 42px;
+                max-width: 42px;
+                min-height: 42px !important;
+                padding: 0 !important;
+                border-radius: 10px !important;
+                overflow: hidden;
+                font-size: 0;
+                white-space: nowrap;
+            }
+
+            #modalProductos #btnMostrarProductoRapido i {
+                margin: 0 !important;
+                font-size: 1.05rem;
+            }
+
+            /* El área principal usa casi todo el ancho disponible. */
+            #modalProductos .productos-modal-body {
+                padding: 6px 5px 2px;
+            }
+
+            #modalProductos #productosList {
+                gap: 6px;
+            }
+
+            #modalProductos .producto-card {
+                border-radius: 11px;
+            }
+
+            #modalProductos .producto-card .card-body {
+                padding: 9px;
+            }
+
+            #modalProductos .producto-imagen {
+                width: 50px;
+                height: 50px;
+                flex-basis: 50px;
+                border-radius: 9px;
+            }
+
+            #modalProductos .producto-nombre {
+                font-size: .83rem;
+                line-height: 1.25;
+            }
+
+            #modalProductos .producto-codigo {
+                font-size: .67rem;
+            }
+
+            #modalProductos .producto-precio {
+                font-size: .9rem;
+            }
+
+            #modalProductos .producto-stock {
+                padding: 3px 7px;
+                font-size: .64rem;
+            }
+
+            #modalProductos .modal-productos-footer {
+                min-height: 48px;
+                padding: 5px 6px;
+            }
+
+            #modalProductos #btnEscanearModalFooter {
+                min-height: 38px !important;
+                padding-right: 12px !important;
+                padding-left: 12px !important;
+                border-radius: 9px !important;
+                font-size: .78rem;
+            }
+
+            #modalProductos #formProductoRapido {
+                max-height: calc(100dvh - 108px);
+            }
+        }
+
+        @media (max-width: 430px) {
+            .venta-pos-main-content {
+                padding-right: 2px !important;
+                padding-left: 2px !important;
+            }
+
+            .venta-pos-main-content .venta-panel-card {
+                border-radius: 8px;
+            }
+
+            #modalProductos .modal-productos-header {
+                padding-right: 6px;
+                padding-left: 6px;
+            }
+
+            #modalProductos .modal-productos-categorias {
+                padding-right: 2px;
+                padding-left: 2px;
+            }
+
+            #modalProductos .modal-productos-buscador {
+                padding-right: 4px;
+                padding-left: 4px;
+            }
+
+            #modalProductos .productos-modal-body {
+                padding-right: 3px;
+                padding-left: 3px;
             }
         }
     </style>
