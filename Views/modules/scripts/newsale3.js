@@ -348,10 +348,12 @@ function aplicarPanelVentaResponsive(
     const esResponsive = MEDIA_SWITCH_VENTA.matches;
     const $panelDatos = $('#ventaPanelDatos');
     const $panelProductos = $('#ventaPanelProductos');
+    const $switch = $('.venta-mobile-switch');
     const $botones = $('.venta-mobile-switch-btn[data-venta-panel]');
 
     if (!esResponsive) {
         $('body').removeClass('venta-switch-responsive-activo');
+        $switch.removeClass('is-productos');
 
         $panelDatos
             .addClass('venta-panel-activo')
@@ -365,6 +367,11 @@ function aplicarPanelVentaResponsive(
     }
 
     $('body').addClass('venta-switch-responsive-activo');
+
+    $switch.toggleClass(
+        'is-productos',
+        panelNormalizado === 'productos'
+    );
 
     $panelDatos
         .toggleClass(

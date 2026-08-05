@@ -43,6 +43,11 @@ if ($_SESSION['ventas'] == 1) {
                         role="tablist"
                         aria-label="Secciones de nueva venta">
 
+                        <span
+                            class="venta-mobile-switch-slider"
+                            aria-hidden="true">
+                        </span>
+
                         <button
                             type="button"
                             class="venta-mobile-switch-btn active"
@@ -51,8 +56,7 @@ if ($_SESSION['ventas'] == 1) {
                             role="tab"
                             aria-selected="true"
                             aria-controls="ventaPanelDatos">
-                            <i class="bi bi-receipt-cutoff" aria-hidden="true"></i>
-                            <span>Datos</span>
+                            Datos
                         </button>
 
                         <button
@@ -63,8 +67,7 @@ if ($_SESSION['ventas'] == 1) {
                             role="tab"
                             aria-selected="false"
                             aria-controls="ventaPanelProductos">
-                            <i class="bi bi-bag-check" aria-hidden="true"></i>
-                            <span>Productos</span>
+                            Productos
                         </button>
 
                     </div>
@@ -1292,62 +1295,76 @@ if ($_SESSION['ventas'] == 1) {
             }
 
             .venta-mobile-switch {
+                position: relative;
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 5px;
-                padding: 5px;
-                border: 1px solid rgba(255, 255, 255, .78);
-                border-radius: 18px;
-                background: rgba(31, 45, 37, .92);
+                padding: 4px;
+                border: 1px solid #d9e4dc;
+                border-radius: 999px;
+                background: rgba(244, 248, 245, .97);
                 box-shadow:
-                    0 16px 38px rgba(15, 23, 42, .24),
-                    inset 0 1px 0 rgba(255, 255, 255, .12);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
+                    0 12px 30px rgba(15, 23, 42, .16),
+                    inset 0 1px 0 rgba(255, 255, 255, .9);
+                backdrop-filter: blur(14px);
+                -webkit-backdrop-filter: blur(14px);
+                overflow: hidden;
                 pointer-events: auto;
             }
 
+            .venta-mobile-switch-slider {
+                position: absolute;
+                top: 4px;
+                bottom: 4px;
+                left: 4px;
+                z-index: 1;
+                width: calc(50% - 4px);
+                border-radius: 999px;
+                background: #52b848;
+                box-shadow:
+                    0 6px 14px rgba(82, 184, 72, .24),
+                    inset 0 1px 0 rgba(255, 255, 255, .22);
+                transform: translateX(0);
+                transition: transform .28s cubic-bezier(.22, .61, .36, 1);
+                will-change: transform;
+                pointer-events: none;
+            }
+
+            .venta-mobile-switch.is-productos .venta-mobile-switch-slider {
+                transform: translateX(100%);
+            }
+
             .venta-mobile-switch-btn {
+                position: relative;
+                z-index: 2;
                 min-width: 0;
-                min-height: 50px;
+                min-height: 48px;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 8px;
                 padding: 10px 15px;
                 border: 0;
-                border-radius: 14px;
-                color: rgba(255, 255, 255, .72);
+                border-radius: 999px;
+                color: #617068;
                 background: transparent;
                 font-size: .92rem;
-                font-weight: 800;
+                font-weight: 400;
                 line-height: 1;
                 cursor: pointer;
-                transition:
-                    color .18s ease,
-                    background .18s ease,
-                    box-shadow .18s ease,
-                    transform .18s ease;
+                transition: color .22s ease;
                 -webkit-tap-highlight-color: transparent;
             }
 
-            .venta-mobile-switch-btn i {
-                font-size: 1.05rem;
-            }
-
             .venta-mobile-switch-btn.active {
-                color: #1f3c2b;
-                background: #ffffff;
-                box-shadow: 0 7px 18px rgba(15, 23, 42, .2);
+                color: #ffffff;
             }
 
             .venta-mobile-switch-btn:active {
-                transform: scale(.98);
+                opacity: .88;
             }
 
             .venta-mobile-switch-btn:focus-visible {
-                outline: 3px solid rgba(82, 184, 72, .36);
-                outline-offset: 2px;
+                outline: 2px solid rgba(82, 184, 72, .4);
+                outline-offset: -2px;
             }
 
             .venta-pos-layout {
@@ -1441,10 +1458,11 @@ if ($_SESSION['ventas'] == 1) {
             }
 
             .venta-mobile-switch-btn {
-                min-height: 48px;
+                min-height: 46px;
                 padding-right: 11px;
                 padding-left: 11px;
                 font-size: .88rem;
+                font-weight: 400;
             }
 
             .venta-pedido-header {
