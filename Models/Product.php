@@ -15,14 +15,35 @@ class Product
 
 	//metodo insertar regiustro
 
-	public function insertar($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
+	public function insertar(
+		$idcategoria,
+		$idsubcategoria,
+		$idmedida,
+		$idalmacen,
+		$codigo,
+		$nombre,
+		$stock,
+		$precio_compra,
+		$precio_venta,
+		$descripcion,
+		$imagen,
+		$codigo_afectacion_igv = '10',
+		$porcentaje_igv = 18.00,
+		$unidad_medida_sunat = 'NIU',
+		$codigo_producto_sunat = null
+	)
 	{
 		try {
 			// Insertar el producto y obtener su ID
 			$sql = "INSERT INTO $this->tableName 
-			(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, condicion)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
-			$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen);
+			(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, codigo_afectacion_igv, porcentaje_igv, unidad_medida_sunat, codigo_producto_sunat, condicion)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+			$arrData = array(
+				$idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo,
+				$nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen,
+				$codigo_afectacion_igv, $porcentaje_igv, $unidad_medida_sunat,
+				$codigo_producto_sunat
+			);
 			$idarticulo = $this->conexion->setDataReturnId($sql, $arrData);
 			// Si hay stock inicial, registrar en ingreso, detalle_ingreso y kardex.
 			// El costo de compra puede ser 0.00.
@@ -79,12 +100,34 @@ class Product
 
 
 
-	public function editar($idarticulo, $idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen)
+	public function editar(
+		$idarticulo,
+		$idcategoria,
+		$idsubcategoria,
+		$idmedida,
+		$idalmacen,
+		$codigo,
+		$nombre,
+		$stock,
+		$precio_compra,
+		$precio_venta,
+		$descripcion,
+		$imagen,
+		$codigo_afectacion_igv = '10',
+		$porcentaje_igv = 18.00,
+		$unidad_medida_sunat = 'NIU',
+		$codigo_producto_sunat = null
+	)
 	{
 		$sql = "UPDATE $this->tableName 
-        SET idcategoria=?, idsubcategoria=?, idmedida=?, idalmacen=?, codigo=?, nombre=?, stock=?, precio_compra=?, precio_venta=?, descripcion=?, imagen=?
+        SET idcategoria=?, idsubcategoria=?, idmedida=?, idalmacen=?, codigo=?, nombre=?, stock=?, precio_compra=?, precio_venta=?, descripcion=?, imagen=?, codigo_afectacion_igv=?, porcentaje_igv=?, unidad_medida_sunat=?, codigo_producto_sunat=?
         WHERE idarticulo=?";
-		$arrData = array($idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo, $nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen, $idarticulo);
+		$arrData = array(
+			$idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo,
+			$nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen,
+			$codigo_afectacion_igv, $porcentaje_igv, $unidad_medida_sunat,
+			$codigo_producto_sunat, $idarticulo
+		);
 		return $this->conexion->setData($sql, $arrData);
 	}
 
@@ -145,6 +188,10 @@ class Product
 				a.stock,
 				a.precio_compra,
 				a.precio_venta,
+				a.codigo_afectacion_igv,
+				a.porcentaje_igv,
+				a.unidad_medida_sunat,
+				a.codigo_producto_sunat,
 				a.descripcion,
 				a.imagen,
 				a.condicion
@@ -167,6 +214,10 @@ class Product
 				av.stock,
 				av.precio_compra,
 				av.precio_venta,
+				a.codigo_afectacion_igv,
+				a.porcentaje_igv,
+				a.unidad_medida_sunat,
+				a.codigo_producto_sunat,
 				a.descripcion,
 				a.imagen,
 				a.condicion
@@ -342,6 +393,10 @@ class Product
 					av.stock,
 					av.precio_compra,
 					av.precio_venta,
+					a.codigo_afectacion_igv,
+					a.porcentaje_igv,
+					a.unidad_medida_sunat,
+					a.codigo_producto_sunat,
 					a.descripcion,
 					a.imagen,
 					a.condicion,
@@ -367,6 +422,10 @@ class Product
 					a.nombre,
 					a.precio_compra,
 					a.precio_venta,
+					a.codigo_afectacion_igv,
+					a.porcentaje_igv,
+					a.unidad_medida_sunat,
+					a.codigo_producto_sunat,
 					a.stock,
 					a.imagen,
 					a.condicion,

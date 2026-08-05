@@ -13,6 +13,7 @@ function init() {
     cargarOpcionesVentaPredeterminada();
     cargarDatosEmpresa();
     cargarConfiguracionCaja();
+    configurarEventosTributariosEmpresa();
 
     $("#formulario").on(
         "submit",
@@ -144,6 +145,38 @@ function cargarDatosEmpresa() {
             $("#simbolo").val(
                 data.simbolo || ""
             );
+
+            $("#tipo_operacion_sunat_predeterminado").val(
+                data.tipo_operacion_sunat_predeterminado || "0101"
+            );
+
+            $("#codigo_afectacion_igv_predeterminado").val(
+                data.codigo_afectacion_igv_predeterminado || "10"
+            );
+
+            $("#porcentaje_igv_predeterminado").val(
+                Number(
+                    data.porcentaje_igv_predeterminado
+                    ?? data.monto_impuesto
+                    ?? 18
+                ).toFixed(2)
+            );
+
+            $("#unidad_medida_sunat_predeterminada").val(
+                data.unidad_medida_sunat_predeterminada || "NIU"
+            );
+
+            $("#permitir_cambio_afectacion_venta").prop(
+                "checked",
+                Number(data.permitir_cambio_afectacion_venta || 0) === 1
+            );
+
+            $("#precios_incluyen_impuesto").prop(
+                "checked",
+                Number(data.precios_incluyen_impuesto ?? 1) === 1
+            );
+
+            sincronizarAfectacionTributariaEmpresa(false);
 
             /*
              * El token de consulta DNI/RUC continúa
@@ -369,6 +402,138 @@ function normalizarTextoConfiguracion(valor) {
         .toUpperCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CONFIGURACIÓN TRIBUTARIA DE EMPRESA
+|--------------------------------------------------------------------------
+*/
+function configurarEventosTributariosEmpresa() {
+    $("#codigo_afectacion_igv_predeterminado")
+        .off("change.tributarioEmpresa")
+        .on("change.tributarioEmpresa", function () {
+            sincronizarAfectacionTributariaEmpresa(true);
+        });
+
+    $("#monto_impuesto")
+        .off("input.tributarioEmpresa")
+        .on("input.tributarioEmpresa", function () {
+            if ($("#codigo_afectacion_igv_predeterminado").val() === "10") {
+                const tasa = Number($(this).val() || 0);
+                $("#porcentaje_igv_predeterminado").val(
+                    Math.max(0, tasa).toFixed(2)
+                );
+            }
+            actualizarResumenTributarioEmpresa();
+        });
+
+    $("#tipo_operacion_sunat_predeterminado, #unidad_medida_sunat_predeterminada")
+        .off("change.resumenTributarioEmpresa")
+        .on("change.resumenTributarioEmpresa", actualizarResumenTributarioEmpresa);
+}
+
+function sincronizarAfectacionTributariaEmpresa(actualizarTasa) {
+    const codigo = String(
+        $("#codigo_afectacion_igv_predeterminado").val() || "10"
+    );
+
+    if (codigo === "10") {
+        const tasaGeneral = Number($("#monto_impuesto").val() || 18);
+        if (actualizarTasa || $("#porcentaje_igv_predeterminado").val() === "") {
+            $("#porcentaje_igv_predeterminado").val(
+                Math.max(0, tasaGeneral).toFixed(2)
+            );
+        }
+    } else {
+        $("#porcentaje_igv_predeterminado").val("0.00");
+    }
+
+    actualizarResumenTributarioEmpresa();
+}
+
+function actualizarResumenTributarioEmpresa() {
+    const codigo = String(
+        $("#codigo_afectacion_igv_predeterminado").val() || "10"
+    );
+    const tasa = Number(
+        $("#porcentaje_igv_predeterminado").val() || 0
+    );
+    const etiquetas = {
+        "10": "Gravado",
+        "20": "Exonerado",
+        "30": "Inafecto",
+        "40": "Exportación"
+    };
+
+    $("#estadoConfiguracionTributaria").html(
+        '<i class="fas fa-shield-alt"></i> ' +
+        (etiquetas[codigo] || "Configuración") +
+        (codigo === "10" ? " " + tasa.toFixed(2) + "%" : " 0%")
+    );
+}
+
+function validarConfiguracionTributariaEmpresa() {
+    const tipoOperacion = String(
+        $("#tipo_operacion_sunat_predeterminado").val() || ""
+    ).trim();
+    const afectacion = String(
+        $("#codigo_afectacion_igv_predeterminado").val() || ""
+    ).trim();
+    const tasa = Number(
+        $("#porcentaje_igv_predeterminado").val() || 0
+    );
+    const unidad = String(
+        $("#unidad_medida_sunat_predeterminada").val() || ""
+    ).trim();
+
+    if (!/^\d{4}$/.test(tipoOperacion)) {
+        mostrarAlertaConfiguracion(
+            "Tipo de operación",
+            "Seleccione un tipo de operación SUNAT válido.",
+            "warning"
+        );
+        return false;
+    }
+
+    if (!["10", "20", "30", "40"].includes(afectacion)) {
+        mostrarAlertaConfiguracion(
+            "Afectación al IGV",
+            "Seleccione una afectación tributaria válida.",
+            "warning"
+        );
+        return false;
+    }
+
+    if (afectacion === "10" && (tasa <= 0 || tasa > 100)) {
+        mostrarAlertaConfiguracion(
+            "Tasa de IGV",
+            "Una operación gravada debe tener una tasa de IGV válida.",
+            "warning"
+        );
+        return false;
+    }
+
+    if (afectacion !== "10" && tasa !== 0) {
+        mostrarAlertaConfiguracion(
+            "Tasa de IGV",
+            "Las operaciones exoneradas, inafectas y de exportación deben usar tasa 0%.",
+            "warning"
+        );
+        return false;
+    }
+
+    if (!/^[A-Z0-9]{2,3}$/.test(unidad)) {
+        mostrarAlertaConfiguracion(
+            "Unidad SUNAT",
+            "Seleccione una unidad de medida SUNAT válida.",
+            "warning"
+        );
+        return false;
+    }
+
+    return true;
 }
 
 /*
@@ -836,6 +1001,10 @@ function guardaryeditar(e) {
             "error"
         );
 
+        return;
+    }
+
+    if (!validarConfiguracionTributariaEmpresa()) {
         return;
     }
 

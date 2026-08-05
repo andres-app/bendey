@@ -155,6 +155,127 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
             flex-basis: auto;
         }
     }
+
+    .tributario-panel {
+        position: relative;
+        overflow: visible;
+        border: 1px solid #e4e9ef;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+        box-shadow: 0 10px 28px rgba(15, 23, 42, .055);
+    }
+
+    .tributario-panel-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 22px 16px;
+        border-bottom: 1px solid #edf0f3;
+    }
+
+    .tributario-panel-header h5 {
+        margin: 0 0 4px;
+        color: #263244;
+        font-weight: 750;
+    }
+
+    .tributario-panel-header p {
+        margin: 0;
+        color: #7b8492;
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    .tributario-panel-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 11px;
+        border: 1px solid #d9defa;
+        border-radius: 999px;
+        color: #4f5fd1;
+        background: #f4f5ff;
+        font-size: .7rem;
+        font-weight: 750;
+        white-space: nowrap;
+    }
+
+    .tributario-panel-body {
+        padding: 20px 22px 8px;
+    }
+
+    .tributario-field label {
+        color: #475467;
+        font-size: .76rem;
+        font-weight: 700;
+    }
+
+    .tributario-field .form-control {
+        min-height: 42px;
+        border-color: #dfe4ea;
+        border-radius: 9px;
+        box-shadow: none;
+    }
+
+    .tributario-field .form-control:focus {
+        border-color: #9aa7f0;
+        box-shadow: 0 0 0 3px rgba(103, 119, 239, .09);
+    }
+
+    .tributario-help {
+        min-height: 34px;
+        margin-top: 6px;
+        color: #8b95a5;
+        font-size: .7rem;
+        line-height: 1.35;
+    }
+
+    .tributario-switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 13px 15px;
+        border: 1px solid #e8ebef;
+        border-radius: 11px;
+        background: #ffffff;
+    }
+
+    .tributario-switch-row strong {
+        display: block;
+        margin-bottom: 3px;
+        color: #344054;
+        font-size: .77rem;
+    }
+
+    .tributario-switch-row small {
+        display: block;
+        color: #8b95a5;
+        font-size: .68rem;
+        line-height: 1.35;
+    }
+
+    .tributario-note {
+        margin: 4px 22px 20px;
+        padding: 12px 14px;
+        border-left: 3px solid #6777ef;
+        border-radius: 0 10px 10px 0;
+        color: #667085;
+        background: #f7f8ff;
+        font-size: .72rem;
+        line-height: 1.45;
+    }
+
+    @media (max-width: 767.98px) {
+        .tributario-panel-header {
+            flex-direction: column;
+            padding: 17px;
+        }
+        .tributario-panel-body { padding: 17px 17px 6px; }
+        .tributario-note { margin: 4px 17px 17px; }
+    }
+
 </style>
 
 <div class="main-content">
@@ -606,69 +727,158 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                         </div>
 
                                         <!-- =========================
-                                             IMPUESTOS Y MONEDA
+                                             CONFIGURACIÓN TRIBUTARIA
                                         ========================== -->
 
-                                        <div class="col-12 mt-3 mb-3">
+                                        <div class="col-12 mt-3 mb-4">
                                             <hr>
 
-                                            <h5 class="mb-1">
-                                                Impuestos y moneda
-                                            </h5>
-                                        </div>
+                                            <div class="tributario-panel">
+                                                <div class="tributario-panel-header">
+                                                    <div>
+                                                        <h5>Configuración tributaria</h5>
+                                                        <p>
+                                                            Define los valores que heredarán los productos nuevos y las
+                                                            operaciones de venta. La ubicación por sí sola no activa una exoneración.
+                                                        </p>
+                                                    </div>
 
-                                        <div class="form-group col-lg-3">
-                                            <label for="nombre_impuesto">
-                                                Nombre del impuesto
-                                            </label>
+                                                    <span class="tributario-panel-badge" id="estadoConfiguracionTributaria">
+                                                        <i class="fas fa-shield-alt"></i>
+                                                        Configuración general
+                                                    </span>
+                                                </div>
 
-                                            <input
-                                                type="text"
-                                                class="form-control"
-                                                name="nombre_impuesto"
-                                                id="nombre_impuesto"
-                                                maxlength="10">
-                                        </div>
+                                                <div class="tributario-panel-body">
+                                                    <div class="row">
+                                                        <div class="form-group col-lg-6 tributario-field">
+                                                            <label for="tipo_operacion_sunat_predeterminado">
+                                                                Tipo de operación SUNAT
+                                                            </label>
 
-                                        <div class="form-group col-lg-3">
-                                            <label for="monto_impuesto">
-                                                Monto (%)
-                                            </label>
+                                                            <select
+                                                                class="form-control"
+                                                                name="tipo_operacion_sunat_predeterminado"
+                                                                id="tipo_operacion_sunat_predeterminado"
+                                                                required>
+                                                                <option value="0101">0101 — Venta interna</option>
+                                                                <option value="0112">0112 — Venta interna que sustenta gastos deducibles</option>
+                                                                <option value="0113">0113 — Venta interna NRUS</option>
+                                                                <option value="0200">0200 — Exportación de bienes</option>
+                                                                <option value="0201">0201 — Exportación de servicios realizados íntegramente en el país</option>
+                                                                <option value="0202">0202 — Servicios de hospedaje a no domiciliados</option>
+                                                                <option value="0203">0203 — Exportación de servicios: transporte de navieras</option>
+                                                                <option value="0204">0204 — Servicios a naves y aeronaves de bandera extranjera</option>
+                                                                <option value="0205">0205 — Servicios que conforman un paquete turístico</option>
+                                                                <option value="0206">0206 — Servicios complementarios al transporte de carga</option>
+                                                                <option value="0207">0207 — Suministro de energía a sujetos domiciliados en ZED</option>
+                                                                <option value="0208">0208 — Servicios realizados parcialmente en el extranjero</option>
+                                                                <option value="0301">0301 — Operaciones con carta de porte aéreo nacional</option>
+                                                                <option value="0302">0302 — Transporte ferroviario de pasajeros</option>
+                                                                <option value="0401">0401 — Venta a no domiciliados que no califica como exportación</option>
+                                                                <option value="1001">1001 — Operación sujeta a detracción</option>
+                                                                <option value="1002">1002 — Detracción: recursos hidrobiológicos</option>
+                                                                <option value="1003">1003 — Detracción: transporte de pasajeros</option>
+                                                                <option value="1004">1004 — Detracción: transporte de carga</option>
+                                                                <option value="2001">2001 — Operación sujeta a percepción</option>
+                                                            </select>
 
-                                            <input
-                                                type="number"
-                                                class="form-control"
-                                                name="monto_impuesto"
-                                                id="monto_impuesto"
-                                                min="0"
-                                                max="100"
-                                                step="0.01">
-                                        </div>
+                                                            <div class="tributario-help">
+                                                                Para ventas comunes se recomienda 0101. Las demás opciones deben utilizarse solo cuando correspondan tributariamente.
+                                                            </div>
+                                                        </div>
 
-                                        <div class="form-group col-lg-3">
-                                            <label for="moneda">
-                                                Moneda
-                                            </label>
+                                                        <div class="form-group col-lg-6 tributario-field">
+                                                            <label for="codigo_afectacion_igv_predeterminado">
+                                                                Afectación al IGV predeterminada
+                                                            </label>
 
-                                            <input
-                                                type="text"
-                                                class="form-control"
-                                                name="moneda"
-                                                id="moneda"
-                                                maxlength="10">
-                                        </div>
+                                                            <select
+                                                                class="form-control"
+                                                                name="codigo_afectacion_igv_predeterminado"
+                                                                id="codigo_afectacion_igv_predeterminado"
+                                                                required>
+                                                                <option value="10">10 — Gravado: operación onerosa</option>
+                                                                <option value="20">20 — Exonerado: operación onerosa</option>
+                                                                <option value="30">30 — Inafecto: operación onerosa</option>
+                                                                <option value="40">40 — Exportación</option>
+                                                            </select>
 
-                                        <div class="form-group col-lg-3">
-                                            <label for="simbolo">
-                                                Símbolo
-                                            </label>
+                                                            <div class="tributario-help">
+                                                                Los productos existentes conservarán su clasificación; este valor se aplica a productos nuevos.
+                                                            </div>
+                                                        </div>
 
-                                            <input
-                                                type="text"
-                                                class="form-control"
-                                                name="simbolo"
-                                                id="simbolo"
-                                                maxlength="10">
+                                                        <div class="form-group col-lg-3 col-md-6 tributario-field">
+                                                            <label for="nombre_impuesto">Nombre del impuesto</label>
+                                                            <input type="text" class="form-control" name="nombre_impuesto" id="nombre_impuesto" maxlength="10" value="IGV">
+                                                        </div>
+
+                                                        <div class="form-group col-lg-3 col-md-6 tributario-field">
+                                                            <label for="monto_impuesto">Tasa general IGV (%)</label>
+                                                            <input type="number" class="form-control" name="monto_impuesto" id="monto_impuesto" min="0" max="100" step="0.01">
+                                                        </div>
+
+                                                        <div class="form-group col-lg-3 col-md-6 tributario-field">
+                                                            <label for="porcentaje_igv_predeterminado">Tasa aplicada por defecto (%)</label>
+                                                            <input type="number" class="form-control" name="porcentaje_igv_predeterminado" id="porcentaje_igv_predeterminado" min="0" max="100" step="0.01" readonly>
+                                                        </div>
+
+                                                        <div class="form-group col-lg-3 col-md-6 tributario-field">
+                                                            <label for="unidad_medida_sunat_predeterminada">Unidad SUNAT predeterminada</label>
+                                                            <select class="form-control" name="unidad_medida_sunat_predeterminada" id="unidad_medida_sunat_predeterminada" required>
+                                                                <option value="NIU">NIU — Unidad</option>
+                                                                <option value="ZZ">ZZ — Servicio</option>
+                                                                <option value="KGM">KGM — Kilogramo</option>
+                                                                <option value="LTR">LTR — Litro</option>
+                                                                <option value="MTR">MTR — Metro</option>
+                                                                <option value="BX">BX — Caja</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="form-group col-lg-3 col-md-6 tributario-field">
+                                                            <label for="moneda">Moneda</label>
+                                                            <input type="text" class="form-control" name="moneda" id="moneda" maxlength="10">
+                                                        </div>
+
+                                                        <div class="form-group col-lg-3 col-md-6 tributario-field">
+                                                            <label for="simbolo">Símbolo</label>
+                                                            <input type="text" class="form-control" name="simbolo" id="simbolo" maxlength="10">
+                                                        </div>
+
+                                                        <div class="col-lg-6 mb-3">
+                                                            <div class="tributario-switch-row h-100">
+                                                                <div>
+                                                                    <strong>Precios incluyen impuesto</strong>
+                                                                    <small>El precio de venta registrado se interpreta como importe final.</small>
+                                                                </div>
+                                                                <label class="custom-switch mb-0">
+                                                                    <input type="checkbox" class="custom-switch-input" name="precios_incluyen_impuesto" id="precios_incluyen_impuesto" value="1" checked>
+                                                                    <span class="custom-switch-indicator"></span>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-lg-6 mb-3">
+                                                            <div class="tributario-switch-row h-100">
+                                                                <div>
+                                                                    <strong>Permitir cambio en Nueva venta</strong>
+                                                                    <small>Habilita ajustes tributarios avanzados durante una operación.</small>
+                                                                </div>
+                                                                <label class="custom-switch mb-0">
+                                                                    <input type="checkbox" class="custom-switch-input" name="permitir_cambio_afectacion_venta" id="permitir_cambio_afectacion_venta" value="1">
+                                                                    <span class="custom-switch-indicator"></span>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="tributario-note">
+                                                    <i class="fas fa-info-circle mr-2"></i>
+                                                    Una empresa o sucursal ubicada en la Amazonía no queda exonerada automáticamente. La clasificación debe configurarse de acuerdo con la situación tributaria validada por la empresa.
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <!-- =========================

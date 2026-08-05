@@ -9,6 +9,42 @@ if (!isset($_SESSION['nombre'])) {
 
     if ($_SESSION['almacen'] == 1) {
 ?>
+
+<style>
+    .producto-tributario-card {
+        border: 1px solid #e4e9ef;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+        box-shadow: 0 8px 22px rgba(15, 23, 42, .045);
+    }
+    .producto-tributario-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 15px;
+        padding: 16px 18px;
+        border-bottom: 1px solid #edf0f3;
+    }
+    .producto-tributario-header h5 { margin: 0 0 3px; color: #344054; font-weight: 750; }
+    .producto-tributario-header p { margin: 0; color: #8b95a5; font-size: .72rem; }
+    .producto-tributario-badge {
+        display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+        border: 1px solid #d9defa; border-radius: 999px; color: #4f5fd1;
+        background: #f4f5ff; font-size: .68rem; font-weight: 750; white-space: nowrap;
+    }
+    .producto-tributario-body { padding: 17px 18px 5px; }
+    .producto-tributario-body label { color: #475467; font-size: .74rem; font-weight: 700; }
+    .producto-tributario-body .form-control { min-height: 41px; border-color: #dfe4ea; border-radius: 9px; box-shadow: none; }
+    .producto-tributario-body .form-control:focus { border-color: #9aa7f0; box-shadow: 0 0 0 3px rgba(103,119,239,.09); }
+    .producto-tributario-ayuda { margin-top: 6px; color: #8b95a5; font-size: .68rem; line-height: 1.35; }
+    .afectacion-producto-pill { display:inline-flex; align-items:center; padding:4px 8px; border-radius:999px; font-size:.67rem; font-weight:750; white-space:nowrap; }
+    .afectacion-10 { color:#176b3a; background:#edf9f1; border:1px solid #bce2c8; }
+    .afectacion-20 { color:#8a5b16; background:#fff8e8; border:1px solid #eed7a3; }
+    .afectacion-30 { color:#475467; background:#f2f4f7; border:1px solid #dfe3e8; }
+    .afectacion-40 { color:#175cd3; background:#eff6ff; border:1px solid #bfd8ff; }
+    @media (max-width:767.98px) { .producto-tributario-header { flex-direction:column; } }
+</style>
+
 <div class="main-content">
     <section class="section">
         <div class="section-body">
@@ -74,6 +110,7 @@ if (!isset($_SESSION['nombre'])) {
                                             <th>Imagen</th>
                                             <th>P. Compra</th>
                                             <th>P. Venta</th>
+                                            <th>Afectación IGV</th>
                                             <th>Estado</th>
                                             <th>Almacén</th>
                                             <th>Opciones</th>
@@ -166,6 +203,61 @@ if (!isset($_SESSION['nombre'])) {
                                             </div>
                                         </div>
 
+                                        <div class="col-12 mb-4">
+                                            <div class="producto-tributario-card">
+                                                <div class="producto-tributario-header">
+                                                    <div>
+                                                        <h5>Datos tributarios</h5>
+                                                        <p>El producto hereda inicialmente la configuración general de la empresa.</p>
+                                                    </div>
+                                                    <span class="producto-tributario-badge" id="estadoTributarioProducto">
+                                                        <i class="fas fa-percentage"></i>
+                                                        Gravado 18%
+                                                    </span>
+                                                </div>
+
+                                                <div class="producto-tributario-body">
+                                                    <div class="row">
+                                                        <div class="form-group col-lg-4 col-md-6">
+                                                            <label for="codigo_afectacion_igv">Afectación al IGV</label>
+                                                            <select class="form-control" name="codigo_afectacion_igv" id="codigo_afectacion_igv" required>
+                                                                <option value="10">10 — Gravado: operación onerosa</option>
+                                                                <option value="20">20 — Exonerado: operación onerosa</option>
+                                                                <option value="30">30 — Inafecto: operación onerosa</option>
+                                                                <option value="40">40 — Exportación</option>
+                                                            </select>
+                                                            <div class="producto-tributario-ayuda">Define cómo se declarará esta línea en SUNAT.</div>
+                                                        </div>
+
+                                                        <div class="form-group col-lg-2 col-md-6">
+                                                            <label for="porcentaje_igv">Tasa IGV (%)</label>
+                                                            <input type="number" class="form-control" name="porcentaje_igv" id="porcentaje_igv" min="0" max="100" step="0.01" readonly required>
+                                                            <div class="producto-tributario-ayuda">Se calcula según la afectación.</div>
+                                                        </div>
+
+                                                        <div class="form-group col-lg-3 col-md-6">
+                                                            <label for="unidad_medida_sunat">Unidad SUNAT</label>
+                                                            <select class="form-control" name="unidad_medida_sunat" id="unidad_medida_sunat" required>
+                                                                <option value="NIU">NIU — Unidad</option>
+                                                                <option value="ZZ">ZZ — Servicio</option>
+                                                                <option value="KGM">KGM — Kilogramo</option>
+                                                                <option value="LTR">LTR — Litro</option>
+                                                                <option value="MTR">MTR — Metro</option>
+                                                                <option value="BX">BX — Caja</option>
+                                                            </select>
+                                                            <div class="producto-tributario-ayuda">Código de unidad usado en el XML.</div>
+                                                        </div>
+
+                                                        <div class="form-group col-lg-3 col-md-6">
+                                                            <label for="codigo_producto_sunat">Código de producto SUNAT</label>
+                                                            <input type="text" class="form-control" name="codigo_producto_sunat" id="codigo_producto_sunat" maxlength="16" placeholder="Opcional">
+                                                            <div class="producto-tributario-ayuda">Código UNSPSC u otro código requerido, cuando corresponda.</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div class="form-group col-md-12 mb-3">
                                             <div id="activarAtributosContainer" class="d-flex align-items-center">
                                                 <label for="activar_atributos"
@@ -251,7 +343,7 @@ if (!isset($_SESSION['nombre'])) {
     ?>
 <script src="Assets/js/JsBarcode.all.min.js"></script>
 <script src="Assets/js/jquery.PrintArea.js"></script>
-<script src="Views/modules/scripts/product.js?v=20260722-03"></script>
+<script src="Views/modules/scripts/product.js?v=20260805-tributario-01"></script>
 <?php
 }
 ob_end_flush();

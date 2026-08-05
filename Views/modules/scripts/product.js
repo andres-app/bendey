@@ -1,9 +1,16 @@
 var tabla;
 var secuenciaCargaAlmacen = 0;
+var configuracionTributariaProducto = {
+  afectacion: "10",
+  porcentaje: 18,
+  unidad: "NIU"
+};
 
 $(document).ready(function () {
   init();
   cargarOpcionesAtributos();
+  cargarConfiguracionTributariaProducto();
+  registrarEventosTributariosProducto();
 });
 
 function cargarSelectAlmacen(idSeleccionado = "", nombreAlmacen = "") {
@@ -105,6 +112,96 @@ function init() {
   $("#imagenmuestra").hide();
 }
 
+function cargarConfiguracionTributariaProducto() {
+  return $.ajax({
+    url: "Controllers/Company.php",
+    type: "GET",
+    dataType: "json",
+    cache: false,
+    data: { op: "mostrar_datos", v: Date.now() }
+  }).done(function (data) {
+    if (!data || typeof data !== "object") return;
+    configuracionTributariaProducto = {
+      afectacion: String(data.codigo_afectacion_igv_predeterminado || "10"),
+      porcentaje: Number(data.porcentaje_igv_predeterminado ?? data.monto_impuesto ?? 18),
+      unidad: String(data.unidad_medida_sunat_predeterminada || "NIU")
+    };
+    if (!$("#idarticulo").val()) {
+      aplicarConfiguracionTributariaProductoPredeterminada();
+    }
+  }).fail(function (xhr) {
+    console.warn("No se cargó la configuración tributaria:", xhr.status, xhr.responseText);
+  });
+}
+
+function registrarEventosTributariosProducto() {
+  $("#codigo_afectacion_igv")
+    .off("change.tributarioProducto")
+    .on("change.tributarioProducto", function () {
+      sincronizarAfectacionTributariaProducto(true);
+    });
+}
+
+function aplicarConfiguracionTributariaProductoPredeterminada() {
+  $("#codigo_afectacion_igv").val(configuracionTributariaProducto.afectacion || "10");
+  $("#unidad_medida_sunat").val(configuracionTributariaProducto.unidad || "NIU");
+  $("#codigo_producto_sunat").val("");
+  sincronizarAfectacionTributariaProducto(true);
+}
+
+function sincronizarAfectacionTributariaProducto(forzarTasa) {
+  const codigo = String($("#codigo_afectacion_igv").val() || "10");
+  const etiquetas = {
+    "10": "Gravado",
+    "20": "Exonerado",
+    "30": "Inafecto",
+    "40": "Exportación"
+  };
+  let tasa = 0;
+  if (codigo === "10") {
+    tasa = Number(configuracionTributariaProducto.porcentaje || 18);
+    if (!forzarTasa) {
+      const actual = Number($("#porcentaje_igv").val());
+      if (Number.isFinite(actual) && actual > 0) tasa = actual;
+    }
+  }
+  $("#porcentaje_igv").val(tasa.toFixed(2));
+  $("#estadoTributarioProducto").html(
+    '<i class="fas fa-percentage"></i> ' +
+    (etiquetas[codigo] || codigo) +
+    (codigo === "10" ? " " + tasa.toFixed(2) + "%" : " 0%")
+  );
+}
+
+function validarDatosTributariosProducto() {
+  const afectacion = String($("#codigo_afectacion_igv").val() || "");
+  const porcentaje = Number($("#porcentaje_igv").val() || 0);
+  const unidad = String($("#unidad_medida_sunat").val() || "").trim().toUpperCase();
+  const codigoSunat = String($("#codigo_producto_sunat").val() || "").trim();
+
+  if (!["10", "20", "30", "40"].includes(afectacion)) {
+    Swal.fire("Afectación inválida", "Selecciona una afectación al IGV válida.", "warning");
+    return false;
+  }
+  if (afectacion === "10" && (porcentaje <= 0 || porcentaje > 100)) {
+    Swal.fire("Tasa inválida", "Un producto gravado debe tener una tasa de IGV válida.", "warning");
+    return false;
+  }
+  if (afectacion !== "10" && porcentaje !== 0) {
+    Swal.fire("Tasa inválida", "Los productos exonerados, inafectos y de exportación deben usar 0%.", "warning");
+    return false;
+  }
+  if (!/^[A-Z0-9]{2,3}$/.test(unidad)) {
+    Swal.fire("Unidad inválida", "Selecciona una unidad SUNAT válida.", "warning");
+    return false;
+  }
+  if (codigoSunat !== "" && !/^[A-Za-z0-9._-]{4,16}$/.test(codigoSunat)) {
+    Swal.fire("Código SUNAT", "El código de producto SUNAT contiene caracteres no válidos.", "warning");
+    return false;
+  }
+  return true;
+}
+
 function mostrarform(flag) {
   limpiar();
   if (flag) {
@@ -137,6 +234,7 @@ function limpiar() {
   // ✅ IMPORTANTE: forzar que se ejecute la regla según la categoría actual
   // (porque reset() NO dispara change)
   $("#idcategoria").trigger("change");
+  aplicarConfiguracionTributariaProductoPredeterminada();
 }
 
 
@@ -155,13 +253,13 @@ function listar() {
         extend: "excelHtml5",
         text: '<i class="fa fa-file-excel-o"></i> Excel',
         title: "Reporte de Productos",
-        exportOptions: { columns: [0, 1, 2, 4, 5, 6] }
+        exportOptions: { columns: [0, 1, 2, 4, 5, 8, 9] }
       },
       {
         extend: "pdfHtml5",
         text: '<i class="fa fa-file-pdf-o"></i> PDF',
         title: "Reporte de Artículos",
-        exportOptions: { columns: [0, 1, 2, 4, 5, 6] }
+        exportOptions: { columns: [0, 1, 2, 4, 5, 8, 9] }
       }
     ],
     ajax: {
@@ -220,6 +318,21 @@ function listar() {
         }
       },
 
+      {
+        data: "codigo_afectacion_igv",
+        render: function (data, type, row) {
+          const codigo = String(data || "10");
+          const porcentaje = Number(row.porcentaje_igv || 0);
+          const etiquetas = {
+            "10": "Gravado",
+            "20": "Exonerado",
+            "30": "Inafecto",
+            "40": "Exportación"
+          };
+          return `<span class="afectacion-producto-pill afectacion-${codigo}">${etiquetas[codigo] || codigo}${codigo === "10" ? " " + porcentaje.toFixed(2) + "%" : ""}</span>`;
+        },
+        defaultContent: '<span class="afectacion-producto-pill afectacion-10">Gravado 18.00%</span>'
+      },
       {
         data: "condicion",
         render: function (data) {
@@ -358,6 +471,10 @@ function guardaryeditar(e) {
     }
   }
 
+  if (!validarDatosTributariosProducto()) {
+    return;
+  }
+
   $("#btnGuardar").prop("disabled", true);
   var formData = new FormData($("#formulario")[0]);
 
@@ -455,6 +572,17 @@ function mostrar(idarticulo) {
       $("#precio_compra").val(data.precio_compra ?? "");
       $("#precio_venta").val(data.precio_venta ?? "");
       $("#descripcion").val(data.descripcion ?? "");
+      $("#codigo_afectacion_igv").val(
+        String(data.codigo_afectacion_igv || configuracionTributariaProducto.afectacion)
+      );
+      $("#porcentaje_igv").val(
+        Number(data.porcentaje_igv ?? configuracionTributariaProducto.porcentaje).toFixed(2)
+      );
+      $("#unidad_medida_sunat").val(
+        String(data.unidad_medida_sunat || configuracionTributariaProducto.unidad)
+      );
+      $("#codigo_producto_sunat").val(data.codigo_producto_sunat || "");
+      sincronizarAfectacionTributariaProducto(false);
 
       /*
        * Categoría y subcategoría

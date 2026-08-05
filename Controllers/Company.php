@@ -518,6 +518,45 @@ try {
                 )
             );
 
+            $tipo_operacion_sunat_predeterminado = trim(
+                (string)(
+                    $_POST['tipo_operacion_sunat_predeterminado']
+                    ?? '0101'
+                )
+            );
+
+            $codigo_afectacion_igv_predeterminado = trim(
+                (string)(
+                    $_POST['codigo_afectacion_igv_predeterminado']
+                    ?? '10'
+                )
+            );
+
+            $porcentaje_igv_predeterminado = round(
+                (float)(
+                    $_POST['porcentaje_igv_predeterminado']
+                    ?? $monto_impuesto
+                ),
+                2
+            );
+
+            $unidad_medida_sunat_predeterminada = strtoupper(
+                trim(
+                    (string)(
+                        $_POST['unidad_medida_sunat_predeterminada']
+                        ?? 'NIU'
+                    )
+                )
+            );
+
+            $permitir_cambio_afectacion_venta = isset(
+                $_POST['permitir_cambio_afectacion_venta']
+            ) ? 1 : 0;
+
+            $precios_incluyen_impuesto = isset(
+                $_POST['precios_incluyen_impuesto']
+            ) ? 1 : 0;
+
             if ($nombre === '') {
                 throw new RuntimeException(
                     'Debe ingresar el nombre de la empresa.'
@@ -624,6 +663,57 @@ try {
                 );
             }
 
+            $tiposOperacionPermitidos = [
+                '0101', '0112', '0113',
+                '0200', '0201', '0202', '0203', '0204',
+                '0205', '0206', '0207', '0208',
+                '0301', '0302', '0401',
+                '1001', '1002', '1003', '1004',
+                '2001'
+            ];
+
+            if (!in_array(
+                $tipo_operacion_sunat_predeterminado,
+                $tiposOperacionPermitidos,
+                true
+            )) {
+                throw new RuntimeException(
+                    'El tipo de operación SUNAT no es válido.'
+                );
+            }
+
+            if (!in_array(
+                $codigo_afectacion_igv_predeterminado,
+                ['10', '20', '30', '40'],
+                true
+            )) {
+                throw new RuntimeException(
+                    'La afectación al IGV predeterminada no es válida.'
+                );
+            }
+
+            if ($codigo_afectacion_igv_predeterminado === '10') {
+                if (
+                    $porcentaje_igv_predeterminado <= 0
+                    || $porcentaje_igv_predeterminado > 100
+                ) {
+                    throw new RuntimeException(
+                        'La tasa de una operación gravada no es válida.'
+                    );
+                }
+            } else {
+                $porcentaje_igv_predeterminado = 0.00;
+            }
+
+            if (!preg_match(
+                '/^[A-Z0-9]{2,3}$/',
+                $unidad_medida_sunat_predeterminada
+            )) {
+                throw new RuntimeException(
+                    'La unidad de medida SUNAT predeterminada no es válida.'
+                );
+            }
+
             $tipoPagoNormalizado = mb_strtoupper(
                 $venta_tipo_pago_predeterminado,
                 'UTF-8'
@@ -708,7 +798,13 @@ try {
                 $venta_tipo_comprobante_predeterminado,
                 $venta_tipo_pago_predeterminado,
                 $venta_idforma_pago_predeterminada,
-                $venta_modo_envio_predeterminado
+                $venta_modo_envio_predeterminado,
+                $tipo_operacion_sunat_predeterminado,
+                $codigo_afectacion_igv_predeterminado,
+                $porcentaje_igv_predeterminado,
+                $unidad_medida_sunat_predeterminada,
+                $permitir_cambio_afectacion_venta,
+                $precios_incluyen_impuesto
             );
 
             if (!$resultado) {

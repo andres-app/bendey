@@ -57,6 +57,79 @@ function responderProductoJson(
     exit;
 }
 
+
+/**
+ * Obtiene y valida la configuración tributaria de un producto.
+ */
+function obtenerDatosTributariosProducto(
+    Conexion $conexion,
+    array $fuente = []
+): array {
+    $empresa = $conexion->getData(
+        "SELECT
+            codigo_afectacion_igv_predeterminado,
+            porcentaje_igv_predeterminado,
+            unidad_medida_sunat_predeterminada
+         FROM datos_negocio
+         WHERE condicion = 1
+         ORDER BY id_negocio DESC
+         LIMIT 1"
+    );
+
+    $afectacion = trim((string)(
+        $fuente['codigo_afectacion_igv']
+        ?? $empresa['codigo_afectacion_igv_predeterminado']
+        ?? '10'
+    ));
+
+    if (!in_array($afectacion, ['10', '20', '30', '40'], true)) {
+        throw new RuntimeException('La afectación al IGV del producto no es válida.');
+    }
+
+    $porcentaje = round((float)(
+        $fuente['porcentaje_igv']
+        ?? $empresa['porcentaje_igv_predeterminado']
+        ?? 18
+    ), 2);
+
+    if ($afectacion === '10') {
+        if ($porcentaje <= 0 || $porcentaje > 100) {
+            throw new RuntimeException('La tasa de IGV del producto no es válida.');
+        }
+    } else {
+        $porcentaje = 0.00;
+    }
+
+    $unidad = strtoupper(trim((string)(
+        $fuente['unidad_medida_sunat']
+        ?? $empresa['unidad_medida_sunat_predeterminada']
+        ?? 'NIU'
+    )));
+
+    if (!preg_match('/^[A-Z0-9]{2,3}$/', $unidad)) {
+        throw new RuntimeException('La unidad SUNAT del producto no es válida.');
+    }
+
+    $codigoSunat = strtoupper(trim((string)(
+        $fuente['codigo_producto_sunat']
+        ?? ''
+    )));
+
+    if (
+        $codigoSunat !== ''
+        && !preg_match('/^[A-Z0-9._-]{4,16}$/', $codigoSunat)
+    ) {
+        throw new RuntimeException('El código de producto SUNAT no es válido.');
+    }
+
+    return [
+        'codigo_afectacion_igv' => $afectacion,
+        'porcentaje_igv' => $porcentaje,
+        'unidad_medida_sunat' => $unidad,
+        'codigo_producto_sunat' => $codigoSunat !== '' ? $codigoSunat : null
+    ];
+}
+
 switch ($_GET['op'] ?? '') {
 
     /* =========================================================
@@ -372,6 +445,11 @@ switch ($_GET['op'] ?? '') {
                 );
             }
 
+            $tributosProductoRapido = obtenerDatosTributariosProducto(
+                $conexion,
+                []
+            );
+
             $idproductoRapido = (int)$product->insertar(
                 $idcategoriaRapida,
                 $idsubcategoriaRapida > 0 ? $idsubcategoriaRapida : null,
@@ -383,7 +461,11 @@ switch ($_GET['op'] ?? '') {
                 $precioCompraRapido,
                 $precioVentaRapido,
                 'Creado desde el modal de venta rápida',
-                'default.png'
+                'default.png',
+                $tributosProductoRapido['codigo_afectacion_igv'],
+                $tributosProductoRapido['porcentaje_igv'],
+                $tributosProductoRapido['unidad_medida_sunat'],
+                $tributosProductoRapido['codigo_producto_sunat']
             );
 
             if ($idproductoRapido <= 0) {
@@ -436,7 +518,11 @@ switch ($_GET['op'] ?? '') {
                             ' (' . (string)($medidaRapida['codigo'] ?? '') . ')'
                     ),
                     'almacen' => (string)($almacenRapido['nombre'] ?? ''),
-                    'imagen' => 'default.png'
+                    'imagen' => 'default.png',
+                    'codigo_afectacion_igv' => $tributosProductoRapido['codigo_afectacion_igv'],
+                    'porcentaje_igv' => $tributosProductoRapido['porcentaje_igv'],
+                    'unidad_medida_sunat' => $tributosProductoRapido['unidad_medida_sunat'],
+                    'codigo_producto_sunat' => $tributosProductoRapido['codigo_producto_sunat']
                 ]
             );
         } catch (Throwable $error) {
@@ -466,6 +552,17 @@ switch ($_GET['op'] ?? '') {
         $precio_compra = max(0, (float)($_POST['precio_compra'] ?? 0));
         $precio_venta = max(0, (float)($_POST['precio_venta'] ?? 0));
         $descripcion = trim((string)($_POST['descripcion'] ?? ''));
+
+        try {
+            $conexionTributaria = new Conexion();
+            $tributosProducto = obtenerDatosTributariosProducto(
+                $conexionTributaria,
+                $_POST
+            );
+        } catch (Throwable $errorTributario) {
+            echo $errorTributario->getMessage();
+            break;
+        }
 
         if ($idcategoria <= 0) {
             echo 'Debe seleccionar una categoría';
@@ -585,7 +682,11 @@ switch ($_GET['op'] ?? '') {
                 $precio_compra,
                 $precio_venta,
                 $descripcion,
-                $imagen
+                $imagen,
+                $tributosProducto['codigo_afectacion_igv'],
+                $tributosProducto['porcentaje_igv'],
+                $tributosProducto['unidad_medida_sunat'],
+                $tributosProducto['codigo_producto_sunat']
             );
 
             echo $resultado
@@ -605,7 +706,11 @@ switch ($_GET['op'] ?? '') {
                 $precio_compra,
                 $precio_venta,
                 $descripcion,
-                $imagen
+                $imagen,
+                $tributosProducto['codigo_afectacion_igv'],
+                $tributosProducto['porcentaje_igv'],
+                $tributosProducto['unidad_medida_sunat'],
+                $tributosProducto['codigo_producto_sunat']
             );
 
             echo $resultado

@@ -43,7 +43,13 @@ class Company
         $venta_tipo_comprobante_predeterminado = '',
         $venta_tipo_pago_predeterminado = '',
         $venta_idforma_pago_predeterminada = null,
-        $venta_modo_envio_predeterminado = ''
+        $venta_modo_envio_predeterminado = '',
+        $tipo_operacion_sunat_predeterminado = '0101',
+        $codigo_afectacion_igv_predeterminado = '10',
+        $porcentaje_igv_predeterminado = 18.00,
+        $unidad_medida_sunat_predeterminada = 'NIU',
+        $permitir_cambio_afectacion_venta = 0,
+        $precios_incluyen_impuesto = 1
     ): bool {
         $id_negocio = (int)$id_negocio;
 
@@ -120,7 +126,13 @@ class Company
                     venta_tipo_comprobante_predeterminado = ?,
                     venta_tipo_pago_predeterminado = ?,
                     venta_idforma_pago_predeterminada = ?,
-                    venta_modo_envio_predeterminado = ?
+                    venta_modo_envio_predeterminado = ?,
+                    tipo_operacion_sunat_predeterminado = ?,
+                    codigo_afectacion_igv_predeterminado = ?,
+                    porcentaje_igv_predeterminado = ?,
+                    unidad_medida_sunat_predeterminada = ?,
+                    permitir_cambio_afectacion_venta = ?,
+                    precios_incluyen_impuesto = ?
                 WHERE id_negocio = ?";
 
         $arrData = [
@@ -156,6 +168,12 @@ class Company
                     trim((string)$venta_modo_envio_predeterminado)
                 )
                 : null,
+            trim((string)$tipo_operacion_sunat_predeterminado),
+            trim((string)$codigo_afectacion_igv_predeterminado),
+            (float)$porcentaje_igv_predeterminado,
+            strtoupper(trim((string)$unidad_medida_sunat_predeterminada)),
+            (int)$permitir_cambio_afectacion_venta === 1 ? 1 : 0,
+            (int)$precios_incluyen_impuesto === 1 ? 1 : 0,
             $id_negocio
         ];
 
@@ -504,6 +522,12 @@ class Company
                     venta_tipo_pago_predeterminado,
                     venta_idforma_pago_predeterminada,
                     venta_modo_envio_predeterminado,
+                    tipo_operacion_sunat_predeterminado,
+                    codigo_afectacion_igv_predeterminado,
+                    porcentaje_igv_predeterminado,
+                    unidad_medida_sunat_predeterminada,
+                    permitir_cambio_afectacion_venta,
+                    precios_incluyen_impuesto,
                     CASE
                         WHEN apisunat_persona_token IS NOT NULL
                          AND apisunat_persona_token <> ''
