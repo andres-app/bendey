@@ -1095,19 +1095,26 @@ if ($_SESSION['ventas'] == 1) {
 
         .venta-form-footer {
             min-height: 66px;
-            display: flex;
+            display: grid;
+            grid-template-columns: 30% 70%;
             align-items: center;
-            justify-content: space-between;
-            gap: 16px;
+            gap: 0;
             margin: 0;
             padding: 9px 18px;
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            opacity: 1;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
 
         .venta-footer-total {
+            width: 100%;
             min-width: 0;
             display: flex;
             align-items: baseline;
             gap: 9px;
+            padding-right: 12px;
         }
 
         .venta-footer-total-label {
@@ -1129,7 +1136,8 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .venta-procesar-btn {
-            min-width: 170px;
+            width: 100%;
+            min-width: 0;
             min-height: 46px;
             display: inline-flex;
             align-items: center;
@@ -1439,14 +1447,16 @@ if ($_SESSION['ventas'] == 1) {
             }
 
             .venta-form-footer {
-                align-items: stretch;
-                flex-direction: column;
-                gap: 9px;
+                grid-template-columns: 30% 70%;
+                align-items: center;
+                gap: 0;
                 padding: 10px 14px;
+                background: #ffffff !important;
             }
 
             .venta-footer-total {
-                justify-content: space-between;
+                justify-content: flex-start;
+                padding-right: 8px;
             }
 
             .venta-procesar-btn {
