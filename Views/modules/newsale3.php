@@ -1186,21 +1186,21 @@ if ($_SESSION['ventas'] == 1) {
 
         @media (min-width: 1200px) {
             .venta-pos-layout {
-                min-height: calc(100vh - 112px);
+                min-height: calc(100vh - 70px);
             }
 
             .venta-panel-card-formulario {
-                min-height: calc(100vh - 108px);
+                min-height: calc(100vh - 66px);
             }
 
             .venta-panel-col-pedido {
                 position: sticky;
-                top: 84px;
+                top: 62px;
                 align-self: flex-start;
             }
 
             .venta-panel-card-pedido {
-                height: calc(100vh - 108px);
+                height: calc(100vh - 66px);
                 min-height: 510px;
                 display: flex;
                 flex-direction: column;
@@ -2017,15 +2017,17 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #modalProductos .modal-productos-dialog {
-            width: calc(100% - 28px);
-            max-width: 1240px;
-            margin: 14px auto;
+            width: calc(100% - 12px);
+            max-width: 1440px;
+            margin: 6px auto;
         }
 
         #modalProductos .modal-productos-content {
-            height: calc(100vh - 28px);
-            max-height: 880px;
-            min-height: 560px;
+            height: calc(100vh - 12px);
+            height: calc(100dvh - 12px);
+            max-height: calc(100vh - 12px);
+            max-height: calc(100dvh - 12px);
+            min-height: 0;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -2540,7 +2542,7 @@ if ($_SESSION['ventas'] == 1) {
         ========================================================== */
         @media (max-width: 1199.98px) {
             .venta-pos-main-content {
-                padding-top: 78px !important;
+                padding-top: 62px !important;
                 padding-right: 8px !important;
             }
 
@@ -2577,7 +2579,7 @@ if ($_SESSION['ventas'] == 1) {
 
         @media (max-width: 767.98px) {
             .venta-pos-main-content {
-                padding-top: 70px !important;
+                padding-top: 60px !important;
                 padding-right: 4px !important;
                 padding-left: 4px !important;
             }
@@ -2808,6 +2810,35 @@ if ($_SESSION['ventas'] == 1) {
                 padding-left: 3px;
             }
         }
+
+        /* =========================================================
+           MODAL POS SIN INTERFERENCIA DE LA BARRA SUPERIOR
+           ========================================================= */
+        body.pos-navbar-layout.modal-open {
+            overflow: hidden !important;
+        }
+
+        @media (max-width: 767.98px) {
+            #modalProductos {
+                width: 100vw;
+                height: 100dvh;
+                overflow: hidden;
+            }
+
+            #modalProductos .modal-productos-content {
+                width: 100%;
+            }
+
+            #modalProductos .modal-productos-footer {
+                justify-content: flex-end !important;
+                min-height: 44px;
+            }
+
+            #modalProductos #btnEscanearModalFooter {
+                min-height: 36px !important;
+            }
+        }
+
     </style>
 
     <!-- =========================================================

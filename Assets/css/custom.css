@@ -350,3 +350,204 @@ input.form-control.total-display:focus {
         max-width: 68px;
     }
 }
+
+/* =========================================================
+   NAVBAR COMPACTA DEL POS
+   Reserva su altura real y desaparece mientras hay un modal.
+   ========================================================= */
+body.pos-navbar-layout .main-navbar {
+    height: 52px !important;
+    min-height: 52px;
+    margin: 6px 8px 0 !important;
+    padding: 0 10px !important;
+    border-radius: 16px;
+    box-shadow: 0 5px 18px rgba(15, 23, 42, .12);
+}
+
+body.pos-navbar-layout .main-navbar .nav-link.nav-link-lg {
+    height: 46px;
+    min-width: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px !important;
+}
+
+body.pos-navbar-layout .main-navbar .form-inline {
+    min-width: 0;
+    flex-wrap: nowrap;
+}
+
+body.pos-navbar-layout .main-navbar .navbar-nav {
+    flex-wrap: nowrap;
+}
+
+body.pos-navbar-layout .main-navbar .navbar-nav.mr-3 {
+    margin-right: 7px !important;
+}
+
+body.pos-navbar-layout .main-content {
+    padding-top: 62px !important;
+}
+
+body.pos-navbar-layout.modal-open .main-navbar {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+body.pos-navbar-layout.modal-open .navbar-bg {
+    opacity: 0;
+}
+
+/* =========================================================
+   BOTÓN / MENÚ DE CAJA EN LA BARRA SUPERIOR
+   ========================================================= */
+.caja-sesion-dropdown {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+button.caja-sesion-navbar {
+    border: 1px solid rgba(255, 255, 255, .2);
+    outline: 0;
+    cursor: pointer;
+}
+
+button.caja-sesion-navbar:hover,
+button.caja-sesion-navbar:focus,
+button.caja-sesion-navbar:active,
+.caja-sesion-dropdown.show button.caja-sesion-navbar {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, .34);
+    background: rgba(255, 255, 255, .2);
+    outline: 0;
+    box-shadow: none;
+}
+
+.caja-sesion-menu {
+    min-width: 220px;
+    margin-top: 8px;
+    padding: 12px;
+    border: 0;
+    border-radius: 13px;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .18);
+}
+
+.caja-sesion-menu-label {
+    margin-bottom: 8px;
+    color: #8a9790;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.caja-sesion-menu-estado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #2d3a33;
+}
+
+.caja-sesion-menu-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    color: #278c46;
+    background: #eaf7ee;
+}
+
+.caja-sesion-menu-estado strong {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.caja-sesion-menu-estado strong.caja-inactiva {
+    color: #b44949;
+}
+
+/* En móvil solo queda el icono; al tocarlo se muestra el detalle. */
+@media (max-width: 575.98px) {
+    body.pos-navbar-layout .main-navbar {
+        left: 5px !important;
+        right: 0 !important;
+        height: 50px !important;
+        min-height: 50px;
+        margin: 5px 6px 0 !important;
+        padding: 0 5px !important;
+        border-radius: 14px;
+    }
+
+    body.pos-navbar-layout .main-content {
+        padding-top: 60px !important;
+    }
+
+    body.pos-navbar-layout .main-navbar .navbar-nav.mr-3 {
+        margin-right: 3px !important;
+    }
+
+    body.pos-navbar-layout .main-navbar .nav-link.nav-link-lg {
+        height: 44px;
+        min-width: 38px;
+        padding: 0 7px !important;
+    }
+
+    .caja-sesion-navbar {
+        width: 38px;
+        min-width: 38px;
+        max-width: 38px;
+        height: 38px;
+        min-height: 38px;
+        justify-content: center;
+        gap: 0;
+        padding: 0 !important;
+        border-radius: 11px;
+    }
+
+    .caja-sesion-navbar .caja-sesion-icon {
+        width: 28px;
+        height: 28px;
+        flex-basis: 28px;
+        font-size: 13px;
+    }
+
+    .caja-sesion-navbar .caja-sesion-content {
+        display: none !important;
+    }
+
+    .caja-sesion-menu {
+        min-width: 210px;
+    }
+
+    .sunat-navbar-link {
+        min-width: 38px !important;
+        height: 44px;
+        padding-right: 6px !important;
+        padding-left: 6px !important;
+    }
+
+    .main-navbar .nav-link-user {
+        padding-right: 4px !important;
+        padding-left: 4px !important;
+    }
+}
+
+@media (max-width: 390px) {
+    body.pos-navbar-layout .main-navbar .nav-link.nav-link-lg {
+        min-width: 35px;
+        padding-right: 5px !important;
+        padding-left: 5px !important;
+    }
+
+    .caja-sesion-navbar {
+        width: 36px;
+        min-width: 36px;
+        max-width: 36px;
+    }
+}
+

@@ -109,11 +109,15 @@
 <?php
 $urlActual = $_GET['url'] ?? '';
 
-$class = in_array(
+$esVistaPos = in_array(
     $urlActual,
     ['newsale3', 'editsale'],
     true
-) ? 'sidebar-mini' : '';
+);
+
+$class = $esVistaPos
+    ? 'sidebar-mini pos-navbar-layout'
+    : '';
 
 $modoCajaSesion = strtoupper(
     trim((string)($_SESSION['modo_caja'] ?? 'LEGACY'))
@@ -167,20 +171,55 @@ $puedeVerSunatNavbar =
                             </a>
                         </li>
                     </ul>
-                    <div class="caja-sesion-navbar" id="indicadorCajaSesion">
-                        <span class="caja-sesion-icon">
-                            <i class="fas fa-cash-register"></i>
-                        </span>
+                    <div
+                        class="dropdown caja-sesion-dropdown"
+                        id="indicadorCajaSesion">
 
-                        <span class="caja-sesion-content">
-                            <small>Caja de trabajo</small>
+                        <button
+                            type="button"
+                            class="caja-sesion-navbar"
+                            id="btnCajaSesionNavbar"
+                            data-toggle="dropdown"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            title="<?= htmlspecialchars($textoCajaSesion, ENT_QUOTES, 'UTF-8') ?>"
+                            aria-label="Mostrar caja de trabajo">
 
-                            <strong
-                                id="textoCajaSesionHeader"
-                                class="<?= $tieneCajaSesion ? 'caja-activa' : 'caja-inactiva' ?>">
-                                <?= htmlspecialchars($textoCajaSesion, ENT_QUOTES, 'UTF-8') ?>
-                            </strong>
-                        </span>
+                            <span class="caja-sesion-icon" aria-hidden="true">
+                                <i class="fas fa-cash-register"></i>
+                            </span>
+
+                            <span class="caja-sesion-content">
+                                <small>Caja de trabajo</small>
+
+                                <strong
+                                    id="textoCajaSesionHeader"
+                                    class="<?= $tieneCajaSesion ? 'caja-activa' : 'caja-inactiva' ?>">
+                                    <?= htmlspecialchars($textoCajaSesion, ENT_QUOTES, 'UTF-8') ?>
+                                </strong>
+                            </span>
+                        </button>
+
+                        <div
+                            class="dropdown-menu caja-sesion-menu"
+                            aria-labelledby="btnCajaSesionNavbar">
+
+                            <div class="caja-sesion-menu-label">
+                                Caja de trabajo
+                            </div>
+
+                            <div class="caja-sesion-menu-estado">
+                                <span class="caja-sesion-menu-icon" aria-hidden="true">
+                                    <i class="fas fa-cash-register"></i>
+                                </span>
+
+                                <strong
+                                    id="textoCajaSesionDetalle"
+                                    class="<?= $tieneCajaSesion ? 'caja-activa' : 'caja-inactiva' ?>">
+                                    <?= htmlspecialchars($textoCajaSesion, ENT_QUOTES, 'UTF-8') ?>
+                                </strong>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <ul class="navbar-nav navbar-right">
@@ -227,6 +266,64 @@ $puedeVerSunatNavbar =
                     </li>
                 </ul>
             </nav>
+
+            <script>
+                (function (window, document, $) {
+                    'use strict';
+
+                    const textoPrincipal = document.getElementById(
+                        'textoCajaSesionHeader'
+                    );
+
+                    const textoDetalle = document.getElementById(
+                        'textoCajaSesionDetalle'
+                    );
+
+                    const botonCaja = document.getElementById(
+                        'btnCajaSesionNavbar'
+                    );
+
+                    if (!textoPrincipal || !textoDetalle || !botonCaja) {
+                        return;
+                    }
+
+                    function sincronizarCajaNavbar() {
+                        const texto = String(
+                            textoPrincipal.textContent || ''
+                        ).trim();
+
+                        textoDetalle.textContent = texto;
+                        textoDetalle.className = textoPrincipal.className;
+                        botonCaja.title = texto;
+                    }
+
+                    sincronizarCajaNavbar();
+
+                    if (typeof MutationObserver === 'function') {
+                        const observadorCaja = new MutationObserver(
+                            sincronizarCajaNavbar
+                        );
+
+                        observadorCaja.observe(
+                            textoPrincipal,
+                            {
+                                childList: true,
+                                characterData: true,
+                                subtree: true,
+                                attributes: true,
+                                attributeFilter: ['class']
+                            }
+                        );
+                    }
+
+                    if ($ && typeof $.fn !== 'undefined') {
+                        $('#indicadorCajaSesion').on(
+                            'show.bs.dropdown',
+                            sincronizarCajaNavbar
+                        );
+                    }
+                })(window, document, window.jQuery);
+            </script>
 
             <?php if ($puedeVerSunatNavbar): ?>
                 <script>
