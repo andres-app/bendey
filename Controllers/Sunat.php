@@ -59,6 +59,164 @@ function escaparSunat(
     );
 }
 
+function decodificarMensajesSunat(
+    mixed $valor
+): array {
+    if (is_string($valor)) {
+        $texto = trim($valor);
+
+        if ($texto === '') {
+            return [];
+        }
+
+        $decodificado = json_decode(
+            $texto,
+            true
+        );
+
+        if (
+            json_last_error() === JSON_ERROR_NONE
+            && is_array($decodificado)
+        ) {
+            $valor = $decodificado;
+        } else {
+            return [$texto];
+        }
+    }
+
+    $salida = [];
+
+    $recorrer = function (
+        mixed $dato
+    ) use (
+        &$recorrer,
+        &$salida
+    ): void {
+        if (is_string($dato)) {
+            $texto = trim($dato);
+
+            if ($texto !== '') {
+                $salida[] = $texto;
+            }
+
+            return;
+        }
+
+        if (
+            is_int($dato)
+            || is_float($dato)
+        ) {
+            $salida[] = (string)$dato;
+            return;
+        }
+
+        if (!is_array($dato)) {
+            return;
+        }
+
+        foreach ($dato as $item) {
+            $recorrer($item);
+        }
+    };
+
+    $recorrer($valor);
+
+    return array_values(
+        array_unique(
+            array_filter(
+                array_map(
+                    static fn(string $texto): string =>
+                        preg_replace(
+                            '/\s+/u',
+                            ' ',
+                            trim($texto)
+                        ) ?? trim($texto),
+                    $salida
+                ),
+                static fn(string $texto): bool =>
+                    $texto !== ''
+            )
+        )
+    );
+}
+
+function construirMensajeCompletoSunat(
+    string $mensaje,
+    array $faults,
+    array $notes
+): string {
+    $partes = [];
+    $mensaje = trim($mensaje);
+
+    if ($mensaje !== '') {
+        $partes[] = $mensaje;
+    }
+
+    foreach ($faults as $fault) {
+        if (
+            $fault !== ''
+            && !str_contains(
+                implode(' | ', $partes),
+                $fault
+            )
+        ) {
+            $partes[] = $fault;
+        }
+    }
+
+    foreach ($notes as $note) {
+        if (
+            $note !== ''
+            && !str_contains(
+                implode(' | ', $partes),
+                $note
+            )
+        ) {
+            $partes[] = 'Nota: ' . $note;
+        }
+    }
+
+    return implode(
+        ' | ',
+        $partes
+    );
+}
+
+function resumirMensajeSunat(
+    string $mensaje,
+    int $longitud = 120
+): string {
+    $mensaje = trim(
+        preg_replace(
+            '/\s+/u',
+            ' ',
+            $mensaje
+        ) ?? $mensaje
+    );
+
+    if (
+        function_exists('mb_strlen')
+        && mb_strlen($mensaje, 'UTF-8') > $longitud
+    ) {
+        return mb_substr(
+            $mensaje,
+            0,
+            $longitud - 1,
+            'UTF-8'
+        ) . '…';
+    }
+
+    if (strlen($mensaje) > $longitud) {
+        return substr(
+            $mensaje,
+            0,
+            $longitud - 1
+        ) . '…';
+    }
+
+    return $mensaje;
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -70,8 +228,7 @@ function escaparSunat(
 | - Consultar estado
 */
 function generarAccionPrincipalSunat(
-    string $tipoOrigen,
-    int $idreferencia,
+    int $idventa,
     string $estadoSunat,
     bool $tieneDocumentId
 ): string {
@@ -82,14 +239,6 @@ function generarAccionPrincipalSunat(
     ];
 
     if (
-        !$tieneDocumentId
-        || $estadoSunat === 'NO_ENVIADO'
-    ) {
-        $texto = 'Enviar';
-        $titulo = 'Enviar comprobante a SUNAT';
-        $icono = 'fa-paper-plane';
-        $funcion = 'enviarSunatManual';
-    } elseif (
         in_array(
             $estadoSunat,
             $estadosReintento,
@@ -97,8 +246,16 @@ function generarAccionPrincipalSunat(
         )
     ) {
         $texto = 'Reintentar';
-        $titulo = 'Reintentar envío del comprobante';
+        $titulo = 'Reintentar el mismo comprobante con su numeración original';
         $icono = 'fa-redo-alt';
+        $funcion = 'enviarSunatManual';
+    } elseif (
+        !$tieneDocumentId
+        || $estadoSunat === 'NO_ENVIADO'
+    ) {
+        $texto = 'Enviar';
+        $titulo = 'Enviar comprobante a SUNAT';
+        $icono = 'fa-paper-plane';
         $funcion = 'enviarSunatManual';
     } else {
         $texto = 'Consultar';
@@ -112,9 +269,7 @@ function generarAccionPrincipalSunat(
             type="button"
             class="btn btn-outline-secondary btn-sm sunat-action-btn"
             title="' . escaparSunat($titulo) . '"
-            onclick="' . $funcion . '(\''
-                . escaparSunat($tipoOrigen)
-                . '\',' . $idreferencia . ')">
+            onclick="' . $funcion . '(' . $idventa . ')">
 
             <i class="fas ' . $icono . ' mr-1"></i>
             ' . escaparSunat($texto) . '
@@ -126,30 +281,16 @@ function generarAccionPrincipalSunat(
 try {
     switch ($op) {
 
-        case 'contarPendientes':
-
-            responderSunat([
-                'status' => true,
-                'cantidad' =>
-                    $sunat->contarPendientesEnvio()
-            ]);
-
-            break;
-
         case 'listar':
 
             $registros = $sunat->listar();
             $data = [];
 
             foreach ($registros as $reg) {
-                $tipoOrigen = strtoupper(
-                    trim((string)($reg['tipo_origen'] ?? 'VENTA'))
+                $idventa = (int)(
+                    $reg['idventa']
+                    ?? 0
                 );
-                $idreferencia = (int)($reg['idreferencia'] ?? 0);
-
-                if (!in_array($tipoOrigen, ['VENTA', 'NOTA_CREDITO'], true)) {
-                    $tipoOrigen = 'VENTA';
-                }
 
                 $documentId = trim(
                     (string)(
@@ -169,20 +310,11 @@ try {
                     !empty($reg['cdr'])
                     || !empty($reg['cdr_local']);
 
-                if ($tipoOrigen === 'NOTA_CREDITO') {
-                    $urlXml = 'Controllers/CreditNote.php?op=descargar&tipo=xml&idnota_credito='
-                        . $idreferencia;
-                    $urlCdr = 'Controllers/CreditNote.php?op=descargar&tipo=cdr&idnota_credito='
-                        . $idreferencia;
-                } else {
-                    $urlXml = 'Controllers/Sunat.php?op=descargar&tipo=xml&idventa='
-                        . $idreferencia;
-                    $urlCdr = 'Controllers/Sunat.php?op=descargar&tipo=cdr&idventa='
-                        . $idreferencia;
-                }
-
                 $xml = $tieneXml
-                    ? '<a href="' . $urlXml . '"
+                    ? '<a
+                            href="Controllers/Sunat.php?op=descargar&tipo=xml&idventa='
+                        . $idventa
+                        . '"
                             class="sunat-file-link"
                             title="Descargar XML">
                             <i class="far fa-file-code mr-1"></i>
@@ -191,7 +323,10 @@ try {
                     : '<span class="sunat-file-empty">—</span>';
 
                 $cdr = $tieneCdr
-                    ? '<a href="' . $urlCdr . '"
+                    ? '<a
+                            href="Controllers/Sunat.php?op=descargar&tipo=cdr&idventa='
+                        . $idventa
+                        . '"
                             class="sunat-file-link"
                             title="Descargar CDR">
                             <i class="far fa-file-archive mr-1"></i>
@@ -258,46 +393,68 @@ try {
                         break;
                 }
 
-                $mensajeTexto = trim(
-                    (string)(
-                        $reg['mensaje_sunat']
-                        ?? ''
-                    )
+                $faults = decodificarMensajesSunat(
+                    $reg['faults']
+                    ?? []
                 );
 
-                $mensaje = $mensajeTexto !== ''
-                    ? '<div
-                            class="sunat-response-text"
-                            title="'
-                        . escaparSunat($mensajeTexto)
-                        . '">'
-                        . escaparSunat($mensajeTexto)
-                        . '</div>'
-                    : '<span class="text-muted">—</span>';
+                $notes = decodificarMensajesSunat(
+                    $reg['notes']
+                    ?? []
+                );
+
+                $mensajeTexto = construirMensajeCompletoSunat(
+                    trim(
+                        (string)(
+                            $reg['mensaje_sunat']
+                            ?? ''
+                        )
+                    ),
+                    $faults,
+                    $notes
+                );
+
+                if ($mensajeTexto !== '') {
+                    $mensajeResumen =
+                        resumirMensajeSunat(
+                            $mensajeTexto
+                        );
+
+                    $mensaje = '
+                        <button
+                            type="button"
+                            class="sunat-response-button"
+                            onclick="verDetalleSunat(' . $idventa . ')"
+                            title="Ver respuesta completa de APISUNAT">
+                            <span class="sunat-response-text">'
+                                . escaparSunat($mensajeResumen)
+                                . '</span>
+                            <small>Ver detalle</small>
+                        </button>
+                    ';
+                } else {
+                    $mensaje =
+                        '<span class="text-muted">—</span>';
+                }
 
                 $accion =
                     generarAccionPrincipalSunat(
-                        $tipoOrigen,
-                        $idreferencia,
+                        $idventa,
                         $estadoSunat,
                         $tieneDocumentId
                     );
-
-                $comprobanteTexto = escaparSunat(
-                    (string)($reg['comprobante'] ?? '')
-                );
-
-                $comprobante = $tipoOrigen === 'NOTA_CREDITO'
-                    ? '<div><strong>' . $comprobanteTexto . '</strong>'
-                        . '<small class="d-block text-muted">Nota de crédito</small></div>'
-                    : $comprobanteTexto;
 
                 /*
                  * Acciones se devuelve en la última posición,
                  * para que aparezca al extremo derecho.
                  */
                 $data[] = [
-                    '0' => $comprobante,
+                    '0' => escaparSunat(
+                        (string)(
+                            $reg['comprobante']
+                            ?? ''
+                        )
+                    ),
                     '1' => escaparSunat(
                         (string)(
                             $reg['cliente']
@@ -355,31 +512,76 @@ try {
                 ], 404);
             }
 
+            $estadoDetalle = strtoupper(
+                trim(
+                    (string)(
+                        $detalle['estado_sunat']
+                        ?? 'PENDIENTE'
+                    )
+                )
+            );
+
+            $faultsDetalle =
+                decodificarMensajesSunat(
+                    $detalle['faults']
+                    ?? []
+                );
+
+            $notesDetalle =
+                decodificarMensajesSunat(
+                    $detalle['notes']
+                    ?? []
+                );
+
+            $mensajeDetalle =
+                construirMensajeCompletoSunat(
+                    trim(
+                        (string)(
+                            $detalle['mensaje_sunat']
+                            ?? ''
+                        )
+                    ),
+                    $faultsDetalle,
+                    $notesDetalle
+                );
+
             responderSunat([
                 'status' => true,
                 'idventa' => $idventa,
                 'comprobante' =>
-                $detalle['comprobante'],
+                    $detalle['comprobante'],
                 'cliente' =>
-                $detalle['cliente'],
+                    $detalle['cliente'],
                 'total' => number_format(
                     (float)$detalle['total'],
                     2
                 ),
                 'documentId' =>
-                $detalle['document_id'],
+                    $detalle['document_id'],
                 'estado' =>
-                $detalle['estado_sunat']
-                    ?? 'PENDIENTE',
+                    $estadoDetalle,
                 'mensaje' =>
-                $detalle['mensaje_sunat']
-                    ?? '',
+                    $mensajeDetalle,
+                'faults' =>
+                    $faultsDetalle,
+                'notes' =>
+                    $notesDetalle,
+                'puede_reintentar' =>
+                    in_array(
+                        $estadoDetalle,
+                        [
+                            'RECHAZADO',
+                            'EXCEPCION',
+                            'ERROR'
+                        ],
+                        true
+                    ),
                 'xml' =>
-                $detalle['xml_local']
+                    $detalle['xml_local']
                     ?? $detalle['xml']
                     ?? '',
                 'cdr' =>
-                $detalle['cdr_local']
+                    $detalle['cdr_local']
                     ?? $detalle['cdr']
                     ?? ''
             ]);

@@ -203,6 +203,12 @@ class ApiSunatStatus
                 'Estado consultado en APISUNAT.';
         }
 
+        $mensaje = $this->construirMensajeDetallado(
+            $mensaje,
+            $faults,
+            $notes
+        );
+
         $estadosFinales = [
             'ACEPTADO',
             'RECHAZADO',
@@ -307,6 +313,115 @@ class ApiSunatStatus
             'fecha_respuesta' =>
                 $fechaRespuesta
         ];
+    }
+
+    private function normalizarMensajes(
+        mixed $valor
+    ): array {
+        $salida = [];
+
+        $recorrer = function (
+            mixed $dato
+        ) use (
+            &$recorrer,
+            &$salida
+        ): void {
+            if (is_string($dato)) {
+                $texto = trim($dato);
+
+                if ($texto !== '') {
+                    $salida[] = $texto;
+                }
+
+                return;
+            }
+
+            if (
+                is_int($dato)
+                || is_float($dato)
+            ) {
+                $salida[] = (string)$dato;
+                return;
+            }
+
+            if (!is_array($dato)) {
+                return;
+            }
+
+            foreach ($dato as $item) {
+                $recorrer($item);
+            }
+        };
+
+        $recorrer($valor);
+
+        return array_values(
+            array_unique(
+                array_filter(
+                    array_map(
+                        static fn(string $texto): string =>
+                            preg_replace(
+                                '/\s+/u',
+                                ' ',
+                                trim($texto)
+                            ) ?? trim($texto),
+                        $salida
+                    ),
+                    static fn(string $texto): bool =>
+                        $texto !== ''
+                )
+            )
+        );
+    }
+
+    private function construirMensajeDetallado(
+        string $mensaje,
+        array $faults,
+        array $notes
+    ): string {
+        $faults = $this->normalizarMensajes(
+            $faults
+        );
+
+        $notes = $this->normalizarMensajes(
+            $notes
+        );
+
+        $partes = [];
+        $mensaje = trim($mensaje);
+
+        if ($mensaje !== '') {
+            $partes[] = $mensaje;
+        }
+
+        foreach ($faults as $fault) {
+            if (
+                $fault !== ''
+                && !str_contains(
+                    implode(' | ', $partes),
+                    $fault
+                )
+            ) {
+                $partes[] = $fault;
+            }
+        }
+
+        foreach ($notes as $note) {
+            if (
+                $note !== ''
+                && !str_contains(
+                    implode(' | ', $partes),
+                    $note
+                )
+            ) {
+                $partes[] = 'Nota: ' . $note;
+            }
+        }
+
+        return implode(
+            ' | ',
+            $partes
+        );
     }
 
     private function jsonSeguro(

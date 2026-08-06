@@ -31,154 +31,137 @@ class Sunat
     public function listar(): array
     {
         $sql = "
-            SELECT *
-            FROM (
-                SELECT
-                    'VENTA' AS tipo_origen,
-                    v.idventa AS idreferencia,
-                    v.idventa,
-                    NULL AS idnota_credito,
+            SELECT
+                v.idventa,
 
-                    CONCAT(
-                        v.serie_comprobante,
-                        '-',
-                        v.num_comprobante
-                    ) AS comprobante,
-
-                    v.tipo_comprobante,
+                CONCAT(
                     v.serie_comprobante,
-                    v.num_comprobante,
-                    v.estado AS estado_documento,
-                    p.nombre AS cliente,
-                    v.total_venta AS total,
+                    '-',
+                    v.num_comprobante
+                ) AS comprobante,
 
-                    vs.idventa_sunat AS idregistro_sunat,
-                    vs.document_id,
-                    vs.file_name,
-                    vs.xml,
-                    vs.cdr,
-                    vs.xml_local,
-                    vs.cdr_local,
+                v.tipo_comprobante,
+                v.serie_comprobante,
+                v.num_comprobante,
+                v.estado AS estado_venta,
 
-                    CASE
-                        WHEN v.estado <> 'Aceptado'
-                        THEN 'ANULADO'
-                        WHEN vs.idventa_sunat IS NULL
-                        THEN 'NO_ENVIADO'
-                        WHEN COALESCE(vs.document_id, '') = ''
-                        THEN 'NO_ENVIADO'
-                        WHEN COALESCE(vs.estado_sunat, '') = ''
-                        THEN 'PENDIENTE'
-                        ELSE UPPER(vs.estado_sunat)
-                    END AS estado_sunat,
+                p.nombre AS cliente,
 
-                    vs.mensaje_sunat,
+                v.total_venta AS total,
 
-                    CASE
-                        WHEN v.estado = 'Aceptado'
-                         AND COALESCE(vs.document_id, '') = ''
-                        THEN 1 ELSE 0
-                    END AS puede_enviar_manual,
+                vs.idventa_sunat,
+                vs.document_id,
+                vs.file_name,
 
-                    CASE
-                        WHEN COALESCE(vs.document_id, '') <> ''
-                         AND UPPER(COALESCE(vs.estado_sunat, '')) IN (
-                            'PENDIENTE', 'EN_PROCESO', 'ENVIADO'
-                         )
-                        THEN 1 ELSE 0
-                    END AS puede_consultar,
+                vs.xml,
+                vs.cdr,
+                vs.xml_local,
+                vs.cdr_local,
 
-                    DATE_FORMAT(v.fecha_hora, '%d/%m/%Y %H:%i') AS fecha,
-                    v.fecha_hora AS fecha_orden
+                CASE
+                    WHEN v.estado <> 'Aceptado'
+                    THEN 'ANULADO'
 
-                FROM venta v
-                INNER JOIN persona p
-                    ON p.idpersona = v.idcliente
-                LEFT JOIN venta_sunat vs
-                    ON vs.idventa = v.idventa
-                WHERE v.tipo_comprobante IN (
-                    'Factura Electrónica',
-                    'Boleta Electrónica'
-                )
+                    WHEN vs.idventa_sunat IS NULL
+                    THEN 'NO_ENVIADO'
 
-                UNION ALL
+                    WHEN UPPER(
+                        TRIM(
+                            COALESCE(
+                                vs.estado_sunat,
+                                ''
+                            )
+                        )
+                    ) IN (
+                        'RECHAZADO',
+                        'EXCEPCION',
+                        'ERROR',
+                        'ACEPTADO',
+                        'PENDIENTE',
+                        'EN_PROCESO',
+                        'ENVIADO'
+                    )
+                    THEN UPPER(
+                        TRIM(
+                            vs.estado_sunat
+                        )
+                    )
 
-                SELECT
-                    'NOTA_CREDITO' AS tipo_origen,
-                    nc.idnota_credito AS idreferencia,
-                    nc.idventa,
-                    nc.idnota_credito,
+                    WHEN COALESCE(
+                        vs.document_id,
+                        ''
+                    ) = ''
+                    THEN 'NO_ENVIADO'
 
-                    CONCAT(
-                        nc.serie_comprobante,
-                        '-',
-                        nc.num_comprobante
-                    ) AS comprobante,
+                    WHEN COALESCE(
+                        vs.estado_sunat,
+                        ''
+                    ) = ''
+                    THEN 'PENDIENTE'
 
-                    'Nota de Crédito Electrónica' AS tipo_comprobante,
-                    nc.serie_comprobante,
-                    nc.num_comprobante,
-                    nc.estado AS estado_documento,
-                    nc.cliente_nombre AS cliente,
-                    nc.total_nota AS total,
+                    ELSE UPPER(
+                        vs.estado_sunat
+                    )
+                END AS estado_sunat,
 
-                    ncs.idnota_credito_sunat AS idregistro_sunat,
-                    ncs.document_id,
-                    ncs.file_name,
-                    ncs.xml,
-                    ncs.cdr,
-                    ncs.xml_local,
-                    ncs.cdr_local,
+                vs.mensaje_sunat,
+                vs.faults,
+                vs.notes,
+                vs.response_json,
 
-                    CASE
-                        WHEN nc.estado = 'ANULADA'
-                        THEN 'ANULADO'
-                        WHEN ncs.idnota_credito_sunat IS NULL
-                        THEN 'NO_ENVIADO'
-                        WHEN COALESCE(ncs.document_id, '') = ''
-                        THEN 'NO_ENVIADO'
-                        WHEN COALESCE(ncs.estado_sunat, '') = ''
-                        THEN 'PENDIENTE'
-                        ELSE UPPER(ncs.estado_sunat)
-                    END AS estado_sunat,
+                CASE
+                    WHEN v.estado = 'Aceptado'
+                     AND COALESCE(
+                        vs.document_id,
+                        ''
+                     ) = ''
+                    THEN 1
+                    ELSE 0
+                END AS puede_enviar_manual,
 
-                    CONCAT(
-                        'Modifica ',
-                        nc.serie_documento_modificado,
-                        '-',
-                        nc.numero_documento_modificado,
-                        CASE
-                            WHEN COALESCE(ncs.mensaje_sunat, '') <> ''
-                            THEN CONCAT(' · ', ncs.mensaje_sunat)
-                            ELSE ''
-                        END
-                    ) AS mensaje_sunat,
+                CASE
+                    WHEN COALESCE(
+                        vs.document_id,
+                        ''
+                    ) <> ''
+                     AND UPPER(
+                        COALESCE(
+                            vs.estado_sunat,
+                            ''
+                        )
+                     ) IN (
+                        'PENDIENTE',
+                        'EN_PROCESO',
+                        'ENVIADO'
+                     )
+                    THEN 1
+                    ELSE 0
+                END AS puede_consultar,
 
-                    CASE
-                        WHEN nc.estado = 'REGISTRADA'
-                         AND COALESCE(ncs.document_id, '') = ''
-                        THEN 1 ELSE 0
-                    END AS puede_enviar_manual,
+                DATE_FORMAT(
+                    v.fecha_hora,
+                    '%d/%m/%Y %H:%i'
+                ) AS fecha
 
-                    CASE
-                        WHEN COALESCE(ncs.document_id, '') <> ''
-                         AND UPPER(COALESCE(ncs.estado_sunat, '')) IN (
-                            'PENDIENTE', 'EN_PROCESO', 'ENVIADO'
-                         )
-                        THEN 1 ELSE 0
-                    END AS puede_consultar,
+            FROM venta v
 
-                    DATE_FORMAT(nc.fecha_hora, '%d/%m/%Y %H:%i') AS fecha,
-                    nc.fecha_hora AS fecha_orden
+            INNER JOIN persona p
+                ON p.idpersona = v.idcliente
 
-                FROM nota_credito nc
-                LEFT JOIN nota_credito_sunat ncs
-                    ON ncs.idnota_credito = nc.idnota_credito
-            ) documentos
-            ORDER BY fecha_orden DESC, idreferencia DESC
+            LEFT JOIN venta_sunat vs
+                ON vs.idventa = v.idventa
+
+            WHERE v.tipo_comprobante IN (
+                'Factura Electrónica',
+                'Boleta Electrónica'
+            )
+
+            ORDER BY v.idventa DESC
         ";
 
-        $resultado = $this->conexion->getDataAll($sql);
+        $resultado = $this->conexion->getDataAll(
+            $sql
+        );
 
         return is_array($resultado)
             ? $resultado
@@ -233,6 +216,28 @@ class Sunat
                     WHEN vs.idventa_sunat IS NULL
                     THEN 'NO_ENVIADO'
 
+                    WHEN UPPER(
+                        TRIM(
+                            COALESCE(
+                                vs.estado_sunat,
+                                ''
+                            )
+                        )
+                    ) IN (
+                        'RECHAZADO',
+                        'EXCEPCION',
+                        'ERROR',
+                        'ACEPTADO',
+                        'PENDIENTE',
+                        'EN_PROCESO',
+                        'ENVIADO'
+                    )
+                    THEN UPPER(
+                        TRIM(
+                            vs.estado_sunat
+                        )
+                    )
+
                     WHEN COALESCE(
                         vs.document_id,
                         ''
@@ -253,6 +258,7 @@ class Sunat
                 vs.mensaje_sunat,
                 vs.faults,
                 vs.notes,
+                vs.response_json,
                 vs.intentos_consulta,
                 vs.fecha_envio,
                 vs.fecha_respuesta,
@@ -549,46 +555,4 @@ class Sunat
             ? $resultado
             : [];
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CONTAR COMPROBANTES PENDIENTES DE ENVÍO
-    |--------------------------------------------------------------------------
-    |
-    | Cuenta facturas y boletas electrónicas aceptadas localmente
-    | que todavía no tienen document_id registrado por APISUNAT.
-    |
-    */
-    public function contarPendientesEnvio(): int
-    {
-        $resultado = $this->conexion->getData(
-            "SELECT
-                (
-                    SELECT COUNT(DISTINCT v.idventa)
-                    FROM venta v
-                    LEFT JOIN venta_sunat vs
-                        ON vs.idventa = v.idventa
-                    WHERE v.tipo_comprobante IN (
-                        'Factura Electrónica',
-                        'Boleta Electrónica'
-                    )
-                      AND v.estado = 'Aceptado'
-                      AND COALESCE(vs.document_id, '') = ''
-                )
-                +
-                (
-                    SELECT COUNT(DISTINCT nc.idnota_credito)
-                    FROM nota_credito nc
-                    LEFT JOIN nota_credito_sunat ncs
-                        ON ncs.idnota_credito = nc.idnota_credito
-                    WHERE nc.estado = 'REGISTRADA'
-                      AND COALESCE(ncs.document_id, '') = ''
-                ) AS cantidad"
-        );
-
-        return is_array($resultado)
-            ? max(0, (int)($resultado['cantidad'] ?? 0))
-            : 0;
-    }
-
 }

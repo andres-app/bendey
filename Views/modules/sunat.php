@@ -32,7 +32,7 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
                             </h4>
 
                             <p class="text-muted mb-0 sunat-subtitle">
-                                Consulta, envía o reintenta facturas, boletas y notas de crédito
+                                Consulta, envía o reintenta cada comprobante
                                 según su estado actual.
                             </p>
                         </div>
@@ -175,7 +175,32 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
             color: #adb5bd;
         }
 
+        .sunat-response-button {
+            width: 100%;
+            max-width: 360px;
+            padding: 0;
+            border: 0;
+            color: inherit;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .sunat-response-button:hover .sunat-response-text,
+        .sunat-response-button:focus .sunat-response-text {
+            color: #26313b;
+        }
+
+        .sunat-response-button small {
+            display: block;
+            margin-top: 3px;
+            color: #6777ef;
+            font-size: .68rem;
+            font-weight: 700;
+        }
+
         .sunat-response-text {
+            display: block;
             max-width: 340px;
             overflow: hidden;
             color: #66717b;
@@ -183,6 +208,51 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
             line-height: 1.35;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .sunat-detail-box {
+            max-height: 310px;
+            overflow: auto;
+            padding: 13px 14px;
+            border: 1px solid #e2e6ea;
+            border-radius: 10px;
+            color: #3f4852;
+            background: #f8f9fa;
+            font-size: .78rem;
+            line-height: 1.48;
+            text-align: left;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .sunat-detail-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
+            margin-bottom: 12px;
+        }
+
+        .sunat-detail-meta > div {
+            padding: 9px 11px;
+            border: 1px solid #e4e7eb;
+            border-radius: 9px;
+            background: #fff;
+            text-align: left;
+        }
+
+        .sunat-detail-meta span {
+            display: block;
+            color: #8a939d;
+            font-size: .66rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .sunat-detail-meta strong {
+            display: block;
+            margin-top: 3px;
+            color: #303a44;
+            font-size: .82rem;
         }
 
         #tbllistado td:last-child,
@@ -212,8 +282,13 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
                 min-width: 0;
             }
 
+            .sunat-response-button,
             .sunat-response-text {
                 max-width: 220px;
+            }
+
+            .sunat-detail-meta {
+                grid-template-columns: 1fr;
             }
         }
     </style>

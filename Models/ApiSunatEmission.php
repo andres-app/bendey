@@ -68,67 +68,75 @@ class ApiSunatEmission
 
         /*
         |--------------------------------------------------------------------------
-        | Verificar correlativo en APISUNAT
+        | VERIFICAR CORRELATIVO SOLO EN EL PRIMER ENVÍO
         |--------------------------------------------------------------------------
+        | Los comprobantes RECHAZADOS, con EXCEPCIÓN o ERROR se reenvían
+        | usando exactamente la serie y el número original de la venta.
         */
-        $ultimoDocumento =
-            $this->apiSunat->obtenerUltimoDocumento(
-                (string)$comprobante['tipoSunat'],
-                (string)$comprobante['serie']
-            );
-
-        if (
-            ($ultimoDocumento['success'] ?? false)
-            !== true
-        ) {
-            throw new RuntimeException(
-                'No se pudo verificar el correlativo en APISUNAT: '
-                . (
-                    $ultimoDocumento['message']
-                    ?? 'Sin detalle.'
-                )
-            );
-        }
-
-        if (
-            ($ultimoDocumento['production'] ?? null)
-            !== true
-        ) {
-            throw new RuntimeException(
-                'Las credenciales configuradas no corresponden al ambiente de producción.'
-            );
-        }
-
-        $numeroEsperado = str_pad(
-            (string)(
-                $ultimoDocumento['suggestedNumber']
-                ?? ''
-            ),
-            8,
-            '0',
-            STR_PAD_LEFT
+        $esReintento = $this->esReintento(
+            $registroActual
         );
 
-        $numeroVenta = str_pad(
-            (string)$comprobante['numero'],
-            8,
-            '0',
-            STR_PAD_LEFT
-        );
+        if (!$esReintento) {
+            $ultimoDocumento =
+                $this->apiSunat->obtenerUltimoDocumento(
+                    (string)$comprobante['tipoSunat'],
+                    (string)$comprobante['serie']
+                );
 
-        if ($numeroEsperado !== $numeroVenta) {
-            throw new RuntimeException(
-                'El correlativo local no coincide con APISUNAT. '
-                . 'APISUNAT espera '
-                . $comprobante['serie']
-                . '-'
-                . $numeroEsperado
-                . ', pero la venta tiene '
-                . $comprobante['serie']
-                . '-'
-                . $numeroVenta
-                . '.'
+            if (
+                ($ultimoDocumento['success'] ?? false)
+                !== true
+            ) {
+                throw new RuntimeException(
+                    'No se pudo verificar el correlativo en APISUNAT: '
+                    . (
+                        $ultimoDocumento['message']
+                        ?? 'Sin detalle.'
+                    )
+                );
+            }
+
+            if (
+                ($ultimoDocumento['production'] ?? null)
+                !== true
+            ) {
+                throw new RuntimeException(
+                    'Las credenciales configuradas no corresponden al ambiente de producción.'
+                );
+            }
+
+            $numeroEsperado = str_pad(
+                (string)(
+                    $ultimoDocumento['suggestedNumber']
+                    ?? ''
+                ),
+                8,
+                '0',
+                STR_PAD_LEFT
             );
+
+            $numeroVenta = str_pad(
+                (string)$comprobante['numero'],
+                8,
+                '0',
+                STR_PAD_LEFT
+            );
+
+            if ($numeroEsperado !== $numeroVenta) {
+                throw new RuntimeException(
+                    'El correlativo local no coincide con APISUNAT. '
+                    . 'APISUNAT espera '
+                    . $comprobante['serie']
+                    . '-'
+                    . $numeroEsperado
+                    . ', pero la venta tiene '
+                    . $comprobante['serie']
+                    . '-'
+                    . $numeroVenta
+                    . '.'
+                );
+            }
         }
 
         /*
@@ -196,6 +204,15 @@ class ApiSunatEmission
                 'http_code' =>
                     $respuesta['http_code']
                     ?? 0,
+                'faults' =>
+                    is_array($respuesta['faults'] ?? null)
+                        ? $respuesta['faults']
+                        : [],
+                'notes' =>
+                    is_array($respuesta['notes'] ?? null)
+                        ? $respuesta['notes']
+                        : [],
+                'reintento' => $esReintento,
                 'production' => true
             ];
         }
@@ -216,7 +233,10 @@ class ApiSunatEmission
             'documentId' =>
                 $respuesta['documentId'],
             'mensaje' =>
-                'El comprobante fue recibido por APISUNAT y está pendiente de procesamiento.',
+                $esReintento
+                    ? 'El comprobante fue reenviado con su serie y número original. APISUNAT lo recibió y está pendiente de procesamiento.'
+                    : 'El comprobante fue recibido por APISUNAT y está pendiente de procesamiento.',
+            'reintento' => $esReintento,
             'production' => true
         ];
     }
@@ -283,6 +303,9 @@ class ApiSunatEmission
                 file_name,
                 estado_sunat,
                 mensaje_sunat,
+                faults,
+                notes,
+                response_json,
                 fecha_envio,
                 fecha_respuesta
             FROM venta_sunat
@@ -301,6 +324,33 @@ class ApiSunatEmission
         return $registro !== false
             ? $registro
             : null;
+    }
+
+    private function esReintento(
+        ?array $registro
+    ): bool {
+        if ($registro === null) {
+            return false;
+        }
+
+        $estado = strtoupper(
+            trim(
+                (string)(
+                    $registro['estado_sunat']
+                    ?? ''
+                )
+            )
+        );
+
+        return in_array(
+            $estado,
+            [
+                'RECHAZADO',
+                'EXCEPCION',
+                'ERROR'
+            ],
+            true
+        );
     }
 
     private function validarQueNoFueEnviado(
@@ -429,10 +479,7 @@ class ApiSunatEmission
                         mensaje_sunat =
                             'Preparando envío a APISUNAT.',
                         referencia = NULL,
-                        faults = NULL,
-                        notes = NULL,
                         request_json = :request_json,
-                        response_json = NULL,
                         intentos_consulta = 0,
                         fecha_ultima_consulta = NULL,
                         fecha_envio = NULL,
@@ -535,11 +582,37 @@ class ApiSunatEmission
             )
         );
 
-        $mensaje = trim(
+        $faults = $this->normalizarMensajes(
+            $respuesta['faults']
+            ?? (
+                is_array($respuesta['response'] ?? null)
+                    ? ($respuesta['response']['faults'] ?? [])
+                    : []
+            )
+        );
+
+        $notes = $this->normalizarMensajes(
+            $respuesta['notes']
+            ?? (
+                is_array($respuesta['response'] ?? null)
+                    ? ($respuesta['response']['notes'] ?? [])
+                    : []
+            )
+        );
+
+        $mensajeBase = trim(
             (string)(
                 $respuesta['message']
                 ?? ''
             )
+        );
+
+        $mensaje = $this->construirMensajeDetallado(
+            $mensajeBase !== ''
+                ? $mensajeBase
+                : 'APISUNAT no devolvió un mensaje.',
+            $faults,
+            $notes
         );
 
         $responseSeguro = [
@@ -553,6 +626,8 @@ class ApiSunatEmission
             'http_code' =>
                 $respuesta['http_code']
                 ?? 0,
+            'faults' => $faults,
+            'notes' => $notes,
             'response' =>
                 $respuesta['response']
                 ?? null
@@ -562,6 +637,14 @@ class ApiSunatEmission
             $responseSeguro
         );
 
+        $faultsJson = count($faults) > 0
+            ? $this->convertirJson($faults)
+            : null;
+
+        $notesJson = count($notes) > 0
+            ? $this->convertirJson($notes)
+            : null;
+
         if ($success) {
             $sql = "
                 UPDATE venta_sunat
@@ -569,6 +652,8 @@ class ApiSunatEmission
                     document_id = :document_id,
                     estado_sunat = :estado,
                     mensaje_sunat = :mensaje,
+                    faults = NULL,
+                    notes = NULL,
                     response_json = :response_json,
                     fecha_envio = NOW(),
                     fecha_respuesta = NULL
@@ -581,6 +666,8 @@ class ApiSunatEmission
                     document_id = :document_id,
                     estado_sunat = :estado,
                     mensaje_sunat = :mensaje,
+                    faults = :faults,
+                    notes = :notes,
                     response_json = :response_json,
                     fecha_respuesta = NOW()
                 WHERE idventa = :idventa
@@ -589,21 +676,133 @@ class ApiSunatEmission
 
         $stmt = $this->pdo->prepare($sql);
 
-        $stmt->execute([
+        $parametros = [
             ':document_id' =>
                 $documentId !== ''
                     ? $documentId
                     : null,
             ':estado' => $estado,
             ':mensaje' =>
-                $mensaje !== ''
-                    ? $mensaje
-                    : 'Sin mensaje.',
+                mb_substr(
+                    $mensaje,
+                    0,
+                    4000
+                ),
             ':response_json' =>
                 $responseJson,
             ':idventa' =>
                 $idventa
-        ]);
+        ];
+
+        if (!$success) {
+            $parametros[':faults'] = $faultsJson;
+            $parametros[':notes'] = $notesJson;
+        }
+
+        $stmt->execute(
+            $parametros
+        );
+    }
+
+    private function normalizarMensajes(
+        mixed $valor
+    ): array {
+        $salida = [];
+
+        $recorrer = function (
+            mixed $dato
+        ) use (
+            &$recorrer,
+            &$salida
+        ): void {
+            if (is_string($dato)) {
+                $texto = trim($dato);
+
+                if ($texto !== '') {
+                    $salida[] = $texto;
+                }
+
+                return;
+            }
+
+            if (
+                is_int($dato)
+                || is_float($dato)
+            ) {
+                $salida[] = (string)$dato;
+                return;
+            }
+
+            if (!is_array($dato)) {
+                return;
+            }
+
+            foreach ($dato as $item) {
+                $recorrer($item);
+            }
+        };
+
+        $recorrer($valor);
+
+        return array_values(
+            array_unique(
+                array_filter(
+                    array_map(
+                        static fn(string $texto): string =>
+                            preg_replace(
+                                '/\s+/u',
+                                ' ',
+                                trim($texto)
+                            ) ?? trim($texto),
+                        $salida
+                    ),
+                    static fn(string $texto): bool =>
+                        $texto !== ''
+                )
+            )
+        );
+    }
+
+    private function construirMensajeDetallado(
+        string $mensaje,
+        array $faults,
+        array $notes
+    ): string {
+        $partes = [];
+        $mensaje = trim($mensaje);
+
+        if ($mensaje !== '') {
+            $partes[] = $mensaje;
+        }
+
+        foreach ($faults as $fault) {
+            if (
+                $fault !== ''
+                && !str_contains(
+                    implode(' | ', $partes),
+                    $fault
+                )
+            ) {
+                $partes[] = $fault;
+            }
+        }
+
+        foreach ($notes as $note) {
+            if (
+                $note !== ''
+                && !str_contains(
+                    implode(' | ', $partes),
+                    $note
+                )
+            ) {
+                $partes[] = 'Nota: ' . $note;
+            }
+        }
+
+        return implode(
+            ' | ',
+            $partes
+        );
     }
 
     private function guardarErrorTecnico(

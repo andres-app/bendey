@@ -251,6 +251,14 @@ class ApiSunat
                     'Comprobante recibido por APISUNAT.',
                 'http_code' =>
                     $respuesta['http_code'],
+                'faults' =>
+                    is_array($data['faults'] ?? null)
+                        ? $data['faults']
+                        : [],
+                'notes' =>
+                    is_array($data['notes'] ?? null)
+                        ? $data['notes']
+                        : [],
                 'response' =>
                     $data
             ];
@@ -282,6 +290,16 @@ class ApiSunat
             'http_code' =>
                 $respuesta['http_code']
                 ?? 0,
+
+            'faults' =>
+                is_array($data['faults'] ?? null)
+                    ? $data['faults']
+                    : [],
+
+            'notes' =>
+                is_array($data['notes'] ?? null)
+                    ? $data['notes']
+                    : [],
 
             'response' =>
                 $data
@@ -467,14 +485,14 @@ class ApiSunat
         if (
             !in_array(
                 $tipo,
-                ['01', '03', '07'],
+                ['01', '03'],
                 true
             )
         ) {
             return [
                 'success' => false,
                 'message' =>
-                    'El tipo debe ser 01, 03 o 07.'
+                    'El tipo debe ser 01 para factura o 03 para boleta.'
             ];
         }
 
@@ -779,7 +797,7 @@ class ApiSunat
         string $fileName
     ): void {
         $patron =
-            '/^\d{11}-(01|03|07)-[FB][A-Z0-9]{3}-\d{8}$/';
+            '/^\d{11}-(01|03)-[FB][A-Z0-9]{3}-\d{8}$/';
 
         if (
             !preg_match(
@@ -792,8 +810,7 @@ class ApiSunat
                 . $fileName
                 . '. Debe tener el formato '
                 . 'RUC-01-F001-00000001 o '
-                . 'RUC-03-B001-00000001 o ' 
-                . 'RUC-07-FC01-00000001.'
+                . 'RUC-03-B001-00000001.'
             );
         }
     }
