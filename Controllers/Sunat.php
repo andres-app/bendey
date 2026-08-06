@@ -218,6 +218,51 @@ function resumirMensajeSunat(
 }
 
 
+function esRechazoDefinitivoSunat(
+    string $estado,
+    string $mensaje,
+    array $faults = [],
+    array $notes = []
+): bool {
+    $estado = strtoupper(
+        trim($estado)
+    );
+
+    if ($estado === 'RECHAZADO') {
+        return true;
+    }
+
+    $texto = strtoupper(
+        construirMensajeCompletoSunat(
+            $mensaje,
+            $faults,
+            $notes
+        )
+    );
+
+    $texto = strtr(
+        $texto,
+        [
+            'Á' => 'A',
+            'É' => 'E',
+            'Í' => 'I',
+            'Ó' => 'O',
+            'Ú' => 'U'
+        ]
+    );
+
+    return str_contains($texto, '"CODE":"1033"')
+        || str_contains($texto, '"CODE": "1033"')
+        || str_contains($texto, 'CODE 1033')
+        || str_contains($texto, 'CODIGO 1033')
+        || str_contains($texto, 'NUMERACION REPETIDA')
+        || (
+            str_contains($texto, 'DOCUMENTO CON NUMERO')
+            && str_contains($texto, 'YA EXISTE')
+        );
+}
+
+
 /*
 |--------------------------------------------------------------------------
 | ACCIÓN PRINCIPAL DEL COMPROBANTE
@@ -230,23 +275,29 @@ function resumirMensajeSunat(
 function generarAccionPrincipalSunat(
     int $idventa,
     string $estadoSunat,
-    bool $tieneDocumentId
+    bool $tieneDocumentId,
+    bool $rechazoDefinitivo
 ): string {
-    $estadosReintento = [
-        'RECHAZADO',
-        'EXCEPCION',
-        'ERROR'
-    ];
-
     if (
+        $rechazoDefinitivo
+        || $estadoSunat === 'RECHAZADO'
+    ) {
+        $texto = 'Ver detalle';
+        $titulo = 'Ver el motivo del rechazo';
+        $icono = 'fa-eye';
+        $funcion = 'verDetalleSunat';
+    } elseif (
         in_array(
             $estadoSunat,
-            $estadosReintento,
+            [
+                'EXCEPCION',
+                'ERROR'
+            ],
             true
         )
     ) {
         $texto = 'Reintentar';
-        $titulo = 'Reintentar el mismo comprobante con su numeración original';
+        $titulo = 'Reintentar después de un error técnico';
         $icono = 'fa-redo-alt';
         $funcion = 'enviarSunatManual';
     } elseif (
@@ -350,6 +401,39 @@ try {
                     $estadoSunat = 'NO_ENVIADO';
                 }
 
+                $faults = decodificarMensajesSunat(
+                    $reg['faults']
+                    ?? []
+                );
+
+                $notes = decodificarMensajesSunat(
+                    $reg['notes']
+                    ?? []
+                );
+
+                $mensajeTexto = construirMensajeCompletoSunat(
+                    trim(
+                        (string)(
+                            $reg['mensaje_sunat']
+                            ?? ''
+                        )
+                    ),
+                    $faults,
+                    $notes
+                );
+
+                $rechazoDefinitivo =
+                    esRechazoDefinitivoSunat(
+                        $estadoSunat,
+                        $mensajeTexto,
+                        $faults,
+                        $notes
+                    );
+
+                if ($rechazoDefinitivo) {
+                    $estadoSunat = 'RECHAZADO';
+                }
+
                 switch ($estadoSunat) {
                     case 'ACEPTADO':
                         $estado =
@@ -379,7 +463,7 @@ try {
 
                     case 'ERROR':
                         $estado =
-                            '<span class="badge-sunat sunat-error">Error</span>';
+                            '<span class="badge-sunat sunat-error">Error técnico</span>';
                         break;
 
                     case 'NO_ENVIADO':
@@ -392,27 +476,6 @@ try {
                             '<span class="badge-sunat sunat-pendiente">Pendiente</span>';
                         break;
                 }
-
-                $faults = decodificarMensajesSunat(
-                    $reg['faults']
-                    ?? []
-                );
-
-                $notes = decodificarMensajesSunat(
-                    $reg['notes']
-                    ?? []
-                );
-
-                $mensajeTexto = construirMensajeCompletoSunat(
-                    trim(
-                        (string)(
-                            $reg['mensaje_sunat']
-                            ?? ''
-                        )
-                    ),
-                    $faults,
-                    $notes
-                );
 
                 if ($mensajeTexto !== '') {
                     $mensajeResumen =
@@ -441,7 +504,8 @@ try {
                     generarAccionPrincipalSunat(
                         $idventa,
                         $estadoSunat,
-                        $tieneDocumentId
+                        $tieneDocumentId,
+                        $rechazoDefinitivo
                     );
 
                 /*
@@ -545,6 +609,18 @@ try {
                     $notesDetalle
                 );
 
+            $rechazoDefinitivoDetalle =
+                esRechazoDefinitivoSunat(
+                    $estadoDetalle,
+                    $mensajeDetalle,
+                    $faultsDetalle,
+                    $notesDetalle
+                );
+
+            if ($rechazoDefinitivoDetalle) {
+                $estadoDetalle = 'RECHAZADO';
+            }
+
             responderSunat([
                 'status' => true,
                 'idventa' => $idventa,
@@ -566,11 +642,13 @@ try {
                     $faultsDetalle,
                 'notes' =>
                     $notesDetalle,
+                'rechazo_definitivo' =>
+                    $rechazoDefinitivoDetalle,
                 'puede_reintentar' =>
-                    in_array(
+                    !$rechazoDefinitivoDetalle
+                    && in_array(
                         $estadoDetalle,
                         [
-                            'RECHAZADO',
                             'EXCEPCION',
                             'ERROR'
                         ],

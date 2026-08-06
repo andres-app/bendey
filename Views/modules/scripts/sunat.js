@@ -495,9 +495,13 @@ function verDetalleSunat(idventa) {
             const puedeReintentar =
                 respuesta.puede_reintentar === true;
 
+            const rechazoDefinitivo =
+                respuesta.rechazo_definitivo === true;
+
             Swal.fire({
                 icon:
-                    puedeReintentar
+                    rechazoDefinitivo
+                    || puedeReintentar
                         ? "error"
                         : (
                             String(respuesta.estado || "")
@@ -506,9 +510,13 @@ function verDetalleSunat(idventa) {
                                 : "info"
                         ),
                 title:
-                    puedeReintentar
-                        ? "Comprobante no aceptado"
-                        : "Detalle del comprobante",
+                    rechazoDefinitivo
+                        ? "Comprobante rechazado"
+                        : (
+                            puedeReintentar
+                                ? "Error técnico de envío"
+                                : "Detalle del comprobante"
+                        ),
                 html:
                     construirHtmlDetalleSunat(
                         respuesta
@@ -574,7 +582,18 @@ function construirHtmlDetalleSunat(
         }
     });
 
+    const avisoRechazo =
+        respuesta.rechazo_definitivo === true
+            ? (
+                '<div style="margin-bottom:12px;padding:11px 13px;border:1px solid #f1b7bf;border-radius:9px;background:#fff5f6;color:#9b2638;text-align:left;font-size:.78rem;line-height:1.45">' +
+                '<strong>No se puede reintentar este número.</strong><br>' +
+                'SUNAT/APISUNAT ya registró la numeración. Debe emitirse un nuevo comprobante corregido con el siguiente correlativo.' +
+                '</div>'
+            )
+            : '';
+
     return (
+        avisoRechazo +
         '<div class="sunat-detail-meta">' +
             '<div><span>Comprobante</span><strong>' +
                 escaparHtmlSunat(respuesta.comprobante || "—") +

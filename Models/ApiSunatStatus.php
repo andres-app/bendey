@@ -209,6 +209,17 @@ class ApiSunatStatus
             $notes
         );
 
+        if (
+            $this->respuestaEsNumeracionRepetida(
+                $mensaje,
+                $faults,
+                $notes,
+                $consulta
+            )
+        ) {
+            $estado = 'RECHAZADO';
+        }
+
         $estadosFinales = [
             'ACEPTADO',
             'RECHAZADO',
@@ -313,6 +324,55 @@ class ApiSunatStatus
             'fecha_respuesta' =>
                 $fechaRespuesta
         ];
+    }
+
+    private function respuestaEsNumeracionRepetida(
+        string $mensaje,
+        array $faults,
+        array $notes,
+        array $consulta
+    ): bool {
+        $texto = strtoupper(
+            implode(
+                ' ',
+                [
+                    $mensaje,
+                    json_encode(
+                        $faults,
+                        JSON_UNESCAPED_UNICODE
+                    ) ?: '',
+                    json_encode(
+                        $notes,
+                        JSON_UNESCAPED_UNICODE
+                    ) ?: '',
+                    json_encode(
+                        $consulta,
+                        JSON_UNESCAPED_UNICODE
+                    ) ?: ''
+                ]
+            )
+        );
+
+        $texto = strtr(
+            $texto,
+            [
+                'Á' => 'A',
+                'É' => 'E',
+                'Í' => 'I',
+                'Ó' => 'O',
+                'Ú' => 'U'
+            ]
+        );
+
+        return str_contains($texto, '"CODE":"1033"')
+            || str_contains($texto, '"CODE": "1033"')
+            || str_contains($texto, 'CODE 1033')
+            || str_contains($texto, 'CODIGO 1033')
+            || str_contains($texto, 'NUMERACION REPETIDA')
+            || (
+                str_contains($texto, 'DOCUMENTO CON NUMERO')
+                && str_contains($texto, 'YA EXISTE')
+            );
     }
 
     private function normalizarMensajes(

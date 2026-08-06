@@ -329,7 +329,12 @@ class ApiSunatEmission
     private function esReintento(
         ?array $registro
     ): bool {
-        if ($registro === null) {
+        if (
+            $registro === null
+            || $this->esRechazoDefinitivoRegistro(
+                $registro
+            )
+        ) {
             return false;
         }
 
@@ -345,12 +350,65 @@ class ApiSunatEmission
         return in_array(
             $estado,
             [
-                'RECHAZADO',
                 'EXCEPCION',
                 'ERROR'
             ],
             true
         );
+    }
+
+    private function esRechazoDefinitivoRegistro(
+        ?array $registro
+    ): bool {
+        if ($registro === null) {
+            return false;
+        }
+
+        $estado = strtoupper(
+            trim(
+                (string)(
+                    $registro['estado_sunat']
+                    ?? ''
+                )
+            )
+        );
+
+        if ($estado === 'RECHAZADO') {
+            return true;
+        }
+
+        $texto = strtoupper(
+            implode(
+                ' ',
+                [
+                    (string)($registro['mensaje_sunat'] ?? ''),
+                    (string)($registro['faults'] ?? ''),
+                    (string)($registro['notes'] ?? ''),
+                    (string)($registro['response_json'] ?? '')
+                ]
+            )
+        );
+
+        $texto = strtr(
+            $texto,
+            [
+                'Á' => 'A',
+                'É' => 'E',
+                'Í' => 'I',
+                'Ó' => 'O',
+                'Ú' => 'U'
+            ]
+        );
+
+        return str_contains($texto, '"CODE":"1033"')
+            || str_contains($texto, '"CODE": "1033"')
+            || str_contains($texto, 'CODE 1033')
+            || str_contains($texto, 'CODIGO 1033')
+            || str_contains($texto, 'NUMERACION REPETIDA')
+            || (
+                str_contains($texto, 'DOCUMENTO CON NUMERO')
+                && str_contains($texto, 'YA EXISTE')
+            );
     }
 
     private function validarQueNoFueEnviado(
@@ -376,41 +434,41 @@ class ApiSunatEmission
             )
         );
 
-        /*
-         * Un comprobante rechazado, con excepción o error no fue
-         * aceptado tributariamente. Después de corregir el XML se
-         * permite reenviar el mismo correlativo. reservarEnvio()
-         * reemplazará el documentId anterior y registrará el nuevo
-         * intento de manera controlada.
-         */
-        $estadosReintentables = [
-            'RECHAZADO',
-            'EXCEPCION',
-            'ERROR',
-            'NO_ENVIADO'
-        ];
+        if (
+            $this->esRechazoDefinitivoRegistro(
+                $registro
+            )
+        ) {
+            throw new RuntimeException(
+                'Este comprobante fue rechazado definitivamente o su numeración ya fue registrada. '
+                . 'No se puede reenviar con la misma serie y número. '
+                . 'Debe emitirse un nuevo comprobante corregido con el siguiente correlativo.'
+            );
+        }
 
         if (
             in_array(
                 $estado,
-                $estadosReintentables,
+                [
+                    'EXCEPCION',
+                    'ERROR',
+                    'NO_ENVIADO'
+                ],
                 true
             )
         ) {
             return;
         }
 
-        $estadosBloqueados = [
-            'EN_PROCESO',
-            'PENDIENTE',
-            'ENVIADO',
-            'ACEPTADO'
-        ];
-
         if (
             in_array(
                 $estado,
-                $estadosBloqueados,
+                [
+                    'EN_PROCESO',
+                    'PENDIENTE',
+                    'ENVIADO',
+                    'ACEPTADO'
+                ],
                 true
             )
         ) {
@@ -421,10 +479,6 @@ class ApiSunatEmission
             );
         }
 
-        /*
-         * Si existe documentId pero el estado está vacío o no es
-         * reconocible, se bloquea para evitar un envío duplicado.
-         */
         if ($documentId !== '') {
             throw new RuntimeException(
                 'Esta venta ya tiene un documentId de APISUNAT y su estado no permite reenviarla.'
@@ -615,6 +669,17 @@ class ApiSunatEmission
             $notes
         );
 
+        if (
+            $this->respuestaEsNumeracionRepetida(
+                $mensaje,
+                $faults,
+                $notes,
+                $respuesta
+            )
+        ) {
+            $estado = 'RECHAZADO';
+        }
+
         $responseSeguro = [
             'success' => $success,
             'status' => $estado,
@@ -702,6 +767,49 @@ class ApiSunatEmission
         $stmt->execute(
             $parametros
         );
+    }
+
+    private function respuestaEsNumeracionRepetida(
+        string $mensaje,
+        array $faults,
+        array $notes,
+        array $respuesta
+    ): bool {
+        $texto = strtoupper(
+            implode(
+                ' ',
+                [
+                    $mensaje,
+                    implode(' ', $faults),
+                    implode(' ', $notes),
+                    $this->convertirJson(
+                        $respuesta['response']
+                        ?? $respuesta
+                    )
+                ]
+            )
+        );
+
+        $texto = strtr(
+            $texto,
+            [
+                'Á' => 'A',
+                'É' => 'E',
+                'Í' => 'I',
+                'Ó' => 'O',
+                'Ú' => 'U'
+            ]
+        );
+
+        return str_contains($texto, '"CODE":"1033"')
+            || str_contains($texto, '"CODE": "1033"')
+            || str_contains($texto, 'CODE 1033')
+            || str_contains($texto, 'CODIGO 1033')
+            || str_contains($texto, 'NUMERACION REPETIDA')
+            || (
+                str_contains($texto, 'DOCUMENTO CON NUMERO')
+                && str_contains($texto, 'YA EXISTE')
+            );
     }
 
     private function normalizarMensajes(
