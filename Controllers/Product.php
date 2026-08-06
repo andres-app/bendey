@@ -850,8 +850,12 @@ switch ($_GET['op'] ?? '') {
         break;
 
     case 'listar_json_todo':
-        $productosSimples = $product->listarActivosVenta();
-        echo json_encode($productosSimples);
+        header('Content-Type: application/json; charset=utf-8');
+        $productosGestion = $product->listarGestionProductos();
+        echo json_encode(
+            is_array($productosGestion) ? $productosGestion : [],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
         break;
 
     case 'variaciones_por_articulo':

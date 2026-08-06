@@ -1,350 +1,858 @@
 <?php
 ob_start();
 session_start();
+
 if (!isset($_SESSION['nombre'])) {
-    header("location: login");
-} else {
-    require "header.php";
-    require "sidebar.php";
+    header('Location: login');
+    exit;
+}
 
-    if ($_SESSION['almacen'] == 1) {
+require 'header.php';
+require 'sidebar.php';
+
+if ((int)($_SESSION['almacen'] ?? 0) === 1) {
 ?>
-
 <style>
-    .producto-tributario-card {
-        border: 1px solid #e4e9ef;
-        border-radius: 16px;
-        background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
-        box-shadow: 0 8px 22px rgba(15, 23, 42, .045);
+    :root {
+        --tp-product-green: #009b54;
+        --tp-product-green-dark: #007a43;
+        --tp-product-ink: #17212b;
+        --tp-product-muted: #75808e;
+        --tp-product-line: #e7ebef;
+        --tp-product-soft: #f6f8f9;
+        --tp-product-shadow: 0 12px 34px rgba(15, 23, 42, .07);
     }
-    .producto-tributario-header {
+
+    .tp-products-page { color: var(--tp-product-ink); }
+
+    .tp-products-hero {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
-        gap: 15px;
-        padding: 16px 18px;
-        border-bottom: 1px solid #edf0f3;
+        gap: 20px;
+        margin-bottom: 16px;
+        padding: 4px 1px;
     }
-    .producto-tributario-header h5 { margin: 0 0 3px; color: #344054; font-weight: 750; }
-    .producto-tributario-header p { margin: 0; color: #8b95a5; font-size: .72rem; }
-    .producto-tributario-badge {
-        display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
-        border: 1px solid #d9defa; border-radius: 999px; color: #4f5fd1;
-        background: #f4f5ff; font-size: .68rem; font-weight: 750; white-space: nowrap;
+
+    .tp-products-hero h1 {
+        margin: 0 0 4px;
+        font-size: 1.45rem;
+        font-weight: 760;
+        letter-spacing: -.025em;
     }
-    .producto-tributario-body { padding: 17px 18px 5px; }
-    .producto-tributario-body label { color: #475467; font-size: .74rem; font-weight: 700; }
-    .producto-tributario-body .form-control { min-height: 41px; border-color: #dfe4ea; border-radius: 9px; box-shadow: none; }
-    .producto-tributario-body .form-control:focus { border-color: #9aa7f0; box-shadow: 0 0 0 3px rgba(103,119,239,.09); }
-    .producto-tributario-ayuda { margin-top: 6px; color: #8b95a5; font-size: .68rem; line-height: 1.35; }
-    .afectacion-producto-pill { display:inline-flex; align-items:center; padding:4px 8px; border-radius:999px; font-size:.67rem; font-weight:750; white-space:nowrap; }
+
+    .tp-products-hero p {
+        margin: 0;
+        color: var(--tp-product-muted);
+        font-size: .82rem;
+    }
+
+    .tp-products-actions { display: flex; align-items: center; gap: 9px; }
+
+    .tp-btn-primary,
+    .tp-btn-secondary {
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 15px;
+        border-radius: 10px;
+        font-size: .78rem;
+        font-weight: 700;
+    }
+
+    .tp-btn-primary {
+        border: 1px solid var(--tp-product-green);
+        color: #fff;
+        background: var(--tp-product-green);
+        box-shadow: 0 8px 18px rgba(0, 155, 84, .18);
+    }
+
+    .tp-btn-primary:hover,
+    .tp-btn-primary:focus { color: #fff; background: var(--tp-product-green-dark); }
+
+    .tp-btn-secondary {
+        border: 1px solid #dce2e7;
+        color: #4d5965;
+        background: #fff;
+    }
+
+    .tp-product-summary {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-bottom: 13px;
+    }
+
+    .tp-summary-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 33px;
+        padding: 0 11px;
+        border: 1px solid var(--tp-product-line);
+        border-radius: 999px;
+        color: #596572;
+        background: #fff;
+        font-size: .72rem;
+        font-weight: 650;
+    }
+
+    .tp-summary-chip strong { color: #26313b; font-size: .78rem; }
+    .tp-summary-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tp-product-green); }
+    .tp-summary-dot.warning { background: #e8a317; }
+    .tp-summary-dot.danger { background: #de5261; }
+
+    .tp-products-card {
+        overflow: visible;
+        border: 1px solid rgba(224, 229, 234, .95);
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: var(--tp-product-shadow);
+    }
+
+    .tp-products-toolbar {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) repeat(4, minmax(125px, auto)) auto;
+        gap: 9px;
+        align-items: center;
+        padding: 14px;
+        border-bottom: 1px solid var(--tp-product-line);
+    }
+
+    .tp-search-box { position: relative; }
+    .tp-search-box i {
+        position: absolute;
+        top: 50%; left: 13px;
+        transform: translateY(-50%);
+        color: #9aa3ad;
+        pointer-events: none;
+    }
+
+    .tp-search-box input,
+    .tp-products-toolbar select {
+        width: 100%; min-height: 39px;
+        border: 1px solid #dfe4e9;
+        border-radius: 10px;
+        color: #34404b;
+        background: #fff;
+        box-shadow: none;
+        font-size: .76rem;
+    }
+
+    .tp-search-box input { padding: 0 12px 0 38px; }
+    .tp-products-toolbar select { padding: 0 28px 0 10px; }
+
+    .tp-view-toggle {
+        display: inline-flex;
+        padding: 3px;
+        border: 1px solid #dfe4e9;
+        border-radius: 10px;
+        background: #f7f8fa;
+    }
+
+    .tp-view-toggle button {
+        width: 34px; height: 31px;
+        border: 0;
+        border-radius: 7px;
+        color: #8a949e;
+        background: transparent;
+    }
+
+    .tp-view-toggle button.active {
+        color: var(--tp-product-green-dark);
+        background: #fff;
+        box-shadow: 0 2px 7px rgba(15,23,42,.08);
+    }
+
+    .tp-products-result-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 15px;
+        color: #7b8691;
+        background: #fbfcfc;
+        border-bottom: 1px solid #edf0f2;
+        font-size: .71rem;
+    }
+
+    .tp-products-table-wrap { padding: 0 14px 13px; overflow: visible; }
+    #tbllistado { margin: 0 !important; border-collapse: separate !important; border-spacing: 0 8px !important; }
+    #tbllistado thead th {
+        padding: 12px 11px;
+        border: 0;
+        color: #84909b;
+        background: transparent;
+        font-size: .65rem;
+        font-weight: 760;
+        letter-spacing: .045em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    #tbllistado tbody tr { box-shadow: 0 0 0 1px #edf0f2; }
+    #tbllistado tbody tr:hover { box-shadow: 0 0 0 1px #d9e1e6, 0 7px 17px rgba(15,23,42,.05); }
+    #tbllistado tbody tr.tp-product-inactive { opacity: .66; }
+    #tbllistado tbody td {
+        padding: 11px;
+        border: 0;
+        color: #46515d;
+        background: #fff;
+        font-size: .76rem;
+        vertical-align: middle;
+    }
+    #tbllistado tbody td:first-child { border-radius: 11px 0 0 11px; }
+    #tbllistado tbody td:last-child { border-radius: 0 11px 11px 0; }
+
+    .tp-product-cell { display: flex; align-items: center; gap: 11px; min-width: 250px; }
+    .tp-product-thumb {
+        width: 48px; height: 48px; flex: 0 0 48px;
+        overflow: hidden;
+        border: 1px solid #e6eaee;
+        border-radius: 11px;
+        background: #f4f6f7;
+    }
+    .tp-product-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .tp-product-cell strong { display: block; color: #27323d; font-size: .82rem; line-height: 1.25; }
+    .tp-product-cell small { display: block; margin-top: 3px; color: #8c96a0; font-size: .68rem; }
+    .tp-product-cell .tp-variant-hint { color: #64748b; }
+
+    .tp-category-cell strong { display: block; color: #3f4a55; font-size: .76rem; }
+    .tp-category-cell small { display: block; margin-top: 2px; color: #919ba5; font-size: .66rem; }
+
+    .tp-stock-wrap { min-width: 96px; }
+    .tp-stock-wrap strong { display: block; color: #34404b; font-size: .82rem; }
+    .tp-stock-state { display: inline-flex; align-items: center; gap: 5px; margin-top: 3px; color: #7f8994; font-size: .64rem; }
+    .tp-stock-state::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #3dac72; }
+    .tp-stock-low::before { background: #e5a21a; }
+    .tp-stock-out::before { background: #dc5663; }
+
+    .tp-price-cell strong { display: block; color: #26313b; font-size: .87rem; }
+    .tp-price-cell small { color: #919ba5; font-size: .64rem; }
+
+    .afectacion-producto-pill,
+    .tp-state-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 8px;
+        border-radius: 999px;
+        font-size: .65rem;
+        font-weight: 730;
+        white-space: nowrap;
+    }
     .afectacion-10 { color:#176b3a; background:#edf9f1; border:1px solid #bce2c8; }
     .afectacion-20 { color:#8a5b16; background:#fff8e8; border:1px solid #eed7a3; }
     .afectacion-30 { color:#475467; background:#f2f4f7; border:1px solid #dfe3e8; }
     .afectacion-40 { color:#175cd3; background:#eff6ff; border:1px solid #bfd8ff; }
-    @media (max-width:767.98px) { .producto-tributario-header { flex-direction:column; } }
+    .tp-state-active { color:#176b3a; background:#edf9f1; border:1px solid #c5e7cf; }
+    .tp-state-inactive { color:#8b3440; background:#fff1f2; border:1px solid #f2c5ca; }
+
+    .tp-row-actions { display: inline-flex; justify-content: flex-end; align-items: center; gap: 6px; min-width: 116px; }
+    .tp-row-edit {
+        min-height: 33px; padding: 0 11px;
+        border: 1px solid #dce2e7; border-radius: 8px;
+        color: #45515d; background: #fff;
+        font-size: .69rem; font-weight: 700;
+    }
+    .tp-row-more {
+        width: 34px; height: 33px;
+        border: 1px solid #dce2e7; border-radius: 8px;
+        color: #65717d; background: #fff;
+    }
+    .tp-row-actions .dropdown-menu { min-width: 188px; padding: 6px; border: 1px solid #e2e6ea; border-radius: 11px; box-shadow: 0 13px 30px rgba(15,23,42,.14); }
+    .tp-row-actions .dropdown-item { padding: 8px 10px; border-radius: 7px; color: #4f5a65; font-size: .72rem; }
+    .tp-row-actions .dropdown-item i { width: 19px; color: #87919b; }
+
+    .tp-products-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .tp-product-grid-card {
+        position: relative;
+        overflow: visible;
+        border: 1px solid #e4e9ed;
+        border-radius: 15px;
+        background: #fff;
+        box-shadow: 0 7px 19px rgba(15,23,42,.045);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .tp-product-grid-card:hover { transform: translateY(-2px); box-shadow: 0 13px 28px rgba(15,23,42,.09); }
+    .tp-product-grid-card.is-inactive { opacity: .64; }
+    .tp-grid-image { height: 148px; overflow: hidden; border-radius: 14px 14px 0 0; background: #f3f5f6; }
+    .tp-grid-image img { width: 100%; height: 100%; object-fit: cover; }
+    .tp-grid-body { padding: 12px; }
+    .tp-grid-name { min-height: 38px; margin: 0; color: #26313b; font-size: .82rem; font-weight: 740; line-height: 1.35; }
+    .tp-grid-sku { margin-top: 3px; color: #919ba5; font-size: .65rem; }
+    .tp-grid-meta { display: flex; align-items: flex-end; justify-content: space-between; gap: 9px; margin-top: 13px; }
+    .tp-grid-price { color: #222e38; font-size: 1rem; font-weight: 780; }
+    .tp-grid-stock { color: #75808b; font-size: .67rem; text-align: right; }
+    .tp-grid-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; padding-top: 10px; border-top: 1px solid #edf0f2; }
+    .tp-grid-actions { display: flex; gap: 5px; }
+    .tp-grid-actions button { height: 31px; border-radius: 8px; font-size: .68rem; }
+
+    .tp-grid-more-wrap { display: flex; justify-content: center; padding: 0 14px 16px; }
+
+    .tp-import-panel {
+        display: none;
+        margin-bottom: 13px;
+        padding: 15px;
+        border: 1px solid #dce7e1;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #fbfffd, #f5faf7);
+    }
+    .tp-import-panel.is-open { display: block; }
+    .tp-import-panel h5 { margin: 0 0 3px; font-size: .86rem; font-weight: 750; }
+    .tp-import-panel p { margin: 0; color: #7d8892; font-size: .7rem; }
+    .tp-import-form { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+    .tp-product-form-head {
+        display: flex; align-items: center; justify-content: space-between; gap: 15px;
+        margin-bottom: 14px;
+    }
+    .tp-product-form-head h2 { margin: 0 0 4px; font-size: 1.26rem; font-weight: 760; }
+    .tp-product-form-head p { margin: 0; color: #7e8994; font-size: .76rem; }
+
+    .tp-form-card {
+        margin-bottom: 13px;
+        border: 1px solid #e3e8ec;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 7px 20px rgba(15,23,42,.045);
+    }
+    .tp-form-card-header {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        min-height: 60px; padding: 13px 16px;
+        border-bottom: 1px solid #edf0f2;
+    }
+    .tp-form-card-header h5 { margin: 0 0 2px; color: #34404b; font-size: .86rem; font-weight: 750; }
+    .tp-form-card-header p { margin: 0; color: #929ba5; font-size: .68rem; }
+    .tp-form-card-body { padding: 16px 16px 2px; }
+    .tp-form-card label { color: #53606d; font-size: .71rem; font-weight: 680; }
+    .tp-form-card .form-control,
+    .tp-form-card .custom-file-label {
+        min-height: 41px;
+        border-color: #dfe4e9;
+        border-radius: 9px;
+        box-shadow: none;
+        font-size: .78rem;
+    }
+    .tp-form-card .form-control:focus { border-color: #77b998; box-shadow: 0 0 0 3px rgba(0,155,84,.075); }
+    .tp-field-help { display: block; margin-top: 5px; color: #929ba5; font-size: .65rem; line-height: 1.35; }
+
+    .tp-image-uploader {
+        height: 100%; min-height: 225px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 16px;
+        border: 1px dashed #d7dde2;
+        border-radius: 13px;
+        background: #fafbfc;
+        text-align: center;
+    }
+    .tp-image-preview { width: 115px; height: 115px; overflow: hidden; margin-bottom: 12px; border: 1px solid #e1e6ea; border-radius: 18px; background: #f1f3f5; }
+    .tp-image-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .tp-image-uploader strong { font-size: .76rem; }
+    .tp-image-uploader small { margin-top: 3px; color: #929ba5; font-size: .65rem; }
+
+    .tp-collapse-trigger {
+        display: inline-flex; align-items: center; gap: 7px;
+        border: 0; color: #697580; background: transparent;
+        font-size: .7rem; font-weight: 700;
+    }
+    .tp-collapse-trigger i { transition: transform .2s ease; }
+    .tp-collapse-trigger[aria-expanded="true"] i { transform: rotate(180deg); }
+
+    .producto-tributario-badge {
+        display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+        border: 1px solid #c9e6d5; border-radius: 999px; color: #187044;
+        background: #f0faf4; font-size: .67rem; font-weight: 730; white-space: nowrap;
+    }
+
+    .tp-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 14px; border: 1px solid #e6eaee; border-radius: 11px; background: #fafbfc; }
+    .tp-switch-row strong { display: block; color: #3b4651; font-size: .76rem; }
+    .tp-switch-row small { display: block; margin-top: 2px; color: #8c96a0; font-size: .65rem; }
+
+    .tp-form-actions {
+        position: sticky; bottom: 10px; z-index: 25;
+        display: flex; justify-content: flex-end; gap: 8px;
+        margin-top: 14px; padding: 11px;
+        border: 1px solid rgba(220,225,230,.95);
+        border-radius: 13px;
+        background: rgba(255,255,255,.95);
+        box-shadow: 0 10px 28px rgba(15,23,42,.1);
+        backdrop-filter: blur(9px);
+    }
+
+    .tp-detail-overlay {
+        position: fixed; inset: 0; z-index: 1048;
+        visibility: hidden; opacity: 0;
+        background: rgba(15,23,42,.36);
+        transition: opacity .2s ease, visibility .2s ease;
+    }
+    .tp-detail-overlay.is-open { visibility: visible; opacity: 1; }
+    .tp-detail-drawer {
+        position: fixed; top: 0; right: 0; z-index: 1049;
+        width: min(460px, 94vw); height: 100vh;
+        display: flex; flex-direction: column;
+        transform: translateX(105%);
+        background: #fff;
+        box-shadow: -18px 0 45px rgba(15,23,42,.18);
+        transition: transform .24s ease;
+    }
+    .tp-detail-drawer.is-open { transform: translateX(0); }
+    .tp-drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #e8ecef; }
+    .tp-drawer-head h4 { margin: 0; font-size: .96rem; font-weight: 760; }
+    .tp-drawer-close { width: 35px; height: 35px; border: 1px solid #e0e5e9; border-radius: 9px; color: #65717d; background: #fff; }
+    .tp-drawer-body { flex: 1; overflow-y: auto; padding: 17px; }
+    .tp-detail-cover { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .tp-detail-cover-image { width: 86px; height: 86px; flex: 0 0 86px; overflow: hidden; border: 1px solid #e2e7eb; border-radius: 16px; background: #f3f5f6; }
+    .tp-detail-cover-image img { width: 100%; height: 100%; object-fit: cover; }
+    .tp-detail-cover h3 { margin: 0 0 5px; color: #27323d; font-size: 1.02rem; font-weight: 760; }
+    .tp-detail-cover p { margin: 0; color: #89939d; font-size: .7rem; }
+    .tp-detail-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+    .tp-detail-box { padding: 11px; border: 1px solid #e7ebee; border-radius: 11px; background: #fbfcfc; }
+    .tp-detail-box span { display: block; color: #8c96a0; font-size: .62rem; font-weight: 700; text-transform: uppercase; }
+    .tp-detail-box strong { display: block; margin-top: 4px; color: #35404b; font-size: .78rem; line-height: 1.35; }
+    .tp-detail-section { margin-top: 17px; }
+    .tp-detail-section h5 { margin: 0 0 9px; color: #4b5661; font-size: .72rem; font-weight: 760; text-transform: uppercase; }
+    .tp-detail-variants { overflow: hidden; border: 1px solid #e4e8eb; border-radius: 11px; }
+    .tp-detail-variant { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 10px 11px; border-bottom: 1px solid #edf0f2; }
+    .tp-detail-variant:last-child { border-bottom: 0; }
+    .tp-detail-variant strong { display: block; color: #36414c; font-size: .73rem; }
+    .tp-detail-variant small { color: #8d97a1; font-size: .64rem; }
+    .tp-drawer-actions { display: flex; gap: 8px; padding: 13px 17px; border-top: 1px solid #e8ecef; }
+    .tp-drawer-actions .btn { flex: 1; min-height: 40px; border-radius: 9px; font-size: .73rem; font-weight: 700; }
+
+    .dataTables_wrapper .dataTables_info,
+    .dataTables_wrapper .dataTables_paginate { padding-top: 10px; color: #84909b; font-size: .68rem; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button { min-width: 32px; border: 0 !important; border-radius: 8px !important; font-size: .68rem; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current { color: #fff !important; background: var(--tp-product-green) !important; }
+    .dt-buttons { display: none !important; }
+
+    @media (max-width: 1199.98px) {
+        .tp-products-toolbar { grid-template-columns: minmax(230px, 1fr) repeat(2, minmax(125px, auto)) auto; }
+        .tp-products-toolbar .tp-filter-secondary { display: none; }
+        .tp-products-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    }
+
+    @media (max-width: 991.98px) {
+        .tp-products-toolbar { grid-template-columns: 1fr 1fr; }
+        .tp-search-box { grid-column: 1 / -1; }
+        .tp-view-toggle { justify-self: end; }
+        .tp-products-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    @media (max-width: 767.98px) {
+        .tp-products-hero { align-items: flex-start; flex-direction: column; }
+        .tp-products-actions { width: 100%; }
+        .tp-products-actions .tp-btn-primary { flex: 1; }
+        .tp-product-summary { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+        .tp-summary-chip { flex: 0 0 auto; }
+        .tp-products-toolbar { grid-template-columns: 1fr; }
+        .tp-products-toolbar .tp-filter-secondary { display: block; }
+        .tp-view-toggle { justify-self: start; }
+        .tp-products-result-bar { align-items: flex-start; flex-direction: column; }
+        .tp-products-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; padding: 10px; }
+        .tp-grid-image { height: 120px; }
+        #tbllistado th:nth-child(2), #tbllistado td:nth-child(2),
+        #tbllistado th:nth-child(5), #tbllistado td:nth-child(5),
+        #tbllistado th:nth-child(6), #tbllistado td:nth-child(6) { display: none; }
+        .tp-product-cell { min-width: 190px; }
+        .tp-product-thumb { width: 42px; height: 42px; flex-basis: 42px; }
+        .tp-detail-grid { grid-template-columns: 1fr; }
+        .tp-form-actions { bottom: 5px; }
+    }
+
+    @media (max-width: 479.98px) {
+        .tp-products-grid { grid-template-columns: 1fr; }
+        .tp-grid-image { height: 170px; }
+    }
 </style>
 
-<div class="main-content">
+<div class="main-content tp-products-page">
     <section class="section">
         <div class="section-body">
-            <div class="row">
-                <div class="col-12">
-                    <div class="card flex">
-                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                            <div class="d-flex align-items-center flex-wrap">
-                                <h4 class="mb-2 mb-md-0 mr-3">
-                                    Productos
-                                    <button class="btn btn-success btn-sm ml-2" onclick="mostrarform(true)"
-                                        id="btnagregar">
-                                        <i class="fa fa-plus-circle"></i> Agregar
-                                    </button>
-                                </h4>
-                            </div>
+            <div class="tp-products-hero">
+                <div>
+                    <h1>Productos</h1>
+                    <p>Administra precios, existencias, categorías y configuración tributaria.</p>
+                </div>
 
-                            <div class="d-flex align-items-center">
-                                <button class="btn btn-outline-secondary btn-sm ml-2" onclick="togglePlantilla()">
-                                    <i class="fa fa-chevron-down"></i> Plantilla
-                                </button>
-                            </div>
+                <div class="tp-products-actions">
+                    <div class="dropdown">
+                        <button class="tp-btn-secondary dropdown-toggle" type="button" data-toggle="dropdown">
+                            <i class="fas fa-ellipsis-h"></i> Más acciones
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right">
+                            <button class="dropdown-item" type="button" onclick="togglePlantilla()">
+                                <i class="fas fa-file-import mr-2"></i> Importar productos
+                            </button>
+                            <button class="dropdown-item" type="button" onclick="exportarProductos('excel')">
+                                <i class="fas fa-file-excel mr-2"></i> Exportar Excel
+                            </button>
+                            <button class="dropdown-item" type="button" onclick="exportarProductos('pdf')">
+                                <i class="fas fa-file-pdf mr-2"></i> Exportar PDF
+                            </button>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="Assets/plantillas/plantilla_productos.csv" download>
+                                <i class="fas fa-download mr-2"></i> Descargar plantilla
+                            </a>
                         </div>
+                    </div>
 
+                    <button class="tp-btn-primary" onclick="mostrarform(true)" id="btnagregar" type="button">
+                        <i class="fas fa-plus"></i> Nuevo producto
+                    </button>
+                </div>
+            </div>
 
+            <div class="tp-product-summary" id="resumenProductos">
+                <span class="tp-summary-chip"><span class="tp-summary-dot"></span><strong id="kpiTotalProductos">0</strong> productos</span>
+                <span class="tp-summary-chip"><span class="tp-summary-dot warning"></span><strong id="kpiStockBajo">0</strong> stock bajo</span>
+                <span class="tp-summary-chip"><span class="tp-summary-dot danger"></span><strong id="kpiSinStock">0</strong> sin stock</span>
+                <span class="tp-summary-chip"><i class="fas fa-layer-group"></i><strong id="kpiVariaciones">0</strong> con variantes</span>
+            </div>
 
-                        <div class="card-body">
-                            <div class="container-fluid mb-3">
-                                <div id="plantillaSection" style="display: none; transition: all 0.4s ease;">
+            <div id="plantillaSection" class="tp-import-panel">
+                <div class="row align-items-center">
+                    <div class="col-lg-5 mb-3 mb-lg-0">
+                        <h5>Importación masiva</h5>
+                        <p>Carga un archivo CSV o Excel utilizando la plantilla oficial del sistema.</p>
+                    </div>
+                    <div class="col-lg-7">
+                        <form id="formSubidaMasiva" enctype="multipart/form-data" class="tp-import-form">
+                            <input type="file" class="form-control-file" id="archivo_productos" name="archivo_productos" accept=".xlsx,.csv" required>
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="fas fa-upload mr-1"></i> Cargar productos
+                            </button>
+                            <button type="button" class="btn btn-light btn-sm" onclick="togglePlantilla()">Cerrar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div id="listadoregistros" class="tp-products-card">
+                <div class="tp-products-toolbar">
+                    <div class="tp-search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="search" id="productoBuscar" placeholder="Buscar por nombre, SKU, categoría o almacén">
+                    </div>
+                    <select id="filtroCategoriaProducto"><option value="">Todas las categorías</option></select>
+                    <select id="filtroStockProducto">
+                        <option value="">Todo el stock</option>
+                        <option value="normal">Stock normal</option>
+                        <option value="bajo">Stock bajo</option>
+                        <option value="sin_stock">Sin stock</option>
+                    </select>
+                    <select id="filtroTributoProducto" class="tp-filter-secondary">
+                        <option value="">Toda tributación</option>
+                        <option value="10">Gravado</option>
+                        <option value="20">Exonerado</option>
+                        <option value="30">Inafecto</option>
+                        <option value="40">Exportación</option>
+                    </select>
+                    <select id="filtroEstadoProducto" class="tp-filter-secondary">
+                        <option value="">Todos los estados</option>
+                        <option value="1">Activos</option>
+                        <option value="0">Inactivos</option>
+                    </select>
+                    <div class="tp-view-toggle" aria-label="Cambiar vista">
+                        <button type="button" id="btnVistaTabla" title="Vista tabla"><i class="fas fa-list"></i></button>
+                        <button type="button" id="btnVistaGrid" title="Vista cuadrícula"><i class="fas fa-th-large"></i></button>
+                    </div>
+                </div>
+
+                <div class="tp-products-result-bar">
+                    <span id="productosResultado">Cargando productos...</span>
+                    <span>El costo, almacén y datos técnicos están disponibles en <strong>Ver detalle</strong>.</span>
+                </div>
+
+                <div id="vistaTablaProductos" class="tp-products-table-wrap">
+                    <div class="table-responsive" style="overflow:visible;">
+                        <table id="tbllistado" class="table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Stock</th>
+                                    <th>Precio de venta</th>
+                                    <th>Tributación</th>
+                                    <th>Estado</th>
+                                    <th class="text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="vistaGridProductos" style="display:none;">
+                    <div id="productosGrid" class="tp-products-grid"></div>
+                    <div class="tp-grid-more-wrap">
+                        <button type="button" id="btnMostrarMasProductos" class="tp-btn-secondary" style="display:none;">
+                            Mostrar más productos
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="formularioregistros" style="display:none;">
+                <div class="tp-product-form-head">
+                    <div>
+                        <button type="button" class="btn btn-link p-0 mb-2" onclick="cancelarform()">
+                            <i class="fas fa-arrow-left mr-1"></i> Volver al listado
+                        </button>
+                        <h2 id="tituloFormularioProducto">Nuevo producto</h2>
+                        <p id="subtituloFormularioProducto">Completa la información esencial. Las opciones avanzadas están organizadas por sección.</p>
+                    </div>
+                </div>
+
+                <form name="formulario" id="formulario" method="POST" enctype="multipart/form-data" autocomplete="off">
+                    <input type="hidden" name="idarticulo" id="idarticulo">
+                    <input type="hidden" name="imagenactual" id="imagenactual">
+
+                    <div class="tp-form-card">
+                        <div class="tp-form-card-header">
+                            <div>
+                                <h5>Información principal</h5>
+                                <p>Datos que el usuario necesita para identificar y vender el producto.</p>
+                            </div>
+                            <span class="badge badge-light">Esencial</span>
+                        </div>
+                        <div class="tp-form-card-body">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-4 mb-3">
+                                    <div class="tp-image-uploader">
+                                        <div class="tp-image-preview">
+                                            <img src="Assets/img/products/default.png" alt="Vista previa" id="imagenmuestra">
+                                        </div>
+                                        <strong>Imagen del producto</strong>
+                                        <small>JPG o PNG. Se recomienda una imagen cuadrada.</small>
+                                        <label class="btn btn-outline-secondary btn-sm mt-3 mb-0" for="imagen">
+                                            <i class="fas fa-camera mr-1"></i> Seleccionar imagen
+                                        </label>
+                                        <input type="file" class="d-none" id="imagen" name="imagen" accept="image/jpeg,image/png">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-9 col-md-8">
                                     <div class="row">
-                                        <div class="col-12 d-flex justify-content-end">
-                                            <div class="btn-group mr-2">
-                                                <a href="Assets/plantillas/plantilla_productos.csv" download
-                                                    class="btn btn-outline-primary btn-sm">
-                                                    <i class="fa fa-download"></i> Descargar plantilla Excel
-                                                </a>
-                                            </div>
-                                            <form id="formSubidaMasiva" enctype="multipart/form-data"
-                                                class="form-inline">
-                                                <div class="form-group mb-0 mr-2">
-                                                    <input type="file" class="form-control-file" id="archivo_productos"
-                                                        name="archivo_productos" accept=".xlsx,.csv" required>
-                                                </div>
-                                                <button type="submit" class="btn btn-success btn-sm">
-                                                    <i class="fa fa-upload"></i> Cargar productos
-                                                </button>
-                                            </form>
+                                        <div class="form-group col-lg-8">
+                                            <label for="nombre">Nombre del producto <span class="text-danger">*</span></label>
+                                            <input class="form-control" type="text" name="nombre" id="nombre" maxlength="100" placeholder="Ej.: Aretes mariposa dorados" required>
+                                        </div>
+                                        <div id="grupo_sku_principal" class="form-group col-lg-4">
+                                            <label for="codigo">SKU</label>
+                                            <input type="text" name="codigo" id="codigo" class="form-control" placeholder="Opcional">
+                                        </div>
+                                        <div id="grupo_precio_venta_principal" class="form-group col-lg-4">
+                                            <label for="precio_venta">Precio de venta <span class="text-danger">*</span></label>
+                                            <input type="number" step="0.01" class="form-control" name="precio_venta" id="precio_venta" min="0.01" placeholder="0.00" required>
+                                        </div>
+                                        <div class="form-group col-lg-4">
+                                            <label for="idcategoria">Categoría <span class="text-danger">*</span></label>
+                                            <select class="form-control" name="idcategoria" id="idcategoria" required></select>
+                                        </div>
+                                        <div class="form-group col-lg-4">
+                                            <label for="idsubcategoria">Subcategoría</label>
+                                            <select class="form-control" name="idsubcategoria" id="idsubcategoria" disabled>
+                                                <option value="">Seleccione subcategoría</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-12">
+                                            <label for="descripcion">Descripción</label>
+                                            <textarea class="form-control" name="descripcion" id="descripcion" rows="2" maxlength="500" placeholder="Información adicional opcional"></textarea>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="table-responsive" id="listadoregistros">
-                                <table id="tbllistado" class="table table-striped table-hover text-nowrap"
-                                    style="width:100%;">
-                                    <thead>
-                                        <tr>
-                                            <th>Codigo</th>
-                                            <th>Nombre</th>
-                                            <th>Categoria</th>
-                                            <th>Subcategoría</th>
-                                            <th>Und.Medida</th>
-                                            <th>Stock</th>
-                                            <th>Imagen</th>
-                                            <th>P. Compra</th>
-                                            <th>P. Venta</th>
-                                            <th>Afectación IGV</th>
-                                            <th>Estado</th>
-                                            <th>Almacén</th>
-                                            <th>Opciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-
-                            <div id="formularioregistros" style="display: none;">
-                                <form action="" name="formulario" id="formulario" method="POST">
-                                    <div class="row">
-                                        <input type="hidden" name="idarticulo" id="idarticulo">
-
-                                        <div class="form-group col-md-4">
-                                            <label for="nombre">Nombre del producto</label>
-                                            <input class="form-control" type="text" name="nombre" id="nombre"
-                                                maxlength="100" placeholder="Nombre" required>
-                                        </div>
-
-                                        <div id="grupo_sku_principal" class="form-group col-md-4">
-                                            <label for="codigo">SKU</label>
-                                            <input type="text" name="codigo" id="codigo" class="form-control">
-                                        </div>
-
-                                        <div id="grupo_stock_principal" class="form-group col-md-4">
-                                            <label for="stock">Cantidad</label>
-                                            <input type="number" class="form-control" name="stock" id="stock" min="0">
-                                        </div>
-
-                                        <div id="grupo_precio_compra_principal" class="form-group col-md-4">
-                                            <label for="precio_compra">Precio de compra</label>
-                                            <input type="number" step="0.01" class="form-control" name="precio_compra"
-                                                id="precio_compra" min="0">
-                                            <small class="form-text text-muted">Opcional. Sin precio, no podrás
-                                                vender
-                                                el producto.</small>
-                                        </div>
-
-                                        <div id="grupo_precio_venta_principal" class="form-group col-md-4">
-                                            <label for="precio_venta">
-                                                Precio de venta <span class="text-danger">*</span>
-                                            </label>
-
-                                            <input type="number" step="0.01" class="form-control" name="precio_venta"
-                                                id="precio_venta" min="0.01" placeholder="Ejemplo: 25.90" required>
-
-                                            <small class="form-text text-muted">
-                                                Obligatorio. Ingresa un precio mayor que cero.
-                                            </small>
-                                        </div>
-
-                                        <div class="form-group col-md-4">
-                                            <label>Categoría</label>
-                                            <select class="form-control" name="idcategoria" id="idcategoria"
-                                                required></select>
-                                        </div>
-
-                                        <div class="form-group col-md-4">
-                                            <label>Subcategoría</label>
-                                            <select class="form-control" name="idsubcategoria" id="idsubcategoria"
-                                                disabled>
-                                                <option value="">Seleccione subcategoría</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group col-md-4">
-                                            <label>Almacén</label>
-                                            <select class="form-control" name="idalmacen" id="idalmacen"
-                                                required></select>
-                                        </div>
-
-                                        <div class="form-group col-md-6">
-                                            <label>Unidad de Medida</label>
-                                            <select class="form-control" name="idmedida" id="idmedida"
-                                                required></select>
-                                        </div>
-
-                                        <div class="form-group col-lg-6">
-                                            <label for="imagen">Imagen:</label>
-                                            <div class="custom-file">
-                                                <input type="file" class="custom-file-input" id="imagen" name="imagen">
-                                                <label class="custom-file-label" for="imagen">Selecciona una
-                                                    imagen</label>
-                                            </div>
-                                            <input type="hidden" name="imagenactual" id="imagenactual">
-                                            <div class="mt-2">
-                                                <img src="" alt="" id="imagenmuestra"
-                                                    style="max-width: 150px; max-height: 120px;">
-                                            </div>
-                                        </div>
-
-                                        <div class="col-12 mb-4">
-                                            <div class="producto-tributario-card">
-                                                <div class="producto-tributario-header">
-                                                    <div>
-                                                        <h5>Datos tributarios</h5>
-                                                        <p>El producto hereda inicialmente la configuración general de la empresa.</p>
-                                                    </div>
-                                                    <span class="producto-tributario-badge" id="estadoTributarioProducto">
-                                                        <i class="fas fa-percentage"></i>
-                                                        Gravado 18%
-                                                    </span>
-                                                </div>
-
-                                                <div class="producto-tributario-body">
-                                                    <div class="row">
-                                                        <div class="form-group col-lg-4 col-md-6">
-                                                            <label for="codigo_afectacion_igv">Afectación al IGV</label>
-                                                            <select class="form-control" name="codigo_afectacion_igv" id="codigo_afectacion_igv" required>
-                                                                <option value="10">10 — Gravado: operación onerosa</option>
-                                                                <option value="20">20 — Exonerado: operación onerosa</option>
-                                                                <option value="30">30 — Inafecto: operación onerosa</option>
-                                                                <option value="40">40 — Exportación</option>
-                                                            </select>
-                                                            <div class="producto-tributario-ayuda">Define cómo se declarará esta línea en SUNAT.</div>
-                                                        </div>
-
-                                                        <div class="form-group col-lg-2 col-md-6">
-                                                            <label for="porcentaje_igv">Tasa IGV (%)</label>
-                                                            <input type="number" class="form-control" name="porcentaje_igv" id="porcentaje_igv" min="0" max="100" step="0.01" readonly required>
-                                                            <div class="producto-tributario-ayuda">Se calcula según la afectación.</div>
-                                                        </div>
-
-                                                        <div class="form-group col-lg-3 col-md-6">
-                                                            <label for="unidad_medida_sunat">Unidad SUNAT</label>
-                                                            <select class="form-control" name="unidad_medida_sunat" id="unidad_medida_sunat" required>
-                                                                <option value="NIU">NIU — Unidad</option>
-                                                                <option value="ZZ">ZZ — Servicio</option>
-                                                                <option value="KGM">KGM — Kilogramo</option>
-                                                                <option value="LTR">LTR — Litro</option>
-                                                                <option value="MTR">MTR — Metro</option>
-                                                                <option value="BX">BX — Caja</option>
-                                                            </select>
-                                                            <div class="producto-tributario-ayuda">Código de unidad usado en el XML.</div>
-                                                        </div>
-
-                                                        <div class="form-group col-lg-3 col-md-6">
-                                                            <label for="codigo_producto_sunat">Código de producto SUNAT</label>
-                                                            <input type="text" class="form-control" name="codigo_producto_sunat" id="codigo_producto_sunat" maxlength="16" placeholder="Opcional">
-                                                            <div class="producto-tributario-ayuda">Código UNSPSC u otro código requerido, cuando corresponda.</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="form-group col-md-12 mb-3">
-                                            <div id="activarAtributosContainer" class="d-flex align-items-center">
-                                                <label for="activar_atributos"
-                                                    class="mb-0 mr-2 font-weight-normal">¿Activar atributos?</label>
-                                                <label class="switch mb-0">
-                                                    <input type="checkbox" id="activar_atributos"
-                                                        onchange="toggleAtributos()">
-                                                    <span class="slider round"></span>
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        <div id="atributos_section" class="col-12" style="display:none;">
-                                            <fieldset class="border p-3 mb-4 rounded">
-                                                <legend class="w-auto px-2">Atributos del Producto</legend>
-
-                                                <div class="form-group col-lg-12">
-                                                    <label for="atributos_seleccionados">Selecciona los atributos
-                                                        que
-                                                        deseas usar:</label>
-                                                    <select id="atributos_seleccionados" class="form-control select2"
-                                                        multiple style="width: 100%;">
-                                                        <!-- Opciones se cargarán dinámicamente -->
-                                                    </select>
-                                                </div>
-
-                                                <div class="row" id="contenedor_atributos">
-                                                    <!-- Aquí se insertarán los selects dinámicamente -->
-                                                </div>
-
-                                                <div class="text-center mt-3">
-                                                    <button type="button" class="btn btn-info btn-sm"
-                                                        onclick="generarVariaciones()">
-                                                        <i class="fa fa-cogs"></i> Generar combinaciones
-                                                    </button>
-                                                </div>
-
-                                                <div id="variaciones-container" class="mt-4" style="display: none;">
-                                                    <h5>Combinaciones generadas:</h5>
-                                                    <div class="table-responsive">
-                                                        <table id="tblvariaciones"
-                                                            class="table table-bordered table-striped">
-                                                            <thead>
-                                                                <tr>
-                                                                    <th>Combinación</th>
-                                                                    <th>SKU</th>
-                                                                    <th>Stock</th>
-                                                                    <th>Precio Compra</th>
-                                                                    <th>Precio Venta</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody id="variaciones-lista"></tbody>
-                                                        </table>
-                                                    </div>
-                                                </div>
-                                            </fieldset>
-                                        </div>
-
-                                        <div class="form-group col-12 text-center mt-3">
-                                            <button class="btn btn-primary" type="submit" id="btnGuardar">
-                                                <i class="fa fa-save"></i> Guardar
-                                            </button>
-                                            <button class="btn btn-danger" onclick="cancelarform()" type="button">
-                                                <i class="fa fa-arrow-circle-left"></i> Cancelar
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
-
                         </div>
                     </div>
-                </div>
+
+                    <div class="tp-form-card">
+                        <div class="tp-form-card-header">
+                            <div>
+                                <h5>Inventario y costos</h5>
+                                <p>La información de costo se mantiene fuera del listado principal.</p>
+                            </div>
+                            <button class="tp-collapse-trigger" type="button" data-toggle="collapse" data-target="#seccionInventarioProducto" aria-expanded="true">
+                                Ver sección <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="collapse show" id="seccionInventarioProducto">
+                            <div class="tp-form-card-body">
+                                <div class="row">
+                                    <div id="grupo_stock_principal" class="form-group col-lg-3 col-md-6">
+                                        <label for="stock">Stock inicial</label>
+                                        <input type="number" class="form-control" name="stock" id="stock" min="0" value="0">
+                                    </div>
+                                    <div id="grupo_precio_compra_principal" class="form-group col-lg-3 col-md-6">
+                                        <label for="precio_compra">Costo unitario</label>
+                                        <input type="number" step="0.01" class="form-control" name="precio_compra" id="precio_compra" min="0" placeholder="0.00">
+                                        <span class="tp-field-help">Opcional. Se utiliza para márgenes y reportes internos.</span>
+                                    </div>
+                                    <div class="form-group col-lg-3 col-md-6">
+                                        <label for="idalmacen">Almacén <span class="text-danger">*</span></label>
+                                        <select class="form-control" name="idalmacen" id="idalmacen" required></select>
+                                    </div>
+                                    <div class="form-group col-lg-3 col-md-6">
+                                        <label for="idmedida">Unidad de medida <span class="text-danger">*</span></label>
+                                        <select class="form-control" name="idmedida" id="idmedida" required></select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tp-form-card">
+                        <div class="tp-form-card-header">
+                            <div>
+                                <h5>Datos tributarios</h5>
+                                <p>El producto hereda inicialmente la configuración general de la empresa.</p>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="producto-tributario-badge mr-2" id="estadoTributarioProducto">
+                                    <i class="fas fa-percentage"></i> Gravado 18%
+                                </span>
+                                <button class="tp-collapse-trigger" type="button" data-toggle="collapse" data-target="#seccionTributariaProducto" aria-expanded="false">
+                                    Configurar <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="collapse" id="seccionTributariaProducto">
+                            <div class="tp-form-card-body">
+                                <div class="row">
+                                    <div class="form-group col-lg-4 col-md-6">
+                                        <label for="codigo_afectacion_igv">Afectación al IGV</label>
+                                        <select class="form-control" name="codigo_afectacion_igv" id="codigo_afectacion_igv" required>
+                                            <option value="10">10 — Gravado: operación onerosa</option>
+                                            <option value="20">20 — Exonerado: operación onerosa</option>
+                                            <option value="30">30 — Inafecto: operación onerosa</option>
+                                            <option value="40">40 — Exportación</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-lg-2 col-md-6">
+                                        <label for="porcentaje_igv">Tasa IGV (%)</label>
+                                        <input type="number" class="form-control" name="porcentaje_igv" id="porcentaje_igv" min="0" max="100" step="0.01" readonly required>
+                                    </div>
+                                    <div class="form-group col-lg-3 col-md-6">
+                                        <label for="unidad_medida_sunat">Unidad SUNAT</label>
+                                        <select class="form-control" name="unidad_medida_sunat" id="unidad_medida_sunat" required>
+                                            <option value="NIU">NIU — Unidad</option>
+                                            <option value="ZZ">ZZ — Servicio</option>
+                                            <option value="KGM">KGM — Kilogramo</option>
+                                            <option value="LTR">LTR — Litro</option>
+                                            <option value="MTR">MTR — Metro</option>
+                                            <option value="BX">BX — Caja</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-lg-3 col-md-6">
+                                        <label for="codigo_producto_sunat">Código de producto SUNAT</label>
+                                        <input type="text" class="form-control" name="codigo_producto_sunat" id="codigo_producto_sunat" maxlength="16" placeholder="Opcional">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tp-form-card">
+                        <div class="tp-form-card-header">
+                            <div>
+                                <h5>Variaciones</h5>
+                                <p>Actívalo únicamente para productos con talla, color, modelo u otras combinaciones.</p>
+                            </div>
+                            <button class="tp-collapse-trigger" type="button" data-toggle="collapse" data-target="#seccionVariacionesProducto" aria-expanded="false">
+                                Configurar <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="collapse" id="seccionVariacionesProducto">
+                            <div class="tp-form-card-body">
+                                <div class="tp-switch-row mb-3">
+                                    <div>
+                                        <strong>Este producto tiene variantes</strong>
+                                        <small>El stock y los precios se administrarán por combinación.</small>
+                                    </div>
+                                    <label class="switch mb-0">
+                                        <input type="checkbox" id="activar_atributos" onchange="toggleAtributos()">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+
+                                <div id="atributos_section" style="display:none;">
+                                    <div class="form-group">
+                                        <label for="atributos_seleccionados">Atributos</label>
+                                        <select id="atributos_seleccionados" class="form-control select2" multiple style="width:100%;"></select>
+                                    </div>
+                                    <div class="row" id="contenedor_atributos"></div>
+                                    <button type="button" class="btn btn-outline-info btn-sm" onclick="generarVariaciones()">
+                                        <i class="fas fa-cogs mr-1"></i> Generar combinaciones
+                                    </button>
+
+                                    <div id="variaciones-container" class="mt-4" style="display:none;">
+                                        <div class="table-responsive">
+                                            <table id="tblvariaciones" class="table table-bordered table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Combinación</th>
+                                                        <th>SKU</th>
+                                                        <th>Stock</th>
+                                                        <th>Costo</th>
+                                                        <th>Precio de venta</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="variaciones-lista"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tp-form-actions">
+                        <button class="btn btn-light" onclick="cancelarform()" type="button">Cancelar</button>
+                        <button class="btn btn-success" type="submit" id="btnGuardar">
+                            <i class="fas fa-save mr-1"></i> Guardar producto
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </section>
 </div>
+
+<div class="tp-detail-overlay" id="detalleProductoOverlay" onclick="cerrarDetalleProducto()"></div>
+<aside class="tp-detail-drawer" id="detalleProductoDrawer" aria-hidden="true">
+    <div class="tp-drawer-head">
+        <h4>Detalle del producto</h4>
+        <button type="button" class="tp-drawer-close" onclick="cerrarDetalleProducto()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="tp-drawer-body" id="detalleProductoContenido">
+        <div class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm mr-2"></span>Cargando producto...</div>
+    </div>
+    <div class="tp-drawer-actions" id="detalleProductoAcciones" style="display:none;">
+        <button class="btn btn-outline-secondary" type="button" id="btnEstadoDesdeDetalle">Cambiar estado</button>
+        <button class="btn btn-success" type="button" id="btnEditarDesdeDetalle"><i class="fas fa-pencil-alt mr-1"></i> Editar producto</button>
+    </div>
+</aside>
 <?php
-    } else {
-        require "access.php";
-    }
-    require "footer.php";
-    ?>
+} else {
+    require 'access.php';
+}
+
+require 'footer.php';
+$rutaJs = __DIR__ . '/scripts/product.js';
+$versionJs = is_file($rutaJs) ? filemtime($rutaJs) : time();
+?>
 <script src="Assets/js/JsBarcode.all.min.js"></script>
 <script src="Assets/js/jquery.PrintArea.js"></script>
-<script src="Views/modules/scripts/product.js?v=20260805-tributario-01"></script>
+<script src="Views/modules/scripts/product.js?v=<?= (int)$versionJs ?>"></script>
 <?php
-}
 ob_end_flush();
 ?>

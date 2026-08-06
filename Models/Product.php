@@ -152,17 +152,48 @@ class Product
 	{
 		$sql = "SELECT
 					a.*,
-					al.nombre AS almacen_nombre
+					c.nombre AS categoria,
+					s.nombre AS subcategoria,
+					m.nombre AS medida,
+					al.nombre AS almacen,
+					al.nombre AS almacen_nombre,
+					COALESCE(v.cantidad_variaciones, 0) AS cantidad_variaciones,
+					CASE
+						WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+						THEN COALESCE(v.stock_variaciones, 0)
+						ELSE a.stock
+					END AS stock_total,
+					CASE
+						WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+						THEN COALESCE(v.precio_venta_min, a.precio_venta)
+						ELSE a.precio_venta
+					END AS precio_venta_min,
+					CASE
+						WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+						THEN COALESCE(v.precio_venta_max, a.precio_venta)
+						ELSE a.precio_venta
+					END AS precio_venta_max,
+					CASE WHEN COALESCE(v.cantidad_variaciones, 0) > 0 THEN 1 ELSE 0 END AS tiene_variaciones
 				FROM articulo a
-				LEFT JOIN almacen al
-					ON al.idalmacen = a.idalmacen
+				LEFT JOIN categoria c ON c.idcategoria = a.idcategoria
+				LEFT JOIN subcategoria s ON s.idsubcategoria = a.idsubcategoria
+				LEFT JOIN medida m ON m.idmedida = a.idmedida
+				LEFT JOIN almacen al ON al.idalmacen = a.idalmacen
+				LEFT JOIN (
+					SELECT
+						idarticulo,
+						COUNT(*) AS cantidad_variaciones,
+						SUM(stock) AS stock_variaciones,
+						MIN(NULLIF(precio_venta, 0)) AS precio_venta_min,
+						MAX(NULLIF(precio_venta, 0)) AS precio_venta_max
+					FROM articulo_variacion
+					WHERE estado = 1
+					GROUP BY idarticulo
+				) v ON v.idarticulo = a.idarticulo
 				WHERE a.idarticulo = ?
 				LIMIT 1";
-	
-		return $this->conexion->getData(
-			$sql,
-			[$idarticulo]
-		);
+
+		return $this->conexion->getData($sql, [$idarticulo]);
 	}
 
 
@@ -412,6 +443,68 @@ class Product
 				LEFT JOIN almacen al ON a.idalmacen = al.idalmacen
 				WHERE av.estado = 1 AND av.stock > 0 AND a.condicion = 1";
 		return $this->conexion->getDataAll($sql);
+	}
+
+	/**
+	 * Listado administrativo compacto.
+	 * Las variaciones se resumen en el producto padre para evitar filas duplicadas.
+	 */
+	public function listarGestionProductos()
+	{
+		$sql = "SELECT
+					a.idarticulo,
+					a.codigo,
+					a.nombre,
+					a.descripcion,
+					a.imagen,
+					a.precio_compra,
+					a.precio_venta,
+					a.codigo_afectacion_igv,
+					a.porcentaje_igv,
+					a.unidad_medida_sunat,
+					a.codigo_producto_sunat,
+					a.condicion,
+					c.nombre AS categoria,
+					s.nombre AS subcategoria,
+					m.nombre AS medida,
+					al.nombre AS almacen,
+					COALESCE(v.cantidad_variaciones, 0) AS cantidad_variaciones,
+					CASE WHEN COALESCE(v.cantidad_variaciones, 0) > 0 THEN 1 ELSE 0 END AS tiene_variaciones,
+					CASE
+						WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+						THEN COALESCE(v.stock_variaciones, 0)
+						ELSE a.stock
+					END AS stock,
+					CASE
+						WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+						THEN COALESCE(v.precio_venta_min, a.precio_venta)
+						ELSE a.precio_venta
+					END AS precio_venta_min,
+					CASE
+						WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+						THEN COALESCE(v.precio_venta_max, a.precio_venta)
+						ELSE a.precio_venta
+					END AS precio_venta_max
+				FROM articulo a
+				LEFT JOIN categoria c ON c.idcategoria = a.idcategoria
+				LEFT JOIN subcategoria s ON s.idsubcategoria = a.idsubcategoria
+				LEFT JOIN medida m ON m.idmedida = a.idmedida
+				LEFT JOIN almacen al ON al.idalmacen = a.idalmacen
+				LEFT JOIN (
+					SELECT
+						idarticulo,
+						COUNT(*) AS cantidad_variaciones,
+						SUM(stock) AS stock_variaciones,
+						MIN(NULLIF(precio_venta, 0)) AS precio_venta_min,
+						MAX(NULLIF(precio_venta, 0)) AS precio_venta_max
+					FROM articulo_variacion
+					WHERE estado = 1
+					GROUP BY idarticulo
+				) v ON v.idarticulo = a.idarticulo
+				ORDER BY a.nombre ASC, a.idarticulo DESC";
+
+		$resultado = $this->conexion->getDataAll($sql);
+		return is_array($resultado) ? $resultado : [];
 	}
 
 	public function listarActivosVenta()
