@@ -129,6 +129,39 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
         gap: 8px;
     }
 
+    .empresa-logo-manage {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 15px;
+    }
+
+    .empresa-logo-manage .btn {
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 9px;
+        font-weight: 500;
+    }
+
+    .empresa-logo-manage-chevron {
+        margin-left: 3px;
+        font-size: .72rem;
+        transition: transform .18s ease;
+    }
+
+    #btnGestionarLogo[aria-expanded="true"] .empresa-logo-manage-chevron {
+        transform: rotate(180deg);
+    }
+
+    .empresa-logo-editor {
+        display: none;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #edf0f4;
+    }
+
     .empresa-logo-help {
         border-left: 3px solid #6777ef;
         background: rgba(103, 119, 239, .055);
@@ -688,59 +721,80 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                             class="d-none"
                                                             accept="image/png,image/jpeg,image/webp">
 
-                                                        <div
-                                                            id="logoEmpresaDropzone"
-                                                            class="empresa-logo-dropzone"
-                                                            role="button"
-                                                            tabindex="0"
-                                                            aria-label="Seleccionar logo de la empresa">
-
-                                                            <div class="d-flex align-items-center" style="gap:13px;">
-                                                                <span class="empresa-logo-dropzone-icon">
-                                                                    <i class="fas fa-cloud-upload-alt"></i>
-                                                                </span>
-
-                                                                <div>
-                                                                    <div class="font-weight-bold text-dark">
-                                                                        Arrastra tu logo aquí
-                                                                    </div>
-
-                                                                    <div class="small text-muted">
-                                                                        o haz clic para seleccionar una imagen
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div
-                                                            id="logoEmpresaEstado"
-                                                            class="empresa-logo-status text-muted mt-2">
-                                                            PNG o JPG. También acepta WEBP y lo convierte a PNG. Máximo 2 MB.
-                                                        </div>
-
-                                                        <div class="empresa-logo-actions mt-3">
+                                                        <div class="empresa-logo-manage">
                                                             <button
                                                                 type="button"
                                                                 class="btn btn-outline-primary btn-sm"
-                                                                id="btnCambiarLogo">
-                                                                <i class="fas fa-pen mr-1"></i>
-                                                                Cambiar logo
-                                                            </button>
-
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-outline-danger btn-sm"
-                                                                id="btnQuitarLogo"
-                                                                disabled>
-                                                                <i class="far fa-trash-alt mr-1"></i>
-                                                                Quitar logo
+                                                                id="btnGestionarLogo"
+                                                                aria-expanded="false"
+                                                                aria-controls="logoEmpresaEditor">
+                                                                <i class="far fa-image"></i>
+                                                                <span id="textoBtnGestionarLogo">
+                                                                    Administrar logo
+                                                                </span>
+                                                                <i class="fas fa-chevron-down empresa-logo-manage-chevron"></i>
                                                             </button>
                                                         </div>
 
-                                                        <div class="empresa-logo-help mt-3">
-                                                            Para una mejor impresión usa un archivo PNG
-                                                            con fondo transparente, formato horizontal o cuadrado
-                                                            y buena resolución.
+                                                        <div
+                                                            id="logoEmpresaEditor"
+                                                            class="empresa-logo-editor"
+                                                            aria-hidden="true">
+
+                                                            <div
+                                                                id="logoEmpresaDropzone"
+                                                                class="empresa-logo-dropzone"
+                                                                role="button"
+                                                                tabindex="0"
+                                                                aria-label="Seleccionar logo de la empresa">
+
+                                                                <div class="d-flex align-items-center" style="gap:13px;">
+                                                                    <span class="empresa-logo-dropzone-icon">
+                                                                        <i class="fas fa-cloud-upload-alt"></i>
+                                                                    </span>
+
+                                                                    <div>
+                                                                        <div class="font-weight-bold text-dark">
+                                                                            Seleccionar otro logo
+                                                                        </div>
+
+                                                                        <div class="small text-muted">
+                                                                            Arrastra una imagen aquí o haz clic para buscarla
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div
+                                                                id="logoEmpresaEstado"
+                                                                class="empresa-logo-status text-muted mt-2">
+                                                                PNG o JPG. También acepta WEBP y lo convierte a PNG. Máximo 2 MB.
+                                                            </div>
+
+                                                            <div class="empresa-logo-actions mt-3">
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-outline-primary btn-sm"
+                                                                    id="btnCambiarLogo">
+                                                                    <i class="fas fa-pen mr-1"></i>
+                                                                    Cambiar logo
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-outline-danger btn-sm"
+                                                                    id="btnQuitarLogo"
+                                                                    disabled>
+                                                                    <i class="far fa-trash-alt mr-1"></i>
+                                                                    Quitar logo
+                                                                </button>
+                                                            </div>
+
+                                                            <div class="empresa-logo-help mt-3">
+                                                                Para una mejor impresión usa un archivo PNG
+                                                                con fondo transparente, formato horizontal o cuadrado
+                                                                y buena resolución.
+                                                            </div>
                                                         </div>
 
                                                     </div>
@@ -1325,16 +1379,6 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                             </div>
                                         </div>
 
-                                        <div id="configEmpresaSavebar" class="config-savebar">
-                                            <div class="config-savebar-text">
-                                                <strong>Configuración de empresa</strong>
-                                                <span>Guarda los cambios realizados en cualquiera de las secciones anteriores.</span>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary" id="btnGuardar">
-                                                <i class="fa fa-save mr-1"></i>
-                                                Guardar configuración
-                                            </button>
-                                        </div>
                                     </form>
 
                                     <!-- 5. CONFIGURACIÓN DE CAJA -->
@@ -1568,6 +1612,21 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                             </form>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <div id="configEmpresaSavebar" class="config-savebar">
+                                        <div class="config-savebar-text">
+                                            <strong>Configuración de empresa</strong>
+                                            <span>Guarda los cambios realizados en Datos generales, APIs, Configuración tributaria y Valores predeterminados.</span>
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            class="btn btn-primary"
+                                            id="btnGuardar"
+                                            form="formulario">
+                                            <i class="fa fa-save mr-1"></i>
+                                            Guardar configuración
+                                        </button>
                                     </div>
 
                                 </div>

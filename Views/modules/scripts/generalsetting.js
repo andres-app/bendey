@@ -139,6 +139,23 @@ function abrirItemAcordeonConfiguracion(
         $item.attr("data-accordion-group") || "principal"
     );
 
+    const yaAbierto = $item.hasClass("is-open");
+
+    /*
+     * Si el usuario vuelve a pulsar la sección que ya está abierta,
+     * se permite plegarla manualmente. El acordeón puede quedar sin
+     * ninguna sección abierta.
+     */
+    if (yaAbierto) {
+        cerrarItemAcordeonConfiguracion($item);
+
+        if (grupo === "principal") {
+            actualizarBarraGuardadoSegunSeccion();
+        }
+
+        return;
+    }
+
     const $itemsGrupo =
         obtenerItemsGrupoAcordeonConfiguracion(grupo);
 
@@ -152,7 +169,6 @@ function abrirItemAcordeonConfiguracion(
         cerrarItemAcordeonConfiguracion($otro);
     });
 
-    const yaAbierto = $item.hasClass("is-open");
     const $contenido = $item
         .children(".config-accordion-content")
         .first();
@@ -163,21 +179,15 @@ function abrirItemAcordeonConfiguracion(
         .first()
         .attr("aria-expanded", "true");
 
-    if (!yaAbierto) {
-        $contenido
-            .stop(true, true)
-            .slideDown(180, function () {
-                if (desplazar !== false) {
-                    desplazarAInicioAcordeonConfiguracion(
-                        $item
-                    );
-                }
-            });
-    } else if (desplazar !== false) {
-        desplazarAInicioAcordeonConfiguracion(
-            $item
-        );
-    }
+    $contenido
+        .stop(true, true)
+        .slideDown(180, function () {
+            if (desplazar !== false) {
+                desplazarAInicioAcordeonConfiguracion(
+                    $item
+                );
+            }
+        });
 
     if (grupo === "principal") {
         actualizarBarraGuardadoSegunSeccion($item);

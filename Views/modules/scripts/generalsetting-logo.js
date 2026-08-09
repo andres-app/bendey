@@ -6,12 +6,16 @@ let logoEmpresaObjetoUrl = null;
 function configurarLogoEmpresa() {
     const input = document.getElementById("logo");
     const dropzone = document.getElementById("logoEmpresaDropzone");
+    const btnGestionar = document.getElementById("btnGestionarLogo");
+    const editor = document.getElementById("logoEmpresaEditor");
     const btnCambiar = document.getElementById("btnCambiarLogo");
     const btnQuitar = document.getElementById("btnQuitarLogo");
 
     if (
         !input
         || !dropzone
+        || !btnGestionar
+        || !editor
         || !btnCambiar
         || !btnQuitar
     ) {
@@ -19,6 +23,20 @@ function configurarLogoEmpresa() {
     }
 
     cargarLogoEmpresaActual();
+
+    btnGestionar.addEventListener(
+        "click",
+        function () {
+            const abierto =
+                btnGestionar.getAttribute("aria-expanded")
+                === "true";
+
+            establecerEditorLogoEmpresa(
+                !abierto,
+                !abierto
+            );
+        }
+    );
 
     btnCambiar.addEventListener(
         "click",
@@ -172,6 +190,95 @@ function configurarLogoEmpresa() {
     );
 }
 
+function establecerEditorLogoEmpresa(
+    abierto,
+    enfocar
+) {
+    const $editor =
+        $("#logoEmpresaEditor");
+
+    const $boton =
+        $("#btnGestionarLogo");
+
+    if (
+        !$editor.length
+        || !$boton.length
+    ) {
+        return;
+    }
+
+    $boton.attr(
+        "aria-expanded",
+        abierto ? "true" : "false"
+    );
+
+    $editor.attr(
+        "aria-hidden",
+        abierto ? "false" : "true"
+    );
+
+    if (abierto) {
+        $editor
+            .stop(true, true)
+            .slideDown(160);
+
+        if (enfocar) {
+            window.setTimeout(
+                function () {
+                    const dropzone =
+                        document.getElementById(
+                            "logoEmpresaDropzone"
+                        );
+
+                    if (dropzone) {
+                        dropzone.focus({
+                            preventScroll: true
+                        });
+                    }
+                },
+                180
+            );
+        }
+
+        return;
+    }
+
+    $editor
+        .stop(true, true)
+        .slideUp(140);
+}
+
+function actualizarBotonGestionLogoEmpresa() {
+    const tieneLogoServidor =
+        String(
+            logoEmpresaServidor || ""
+        ).trim() !== "";
+
+    const tieneArchivoNuevo =
+        document.getElementById("logo")
+        && document.getElementById("logo").files
+        && document.getElementById("logo").files.length > 0;
+
+    const pendienteQuitar =
+        String(
+            $("#eliminar_logo").val() || "0"
+        ) === "1";
+
+    let texto = "Agregar logo";
+
+    if (
+        tieneLogoServidor
+        || tieneArchivoNuevo
+        || pendienteQuitar
+    ) {
+        texto = "Administrar logo";
+    }
+
+    $("#textoBtnGestionarLogo").text(
+        texto
+    );
+}
+
 function cargarLogoEmpresaActual() {
     $.ajax({
         url: "Controllers/Company.php",
@@ -197,6 +304,13 @@ function cargarLogoEmpresaActual() {
 
             $("#logo").val("");
             $("#eliminar_logo").val("0");
+
+            establecerEditorLogoEmpresa(
+                false,
+                false
+            );
+
+            actualizarBotonGestionLogoEmpresa();
 
             mostrarLogoEmpresaServidor(
                 logo
@@ -269,6 +383,13 @@ function procesarLogoEmpresaSeleccionado(
 
     $("#eliminar_logo").val("0");
 
+    establecerEditorLogoEmpresa(
+        true,
+        false
+    );
+
+    actualizarBotonGestionLogoEmpresa();
+
     actualizarEstadoLogoEmpresa(
         "Nuevo logo listo para guardar",
         "primary"
@@ -307,6 +428,8 @@ function mostrarLogoEmpresaServidor(
             "PNG, JPG o WEBP. Máximo 2 MB.",
             "muted"
         );
+
+        actualizarBotonGestionLogoEmpresa();
 
         return;
     }
@@ -350,6 +473,8 @@ function mostrarLogoEmpresaServidor(
             "disabled",
             false
         );
+
+        actualizarBotonGestionLogoEmpresa();
     };
 
     imagen.onerror = function () {
@@ -413,6 +538,8 @@ function mostrarLogoEmpresaVacio(
         "disabled",
         true
     );
+
+    actualizarBotonGestionLogoEmpresa();
 }
 
 function quitarLogoEmpresa() {
@@ -442,6 +569,13 @@ function quitarLogoEmpresa() {
         "disabled",
         true
     );
+
+    establecerEditorLogoEmpresa(
+        true,
+        false
+    );
+
+    actualizarBotonGestionLogoEmpresa();
 }
 
 function limpiarSeleccionLogoEmpresa() {
@@ -459,6 +593,13 @@ function limpiarSeleccionLogoEmpresa() {
     mostrarLogoEmpresaServidor(
         logoEmpresaServidor
     );
+
+    establecerEditorLogoEmpresa(
+        true,
+        false
+    );
+
+    actualizarBotonGestionLogoEmpresa();
 }
 
 function actualizarEstadoLogoEmpresa(
