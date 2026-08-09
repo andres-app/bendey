@@ -276,79 +276,368 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
         .tributario-note { margin: 4px 17px 17px; }
     }
 
+
+    /* ================================================================
+       CONFIGURACIÓN · ACORDEÓN PRINCIPAL
+       ================================================================ */
+    .config-shell-card {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .config-shell-card > .card-header {
+        padding: 0 0 16px;
+        border: 0;
+        background: transparent;
+    }
+
+    .config-shell-card > .card-body {
+        padding: 0;
+    }
+
+    .config-page-heading {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+    }
+
+    .config-page-heading h4 {
+        margin: 0 0 4px;
+        color: #253044;
+        font-size: 1.18rem;
+        font-weight: 700;
+    }
+
+    .config-page-heading p {
+        margin: 0;
+        color: #8a94a3;
+        font-size: .78rem;
+    }
+
+    .config-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+    }
+
+    .config-accordion-item {
+        overflow: hidden;
+        border: 1px solid #e7ebf0;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 5px 18px rgba(15, 23, 42, .035);
+        transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+
+    .config-accordion-item.is-open {
+        border-color: rgba(103, 119, 239, .34);
+        box-shadow: 0 12px 28px rgba(56, 67, 128, .08);
+    }
+
+    .config-accordion-trigger {
+        width: 100%;
+        border: 0;
+        outline: 0 !important;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding: 15px 17px;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color .16s ease;
+    }
+
+    .config-accordion-trigger:hover {
+        background: #fbfcff;
+    }
+
+    .config-accordion-item.is-open > .config-accordion-trigger {
+        background: linear-gradient(90deg, rgba(103,119,239,.055), rgba(255,255,255,0));
+    }
+
+    .config-accordion-index {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: #f1f3ff;
+        color: #5d6de0;
+        font-size: .76rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+    }
+
+    .config-accordion-heading {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .config-accordion-title {
+        display: block;
+        margin: 0;
+        color: #303a4d;
+        font-size: .91rem;
+        font-weight: 650;
+        line-height: 1.25;
+    }
+
+    .config-accordion-subtitle {
+        display: block;
+        margin-top: 3px;
+        color: #98a2b3;
+        font-size: .72rem;
+        line-height: 1.3;
+    }
+
+    .config-accordion-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    .config-accordion-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 27px;
+        padding: 5px 9px;
+        border: 1px solid #e1e5eb;
+        border-radius: 999px;
+        background: #fafbfc;
+        color: #667085;
+        font-size: .67rem;
+        font-weight: 650;
+        white-space: nowrap;
+    }
+
+    .config-accordion-chevron {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #9aa4b2;
+        transition: transform .2s ease, color .2s ease;
+    }
+
+    .config-accordion-item.is-open > .config-accordion-trigger .config-accordion-chevron {
+        transform: rotate(180deg);
+        color: #6777ef;
+    }
+
+    .config-accordion-content {
+        display: none;
+        border-top: 1px solid #edf0f4;
+        background: #fff;
+    }
+
+
+    .config-accordion-body {
+        padding: 20px 20px 8px;
+    }
+
+    .config-subaccordion {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+    }
+
+    .config-subaccordion .config-accordion-item {
+        border-radius: 13px;
+        box-shadow: none;
+        background: #fbfcfe;
+    }
+
+    .config-subaccordion .config-accordion-trigger {
+        padding: 13px 14px;
+        background: #fbfcfe;
+    }
+
+    .config-subaccordion .config-accordion-item.is-open > .config-accordion-trigger {
+        background: #f7f8ff;
+    }
+
+    .config-subaccordion .config-accordion-index {
+        width: 34px;
+        height: 34px;
+        flex-basis: 34px;
+        border-radius: 10px;
+        font-size: .7rem;
+    }
+
+    .config-subaccordion .config-accordion-body {
+        padding: 18px 16px 4px;
+    }
+
+    .config-savebar {
+        position: sticky;
+        bottom: 12px;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 12px;
+        padding: 10px 12px 10px 15px;
+        border: 1px solid rgba(222, 226, 232, .95);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, .94);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, .10);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
+    .config-savebar-text strong {
+        display: block;
+        color: #344054;
+        font-size: .76rem;
+        font-weight: 650;
+    }
+
+    .config-savebar-text span {
+        display: block;
+        margin-top: 1px;
+        color: #98a2b3;
+        font-size: .67rem;
+    }
+
+    .config-savebar .btn {
+        min-width: 190px;
+        border-radius: 9px;
+        font-weight: 500;
+    }
+
+    .config-accordion .empresa-logo-panel {
+        border-radius: 14px;
+        box-shadow: none;
+        padding: 18px;
+    }
+
+    .config-accordion .tributario-note {
+        margin: 2px 0 12px;
+    }
+
+    .config-accordion .alert {
+        border-radius: 11px;
+        font-size: .75rem;
+    }
+
+    .config-caja-resumen {
+        margin-bottom: 16px;
+    }
+
+    @media (max-width: 767.98px) {
+        .config-page-heading {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .config-accordion-trigger {
+            align-items: flex-start;
+            padding: 14px;
+        }
+
+        .config-accordion-subtitle {
+            display: none;
+        }
+
+        .config-accordion-meta {
+            gap: 4px;
+        }
+
+        .config-accordion-state {
+            display: none;
+        }
+
+        .config-accordion-body {
+            padding: 16px 14px 5px;
+        }
+
+        .config-savebar {
+            bottom: 8px;
+            align-items: stretch;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .config-savebar-text {
+            display: none;
+        }
+
+        .config-savebar .btn {
+            width: 100%;
+            min-width: 0;
+        }
+    }
+
 </style>
 
 <div class="main-content">
     <section class="section">
-
         <div class="section-body">
             <div class="row">
                 <div class="col-12">
-
-                    <div class="card">
-
+                    <div class="card config-shell-card">
                         <div class="card-header">
-                            <h4>
-                                Datos generales de la empresa
-                            </h4>
+                            <div class="config-page-heading w-100">
+                                <div>
+                                    <h4>Configuración de la empresa</h4>
+                                    <p>Abre solo la sección que necesitas editar.</p>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="card-body">
-
-                            <div
-                                class="table-responsive d-none"
-                                id="listadoregistros">
+                            <div class="table-responsive d-none" id="listadoregistros">
                                 <table id="tbllistado"></table>
                             </div>
 
                             <div id="formularioregistros">
+                                <div id="configAccordionPrincipal" class="config-accordion">
 
-                                <form
-                                    name="formulario"
-                                    id="formulario"
-                                    method="POST"
-                                    enctype="multipart/form-data"
-                                    autocomplete="off">
-                                    <div class="row">
+                                    <form
+                                        name="formulario"
+                                        id="formulario"
+                                        method="POST"
+                                        enctype="multipart/form-data"
+                                        autocomplete="off"
+                                        novalidate>
 
-                                        <input
-                                            type="hidden"
-                                            name="id_negocio"
-                                            id="id_negocio">
+                                        <input type="hidden" name="id_negocio" id="id_negocio">
+                                        <input type="hidden" name="ndocumento" id="ndocumento" value="RUC">
+                                        <input type="hidden" name="eliminar_logo" id="eliminar_logo" value="0">
 
-                                        <input
-                                            type="hidden"
-                                            name="ndocumento"
-                                            id="ndocumento"
-                                            value="RUC">
-
-                                        <input
-                                            type="hidden"
-                                            name="eliminar_logo"
-                                            id="eliminar_logo"
-                                            value="0">
-
-
-                                        <!-- =========================
-                                             DATOS DE LA EMPRESA
-                                        ========================== -->
-
-                                        <div class="col-12 mb-3">
-                                            <h5 class="mb-1">
-                                                Información empresarial
-                                            </h5>
-
-                                            <p class="text-muted mb-0">
-                                                Información utilizada en los comprobantes
-                                                emitidos por el sistema.
-                                            </p>
-                                        </div>
-
-
-                                        <!-- =========================
-                                             LOGO DE LA EMPRESA
-                                        ========================== -->
-
+                                        <!-- 1. DATOS GENERALES -->
+                                        <div
+                                            class="config-accordion-item is-open"
+                                            data-accordion-group="principal"
+                                            data-config-section="general">
+                                            <button
+                                                type="button"
+                                                class="config-accordion-trigger"
+                                                data-config-accordion-trigger
+                                                aria-expanded="true">
+                                                <span class="config-accordion-index">01</span>
+                                                <span class="config-accordion-heading">
+                                                    <span class="config-accordion-title">Datos generales de la empresa</span>
+                                                    <span class="config-accordion-subtitle">Logo, razón social, RUC y datos de contacto.</span>
+                                                </span>
+                                                <span class="config-accordion-meta">
+                                                    <span class="config-accordion-state">Principal</span>
+                                                    <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
+                                                </span>
+                                            </button>
+                                            <div class="config-accordion-content" style="display:block;">
+                                                <div class="config-accordion-body">
+                                                    <div class="row">
                                         <div class="col-12 mb-4">
                                             <div class="empresa-logo-panel">
 
@@ -568,25 +857,54 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                 id="email"
                                                 maxlength="100">
                                         </div>
-
-                                        <!-- =========================
-                                             CONSULTA DNI/RUC
-                                        ========================== -->
-
-                                        <div class="col-12 mt-3 mb-3">
-                                            <hr>
-
-                                            <h5 class="mb-1">
-                                                Consulta de DNI y RUC
-                                            </h5>
-
-                                            <p class="text-muted mb-0">
-                                                Este token se utiliza únicamente para
-                                                consultar datos de personas y empresas.
-                                                No es el token de facturación electrónica.
-                                            </p>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
+                                        <!-- 2. REGISTRO DE APIS -->
+                                        <div
+                                            class="config-accordion-item"
+                                            data-accordion-group="principal"
+                                            data-config-section="apis">
+                                            <button
+                                                type="button"
+                                                class="config-accordion-trigger"
+                                                data-config-accordion-trigger
+                                                aria-expanded="false">
+                                                <span class="config-accordion-index">02</span>
+                                                <span class="config-accordion-heading">
+                                                    <span class="config-accordion-title">Registro de APIs</span>
+                                                    <span class="config-accordion-subtitle">Credenciales de consulta y facturación electrónica.</span>
+                                                </span>
+                                                <span class="config-accordion-meta">
+                                                    <span class="config-accordion-state">2 servicios</span>
+                                                    <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
+                                                </span>
+                                            </button>
+                                            <div class="config-accordion-content">
+                                                <div class="config-accordion-body">
+                                                    <div id="configAccordionApis" class="config-subaccordion">
+
+                                                        <div
+                                                            class="config-accordion-item is-open"
+                                                            data-accordion-group="apis"
+                                                            data-config-section="dni-ruc">
+                                                            <button
+                                                                type="button"
+                                                                class="config-accordion-trigger"
+                                                                data-config-accordion-trigger
+                                                                aria-expanded="true">
+                                                                <span class="config-accordion-index">2.1</span>
+                                                                <span class="config-accordion-heading">
+                                                                    <span class="config-accordion-title">Consulta de DNI y RUC</span>
+                                                                    <span class="config-accordion-subtitle">Token para búsqueda de personas y empresas.</span>
+                                                                </span>
+                                                                <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
+                                                            </button>
+                                                            <div class="config-accordion-content" style="display:block;">
+                                                                <div class="config-accordion-body">
+                                                                    <div class="row">
                                         <div class="form-group col-lg-12">
                                             <label for="tokendniruc">
                                                 Token de consulta DNI/RUC
@@ -616,24 +934,30 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                 </div>
                                             </div>
                                         </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
-                                        <!-- =========================
-                                             APISUNAT
-                                        ========================== -->
-
-                                        <div class="col-12 mt-3 mb-3">
-                                            <hr>
-
-                                            <h5 class="mb-1">
-                                                Facturación electrónica APISUNAT
-                                            </h5>
-
-                                            <p class="text-muted mb-0">
-                                                Credenciales utilizadas para emitir
-                                                facturas y boletas electrónicas.
-                                            </p>
-                                        </div>
-
+                                                        <div
+                                                            class="config-accordion-item"
+                                                            data-accordion-group="apis"
+                                                            data-config-section="apisunat">
+                                                            <button
+                                                                type="button"
+                                                                class="config-accordion-trigger"
+                                                                data-config-accordion-trigger
+                                                                aria-expanded="false">
+                                                                <span class="config-accordion-index">2.2</span>
+                                                                <span class="config-accordion-heading">
+                                                                    <span class="config-accordion-title">Facturación electrónica APISUNAT</span>
+                                                                    <span class="config-accordion-subtitle">Persona ID, token y ambiente de emisión.</span>
+                                                                </span>
+                                                                <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
+                                                            </button>
+                                                            <div class="config-accordion-content">
+                                                                <div class="config-accordion-body">
+                                                                    <div class="row">
                                         <div class="form-group col-lg-6">
                                             <label for="apisunat_persona_id">
                                                 Persona ID APISUNAT
@@ -725,31 +1049,41 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                 </span>
                                             </div>
                                         </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
-                                        <!-- =========================
-                                             CONFIGURACIÓN TRIBUTARIA
-                                        ========================== -->
-
-                                        <div class="col-12 mt-3 mb-4">
-                                            <hr>
-
-                                            <div class="tributario-panel">
-                                                <div class="tributario-panel-header">
-                                                    <div>
-                                                        <h5>Configuración tributaria</h5>
-                                                        <p>
-                                                            Define los valores que heredarán los productos nuevos y las
-                                                            operaciones de venta. La ubicación por sí sola no activa una exoneración.
-                                                        </p>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                                    <span class="tributario-panel-badge" id="estadoConfiguracionTributaria">
+                                        <!-- 3. CONFIGURACIÓN TRIBUTARIA -->
+                                        <div
+                                            class="config-accordion-item"
+                                            data-accordion-group="principal"
+                                            data-config-section="tributaria">
+                                            <button
+                                                type="button"
+                                                class="config-accordion-trigger"
+                                                data-config-accordion-trigger
+                                                aria-expanded="false">
+                                                <span class="config-accordion-index">03</span>
+                                                <span class="config-accordion-heading">
+                                                    <span class="config-accordion-title">Configuración tributaria</span>
+                                                    <span class="config-accordion-subtitle">IGV, afectación, tipo de operación y unidad SUNAT.</span>
+                                                </span>
+                                                <span class="config-accordion-meta">
+                                                    <span class="config-accordion-state" id="estadoConfiguracionTributaria">
                                                         <i class="fas fa-shield-alt"></i>
                                                         Configuración general
                                                     </span>
-                                                </div>
-
-                                                <div class="tributario-panel-body">
+                                                    <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
+                                                </span>
+                                            </button>
+                                            <div class="config-accordion-content">
+                                                <div class="config-accordion-body">
                                                     <div class="row">
                                                         <div class="form-group col-lg-6 tributario-field">
                                                             <label for="tipo_operacion_sunat_predeterminado">
@@ -872,32 +1206,37 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-
                                                 <div class="tributario-note">
                                                     <i class="fas fa-info-circle mr-2"></i>
                                                     Una empresa o sucursal ubicada en la Amazonía no queda exonerada automáticamente. La clasificación debe configurarse de acuerdo con la situación tributaria validada por la empresa.
                                                 </div>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <!-- =========================
-                                             VALORES PREDETERMINADOS DE VENTA
-                                        ========================== -->
-
-                                        <div class="col-12 mt-3 mb-3">
-                                            <hr>
-
-                                            <h5 class="mb-1">
-                                                Valores predeterminados de nueva venta
-                                            </h5>
-
-                                            <p class="text-muted mb-0">
-                                                Estos valores se seleccionarán automáticamente al abrir
-                                                Nueva venta. Podrás cambiarlos antes de procesar cada operación.
-                                            </p>
-                                        </div>
-
+                                        <!-- 4. VALORES PREDETERMINADOS -->
+                                        <div
+                                            class="config-accordion-item"
+                                            data-accordion-group="principal"
+                                            data-config-section="predeterminados">
+                                            <button
+                                                type="button"
+                                                class="config-accordion-trigger"
+                                                data-config-accordion-trigger
+                                                aria-expanded="false">
+                                                <span class="config-accordion-index">04</span>
+                                                <span class="config-accordion-heading">
+                                                    <span class="config-accordion-title">Valores predeterminados</span>
+                                                    <span class="config-accordion-subtitle">Comprobante, pago, forma de pago y envío SUNAT.</span>
+                                                </span>
+                                                <span class="config-accordion-meta">
+                                                    <span class="config-accordion-state">Nueva venta</span>
+                                                    <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
+                                                </span>
+                                            </button>
+                                            <div class="config-accordion-content">
+                                                <div class="config-accordion-body">
+                                                    <div class="row">
                                         <div class="form-group col-lg-3 col-md-6">
                                             <label for="venta_tipo_comprobante_predeterminado">
                                                 Tipo de comprobante
@@ -981,49 +1320,45 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                 tendrán prioridad sobre estos valores predeterminados.
                                             </div>
                                         </div>
-
-                                        <div class="form-group col-lg-12 text-right">
-
-                                            <button
-                                                type="submit"
-                                                class="btn btn-primary"
-                                                id="btnGuardar">
-                                                <i class="fa fa-save"></i>
-                                                Guardar configuración
-                                            </button>
-
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                    </div>
-                                </form>
+                                        <div id="configEmpresaSavebar" class="config-savebar">
+                                            <div class="config-savebar-text">
+                                                <strong>Configuración de empresa</strong>
+                                                <span>Guarda los cambios realizados en cualquiera de las secciones anteriores.</span>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary" id="btnGuardar">
+                                                <i class="fa fa-save mr-1"></i>
+                                                Guardar configuración
+                                            </button>
+                                        </div>
+                                    </form>
 
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <!-- =========================
-     CONFIGURACIÓN DE CAJA
-========================== -->
-
-                    <div class="card mt-4">
-
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <div>
-                                <h4 class="mb-0">
-                                    Configuración de caja
-                                </h4>
-                            </div>
-
-                            <span
-                                id="estadoConfiguracionCaja"
-                                class="badge badge-secondary">
-                                Verificando
-                            </span>
-                        </div>
-
-                        <div class="card-body">
-
+                                    <!-- 5. CONFIGURACIÓN DE CAJA -->
+                                    <div
+                                        class="config-accordion-item"
+                                        data-accordion-group="principal"
+                                        data-config-section="caja">
+                                        <button
+                                            type="button"
+                                            class="config-accordion-trigger"
+                                            data-config-accordion-trigger
+                                            aria-expanded="false">
+                                            <span class="config-accordion-index">05</span>
+                                            <span class="config-accordion-heading">
+                                                <span class="config-accordion-title">Configuración de caja</span>
+                                                <span class="config-accordion-subtitle">Modalidad, caja principal y control de aperturas.</span>
+                                            </span>
+                                            <span class="config-accordion-meta">
+                                                <span id="estadoConfiguracionCaja" class="badge badge-secondary">Verificando</span>
+                                                <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
+                                            </span>
+                                        </button>
+                                        <div class="config-accordion-content">
+                                            <div class="config-accordion-body">
                             <div
                                 id="alertaConfiguracionCaja"
                                 class="alert alert-light border">
@@ -1231,14 +1566,17 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                 </div>
 
                             </form>
+                                            </div>
+                                        </div>
+                                    </div>
 
+                                </div>
+                            </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
-
     </section>
 </div>
 

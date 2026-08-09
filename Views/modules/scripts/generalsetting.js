@@ -10,6 +10,7 @@ let opcionesVentaPredeterminadaCargadas = false;
 |--------------------------------------------------------------------------
 */
 function init() {
+    configurarAcordeonConfiguracion();
     cargarOpcionesVentaPredeterminada();
     cargarDatosEmpresa();
     cargarConfiguracionCaja();
@@ -58,6 +59,314 @@ function init() {
                 .slice(0, 20);
         }
     );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ACORDEÓN DE CONFIGURACIÓN
+|--------------------------------------------------------------------------
+*/
+function configurarAcordeonConfiguracion() {
+    const $root = $("#configAccordionPrincipal");
+
+    if (!$root.length) {
+        return;
+    }
+
+    $root
+        .find(".config-accordion-item")
+        .each(function () {
+            const $item = $(this);
+            const abierto = $item.hasClass("is-open");
+
+            $item
+                .children(".config-accordion-content")
+                .first()
+                .toggle(abierto);
+
+            $item
+                .children(".config-accordion-trigger")
+                .first()
+                .attr("aria-expanded", abierto ? "true" : "false");
+        });
+
+    actualizarBarraGuardadoSegunSeccion();
+
+    $root
+        .off("click.configAccordion", "[data-config-accordion-trigger]")
+        .on(
+            "click.configAccordion",
+            "[data-config-accordion-trigger]",
+            function (evento) {
+                evento.preventDefault();
+
+                const $item = $(this).closest(
+                    ".config-accordion-item"
+                );
+
+                abrirItemAcordeonConfiguracion(
+                    $item,
+                    true
+                );
+            }
+        );
+}
+
+function obtenerItemsGrupoAcordeonConfiguracion(
+    grupo
+) {
+    const selector =
+        '.config-accordion-item[data-accordion-group="' +
+        String(grupo || "") +
+        '"]';
+
+    if (grupo === "apis") {
+        return $("#configAccordionApis").find(selector);
+    }
+
+    return $("#configAccordionPrincipal").find(selector);
+}
+
+function abrirItemAcordeonConfiguracion(
+    $item,
+    desplazar
+) {
+    if (!$item || !$item.length) {
+        return;
+    }
+
+    const grupo = String(
+        $item.attr("data-accordion-group") || "principal"
+    );
+
+    const $itemsGrupo =
+        obtenerItemsGrupoAcordeonConfiguracion(grupo);
+
+    $itemsGrupo.each(function () {
+        const $otro = $(this);
+
+        if ($otro.is($item)) {
+            return;
+        }
+
+        cerrarItemAcordeonConfiguracion($otro);
+    });
+
+    const yaAbierto = $item.hasClass("is-open");
+    const $contenido = $item
+        .children(".config-accordion-content")
+        .first();
+
+    $item
+        .addClass("is-open")
+        .children(".config-accordion-trigger")
+        .first()
+        .attr("aria-expanded", "true");
+
+    if (!yaAbierto) {
+        $contenido
+            .stop(true, true)
+            .slideDown(180, function () {
+                if (desplazar !== false) {
+                    desplazarAInicioAcordeonConfiguracion(
+                        $item
+                    );
+                }
+            });
+    } else if (desplazar !== false) {
+        desplazarAInicioAcordeonConfiguracion(
+            $item
+        );
+    }
+
+    if (grupo === "principal") {
+        actualizarBarraGuardadoSegunSeccion($item);
+    }
+}
+
+function cerrarItemAcordeonConfiguracion(
+    $item
+) {
+    if (!$item || !$item.length) {
+        return;
+    }
+
+    $item
+        .removeClass("is-open")
+        .children(".config-accordion-trigger")
+        .first()
+        .attr("aria-expanded", "false");
+
+    $item
+        .children(".config-accordion-content")
+        .first()
+        .stop(true, true)
+        .slideUp(150);
+}
+
+function desplazarAInicioAcordeonConfiguracion(
+    $item
+) {
+    if (!$item || !$item.length) {
+        return;
+    }
+
+    const $navbar = $(".main-navbar:visible").first();
+    const alturaNavbar = $navbar.length
+        ? Number($navbar.outerHeight() || 0)
+        : 0;
+
+    const posicion = Math.max(
+        0,
+        Number($item.offset().top || 0) -
+            alturaNavbar -
+            16
+    );
+
+    $("html, body")
+        .stop(true)
+        .animate(
+            {
+                scrollTop: posicion
+            },
+            220
+        );
+}
+
+function actualizarBarraGuardadoSegunSeccion(
+    $itemActivo
+) {
+    let $activo = $itemActivo;
+
+    if (!$activo || !$activo.length) {
+        $activo = $(
+            '#configAccordionPrincipal ' +
+            '.config-accordion-item' +
+            '[data-accordion-group="principal"].is-open'
+        ).first();
+    }
+
+    const esCaja = String(
+        $activo.attr("data-config-section") || ""
+    ) === "caja";
+
+    $("#configEmpresaSavebar").toggleClass(
+        "d-none",
+        esCaja
+    );
+}
+
+function abrirSeccionParaCampoConfiguracion(
+    campo
+) {
+    if (!campo) {
+        return;
+    }
+
+    const $campo = $(campo);
+
+    const $principal = $campo.closest(
+        '.config-accordion-item[data-accordion-group="principal"]'
+    );
+
+    if ($principal.length) {
+        abrirItemAcordeonConfiguracion(
+            $principal,
+            false
+        );
+    }
+
+    const $api = $campo.closest(
+        '.config-accordion-item[data-accordion-group="apis"]'
+    );
+
+    if ($api.length) {
+        window.setTimeout(
+            function () {
+                abrirItemAcordeonConfiguracion(
+                    $api,
+                    false
+                );
+            },
+            90
+        );
+    }
+
+    window.setTimeout(
+        function () {
+            desplazarAInicioAcordeonConfiguracion(
+                $api.length ? $api : $principal
+            );
+        },
+        230
+    );
+}
+
+function validarCamposFormularioConfiguracion(
+    formulario
+) {
+    if (!formulario || !formulario.elements) {
+        return true;
+    }
+
+    const campos = Array.from(
+        formulario.elements
+    );
+
+    const campoInvalido = campos.find(
+        function (campo) {
+            return (
+                campo &&
+                !campo.disabled &&
+                typeof campo.checkValidity === "function" &&
+                !campo.checkValidity()
+            );
+        }
+    );
+
+    if (!campoInvalido) {
+        return true;
+    }
+
+    abrirSeccionParaCampoConfiguracion(
+        campoInvalido
+    );
+
+    window.setTimeout(
+        function () {
+            try {
+                campoInvalido.focus({
+                    preventScroll: true
+                });
+            } catch (error) {
+                campoInvalido.focus();
+            }
+
+            if (
+                typeof campoInvalido.reportValidity ===
+                "function"
+            ) {
+                campoInvalido.reportValidity();
+            }
+        },
+        260
+    );
+
+    return false;
+}
+
+function mostrarSeccionConfiguracionPorSelector(
+    selector
+) {
+    const elemento = document.querySelector(
+        selector
+    );
+
+    if (elemento) {
+        abrirSeccionParaCampoConfiguracion(
+            elemento
+        );
+    }
 }
 
 /*
@@ -489,6 +798,9 @@ function validarConfiguracionTributariaEmpresa() {
     ).trim();
 
     if (!/^\d{4}$/.test(tipoOperacion)) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#tipo_operacion_sunat_predeterminado"
+        );
         mostrarAlertaConfiguracion(
             "Tipo de operación",
             "Seleccione un tipo de operación SUNAT válido.",
@@ -498,6 +810,9 @@ function validarConfiguracionTributariaEmpresa() {
     }
 
     if (!["10", "20", "30", "40"].includes(afectacion)) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#codigo_afectacion_igv_predeterminado"
+        );
         mostrarAlertaConfiguracion(
             "Afectación al IGV",
             "Seleccione una afectación tributaria válida.",
@@ -507,6 +822,9 @@ function validarConfiguracionTributariaEmpresa() {
     }
 
     if (afectacion === "10" && (tasa <= 0 || tasa > 100)) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#porcentaje_igv_predeterminado"
+        );
         mostrarAlertaConfiguracion(
             "Tasa de IGV",
             "Una operación gravada debe tener una tasa de IGV válida.",
@@ -516,6 +834,9 @@ function validarConfiguracionTributariaEmpresa() {
     }
 
     if (afectacion !== "10" && tasa !== 0) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#porcentaje_igv_predeterminado"
+        );
         mostrarAlertaConfiguracion(
             "Tasa de IGV",
             "Las operaciones exoneradas, inafectas y de exportación deben usar tasa 0%.",
@@ -525,6 +846,9 @@ function validarConfiguracionTributariaEmpresa() {
     }
 
     if (!/^[A-Z0-9]{2,3}$/.test(unidad)) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#unidad_medida_sunat_predeterminada"
+        );
         mostrarAlertaConfiguracion(
             "Unidad SUNAT",
             "Seleccione una unidad de medida SUNAT válida.",
@@ -1004,6 +1328,10 @@ function guardaryeditar(e) {
         return;
     }
 
+    if (!validarCamposFormularioConfiguracion(formulario)) {
+        return;
+    }
+
     if (!validarConfiguracionTributariaEmpresa()) {
         return;
     }
@@ -1022,6 +1350,9 @@ function guardaryeditar(e) {
             personaId
         )
     ) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#apisunat_persona_id"
+        );
         mostrarAlertaConfiguracion(
             "Persona ID inválido",
             "Revise el Persona ID de APISUNAT.",
@@ -1035,6 +1366,9 @@ function guardaryeditar(e) {
         personaToken !== "" &&
         personaToken.length < 20
     ) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#apisunat_persona_token"
+        );
         mostrarAlertaConfiguracion(
             "Persona Token inválido",
             "El Persona Token ingresado parece incompleto.",
@@ -1072,6 +1406,9 @@ function guardaryeditar(e) {
         pagoNormalizado.includes("CREDITO")
         && !comprobanteNormalizado.includes("FACTURA")
     ) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#venta_tipo_comprobante_predeterminado"
+        );
         mostrarAlertaConfiguracion(
             "Configuración incompatible",
             "El pago al crédito está habilitado únicamente para facturas electrónicas. Seleccione Factura Electrónica como comprobante predeterminado.",
@@ -1089,6 +1426,9 @@ function guardaryeditar(e) {
                 .attr("data-combinado") || 0
         ) === 1
     ) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#venta_idforma_pago_predeterminada"
+        );
         mostrarAlertaConfiguracion(
             "Forma de pago incompatible",
             "No establezca Pago mixto como forma predeterminada para ventas al crédito.",
