@@ -166,6 +166,28 @@ function generarEstadoSunatVenta(
         . '</span>';
 }
 
+
+/**
+ * Estado SUNAT en texto plano para exportaciones.
+ */
+function obtenerEstadoSunatTexto(string $estado): string
+{
+    $estado = strtoupper(trim($estado));
+
+    return match ($estado) {
+        'ACEPTADO' => 'Aceptado',
+        'PENDIENTE', 'EN_PROCESO' => 'En proceso',
+        'ENVIADO' => 'Enviado',
+        'RECHAZADO' => 'Rechazado',
+        'EXCEPCION' => 'Excepción',
+        'ERROR' => 'Error',
+        'ANULADO' => 'Anulado',
+        'NO_APLICA' => 'No aplica',
+        'NO_ENVIADO' => 'No enviado',
+        default => $estado !== '' ? $estado : 'No enviado',
+    };
+}
+
 switch ($op) {
 
     // =========================================================
@@ -398,47 +420,6 @@ switch ($op) {
 
             $esBoleta =
                 stripos($tipo_comprobante, 'boleta') !== false;
-
-            /*
-            |--------------------------------------------------------------------------
-            | MODO DE ENVÍO SUNAT APLICADO A ESTA VENTA
-            |--------------------------------------------------------------------------
-            | Se persiste como dato histórico. El valor predeterminado proviene
-            | de Configuración de Empresa y llega desde el POS.
-            */
-            $modoEnvio = strtolower(
-                trim(
-                    (string)(
-                        $_POST['modo_envio']
-                        ?? 'inmediato'
-                    )
-                )
-            );
-
-            if (
-                !in_array(
-                    $modoEnvio,
-                    [
-                        'inmediato',
-                        'manual',
-                        'resumen_diario'
-                    ],
-                    true
-                )
-            ) {
-                throw new Exception(
-                    'El modo de envío SUNAT seleccionado no es válido.'
-                );
-            }
-
-            if (
-                $modoEnvio === 'resumen_diario'
-                && !$esBoleta
-            ) {
-                throw new Exception(
-                    'El Resumen Diario solo está disponible para Boleta Electrónica.'
-                );
-            }
 
             $clienteGenericoSolicitado = in_array(
                 strtolower(
@@ -723,114 +704,6 @@ switch ($op) {
                     $cantidadProductos,
                     0.00
                 );
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | VALIDAR STOCK REAL AL MOMENTO DE PROCESAR
-            |--------------------------------------------------------------------------
-            | Las pestañas del POS son borradores y NO reservan stock.
-            | Si otra venta consumió unidades mientras esta pestaña estaba en espera,
-            | se valida y bloquea el artículo antes de asignar correlativo.
-            */
-            $cantidadesSolicitadasPorArticulo = [];
-
-            foreach ($idarticulos as $indiceArticulo => $idArticuloVenta) {
-                $idArticuloVenta = (int)$idArticuloVenta;
-                $cantidadSolicitada = round(
-                    (float)($cantidades[$indiceArticulo] ?? 0),
-                    3
-                );
-
-                if (
-                    $idArticuloVenta <= 0
-                    || $cantidadSolicitada <= 0
-                ) {
-                    throw new Exception(
-                        'Existe un producto o cantidad inválida en la venta.'
-                    );
-                }
-
-                if (
-                    !isset(
-                        $cantidadesSolicitadasPorArticulo[
-                            $idArticuloVenta
-                        ]
-                    )
-                ) {
-                    $cantidadesSolicitadasPorArticulo[
-                        $idArticuloVenta
-                    ] = 0.000;
-                }
-
-                $cantidadesSolicitadasPorArticulo[
-                    $idArticuloVenta
-                ] += $cantidadSolicitada;
-            }
-
-            foreach (
-                $cantidadesSolicitadasPorArticulo
-                as $idArticuloStock => $cantidadRequerida
-            ) {
-                $articuloStock = $conexionVenta->getData(
-                    "SELECT
-                        idarticulo,
-                        nombre,
-                        COALESCE(stock, 0) AS stock
-                     FROM articulo
-                     WHERE idarticulo = ?
-                       AND condicion = 1
-                     LIMIT 1
-                     FOR UPDATE",
-                    [(int)$idArticuloStock]
-                );
-
-                if (!is_array($articuloStock)) {
-                    throw new Exception(
-                        'Uno de los productos ya no se encuentra disponible.'
-                    );
-                }
-
-                $stockDisponible = round(
-                    (float)($articuloStock['stock'] ?? 0),
-                    3
-                );
-
-                $cantidadRequerida = round(
-                    (float)$cantidadRequerida,
-                    3
-                );
-
-                if (
-                    $cantidadRequerida
-                    > $stockDisponible + 0.0001
-                ) {
-                    $nombreArticulo = trim(
-                        (string)(
-                            $articuloStock['nombre']
-                            ?? 'Producto'
-                        )
-                    );
-
-                    throw new Exception(
-                        'Stock insuficiente para '
-                        . $nombreArticulo
-                        . '. Disponible: '
-                        . rtrim(
-                            rtrim(
-                                number_format(
-                                    $stockDisponible,
-                                    3,
-                                    '.',
-                                    ''
-                                ),
-                                '0'
-                            ),
-                            '.'
-                        )
-                        . '.'
-                    );
-                }
             }
 
             // =================================================
@@ -1250,29 +1123,6 @@ switch ($op) {
                 );
             }
 
-            $modoEnvioPersistido = (
-                $esFactura
-                || $esBoleta
-            )
-                ? strtoupper($modoEnvio)
-                : null;
-
-            $modoGuardado = $conexionVenta->setData(
-                "UPDATE venta
-                 SET modo_envio_sunat = ?
-                 WHERE idventa = ?",
-                [
-                    $modoEnvioPersistido,
-                    (int)$idventa
-                ]
-            );
-
-            if (!$modoGuardado) {
-                throw new Exception(
-                    'No se pudo guardar el modo de envío SUNAT de la venta.'
-                );
-            }
-
             // =================================================
             // 11. REGISTRAR PAGOS
             // =================================================
@@ -1503,6 +1353,28 @@ switch ($op) {
                 | Si APISUNAT falla, la venta sigue registrada y no debe duplicarse.
                 */
 
+            $modoEnvio = strtolower(
+                trim(
+                    (string)(
+                        $_POST['modo_envio']
+                        ?? 'inmediato'
+                    )
+                )
+            );
+
+            if (
+                !in_array(
+                    $modoEnvio,
+                    [
+                        'inmediato',
+                        'manual'
+                    ],
+                    true
+                )
+            ) {
+                $modoEnvio = 'inmediato';
+            }
+
             $tipoNormalizado = mb_strtolower(
                 trim($tipo_comprobante),
                 'UTF-8'
@@ -1552,23 +1424,6 @@ switch ($op) {
                     'production' => true,
                     'mensaje' =>
                     'Comprobante registrado para envío manual posterior.'
-                ];
-            }
-
-            if (
-                $esBoletaElectronica
-                && $modoEnvio === 'resumen_diario'
-            ) {
-                $resultadoSunat = [
-                    'aplica' => true,
-                    'intentado' => false,
-                    'success' => null,
-                    'status' => 'NO_ENVIADO',
-                    'documentId' => null,
-                    'fileName' => null,
-                    'production' => true,
-                    'mensaje' =>
-                    'Boleta registrada para inclusión en el Resumen Diario.'
                 ];
             }
 
@@ -1639,12 +1494,6 @@ switch ($op) {
                 'Venta registrada correctamente.';
 
             if (
-                $esBoletaElectronica
-                && $modoEnvio === 'resumen_diario'
-            ) {
-                $mensajeRespuesta =
-                    'Venta registrada. La boleta quedó pendiente para el Resumen Diario.';
-            } elseif (
                 $esComprobanteElectronico
                 && $modoEnvio === 'manual'
             ) {
@@ -1997,6 +1846,7 @@ switch ($op) {
             <thead>
                 <tr>
                     <th>Producto</th>
+                    <th>SKU</th>
                     <th class="text-center">Cantidad</th>
                     <th class="text-right">Precio unitario</th>
                     <th class="text-right">Descuento</th>
@@ -2009,7 +1859,7 @@ switch ($op) {
         if (!is_array($detalles) || count($detalles) === 0) {
             echo '
                 <tr>
-                    <td colspan="5" class="venta-detalle-vacio">
+                    <td colspan="6" class="venta-detalle-vacio">
                         No se encontraron productos para esta venta.
                     </td>
                 </tr>
@@ -2051,6 +1901,13 @@ switch ($op) {
                             htmlspecialchars($afectacion, ENT_QUOTES, 'UTF-8') .
                         '</small>
                     </td>
+                    <td>' .
+                        htmlspecialchars(
+                            (string)($reg['sku'] ?? ''),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) .
+                    '</td>
                     <td class="text-center venta-cantidad">' . $cantidadTexto . '</td>
                     <td class="text-right">' . $simboloHtml . ' ' . number_format($precioUnitario, 2, '.', ',') . '</td>
                     <td class="text-right">' . $simboloHtml . ' ' . number_format($descuentoLinea, 2, '.', ',') . '</td>
@@ -2073,7 +1930,7 @@ switch ($op) {
         if ($descuentoTotal > 0.009) {
             echo '
                 <tr class="venta-resumen-fila venta-resumen-descuento">
-                    <th colspan="4" class="text-right">Descuento aplicado</th>
+                    <th colspan="5" class="text-right">Descuento aplicado</th>
                     <th class="text-right">− ' . $simboloHtml . ' ' . number_format($descuentoTotal, 2, '.', ',') . '</th>
                 </tr>
             ';
@@ -2097,7 +1954,7 @@ switch ($op) {
 
             echo '
                 <tr class="venta-resumen-fila">
-                    <th colspan="4" class="text-right">' .
+                    <th colspan="5" class="text-right">' .
                         htmlspecialchars($etiqueta, ENT_QUOTES, 'UTF-8') .
                     '</th>
                     <th class="text-right">' . $simboloHtml . ' ' . number_format($importe, 2, '.', ',') . '</th>
@@ -2107,7 +1964,7 @@ switch ($op) {
 
         echo '
                 <tr class="venta-resumen-total">
-                    <th colspan="4" class="text-right">
+                    <th colspan="5" class="text-right">
                         <span>Total de la venta</span>
                         <small>Resumen tributario guardado con el comprobante</small>
                     </th>
@@ -2473,18 +2330,25 @@ switch ($op) {
             $tipoComprobanteVenta = trim(
                 (string)($reg['tipo_comprobante'] ?? '')
             );
-            $estadoVenta = trim((string)($reg['estado'] ?? ''));
+
+            $estadoVenta = trim(
+                (string)($reg['estado'] ?? '')
+            );
+
             $estadoSunatVenta = strtoupper(
                 trim((string)($reg['estado_sunat'] ?? ''))
             );
+
             $totalVenta = round(
                 (float)($reg['total_venta'] ?? 0),
                 2
             );
+
             $totalNotas = round(
                 (float)($reg['total_notas_credito'] ?? 0),
                 2
             );
+
             $saldoNota = max(
                 round($totalVenta - $totalNotas, 2),
                 0.00
@@ -2543,91 +2407,134 @@ switch ($op) {
                 ';
             }
 
-            $data[] = [
-                '0' => $reg['fecha'],
-                '1' => $reg['cliente'],
-                '2' => $reg['usuario'],
-                '3' => $reg['tipo_comprobante'],
-                '4' => (
-                    function () use ($reg): string {
-                        $numero = htmlspecialchars(
-                            (string)$reg['serie_comprobante']
-                            . '-'
-                            . (string)$reg['num_comprobante'],
+            $serieNumero = trim(
+                (string)($reg['serie_comprobante'] ?? '')
+            )
+                . '-'
+                . trim(
+                    (string)($reg['num_comprobante'] ?? '')
+                );
+
+            $comprobanteHtml =
+                '<div class="venta-numero-documento">'
+                . '<strong>'
+                . htmlspecialchars(
+                    $tipoComprobanteVenta
+                    . ' / '
+                    . $serieNumero,
+                    ENT_QUOTES,
+                    'UTF-8'
+                )
+                . '</strong>';
+
+            $cantidadNotas = (int)(
+                $reg['cantidad_notas_credito']
+                ?? 0
+            );
+
+            if ($cantidadNotas > 0 && $totalNotas > 0) {
+                $textoCantidad =
+                    $cantidadNotas === 1
+                        ? '1 nota de crédito'
+                        : $cantidadNotas . ' notas de crédito';
+
+                $comprobanteHtml .= '
+                    <span
+                        class="venta-nota-badge"
+                        title="' . htmlspecialchars(
+                            $textoCantidad,
                             ENT_QUOTES,
                             'UTF-8'
-                        );
+                        ) . '">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        ' . $cantidadNotas . ' N.C. · S/ '
+                        . number_format(
+                            $totalNotas,
+                            2,
+                            '.',
+                            ''
+                        ) . '
+                    </span>
+                ';
+            }
 
-                        $cantidadNotas = (int)(
-                            $reg['cantidad_notas_credito']
-                            ?? 0
-                        );
+            $comprobanteHtml .= '</div>';
 
-                        $totalNotas = round(
-                            (float)(
-                                $reg['total_notas_credito']
-                                ?? 0
-                            ),
-                            2
-                        );
+            $documentoCliente = trim(
+                (string)($reg['num_documento'] ?? '')
+            );
 
-                        if (
-                            $cantidadNotas <= 0
-                            || $totalNotas <= 0
-                        ) {
-                            return '<strong>'
-                                . $numero
-                                . '</strong>';
-                        }
+            $nombreCliente = trim(
+                (string)($reg['cliente'] ?? 'SIN CLIENTE')
+            );
 
-                        $textoCantidad =
-                            $cantidadNotas === 1
-                                ? '1 nota de crédito'
-                                : $cantidadNotas
-                                    . ' notas de crédito';
+            $clienteTexto =
+                $documentoCliente !== ''
+                    ? $documentoCliente . ' / ' . $nombreCliente
+                    : $nombreCliente;
 
-                        return '
-                            <div class="venta-numero-documento">
-                                <strong>'
-                                    . $numero
-                                    . '
-                                </strong>
+            $metodoPago = trim(
+                (string)($reg['metodo_pago'] ?? '')
+            );
 
-                                <span
-                                    class="venta-nota-badge"
-                                    title="'
-                                    . htmlspecialchars(
-                                        $textoCantidad,
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    )
-                                    . '">
-                                    <i class="fas fa-file-invoice-dollar"></i>
-                                    '
-                                    . $cantidadNotas
-                                    . ' N.C. · S/ '
-                                    . number_format(
-                                        $totalNotas,
-                                        2,
-                                        '.',
-                                        ''
-                                    )
-                                    . '
-                                </span>
-                            </div>
-                        ';
-                    }
-                )(),
-                '5' => number_format(
-                    (float)$reg['total_venta'],
+            if ($metodoPago === '') {
+                $metodoPago = 'No especificado';
+            }
+
+            $data[] = [
+                '0' =>
+                    '<span class="venta-id-export d-none" data-idventa="'
+                    . $id
+                    . '"></span>'
+                    . htmlspecialchars(
+                        (string)($reg['fecha'] ?? ''),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ),
+
+                '1' => $comprobanteHtml,
+
+                '2' => htmlspecialchars(
+                    $clienteTexto,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+
+                '3' => htmlspecialchars(
+                    (string)($reg['usuario'] ?? 'SIN USUARIO'),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+
+                '4' => htmlspecialchars(
+                    $metodoPago,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+
+                '5' => 'S/ ' . number_format(
+                    $totalVenta,
                     2,
                     '.',
                     ''
                 ),
+
                 '6' => generarEstadoSunatVenta(
                     $reg
                 ),
+
                 '7' => '
+                    <button
+                        type="button"
+                        class="btn btn-sm venta-ver-detalle-btn"
+                        onclick="mostrar(' . $id . ')"
+                        title="Ver detalles"
+                        aria-label="Ver detalles de la venta">
+                        <i class="fas fa-eye" aria-hidden="true"></i>
+                    </button>
+                ',
+
+                '8' => '
                     <div class="dropdown venta-acciones">
                         <button
                             type="button"
@@ -2647,14 +2554,6 @@ switch ($op) {
                             <button
                                 type="button"
                                 class="dropdown-item"
-                                onclick="mostrar(' . $id . ')">
-                                <i class="fas fa-eye"></i>
-                                <span>Ver detalle</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                class="dropdown-item"
                                 onclick="duplicarVenta(' . $id . ')">
                                 <i class="far fa-copy"></i>
                                 <span>Duplicar venta</span>
@@ -2667,11 +2566,7 @@ switch ($op) {
 
                             <a
                                 class="dropdown-item"
-                                href="' .
-                    $baseUrl .
-                    'Reports/80mm.php?id=' .
-                    $id .
-                    '"
+                                href="' . $baseUrl . 'Reports/80mm.php?id=' . $id . '"
                                 target="_blank"
                                 rel="noopener">
                                 <i class="fas fa-receipt"></i>
@@ -2680,11 +2575,7 @@ switch ($op) {
 
                             <a
                                 class="dropdown-item"
-                                href="' .
-                    $baseUrl .
-                    'Reports/a4.php?id=' .
-                    $id .
-                    '"
+                                href="' . $baseUrl . 'Reports/a4.php?id=' . $id . '"
                                 target="_blank"
                                 rel="noopener">
                                 <i class="far fa-file-pdf"></i>
@@ -2693,15 +2584,12 @@ switch ($op) {
 
                             <a
                                 class="dropdown-item"
-                                href="https://wa.me/?text=' .
-                    $whatsappTexto .
-                    '"
+                                href="https://wa.me/?text=' . $whatsappTexto . '"
                                 target="_blank"
                                 rel="noopener">
                                 <i class="far fa-comment-dots"></i>
                                 <span>Compartir por WhatsApp</span>
                             </a>
-
                         </div>
                     </div>
                 '
@@ -2714,6 +2602,132 @@ switch ($op) {
             'iTotalDisplayRecords' => count($data),
             'aaData' => $data
         ]);
+
+        break;
+
+    // =========================================================
+    // REPORTE DETALLADO DE VENTAS
+    // =========================================================
+    case 'reporteVentas':
+
+        $idsRecibidos = $_POST['ids'] ?? [];
+
+        if (!is_array($idsRecibidos)) {
+            $idsRecibidos = [];
+        }
+
+        $idsVenta = array_values(
+            array_unique(
+                array_filter(
+                    array_map('intval', $idsRecibidos),
+                    static fn(int $id): bool => $id > 0
+                )
+            )
+        );
+
+        if (count($idsVenta) === 0) {
+            responderJson([]);
+        }
+
+        $registrosReporte =
+            $sell->listarReporteVentasDetallado(
+                $idsVenta
+            );
+
+        $reporte = [];
+
+        foreach ($registrosReporte as $reg) {
+            $tipoComprobante = trim(
+                (string)($reg['tipo_comprobante'] ?? '')
+            );
+
+            $serieNumero = trim(
+                (string)($reg['serie_comprobante'] ?? '')
+            )
+                . '-'
+                . trim(
+                    (string)($reg['num_comprobante'] ?? '')
+                );
+
+            $documentoCliente = trim(
+                (string)($reg['num_documento'] ?? '')
+            );
+
+            $nombreCliente = trim(
+                (string)($reg['cliente'] ?? 'SIN CLIENTE')
+            );
+
+            $clienteTexto =
+                $documentoCliente !== ''
+                    ? $documentoCliente . ' / ' . $nombreCliente
+                    : $nombreCliente;
+
+            $cantidad = (float)($reg['cantidad'] ?? 0);
+
+            $cantidadTexto =
+                abs($cantidad - round($cantidad)) < 0.00001
+                    ? number_format($cantidad, 0, '.', '')
+                    : rtrim(
+                        rtrim(
+                            number_format(
+                                $cantidad,
+                                3,
+                                '.',
+                                ''
+                            ),
+                            '0'
+                        ),
+                        '.'
+                    );
+
+            $reporte[] = [
+                'fecha' => (string)($reg['fecha'] ?? ''),
+
+                'comprobante' =>
+                    $tipoComprobante
+                    . ' / '
+                    . $serieNumero,
+
+                'cliente' => $clienteTexto,
+
+                'sku' => trim(
+                    (string)($reg['sku'] ?? '')
+                ),
+
+                'producto' => trim(
+                    (string)($reg['producto'] ?? 'Producto')
+                ),
+
+                'cantidad' => $cantidadTexto,
+
+                'precio' => 'S/ ' . number_format(
+                    (float)($reg['precio'] ?? 0),
+                    2,
+                    '.',
+                    ''
+                ),
+
+                'metodo_pago' => trim(
+                    (string)(
+                        $reg['metodo_pago']
+                        ?? 'No especificado'
+                    )
+                ),
+
+                'total_venta' => 'S/ ' . number_format(
+                    (float)($reg['total_venta'] ?? 0),
+                    2,
+                    '.',
+                    ''
+                ),
+
+                'estado_sunat' => obtenerEstadoSunatTexto(
+                    (string)($reg['estado_sunat'] ?? '')
+                )
+            ];
+        }
+
+        responderJson($reporte);
 
         break;
 
@@ -2792,11 +2806,10 @@ switch ($op) {
                 )
             );
 
-            /*
-             * El estado SUNAT no se recalcula con el estado local.
-             * Listsales muestra exactamente nota_credito_sunat.estado_sunat,
-             * igual que la Bandeja SUNAT.
-             */
+            if ($estadoLocal === 'ANULADA') {
+                $estadoSunat = 'ANULADO';
+            }
+
             $notaEstadoVisual = $nota;
             $notaEstadoVisual['estado_sunat'] =
                 $estadoSunat;

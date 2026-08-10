@@ -63,6 +63,29 @@ if (!isset($_SESSION['nombre'])) {
                 background: #f3f4f6;
             }
 
+            .venta-ver-detalle-btn {
+                width: 36px;
+                height: 34px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+                border: 1px solid #d9defa;
+                border-radius: 8px;
+                color: #5665d8;
+                background: #f5f6ff;
+                box-shadow: none !important;
+                font-weight: 400;
+            }
+
+            .venta-ver-detalle-btn:hover,
+            .venta-ver-detalle-btn:focus {
+                border-color: #bfc7f5;
+                color: #4050c7;
+                background: #ecefff;
+                outline: none;
+            }
+
             .venta-acciones-menu {
                 min-width: 230px;
                 padding: 7px;
@@ -1929,7 +1952,7 @@ if (!isset($_SESSION['nombre'])) {
                                                     type="search"
                                                     class="form-control"
                                                     id="filtroBusquedaDocumentos"
-                                                    placeholder="Cliente, número o usuario">
+                                                    placeholder="Cliente, comprobante, pago o usuario">
                                             </div>
 
                                             <div class="ventas-filter-actions">
@@ -1984,15 +2007,18 @@ if (!isset($_SESSION['nombre'])) {
 
                                                 <thead>
                                                     <th>Fecha</th>
+                                                    <th>Comprobante</th>
                                                     <th>Cliente</th>
                                                     <th>Usuario</th>
-                                                    <th>Documento</th>
-                                                    <th>Número</th>
+                                                    <th>Método de pago</th>
                                                     <th class="text-right">
                                                         Total venta
                                                     </th>
                                                     <th class="text-center">
                                                         Estado SUNAT
+                                                    </th>
+                                                    <th class="text-center">
+                                                        Ver detalles
                                                     </th>
                                                     <th class="text-right">
                                                         Acciones
@@ -2108,7 +2134,7 @@ if (!isset($_SESSION['nombre'])) {
                             </div>
 
                             <div class="row">
-                                <div class="col-lg-8 col-md-7 col-12 venta-campo">
+                                <div class="col-lg-5 col-md-6 col-12 venta-campo">
                                     <label for="cliente">Cliente</label>
                                     <input
                                         class="form-control"
@@ -2119,7 +2145,16 @@ if (!isset($_SESSION['nombre'])) {
                                         readonly>
                                 </div>
 
-                                <div class="col-lg-4 col-md-5 col-12 venta-campo">
+                                <div class="col-lg-3 col-md-6 col-12 venta-campo">
+                                    <label for="documento_clientem">DNI / RUC</label>
+                                    <input
+                                        class="form-control"
+                                        type="text"
+                                        id="documento_clientem"
+                                        readonly>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-12 venta-campo">
                                     <label for="fecha_horam">Fecha de emisión</label>
                                     <div class="input-group">
                                         <input

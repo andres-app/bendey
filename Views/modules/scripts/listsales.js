@@ -14,18 +14,9 @@ let tipoComprobanteFiltro = "TODOS";
 */
 function init() {
   registrarFiltroPremiumDataTables();
-  registrarEventosFiltrosPremium();
-
-  /*
-   * Al ingresar a ListSales, mostrar por defecto únicamente
-   * los comprobantes del mes actual: desde el día 1 hasta hoy.
-   * El usuario conserva todos los filtros existentes y puede
-   * cambiar a Todo el historial, Hoy, Últimos 7 días o Personalizado.
-   */
-  inicializarFiltroMesActual();
-
   listar();
   listarNotasCredito();
+  registrarEventosFiltrosPremium();
 
   const tipoInicial =
     obtenerTipoDocumentoDesdeUrl();
@@ -67,25 +58,19 @@ function listar() {
 
       buttons: [
         {
-          extend: "excelHtml5",
           text: '<i class="far fa-file-excel"></i> Exportar Excel',
-          className: "btn btn-sm btn-export-excel",
-          titleAttr: "Exportar a Excel",
-          title: "Reporte de Ventas",
-          sheetName: "Ventas",
-          exportOptions: {
-            columns: [0, 1, 2, 3, 4, 5, 6],
+          className: "btn btn-sm btn-export-excel buttons-excel",
+          titleAttr: "Exportar reporte detallado a Excel",
+          action: function () {
+            exportarReporteVentas("excel");
           },
         },
         {
-          extend: "pdfHtml5",
           text: '<i class="far fa-file-pdf"></i> Exportar PDF',
-          className: "btn btn-sm btn-export-pdf",
-          titleAttr: "Exportar a PDF",
-          title: "Reporte de Ventas",
-          pageSize: "A4",
-          exportOptions: {
-            columns: [0, 1, 2, 3, 4, 5, 6],
+          className: "btn btn-sm btn-export-pdf buttons-pdf",
+          titleAttr: "Exportar reporte detallado a PDF",
+          action: function () {
+            exportarReporteVentas("pdf");
           },
         },
       ],
@@ -153,11 +138,314 @@ function listar() {
           targets: 7,
           orderable: false,
           searchable: false,
+          className: "text-center align-middle",
+        },
+        {
+          targets: 8,
+          orderable: false,
+          searchable: false,
           className: "text-right align-middle",
         },
       ],
     });
 }
+
+/*
+|--------------------------------------------------------------------------
+| EXPORTACIÓN DETALLADA DE VENTAS
+|--------------------------------------------------------------------------
+*/
+function obtenerIdsVentasFiltradas() {
+  if (!tabla) {
+    return [];
+  }
+
+  const ids = [];
+
+  $(tabla.rows({ search: "applied" }).nodes())
+    .find(".venta-id-export")
+    .each(function () {
+      const id =
+        parseInt(
+          $(this).data("idventa"),
+          10
+        ) || 0;
+
+      if (
+        id > 0
+        && !ids.includes(id)
+      ) {
+        ids.push(id);
+      }
+    });
+
+  return ids;
+}
+
+function exportarReporteVentas(tipo) {
+  const ids =
+    obtenerIdsVentasFiltradas();
+
+  if (ids.length === 0) {
+    swal(
+      "Sin registros",
+      "No existen ventas visibles para exportar.",
+      "info"
+    );
+
+    return;
+  }
+
+  $.ajax({
+    url:
+      "Controllers/Sell.php?op=reporteVentas",
+    type:
+      "POST",
+    dataType:
+      "json",
+    data: {
+      ids: ids,
+    },
+
+    success: function (registros) {
+      if (
+        !Array.isArray(registros)
+        || registros.length === 0
+      ) {
+        swal(
+          "Sin detalle",
+          "No se encontraron productos para las ventas seleccionadas.",
+          "info"
+        );
+
+        return;
+      }
+
+      crearArchivoReporteVentas(
+        registros,
+        tipo
+      );
+    },
+
+    error: function (xhr) {
+      console.error(
+        "Error al generar reporte de ventas:",
+        xhr.responseText
+      );
+
+      swal(
+        "Error",
+        "No se pudo preparar el reporte detallado de ventas.",
+        "error"
+      );
+    },
+  });
+}
+
+function crearArchivoReporteVentas(
+  registros,
+  tipo
+) {
+  const idTabla =
+    "tablaExportVentas_" +
+    Date.now();
+
+  const tablaTemporal =
+    $("<table>", {
+      id: idTabla,
+      style:
+        "position:absolute;left:-99999px;top:-99999px;width:1px;height:1px;overflow:hidden;",
+    });
+
+  tablaTemporal.append(`
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Comprobante</th>
+        <th>Cliente</th>
+        <th>SKU</th>
+        <th>Producto</th>
+        <th>Cantidad</th>
+        <th>Precio</th>
+        <th>Método de pago</th>
+        <th>Total Venta</th>
+        <th>Estado SUNAT</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `);
+
+  $("body").append(
+    tablaTemporal
+  );
+
+  const fechaArchivo =
+    formatearFechaInput(
+      new Date()
+    ).replace(
+      /-/g,
+      ""
+    );
+
+  const esPdf =
+    tipo === "pdf";
+
+  const boton = {
+    extend:
+      esPdf
+        ? "pdfHtml5"
+        : "excelHtml5",
+
+    title:
+      "Reporte de Ventas",
+
+    filename:
+      "Reporte_Ventas_" +
+      fechaArchivo,
+
+    exportOptions: {
+      columns: [
+        0, 1, 2, 3, 4,
+        5, 6, 7, 8, 9,
+      ],
+    },
+  };
+
+  if (esPdf) {
+    boton.orientation =
+      "landscape";
+
+    boton.pageSize =
+      "A4";
+
+    boton.customize =
+      function (doc) {
+        doc.defaultStyle.fontSize = 7;
+        doc.styles.tableHeader.fontSize = 7;
+        doc.pageMargins = [
+          18,
+          32,
+          18,
+          28,
+        ];
+
+        const contenidoTabla =
+          doc.content.find(
+            function (item) {
+              return (
+                item
+                && item.table
+                && Array.isArray(
+                  item.table.body
+                )
+              );
+            }
+          );
+
+        if (
+          contenidoTabla
+          && contenidoTabla.table
+        ) {
+          contenidoTabla.table.widths = [
+            62,
+            112,
+            118,
+            54,
+            92,
+            46,
+            58,
+            78,
+            64,
+            64,
+          ];
+        }
+      };
+  } else {
+    boton.sheetName =
+      "Ventas";
+  }
+
+  const instancia =
+    tablaTemporal.DataTable({
+      data:
+        registros,
+
+      dom:
+        "B",
+
+      paging:
+        false,
+
+      searching:
+        false,
+
+      ordering:
+        false,
+
+      info:
+        false,
+
+      columns: [
+        {
+          data: "fecha",
+          title: "Fecha",
+        },
+        {
+          data: "comprobante",
+          title: "Comprobante",
+        },
+        {
+          data: "cliente",
+          title: "Cliente",
+        },
+        {
+          data: "sku",
+          title: "SKU",
+        },
+        {
+          data: "producto",
+          title: "Producto",
+        },
+        {
+          data: "cantidad",
+          title: "Cantidad",
+        },
+        {
+          data: "precio",
+          title: "Precio",
+        },
+        {
+          data: "metodo_pago",
+          title: "Método de pago",
+        },
+        {
+          data: "total_venta",
+          title: "Total Venta",
+        },
+        {
+          data: "estado_sunat",
+          title: "Estado SUNAT",
+        },
+      ],
+
+      buttons: [
+        boton,
+      ],
+    });
+
+  instancia
+    .button(0)
+    .trigger();
+
+  window.setTimeout(
+    function () {
+      instancia.destroy();
+      tablaTemporal.remove();
+    },
+    1200
+  );
+}
+
 
 
 /*
@@ -856,34 +1144,6 @@ function actualizarParametroDocumentoUrl(
   }
 }
 
-function inicializarFiltroMesActual() {
-  const hoy =
-    new Date();
-
-  const inicioMes =
-    new Date(
-      hoy.getFullYear(),
-      hoy.getMonth(),
-      1
-    );
-
-  $("#filtroPeriodo").val(
-    "mes"
-  );
-
-  $("#filtroFechaDesde").val(
-    formatearFechaInput(
-      inicioMes
-    )
-  );
-
-  $("#filtroFechaHasta").val(
-    formatearFechaInput(
-      hoy
-    )
-  );
-}
-
 function aplicarPeriodoSeleccionado(
   periodo
 ) {
@@ -1156,7 +1416,7 @@ function aplicarFiltrosPremium() {
 
   if (tabla) {
     tabla
-      .column(3)
+      .column(1)
       .search(
         obtenerBusquedaTipoComprobante()
       );
@@ -1360,6 +1620,11 @@ function mostrar(idventa) {
         data.cliente || "SIN CLIENTE"
       );
 
+      $("#documento_clientem").val(
+        data.num_documento_cliente ||
+        ""
+      );
+
       $("#fecha_horam").val(
         data.fecha || ""
       );
@@ -1490,7 +1755,7 @@ function mostrar(idventa) {
       $("#detallesm").html(`
         <tbody>
           <tr>
-            <td colspan="5" class="venta-detalle-vacio text-danger">
+            <td colspan="6" class="venta-detalle-vacio text-danger">
               No se pudo cargar el detalle de productos.
             </td>
           </tr>
@@ -1761,6 +2026,7 @@ function cargarCuotasVenta(idventa) {
 function limpiarVistaVenta() {
   $("#idventam").val("");
   $("#cliente").val("");
+  $("#documento_clientem").val("");
   $("#fecha_horam").val("");
   $("#tipo_comprobantem").val("");
   $("#serie_comprobantem").val("");
@@ -1790,7 +2056,7 @@ function limpiarVistaVenta() {
   $("#detallesm").html(`
     <tbody>
       <tr>
-        <td colspan="5" class="venta-detalle-vacio">
+        <td colspan="6" class="venta-detalle-vacio">
           Cargando detalle...
         </td>
       </tr>
@@ -1903,41 +2169,6 @@ function escaparHtml(valor) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| GENERAR NOTA DE CRÉDITO
-|--------------------------------------------------------------------------
-*/
-function generarNotaCredito(idventa) {
-  const id = Number.parseInt(idventa, 10);
-
-  if (!Number.isInteger(id) || id <= 0) {
-    if (
-      window.Swal &&
-      typeof window.Swal.fire === "function"
-    ) {
-      window.Swal.fire({
-        icon: "warning",
-        title: "Venta no válida",
-        text: "No se pudo identificar la venta para generar la nota de crédito.",
-      });
-    } else if (typeof window.swal === "function") {
-      window.swal(
-        "Venta no válida",
-        "No se pudo identificar la venta para generar la nota de crédito.",
-        "warning"
-      );
-    }
-
-    return;
-  }
-
-  window.location.href =
-    "notacredito?idventa=" +
-    encodeURIComponent(id);
 }
 
 init();

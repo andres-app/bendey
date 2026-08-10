@@ -539,6 +539,8 @@ class Sell
                 ) AS fecha,
 
                 v.idcliente,
+                COALESCE(p.tipo_documento, '') AS tipo_documento_cliente,
+                COALESCE(p.num_documento, '') AS num_documento_cliente,
 
                 COALESCE(
                     p.nombre,
@@ -593,6 +595,7 @@ class Sell
         $sql = "SELECT
                     dv.idventa,
                     dv.idarticulo,
+                    a.codigo AS sku,
                     a.nombre,
                     a.stock,
                     dv.cantidad,
@@ -660,6 +663,7 @@ class Sell
             ) AS fecha,
 
             v.idcliente,
+            COALESCE(p.num_documento, '') AS num_documento,
 
             COALESCE(
                 p.nombre,
@@ -676,6 +680,25 @@ class Sell
             v.num_comprobante,
             v.total_venta,
             v.impuesto,
+
+            COALESCE(
+                NULLIF(
+                    (
+                        SELECT GROUP_CONCAT(
+                            DISTINCT fpv.nombre
+                            ORDER BY fpv.nombre
+                            SEPARATOR ' + '
+                        )
+                        FROM venta_pago vp
+                        INNER JOIN forma_pago fpv
+                            ON fpv.idforma_pago = vp.idforma_pago
+                        WHERE vp.idventa = v.idventa
+                    ),
+                    ''
+                ),
+                fp.nombre,
+                'No especificado'
+            ) AS metodo_pago,
 
             /* Estado local de la venta */
             v.estado,
@@ -701,8 +724,11 @@ class Sell
             vs.estado_sunat AS estado_sunat_original,
             vs.mensaje_sunat,
 
-            /* Estado SUNAT: misma fuente que la Bandeja SUNAT */
+            /* Estado SUNAT unificado */
             CASE
+                WHEN v.estado <> 'Aceptado'
+                THEN 'ANULADO'
+
                 WHEN v.tipo_comprobante NOT IN (
                     'Factura Electrónica',
                     'Boleta Electrónica'
@@ -712,25 +738,23 @@ class Sell
                 WHEN vs.idventa_sunat IS NULL
                 THEN 'NO_ENVIADO'
 
-                WHEN TRIM(
-                    COALESCE(
-                        vs.estado_sunat,
-                        ''
-                    )
-                ) <> ''
-                THEN UPPER(
-                    TRIM(
-                        vs.estado_sunat
-                    )
-                )
-
                 WHEN COALESCE(
                     vs.document_id,
                     ''
                 ) = ''
                 THEN 'NO_ENVIADO'
 
-                ELSE 'PENDIENTE'
+                WHEN COALESCE(
+                    vs.estado_sunat,
+                    ''
+                ) = ''
+                THEN 'PENDIENTE'
+
+                ELSE UPPER(
+                    TRIM(
+                        vs.estado_sunat
+                    )
+                )
             END AS estado_sunat
 
         FROM venta v
@@ -740,6 +764,9 @@ class Sell
 
         LEFT JOIN usuario u
             ON u.idusuario = v.idusuario
+
+        LEFT JOIN forma_pago fp
+            ON fp.idforma_pago = v.idforma_pago
 
         LEFT JOIN venta_sunat vs
             ON vs.idventa = v.idventa
@@ -757,7 +784,6 @@ class Sell
             ? $resultado
             : [];
     }
-
 
 
 
@@ -1642,6 +1668,162 @@ class Sell
             'tipo_tributo' => trim((string)($producto['tipo_tributo'] ?? $datos[2])) ?: $datos[2]
         ];
     }
+
+
+    /**
+     * Reporte detallado de ventas: una fila por producto.
+     * Si se reciben IDs, limita el resultado a las ventas filtradas en ListSales.
+     */
+    public function listarReporteVentasDetallado(array $idsVenta = []): array
+    {
+        $idsVenta = array_values(
+            array_unique(
+                array_filter(
+                    array_map('intval', $idsVenta),
+                    static fn(int $id): bool => $id > 0
+                )
+            )
+        );
+
+        if (count($idsVenta) === 0) {
+            return [];
+        }
+
+        $placeholders = implode(
+            ',',
+            array_fill(0, count($idsVenta), '?')
+        );
+
+        $sql = "
+            SELECT
+                v.idventa,
+
+                DATE_FORMAT(
+                    v.fecha_hora,
+                    '%d/%m/%Y %H:%i'
+                ) AS fecha,
+
+                v.tipo_comprobante,
+                v.serie_comprobante,
+                v.num_comprobante,
+
+                COALESCE(
+                    p.num_documento,
+                    ''
+                ) AS num_documento,
+
+                COALESCE(
+                    p.nombre,
+                    'SIN CLIENTE'
+                ) AS cliente,
+
+                COALESCE(
+                    a.codigo,
+                    ''
+                ) AS sku,
+
+                COALESCE(
+                    a.nombre,
+                    'Producto'
+                ) AS producto,
+
+                dv.cantidad,
+
+                CASE
+                    WHEN dv.cantidad > 0
+                         AND COALESCE(dv.total_linea, 0) > 0
+                    THEN dv.total_linea / dv.cantidad
+                    ELSE dv.precio_venta
+                END AS precio,
+
+                COALESCE(
+                    NULLIF(
+                        (
+                            SELECT GROUP_CONCAT(
+                                DISTINCT fpv.nombre
+                                ORDER BY fpv.nombre
+                                SEPARATOR ' + '
+                            )
+                            FROM venta_pago vp
+                            INNER JOIN forma_pago fpv
+                                ON fpv.idforma_pago = vp.idforma_pago
+                            WHERE vp.idventa = v.idventa
+                        ),
+                        ''
+                    ),
+                    fp.nombre,
+                    'No especificado'
+                ) AS metodo_pago,
+
+                v.total_venta,
+
+                CASE
+                    WHEN v.estado <> 'Aceptado'
+                    THEN 'ANULADO'
+
+                    WHEN v.tipo_comprobante NOT IN (
+                        'Factura Electrónica',
+                        'Boleta Electrónica'
+                    )
+                    THEN 'NO_APLICA'
+
+                    WHEN vs.idventa_sunat IS NULL
+                    THEN 'NO_ENVIADO'
+
+                    WHEN COALESCE(
+                        vs.document_id,
+                        ''
+                    ) = ''
+                    THEN 'NO_ENVIADO'
+
+                    WHEN COALESCE(
+                        vs.estado_sunat,
+                        ''
+                    ) = ''
+                    THEN 'PENDIENTE'
+
+                    ELSE UPPER(
+                        TRIM(
+                            vs.estado_sunat
+                        )
+                    )
+                END AS estado_sunat
+
+            FROM venta v
+
+            INNER JOIN detalle_venta dv
+                ON dv.idventa = v.idventa
+
+            INNER JOIN articulo a
+                ON a.idarticulo = dv.idarticulo
+
+            LEFT JOIN persona p
+                ON p.idpersona = v.idcliente
+
+            LEFT JOIN forma_pago fp
+                ON fp.idforma_pago = v.idforma_pago
+
+            LEFT JOIN venta_sunat vs
+                ON vs.idventa = v.idventa
+
+            WHERE v.tipo_comprobante <> 'Cotizacion'
+              AND v.idventa IN ({$placeholders})
+
+            ORDER BY
+                v.idventa DESC,
+                dv.iddetalle_venta ASC
+        ";
+
+        $resultado = $this->conexion->getDataAll(
+            $sql,
+            $idsVenta
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
+    }
+
 
     public function getConexion()
     {
