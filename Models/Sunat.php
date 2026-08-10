@@ -408,64 +408,117 @@ class Sunat
     }
 
     /**
-     * Cantidad de documentos electrónicos que requieren atención.
-     * Incluye facturas, boletas y notas de crédito.
+     * Cantidad de documentos electrónicos pendientes de ENVÍO.
+     *
+     * El contador del header NO representa incidencias ni documentos
+     * en procesamiento. Solo muestra documentos que todavía no han sido
+     * enviados a APISUNAT:
+     *
+     * - Factura/boleta sin fila en venta_sunat.
+     * - Factura/boleta con estado NO_ENVIADO.
+     * - Nota de crédito sin fila en nota_credito_sunat.
+     * - Nota de crédito con estado NO_ENVIADO.
+     *
+     * PENDIENTE, EN_PROCESO, ENVIADO, ACEPTADO, RECHAZADO,
+     * EXCEPCION y ERROR no se incluyen.
      */
     public function contarPendientes(): int
     {
         $sql = "
-            SELECT COUNT(*) AS cantidad
-            FROM (
-                SELECT
-                    CASE
-                        WHEN vs.idventa_sunat IS NULL
-                        THEN 'NO_ENVIADO'
+            SELECT
+                (
+                    SELECT COUNT(*)
 
-                        WHEN TRIM(COALESCE(vs.estado_sunat, '')) <> ''
-                        THEN UPPER(TRIM(vs.estado_sunat))
+                    FROM venta v
 
-                        WHEN COALESCE(vs.document_id, '') = ''
-                        THEN 'NO_ENVIADO'
+                    LEFT JOIN venta_sunat vs
+                        ON vs.idventa = v.idventa
 
-                        ELSE 'PENDIENTE'
-                    END AS estado_sunat
+                    WHERE v.tipo_comprobante IN (
+                        'Factura Electrónica',
+                        'Boleta Electrónica'
+                    )
 
-                FROM venta v
+                      AND v.estado = 'Aceptado'
 
-                LEFT JOIN venta_sunat vs
-                    ON vs.idventa = v.idventa
+                      AND (
+                            vs.idventa_sunat IS NULL
 
-                WHERE v.tipo_comprobante IN (
-                    'Factura Electrónica',
-                    'Boleta Electrónica'
+                            OR UPPER(
+                                TRIM(
+                                    COALESCE(
+                                        vs.estado_sunat,
+                                        ''
+                                    )
+                                )
+                            ) = 'NO_ENVIADO'
+
+                            OR (
+                                TRIM(
+                                    COALESCE(
+                                        vs.estado_sunat,
+                                        ''
+                                    )
+                                ) = ''
+
+                                AND COALESCE(
+                                    vs.document_id,
+                                    ''
+                                ) = ''
+                            )
+                      )
                 )
+                +
+                (
+                    SELECT COUNT(*)
 
-                UNION ALL
+                    FROM nota_credito nc
 
-                SELECT
-                    CASE
-                        WHEN ncs.idnota_credito IS NULL
-                        THEN 'NO_ENVIADO'
+                    LEFT JOIN nota_credito_sunat ncs
+                        ON ncs.idnota_credito =
+                           nc.idnota_credito
 
-                        WHEN TRIM(COALESCE(ncs.estado_sunat, '')) <> ''
-                        THEN UPPER(TRIM(ncs.estado_sunat))
+                    WHERE UPPER(
+                        TRIM(
+                            COALESCE(
+                                nc.estado,
+                                ''
+                            )
+                        )
+                    ) <> 'ANULADA'
 
-                        WHEN COALESCE(ncs.document_id, '') = ''
-                        THEN 'NO_ENVIADO'
+                      AND (
+                            ncs.idnota_credito IS NULL
 
-                        ELSE 'PENDIENTE'
-                    END AS estado_sunat
+                            OR UPPER(
+                                TRIM(
+                                    COALESCE(
+                                        ncs.estado_sunat,
+                                        ''
+                                    )
+                                )
+                            ) = 'NO_ENVIADO'
 
-                FROM nota_credito nc
+                            OR (
+                                TRIM(
+                                    COALESCE(
+                                        ncs.estado_sunat,
+                                        ''
+                                    )
+                                ) = ''
 
-                LEFT JOIN nota_credito_sunat ncs
-                    ON ncs.idnota_credito = nc.idnota_credito
-            ) pendientes
-
-            WHERE pendientes.estado_sunat <> 'ACEPTADO'
+                                AND COALESCE(
+                                    ncs.document_id,
+                                    ''
+                                ) = ''
+                            )
+                      )
+                ) AS cantidad
         ";
 
-        $resultado = $this->conexion->getData($sql);
+        $resultado = $this->conexion->getData(
+            $sql
+        );
 
         return max(
             (int)($resultado['cantidad'] ?? 0),

@@ -228,8 +228,8 @@ $puedeVerSunatNavbar =
                             <a
                                 href="sunat"
                                 class="nav-link nav-link-lg sunat-navbar-link"
-                                title="Documentos SUNAT pendientes o por revisar"
-                                aria-label="Ver documentos SUNAT pendientes o por revisar">
+                                title="Documentos pendientes de envío a SUNAT"
+                                aria-label="Ver documentos pendientes de envío a SUNAT">
 
                                 <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
 
@@ -354,7 +354,7 @@ $puedeVerSunatNavbar =
                                 contador.classList.add('is-hidden');
                                 contador.setAttribute(
                                     'aria-label',
-                                    'Sin documentos SUNAT pendientes'
+                                    'Sin documentos pendientes de envío a SUNAT'
                                 );
                                 return;
                             }
@@ -367,9 +367,9 @@ $puedeVerSunatNavbar =
                             contador.setAttribute(
                                 'aria-label',
                                 cantidadValida === 1
-                                    ? '1 documento SUNAT pendiente o por revisar'
+                                    ? '1 documento pendiente de envío a SUNAT'
                                     : cantidadValida
-                                        + ' documentos SUNAT pendientes o por revisar'
+                                        + ' documentos pendientes de envío a SUNAT'
                             );
                         }
 
