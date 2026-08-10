@@ -330,6 +330,38 @@
                     </ul>
                 </li>
 
+                <!-- SIRE -->
+                <?php
+                $sireActive = in_array(
+                    $url,
+                    [
+                        'sire_ventas',
+                        'sire_compras'
+                    ],
+                    true
+                );
+                ?>
+                <li class="dropdown <?= $sireActive ? 'active' : '' ?>">
+                    <a href="#" class="nav-link has-dropdown">
+                        <i data-feather="file-text"></i>
+                        <span>SIRE</span>
+                    </a>
+
+                    <ul class="dropdown-menu <?= $sireActive ? 'show' : '' ?>">
+                        <li class="<?= $url == 'sire_ventas' ? 'active' : '' ?>">
+                            <a class="nav-link" href="sire_ventas">
+                                SIRE Ventas
+                            </a>
+                        </li>
+
+                        <li class="<?= $url == 'sire_compras' ? 'active' : '' ?>">
+                            <a class="nav-link" href="sire_compras">
+                                SIRE Compras
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
                 <!-- USUARIOS -->
                 <?php if (!empty($_SESSION['users']) && $_SESSION['users'] == 1) {
                     $usuariosActive = in_array($url, ['users', 'permissions']);

@@ -31,6 +31,10 @@ if (isset($_GET["url"])) {
         "contabilidad_reporte_ventas",
         "contabilidad_reporte_compras",
 
+        // SIRE
+        "sire_ventas",
+        "sire_compras",
+
         "generalsetting",
         "cajachica",
         "vouchersetting",
