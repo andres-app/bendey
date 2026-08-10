@@ -2,50 +2,70 @@
 
 if (isset($_GET["url"])) {
 
-    if (
-        $_GET["url"] == "dashboard"
-        || $_GET["url"] == "users"
-        || $_GET["url"] == "salir"
-        || $_GET["url"] == "category"
-        || $_GET["url"] == "atributos"
-        || $_GET["url"] == "almacenes"
-        || $_GET["url"] == "product"
-        || $_GET["url"] == "supplier"
-        || $_GET["url"] == "customer"
-        || $_GET["url"] == "sunat"
-        || $_GET["url"] == "cotizacion"
-        || $_GET["url"] == "newsale"
-        || $_GET["url"] == "newsale2"
-        || $_GET["url"] == "newsale3"
-        || $_GET["url"] == "listsales"
-        || $_GET["url"] == "notacredito"
+    $url = trim((string)$_GET["url"]);
 
-        // MÓDULO DE COBRANZAS
-        || $_GET["url"] == "cobranzas"
+    $rutasPermitidas = [
+        "dashboard",
+        "users",
+        "salir",
+        "category",
+        "atributos",
+        "almacenes",
+        "product",
+        "supplier",
+        "customer",
+        "sunat",
+        "cotizacion",
+        "newsale",
+        "newsale2",
+        "newsale3",
+        "listsales",
+        "notacredito",
 
-        || $_GET["url"] == "generalsetting"
-        || $_GET["url"] == "cajachica"
-        || $_GET["url"] == "vouchersetting"
-        || $_GET["url"] == "paymentstype"
-        || $_GET["url"] == "paymentformat"
-        || $_GET["url"] == "datebuy"
-        || $_GET["url"] == "clientdatesales"
-        || $_GET["url"] == "permissions"
-        || $_GET["url"] == "buy"
-        || $_GET["url"] == "graphics"
-        || $_GET["url"] == "editsale"
-        || $_GET["url"] == "editbuy"
-        || $_GET["url"] == "salesproduct"
-        || $_GET["url"] == "purchaseproduct"
-        || $_GET["url"] == "kardex"
-        || $_GET["url"] == "medida"
-        || $_GET["url"] == "login"
-    ) {
-        include "modules/" . $_GET["url"] . ".php";
+        // COBRANZAS
+        "cobranzas",
+
+        // CONTABILIDAD
+        "contabilidad_libro_ventas",
+        "contabilidad_libro_compras",
+        "contabilidad_reporte_ventas",
+        "contabilidad_reporte_compras",
+
+        "generalsetting",
+        "cajachica",
+        "vouchersetting",
+        "paymentstype",
+        "paymentformat",
+        "datebuy",
+        "clientdatesales",
+        "permissions",
+        "buy",
+        "graphics",
+        "editsale",
+        "editbuy",
+        "salesproduct",
+        "purchaseproduct",
+        "kardex",
+        "medida",
+        "login"
+    ];
+
+    if (in_array($url, $rutasPermitidas, true)) {
+        $archivoModulo =
+            __DIR__
+            . "/modules/"
+            . $url
+            . ".php";
+
+        if (is_file($archivoModulo)) {
+            include $archivoModulo;
+        } else {
+            include __DIR__ . "/modules/404.php";
+        }
     } else {
-        include "modules/404.php";
+        include __DIR__ . "/modules/404.php";
     }
 
 } else {
-    include "modules/login.php";
+    include __DIR__ . "/modules/login.php";
 }
