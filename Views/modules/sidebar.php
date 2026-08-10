@@ -208,7 +208,7 @@
                     <li class="dropdown <?= $productosActive ? 'active' : '' ?>">
                         <a href="#" class="nav-link has-dropdown">
                             <i data-feather="box"></i>
-                            <span>Productos</span>
+                            <span>Inventario</span>
                         </a>
 
                         <ul class="dropdown-menu <?= $productosActive ? 'show' : '' ?>">
