@@ -251,7 +251,7 @@
 
                 <!-- VENTAS -->
                 <?php if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
-                    $ventasActive = !$esPOS && in_array($url, ['listsales', 'cobranzas', 'customer', 'sunat', 'cotizacion'], true);
+                    $ventasActive = !$esPOS && in_array($url, ['listsales', 'cobranzas', 'customer', 'sunat', 'resumenboletas', 'cotizacion'], true);
                 ?>
                     <li class="dropdown <?= $ventasActive ? 'active' : '' ?>">
                         <a href="#" class="nav-link has-dropdown">
@@ -279,6 +279,9 @@
                             </li>
                             <li class="<?= $url == 'sunat' ? 'active' : '' ?>">
                                 <a class="nav-link" href="sunat">SUNAT</a>
+                            </li>
+                            <li class="<?= $url == 'resumenboletas' ? 'active' : '' ?>">
+                                <a class="nav-link" href="resumenboletas">Resumen Diario Boletas</a>
                             </li>
                         </ul>
                     </li>

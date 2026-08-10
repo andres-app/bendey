@@ -857,16 +857,101 @@ function aplicarConfiguracionVentaPredeterminada(
     ).trim().toLowerCase();
 
     if (
-        modoEnvio === 'inmediato'
-        || modoEnvio === 'manual'
+        ['inmediato', 'manual', 'resumen_diario'].includes(modoEnvio)
     ) {
         $('#modo_envio')
-            .val(modoEnvio)
-            .trigger('change');
+            .val(modoEnvio);
+
+        actualizarDisponibilidadModoEnvioSunat({
+            aplicarPredeterminado: true
+        });
     }
 
     return true;
 }
+
+/*
+|--------------------------------------------------------------------------
+| MODO DE ENVÍO SUNAT
+|--------------------------------------------------------------------------
+| La preferencia nace en Configuración de Empresa.
+| RESUMEN_DIARIO es válido únicamente para Boleta Electrónica.
+*/
+function obtenerModoEnvioPredeterminadoEmpresa() {
+    const modo = String(
+        configuracionVentaPredeterminadaCache
+            ?.venta_modo_envio_predeterminado
+        || ''
+    ).trim().toLowerCase();
+
+    return ['inmediato', 'manual', 'resumen_diario'].includes(modo)
+        ? modo
+        : '';
+}
+
+function actualizarMensajeModoEnvioSunat() {
+    const modo = String(
+        $('#modo_envio').val() || 'inmediato'
+    ).trim().toLowerCase();
+
+    if (modo === 'resumen_diario') {
+        $('#mensajeModoEnvio').html(
+            '<strong>Resumen Diario:</strong> ' +
+            'la boleta se registrará normalmente y quedará pendiente para ser incluida en el Resumen Diario de Boletas. No se enviará individualmente.'
+        );
+        return;
+    }
+
+    if (modo === 'manual') {
+        $('#mensajeModoEnvio').html(
+            '<strong>Envío manual:</strong> ' +
+            'la venta se registrará y reservará su correlativo, pero no será enviada a SUNAT. Podrá enviarla posteriormente desde Estado de Comprobantes SUNAT.'
+        );
+        return;
+    }
+
+    $('#mensajeModoEnvio').html(
+        '<strong>Envío inmediato:</strong> ' +
+        'la venta se registrará y será enviada automáticamente mediante APISUNAT.'
+    );
+}
+
+function actualizarDisponibilidadModoEnvioSunat(opciones = {}) {
+    const $select = $('#modo_envio');
+    const $resumen = $select.find('option[value="resumen_diario"]');
+
+    if (!$select.length || !$resumen.length) {
+        return;
+    }
+
+    const esBoleta = esBoletaSeleccionada();
+    const predeterminado = obtenerModoEnvioPredeterminadoEmpresa();
+    const actual = String($select.val() || '').trim().toLowerCase();
+
+    $resumen.prop('disabled', !esBoleta);
+
+    if (!esBoleta && actual === 'resumen_diario') {
+        const reemplazo = ['inmediato', 'manual'].includes(predeterminado)
+            ? predeterminado
+            : 'inmediato';
+
+        $select.val(reemplazo);
+    } else if (
+        esBoleta
+        && opciones.aplicarPredeterminado === true
+        && predeterminado === 'resumen_diario'
+    ) {
+        $select.val('resumen_diario');
+    }
+
+    actualizarMensajeModoEnvioSunat();
+}
+
+$(document)
+    .off('change.modoEnvioSunat', '#modo_envio')
+    .on('change.modoEnvioSunat', '#modo_envio', function () {
+        actualizarDisponibilidadModoEnvioSunat();
+    });
 
 // 1. CARGA DE SELECTS DINÁMICOS
 function cargarComprobantes() {
@@ -892,6 +977,9 @@ function inicializarEventos() {
     $('#tipo_comprobante').on('change', function () {
         mostrarSerieNumero();
         actualizarReglaCliente();
+        actualizarDisponibilidadModoEnvioSunat({
+            aplicarPredeterminado: true
+        });
     });
 
     $('#num_documento').on('input', function () {
@@ -1101,6 +1189,10 @@ function guardarVenta() {
                     ? data.sunat
                     : null;
 
+            const modoEnvioRespuesta = String(
+                data.modo_envio || ''
+            ).trim().toLowerCase();
+
             let titulo = 'Venta registrada';
             let icono = 'success';
             let mensaje = String(
@@ -1117,7 +1209,21 @@ function guardarVenta() {
                     sunat.status || ''
                 ).toUpperCase();
 
-                if (sunat.success === true) {
+                if (modoEnvioRespuesta === 'resumen_diario') {
+                    titulo = 'Boleta pendiente de Resumen Diario';
+                    icono = 'success';
+                    mensaje = String(
+                        data.mensaje ||
+                        'La boleta quedó preparada para el Resumen Diario.'
+                    );
+                } else if (modoEnvioRespuesta === 'manual') {
+                    titulo = 'Venta registrada';
+                    icono = 'success';
+                    mensaje = String(
+                        data.mensaje ||
+                        'El comprobante quedó pendiente de envío manual.'
+                    );
+                } else if (sunat.success === true) {
                     titulo = 'Venta enviada a SUNAT';
 
                     mensaje =

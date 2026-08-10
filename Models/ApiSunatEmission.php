@@ -50,6 +50,10 @@ class ApiSunatEmission
             );
         }
 
+        $this->validarModoEnvioIndividual(
+            $idventa
+        );
+
         $comprobante = $this->documento->construir(
             $idventa
         );
@@ -288,6 +292,49 @@ class ApiSunatEmission
         ) {
             throw new RuntimeException(
                 'El documentBody está vacío.'
+            );
+        }
+    }
+
+    private function validarModoEnvioIndividual(
+        int $idventa
+    ): void {
+        $stmt = $this->pdo->prepare(
+            "SELECT
+                tipo_comprobante,
+                modo_envio_sunat
+             FROM venta
+             WHERE idventa = :idventa
+             LIMIT 1"
+        );
+
+        $stmt->execute([
+            ':idventa' => $idventa
+        ]);
+
+        $venta = $stmt->fetch();
+
+        if (!is_array($venta)) {
+            throw new RuntimeException(
+                'No se encontró la venta que desea enviar.'
+            );
+        }
+
+        $tipo = mb_strtoupper(
+            trim((string)($venta['tipo_comprobante'] ?? '')),
+            'UTF-8'
+        );
+
+        $modo = strtoupper(
+            trim((string)($venta['modo_envio_sunat'] ?? ''))
+        );
+
+        if (
+            str_contains($tipo, 'BOLETA')
+            && $modo === 'RESUMEN_DIARIO'
+        ) {
+            throw new RuntimeException(
+                'Esta boleta está configurada para Resumen Diario y no puede enviarse individualmente.'
             );
         }
     }

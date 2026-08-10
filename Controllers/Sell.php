@@ -399,6 +399,47 @@ switch ($op) {
             $esBoleta =
                 stripos($tipo_comprobante, 'boleta') !== false;
 
+            /*
+            |--------------------------------------------------------------------------
+            | MODO DE ENVÍO SUNAT APLICADO A ESTA VENTA
+            |--------------------------------------------------------------------------
+            | Se persiste como dato histórico. El valor predeterminado proviene
+            | de Configuración de Empresa y llega desde el POS.
+            */
+            $modoEnvio = strtolower(
+                trim(
+                    (string)(
+                        $_POST['modo_envio']
+                        ?? 'inmediato'
+                    )
+                )
+            );
+
+            if (
+                !in_array(
+                    $modoEnvio,
+                    [
+                        'inmediato',
+                        'manual',
+                        'resumen_diario'
+                    ],
+                    true
+                )
+            ) {
+                throw new Exception(
+                    'El modo de envío SUNAT seleccionado no es válido.'
+                );
+            }
+
+            if (
+                $modoEnvio === 'resumen_diario'
+                && !$esBoleta
+            ) {
+                throw new Exception(
+                    'El Resumen Diario solo está disponible para Boleta Electrónica.'
+                );
+            }
+
             $clienteGenericoSolicitado = in_array(
                 strtolower(
                     trim(
@@ -1209,6 +1250,29 @@ switch ($op) {
                 );
             }
 
+            $modoEnvioPersistido = (
+                $esFactura
+                || $esBoleta
+            )
+                ? strtoupper($modoEnvio)
+                : null;
+
+            $modoGuardado = $conexionVenta->setData(
+                "UPDATE venta
+                 SET modo_envio_sunat = ?
+                 WHERE idventa = ?",
+                [
+                    $modoEnvioPersistido,
+                    (int)$idventa
+                ]
+            );
+
+            if (!$modoGuardado) {
+                throw new Exception(
+                    'No se pudo guardar el modo de envío SUNAT de la venta.'
+                );
+            }
+
             // =================================================
             // 11. REGISTRAR PAGOS
             // =================================================
@@ -1439,28 +1503,6 @@ switch ($op) {
                 | Si APISUNAT falla, la venta sigue registrada y no debe duplicarse.
                 */
 
-            $modoEnvio = strtolower(
-                trim(
-                    (string)(
-                        $_POST['modo_envio']
-                        ?? 'inmediato'
-                    )
-                )
-            );
-
-            if (
-                !in_array(
-                    $modoEnvio,
-                    [
-                        'inmediato',
-                        'manual'
-                    ],
-                    true
-                )
-            ) {
-                $modoEnvio = 'inmediato';
-            }
-
             $tipoNormalizado = mb_strtolower(
                 trim($tipo_comprobante),
                 'UTF-8'
@@ -1510,6 +1552,23 @@ switch ($op) {
                     'production' => true,
                     'mensaje' =>
                     'Comprobante registrado para envío manual posterior.'
+                ];
+            }
+
+            if (
+                $esBoletaElectronica
+                && $modoEnvio === 'resumen_diario'
+            ) {
+                $resultadoSunat = [
+                    'aplica' => true,
+                    'intentado' => false,
+                    'success' => null,
+                    'status' => 'NO_ENVIADO',
+                    'documentId' => null,
+                    'fileName' => null,
+                    'production' => true,
+                    'mensaje' =>
+                    'Boleta registrada para inclusión en el Resumen Diario.'
                 ];
             }
 
@@ -1580,6 +1639,12 @@ switch ($op) {
                 'Venta registrada correctamente.';
 
             if (
+                $esBoletaElectronica
+                && $modoEnvio === 'resumen_diario'
+            ) {
+                $mensajeRespuesta =
+                    'Venta registrada. La boleta quedó pendiente para el Resumen Diario.';
+            } elseif (
                 $esComprobanteElectronico
                 && $modoEnvio === 'manual'
             ) {

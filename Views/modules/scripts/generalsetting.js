@@ -666,7 +666,7 @@ function aplicarValoresPredeterminadosVenta(data) {
     ).trim().toLowerCase();
 
     $("#venta_modo_envio_predeterminado").val(
-        modoEnvio === "inmediato" || modoEnvio === "manual"
+        ["inmediato", "manual", "resumen_diario"].includes(modoEnvio)
             ? modoEnvio
             : ""
     );
@@ -1411,6 +1411,26 @@ function guardaryeditar(e) {
     const pagoNormalizado = normalizarTextoConfiguracion(
         tipoPagoPredeterminado + " " + tipoPagoPredeterminadoTexto
     );
+
+    const modoEnvioPredeterminado = String(
+        $("#venta_modo_envio_predeterminado").val() || ""
+    ).trim().toLowerCase();
+
+    if (
+        modoEnvioPredeterminado === "resumen_diario"
+        && comprobanteNormalizado.includes("FACTURA")
+    ) {
+        mostrarSeccionConfiguracionPorSelector(
+            "#venta_modo_envio_predeterminado"
+        );
+        mostrarAlertaConfiguracion(
+            "Configuración incompatible",
+            "El Resumen Diario solo puede utilizarse con Boleta Electrónica.",
+            "warning"
+        );
+
+        return;
+    }
 
     if (
         pagoNormalizado.includes("CREDITO")

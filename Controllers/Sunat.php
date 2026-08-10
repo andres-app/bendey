@@ -304,6 +304,11 @@ function generarBadgeEstadoSunat(
             $texto = 'Error';
             break;
 
+        case 'RESUMEN_DIARIO':
+            $clase = 'sunat-pendiente';
+            $texto = 'Resumen diario';
+            break;
+
         case 'NO_ENVIADO':
         default:
             $clase = 'sunat-pendiente';
@@ -337,6 +342,19 @@ function generarAccionPrincipalSunat(
     $estadoSunat = strtoupper(
         trim($estadoSunat)
     );
+
+    if ($estadoSunat === 'RESUMEN_DIARIO') {
+        return '
+            <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm sunat-action-btn"
+                title="Pendiente de incluir en Resumen Diario"
+                disabled>
+                <i class="fas fa-layer-group mr-1"></i>
+                Pendiente de resumen
+            </button>
+        ';
+    }
 
     if ($estadoSunat === 'ACEPTADO') {
         $texto = 'Ver detalle';

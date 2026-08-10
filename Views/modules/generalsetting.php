@@ -1360,10 +1360,13 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                 <option value="manual">
                                                     Enviar manualmente después
                                                 </option>
+                                                <option value="resumen_diario">
+                                                    Incluir boletas en Resumen Diario
+                                                </option>
                                             </select>
 
                                             <small class="form-text text-muted">
-                                                Solo aplica a facturas y boletas electrónicas.
+                                                El Resumen Diario aplica únicamente a Boleta Electrónica.
                                             </small>
                                         </div>
 

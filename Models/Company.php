@@ -161,7 +161,7 @@ class Company
                 strtolower(
                     trim((string)$venta_modo_envio_predeterminado)
                 ),
-                ['inmediato', 'manual'],
+                ['inmediato', 'manual', 'resumen_diario'],
                 true
             )
                 ? strtolower(

@@ -654,7 +654,7 @@ try {
                 $venta_modo_envio_predeterminado !== ''
                 && !in_array(
                     $venta_modo_envio_predeterminado,
-                    ['inmediato', 'manual'],
+                    ['inmediato', 'manual', 'resumen_diario'],
                     true
                 )
             ) {
@@ -729,6 +729,18 @@ try {
                 $venta_tipo_comprobante_predeterminado,
                 'UTF-8'
             );
+
+            if (
+                $venta_modo_envio_predeterminado === 'resumen_diario'
+                && str_contains(
+                    $comprobanteNormalizado,
+                    'FACTURA'
+                )
+            ) {
+                throw new RuntimeException(
+                    'El Resumen Diario solo puede configurarse para Boleta Electrónica.'
+                );
+            }
 
             if (
                 (

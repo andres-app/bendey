@@ -79,6 +79,18 @@ class Sunat
                     vs.cdr_local,
 
                     CASE
+                        WHEN v.tipo_comprobante = 'Boleta Electrónica'
+                         AND UPPER(
+                                TRIM(
+                                    COALESCE(
+                                        v.modo_envio_sunat,
+                                        ''
+                                    )
+                                )
+                             ) = 'RESUMEN_DIARIO'
+                         AND vs.idventa_sunat IS NULL
+                        THEN 'RESUMEN_DIARIO'
+
                         WHEN vs.idventa_sunat IS NULL
                         THEN 'NO_ENVIADO'
 
@@ -103,7 +115,12 @@ class Sunat
 
                     COALESCE(
                         vs.mensaje_sunat,
-                        ''
+                        CASE
+                            WHEN v.tipo_comprobante = 'Boleta Electrónica'
+                             AND UPPER(TRIM(COALESCE(v.modo_envio_sunat, ''))) = 'RESUMEN_DIARIO'
+                            THEN 'Boleta pendiente de inclusión en Resumen Diario.'
+                            ELSE ''
+                        END
                     ) AS mensaje_sunat,
 
                     vs.faults,
@@ -264,6 +281,11 @@ class Sunat
                 vs.cdr_local,
 
                 CASE
+                    WHEN v.tipo_comprobante = 'Boleta Electrónica'
+                     AND UPPER(TRIM(COALESCE(v.modo_envio_sunat, ''))) = 'RESUMEN_DIARIO'
+                     AND vs.idventa_sunat IS NULL
+                    THEN 'RESUMEN_DIARIO'
+
                     WHEN vs.idventa_sunat IS NULL
                     THEN 'NO_ENVIADO'
 
@@ -281,7 +303,15 @@ class Sunat
                     ELSE 'PENDIENTE'
                 END AS estado_sunat,
 
-                COALESCE(vs.mensaje_sunat, '') AS mensaje_sunat,
+                COALESCE(
+                    vs.mensaje_sunat,
+                    CASE
+                        WHEN v.tipo_comprobante = 'Boleta Electrónica'
+                         AND UPPER(TRIM(COALESCE(v.modo_envio_sunat, ''))) = 'RESUMEN_DIARIO'
+                        THEN 'Boleta pendiente de inclusión en Resumen Diario.'
+                        ELSE ''
+                    END
+                ) AS mensaje_sunat,
                 vs.faults,
                 vs.notes,
                 vs.fecha_envio,
@@ -440,6 +470,11 @@ class Sunat
                     )
 
                       AND v.estado = 'Aceptado'
+
+                      AND NOT (
+                            v.tipo_comprobante = 'Boleta Electrónica'
+                            AND UPPER(TRIM(COALESCE(v.modo_envio_sunat, ''))) = 'RESUMEN_DIARIO'
+                      )
 
                       AND (
                             vs.idventa_sunat IS NULL
@@ -681,6 +716,10 @@ class Sunat
                 'Boleta Electrónica'
             )
               AND v.estado = 'Aceptado'
+              AND NOT (
+                  v.tipo_comprobante = 'Boleta Electrónica'
+                  AND UPPER(TRIM(COALESCE(v.modo_envio_sunat, ''))) = 'RESUMEN_DIARIO'
+              )
               AND (
                   vs.idventa_sunat IS NULL
                   OR UPPER(

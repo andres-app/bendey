@@ -636,6 +636,10 @@ if ($_SESSION['ventas'] == 1) {
                                                         Guardar y enviar manualmente después
                                                     </option>
 
+                                                    <option value="resumen_diario">
+                                                        Incluir en Resumen Diario de Boletas
+                                                    </option>
+
                                                 </select>
 
                                                 <small
@@ -3989,33 +3993,6 @@ $versionNewsaleJs = file_exists($rutaNewsaleJs)
 
         $('#monto_cuota').val('S/ ' + monto.toFixed(2));
         $('#monto_cuota_real').val(monto.toFixed(2));
-    });
-
-    /*
-|--------------------------------------------------------------------------
-| DESCRIPCIÓN DEL MODO DE ENVÍO
-|--------------------------------------------------------------------------
-*/
-    $(document).on('change', '#modo_envio', function() {
-        const modo = String(
-            $(this).val() || 'inmediato'
-        );
-
-        if (modo === 'manual') {
-            $('#mensajeModoEnvio').html(
-                '<strong>Envío manual:</strong> ' +
-                'la venta se registrará y reservará su correlativo, ' +
-                'pero no será enviada a SUNAT. Podrá enviarla posteriormente ' +
-                'desde Estado de Comprobantes SUNAT.'
-            );
-
-            return;
-        }
-
-        $('#mensajeModoEnvio').html(
-            '<strong>Envío inmediato:</strong> ' +
-            'la venta se registrará y será enviada automáticamente mediante APISUNAT.'
-        );
     });
 
     /*
