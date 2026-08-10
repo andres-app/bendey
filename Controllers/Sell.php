@@ -684,6 +684,114 @@ switch ($op) {
                 );
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | VALIDAR STOCK REAL AL MOMENTO DE PROCESAR
+            |--------------------------------------------------------------------------
+            | Las pestañas del POS son borradores y NO reservan stock.
+            | Si otra venta consumió unidades mientras esta pestaña estaba en espera,
+            | se valida y bloquea el artículo antes de asignar correlativo.
+            */
+            $cantidadesSolicitadasPorArticulo = [];
+
+            foreach ($idarticulos as $indiceArticulo => $idArticuloVenta) {
+                $idArticuloVenta = (int)$idArticuloVenta;
+                $cantidadSolicitada = round(
+                    (float)($cantidades[$indiceArticulo] ?? 0),
+                    3
+                );
+
+                if (
+                    $idArticuloVenta <= 0
+                    || $cantidadSolicitada <= 0
+                ) {
+                    throw new Exception(
+                        'Existe un producto o cantidad inválida en la venta.'
+                    );
+                }
+
+                if (
+                    !isset(
+                        $cantidadesSolicitadasPorArticulo[
+                            $idArticuloVenta
+                        ]
+                    )
+                ) {
+                    $cantidadesSolicitadasPorArticulo[
+                        $idArticuloVenta
+                    ] = 0.000;
+                }
+
+                $cantidadesSolicitadasPorArticulo[
+                    $idArticuloVenta
+                ] += $cantidadSolicitada;
+            }
+
+            foreach (
+                $cantidadesSolicitadasPorArticulo
+                as $idArticuloStock => $cantidadRequerida
+            ) {
+                $articuloStock = $conexionVenta->getData(
+                    "SELECT
+                        idarticulo,
+                        nombre,
+                        COALESCE(stock, 0) AS stock
+                     FROM articulo
+                     WHERE idarticulo = ?
+                       AND condicion = 1
+                     LIMIT 1
+                     FOR UPDATE",
+                    [(int)$idArticuloStock]
+                );
+
+                if (!is_array($articuloStock)) {
+                    throw new Exception(
+                        'Uno de los productos ya no se encuentra disponible.'
+                    );
+                }
+
+                $stockDisponible = round(
+                    (float)($articuloStock['stock'] ?? 0),
+                    3
+                );
+
+                $cantidadRequerida = round(
+                    (float)$cantidadRequerida,
+                    3
+                );
+
+                if (
+                    $cantidadRequerida
+                    > $stockDisponible + 0.0001
+                ) {
+                    $nombreArticulo = trim(
+                        (string)(
+                            $articuloStock['nombre']
+                            ?? 'Producto'
+                        )
+                    );
+
+                    throw new Exception(
+                        'Stock insuficiente para '
+                        . $nombreArticulo
+                        . '. Disponible: '
+                        . rtrim(
+                            rtrim(
+                                number_format(
+                                    $stockDisponible,
+                                    3,
+                                    '.',
+                                    ''
+                                ),
+                                '0'
+                            ),
+                            '.'
+                        )
+                        . '.'
+                    );
+                }
+            }
+
             // =================================================
             // 6. PREVISUALIZAR TOTAL TRIBUTARIO SIN DESCUENTO GLOBAL
             // =================================================

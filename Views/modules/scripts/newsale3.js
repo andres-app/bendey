@@ -279,7 +279,11 @@ $(document).ready(function () {
     cargarComprobantes();
     cargarFormaPago();
     inicializarEventos();
-    cargarCarrito();
+    /*
+     * El pedido se administra localmente por cada pestaña de venta.
+     * No se carga un carrito global del servidor.
+     */
+    $('#detallesCards').empty();
     actualizarMensajePedido();
     inicializarEscanerProductos();
     cargarFormasPagoMixto();
@@ -1013,6 +1017,15 @@ function guardarVenta() {
         return;
     }
 
+    /*
+     * Guardar el borrador activo y bloquear el cambio de pestaña mientras
+     * el backend registra la venta real.
+     */
+    const idVentaColaProcesada =
+        typeof window.ventaColaPrepararProcesamiento === 'function'
+            ? window.ventaColaPrepararProcesamiento()
+            : null;
+
     const formData = new FormData(form);
     const $boton = $('#btnProcesarVenta');
 
@@ -1190,8 +1203,6 @@ function guardarVenta() {
                             title: 'Número inválido',
                             text: 'Ingrese los 9 dígitos del celular.'
                         });
-
-                        return;
                     }
 
                     const urlComprobante =
@@ -1212,29 +1223,42 @@ function guardarVenta() {
                     );
                 }
 
-                form.reset();
+                const colaGestionada =
+                    idVentaColaProcesada
+                    && typeof window.ventaColaFinalizarVentaProcesada === 'function'
+                    && window.ventaColaFinalizarVentaProcesada(
+                        idVentaColaProcesada
+                    ) === true;
 
-                limpiarDatosCliente(false);
-                actualizarReglaCliente();
+                /*
+                 * Respaldo para instalaciones donde el gestor de pestañas
+                 * no esté disponible.
+                 */
+                if (!colaGestionada) {
+                    form.reset();
 
-                $('#detallesCards').empty();
-                $('#totalGeneral').text('S/0.00');
-                $('#total_recibido').val('');
-                $('#vuelto').val('0.00');
+                    limpiarDatosCliente(false);
+                    actualizarReglaCliente();
 
-                cont = 0;
+                    $('#detallesCards').empty();
+                    $('#totalGeneral').text('S/0.00');
+                    $('#total_recibido').val('');
+                    $('#vuelto').val('0.00');
 
-                actualizarMensajePedido();
-                mostrarSerieNumero();
+                    cont = 0;
 
-                window.setTimeout(function () {
-                    aplicarConfiguracionVentaPredeterminada({
-                        despuesDeGuardar: true
-                    });
+                    actualizarMensajePedido();
+                    mostrarSerieNumero();
 
-                    renderizarTiposOperacionSunat();
-                    calcularTotales();
-                }, 50);
+                    window.setTimeout(function () {
+                        aplicarConfiguracionVentaPredeterminada({
+                            despuesDeGuardar: true
+                        });
+
+                        renderizarTiposOperacionSunat();
+                        calcularTotales();
+                    }, 50);
+                }
 
                 /*
                  * Consultar el resultado definitivo solo cuando
@@ -1281,6 +1305,12 @@ function guardarVenta() {
             $boton
                 .prop('disabled', false)
                 .html(textoOriginal);
+
+            if (
+                typeof window.ventaColaBloquear === 'function'
+            ) {
+                window.ventaColaBloquear(false);
+            }
         }
     });
 }
@@ -4344,6 +4374,17 @@ $('#forma_pago').on('change', function () {
 let formasPagoMixto = [];
 let pagoMixtoIndex = 0;
 let solicitudFormasPagoMixto = null;
+
+/*
+ * El gestor de ventas en cola necesita continuar la numeración de los
+ * campos pagos[i] al restaurar una pestaña.
+ */
+window.ventaPosEstablecerPagoMixtoIndex = function (valor) {
+    pagoMixtoIndex = Math.max(
+        Number.parseInt(valor, 10) || 0,
+        0
+    );
+};
 
 function escaparHtml(valor) {
     return String(valor ?? '')

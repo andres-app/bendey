@@ -435,6 +435,17 @@
         actualizarEncabezado(origen);
         limpiarParametroDuplicacion();
 
+        if (
+            typeof window.ventaColaSincronizarDesdeFormulario === 'function'
+        ) {
+            window.ventaColaSincronizarDesdeFormulario({
+                nombreSugerido:
+                    origen.comprobante
+                        ? 'Copia ' + String(origen.comprobante)
+                        : 'Venta duplicada'
+            });
+        }
+
         mostrarResultado(
             origen,
             cargados,
@@ -459,6 +470,15 @@
         });
 
         esperarFormularioListo()
+            .then(function () {
+                if (
+                    typeof window.ventaColaPrepararDuplicacion === 'function'
+                ) {
+                    return window.ventaColaPrepararDuplicacion();
+                }
+
+                return null;
+            })
             .then(function () {
                 return solicitarPlantilla(idventa);
             })

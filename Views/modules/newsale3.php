@@ -73,6 +73,72 @@ if ($_SESSION['ventas'] == 1) {
                     </div>
                 </div>
 
+                <!-- =====================================================
+                     VENTAS EN COLA
+                     Cada pestaña conserva un borrador independiente del POS.
+                     No se registra en la BD hasta pulsar "Procesar venta".
+                ====================================================== -->
+                <div
+                    class="venta-cola-bar"
+                    id="ventaColaShell"
+                    data-usuario="<?= (int)($_SESSION['idusuario'] ?? 0) ?>"
+                    data-sucursal="<?= (int)($_SESSION['idsucursal_activa'] ?? 0) ?>"
+                    data-caja="<?= (int)($_SESSION['idcaja_activa'] ?? 0) ?>"
+                    aria-label="Ventas en cola">
+
+                    <div
+                        class="venta-cola-tabs"
+                        id="ventaColaTabs"
+                        role="tablist"
+                        aria-label="Ventas abiertas">
+                    </div>
+
+                    <button
+                        type="button"
+                        class="venta-cola-nueva"
+                        id="btnNuevaVentaCola"
+                        title="Nueva venta"
+                        aria-label="Abrir nueva venta">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div
+                    class="venta-cola-menu"
+                    id="ventaColaMenu"
+                    role="menu"
+                    aria-hidden="true">
+
+                    <button
+                        type="button"
+                        class="venta-cola-menu-item"
+                        data-venta-cola-accion="renombrar"
+                        role="menuitem">
+                        <i class="bi bi-pencil"></i>
+                        Renombrar
+                    </button>
+
+                    <button
+                        type="button"
+                        class="venta-cola-menu-item"
+                        data-venta-cola-accion="duplicar"
+                        role="menuitem">
+                        <i class="bi bi-copy"></i>
+                        Duplicar pestaña
+                    </button>
+
+                    <div class="venta-cola-menu-separador"></div>
+
+                    <button
+                        type="button"
+                        class="venta-cola-menu-item venta-cola-menu-item-peligro"
+                        data-venta-cola-accion="cerrar"
+                        role="menuitem">
+                        <i class="bi bi-x-circle"></i>
+                        Cerrar venta
+                    </button>
+                </div>
+
                 <form id="formularioVenta" method="post" autocomplete="off">
 
                     <div class="row venta-pos-layout">
@@ -840,6 +906,329 @@ if ($_SESSION['ventas'] == 1) {
         ========================================================== */
         .venta-mobile-switch-wrap {
             display: none;
+        }
+
+        /* =========================================================
+           VENTAS EN COLA · PESTAÑAS DEL POS
+        ========================================================== */
+        .venta-cola-bar {
+            position: relative;
+            z-index: 70;
+            width: 100%;
+            min-width: 0;
+            min-height: 46px;
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+            margin: 12px 0 10px;
+            padding: 5px;
+            border: 1px solid #dfe6e2;
+            border-radius: 13px;
+            background: #f5f8f6;
+            box-shadow: 0 5px 15px rgba(15, 23, 42, .045);
+        }
+
+        .venta-cola-bar.is-locked {
+            opacity: .72;
+            pointer-events: none;
+        }
+
+        .venta-cola-tabs {
+            min-width: 0;
+            flex: 1 1 auto;
+            display: flex;
+            align-items: stretch;
+            gap: 6px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #c9d3cc transparent;
+            overscroll-behavior-x: contain;
+        }
+
+        .venta-cola-tabs::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .venta-cola-tabs::-webkit-scrollbar-thumb {
+            border-radius: 99px;
+            background: #c9d3cc;
+        }
+
+        .venta-cola-tab-item {
+            min-width: 158px;
+            max-width: 230px;
+            flex: 0 0 auto;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 34px;
+            align-items: stretch;
+            border: 1px solid #dfe5e1;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #ffffff;
+            transition:
+                border-color .16s ease,
+                background-color .16s ease,
+                box-shadow .16s ease;
+        }
+
+        .venta-cola-tab-item:hover {
+            border-color: #bcd3c3;
+        }
+
+        .venta-cola-tab-item.active {
+            border-color: #6fbd7c;
+            background: #f4fbf6;
+            box-shadow: inset 0 -2px 0 #52b848;
+        }
+
+        .venta-cola-tab {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 7px 6px 10px;
+            border: 0;
+            color: #4f5d55;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .venta-cola-tab:hover,
+        .venta-cola-tab:focus,
+        .venta-cola-tab:active {
+            border: 0 !important;
+            outline: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+
+        .venta-cola-tab-icono {
+            width: 26px;
+            height: 26px;
+            flex: 0 0 26px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            color: #478658;
+            background: #edf6ef;
+            font-size: .78rem;
+        }
+
+        .venta-cola-tab-item.active .venta-cola-tab-icono {
+            color: #ffffff;
+            background: #52b848;
+        }
+
+        .venta-cola-tab-contenido {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 1px;
+        }
+
+        .venta-cola-tab-nombre {
+            overflow: hidden;
+            color: #354239;
+            font-size: .76rem;
+            font-weight: 600;
+            line-height: 1.15;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .venta-cola-tab-total {
+            color: #89938d;
+            font-size: .64rem;
+            font-weight: 500;
+            line-height: 1.1;
+        }
+
+        .venta-cola-tab-item.active .venta-cola-tab-nombre {
+            color: #286f3c;
+        }
+
+        .venta-cola-tab-menu-btn {
+            width: 34px;
+            min-width: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            border-left: 1px solid #edf1ee;
+            color: #87928b;
+            background: transparent;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .venta-cola-tab-menu-btn:hover,
+        .venta-cola-tab-menu-btn:focus {
+            color: #34443a;
+            background: #eef4f0;
+            outline: 0;
+            box-shadow: none;
+        }
+
+        .venta-cola-nueva {
+            width: 38px;
+            min-width: 38px;
+            flex: 0 0 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 1px solid #b9d7c1;
+            border-radius: 10px;
+            color: #277f42;
+            background: #edf8f0;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: .16s ease;
+        }
+
+        .venta-cola-nueva:hover,
+        .venta-cola-nueva:focus {
+            color: #ffffff;
+            border-color: #52b848;
+            background: #52b848;
+            outline: 0;
+            box-shadow: none;
+        }
+
+        .venta-cola-menu {
+            position: fixed;
+            z-index: 100000;
+            width: 190px;
+            display: none;
+            padding: 6px;
+            border: 1px solid #dfe6e2;
+            border-radius: 11px;
+            background: #ffffff;
+            box-shadow: 0 16px 38px rgba(15, 23, 42, .17);
+        }
+
+        .venta-cola-menu.show {
+            display: block;
+        }
+
+        .venta-cola-menu-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 9px 10px;
+            border: 0;
+            border-radius: 8px;
+            color: #46534b;
+            background: transparent;
+            font-size: .78rem;
+            font-weight: 400;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .venta-cola-menu-item:hover,
+        .venta-cola-menu-item:focus {
+            color: #26352d;
+            background: #f2f6f3;
+            outline: 0;
+        }
+
+        .venta-cola-menu-item i {
+            width: 17px;
+            color: #718078;
+            text-align: center;
+        }
+
+        .venta-cola-menu-item-peligro,
+        .venta-cola-menu-item-peligro i {
+            color: #ba4b4b;
+        }
+
+        .venta-cola-menu-item-peligro:hover {
+            color: #a83e3e;
+            background: #fff4f4;
+        }
+
+        .venta-cola-menu-separador {
+            height: 1px;
+            margin: 4px 3px;
+            background: #edf1ee;
+        }
+
+        @media (min-width: 1200px) {
+            .venta-cola-bar {
+                margin-top: 24px;
+                margin-bottom: 10px;
+            }
+
+            .venta-pos-main-content .venta-pos-layout {
+                margin-top: 0 !important;
+            }
+
+            .venta-panel-card-formulario {
+                min-height: calc(100vh - 174px);
+            }
+
+            .venta-panel-card-pedido {
+                height: calc(100vh - 174px);
+                min-height: 470px;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .venta-cola-bar {
+                min-height: 43px;
+                margin-top: 4px;
+                margin-bottom: 8px;
+                padding: 4px;
+                border-radius: 10px;
+            }
+
+            .venta-cola-tab-item {
+                min-width: 145px;
+                max-width: 195px;
+                grid-template-columns: minmax(0, 1fr) 32px;
+                border-radius: 8px;
+            }
+
+            .venta-cola-tab {
+                padding: 5px 6px 5px 8px;
+                gap: 6px;
+            }
+
+            .venta-cola-tab-icono {
+                width: 24px;
+                height: 24px;
+                flex-basis: 24px;
+                border-radius: 7px;
+                font-size: .7rem;
+            }
+
+            .venta-cola-tab-nombre {
+                font-size: 11px;
+            }
+
+            .venta-cola-tab-total {
+                font-size: 9px;
+            }
+
+            .venta-cola-tab-menu-btn {
+                width: 32px;
+                min-width: 32px;
+            }
+
+            .venta-cola-nueva {
+                width: 34px;
+                min-width: 34px;
+                flex-basis: 34px;
+                border-radius: 8px;
+            }
         }
 
         /* =========================================================
@@ -3715,6 +4104,18 @@ $versionNewsaleJs = file_exists($rutaNewsaleJs)
             validarFechaVencimientoCredito(false);
         }
     );
+</script>
+
+<?php
+$rutaVentaColaJs = __DIR__ . '/scripts/venta_cola.js';
+
+$versionVentaColaJs = is_file($rutaVentaColaJs)
+    ? filemtime($rutaVentaColaJs)
+    : time();
+?>
+
+<script
+    src="Views/modules/scripts/venta_cola.js?v=<?= (int)$versionVentaColaJs ?>">
 </script>
 
 <?php
