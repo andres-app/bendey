@@ -228,8 +228,8 @@ $puedeVerSunatNavbar =
                             <a
                                 href="sunat"
                                 class="nav-link nav-link-lg sunat-navbar-link"
-                                title="Comprobantes pendientes de enviar a SUNAT"
-                                aria-label="Ver comprobantes pendientes de enviar a SUNAT">
+                                title="Documentos SUNAT pendientes o por revisar"
+                                aria-label="Ver documentos SUNAT pendientes o por revisar">
 
                                 <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
 
@@ -354,7 +354,7 @@ $puedeVerSunatNavbar =
                                 contador.classList.add('is-hidden');
                                 contador.setAttribute(
                                     'aria-label',
-                                    'Sin comprobantes pendientes'
+                                    'Sin documentos SUNAT pendientes'
                                 );
                                 return;
                             }
@@ -367,9 +367,9 @@ $puedeVerSunatNavbar =
                             contador.setAttribute(
                                 'aria-label',
                                 cantidadValida === 1
-                                    ? '1 comprobante pendiente de envío a SUNAT'
+                                    ? '1 documento SUNAT pendiente o por revisar'
                                     : cantidadValida
-                                        + ' comprobantes pendientes de envío a SUNAT'
+                                        + ' documentos SUNAT pendientes o por revisar'
                             );
                         }
 
@@ -448,7 +448,7 @@ $puedeVerSunatNavbar =
                                             : ''
                                     );
 
-                                    const esOperacionSunat =
+                                    const esOperacionBandejaSunat =
                                         url.indexOf('Controllers/Sunat.php') !== -1
                                         && (
                                             url.indexOf('op=enviarsunat') !== -1
@@ -456,7 +456,18 @@ $puedeVerSunatNavbar =
                                             || url.indexOf('op=getStatus') !== -1
                                         );
 
-                                    if (esOperacionSunat) {
+                                    const esOperacionNotaCreditoSunat =
+                                        url.indexOf('Controllers/CreditNote.php') !== -1
+                                        && (
+                                            url.indexOf('op=guardar') !== -1
+                                            || url.indexOf('op=enviar') !== -1
+                                            || url.indexOf('op=consultar') !== -1
+                                        );
+
+                                    if (
+                                        esOperacionBandejaSunat
+                                        || esOperacionNotaCreditoSunat
+                                    ) {
                                         window.setTimeout(
                                             actualizarContadorSunatNavbar,
                                             350

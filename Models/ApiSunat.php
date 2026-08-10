@@ -485,14 +485,14 @@ class ApiSunat
         if (
             !in_array(
                 $tipo,
-                ['01', '03'],
+                ['01', '03', '07'],
                 true
             )
         ) {
             return [
                 'success' => false,
                 'message' =>
-                    'El tipo debe ser 01 para factura o 03 para boleta.'
+                    'El tipo debe ser 01 para factura, 03 para boleta o 07 para nota de crédito.'
             ];
         }
 
@@ -796,23 +796,62 @@ class ApiSunat
     private function validarFileName(
         string $fileName
     ): void {
+        /*
+         * Tipos admitidos por este cliente:
+         * 01 = Factura
+         * 03 = Boleta
+         * 07 = Nota de crédito
+         *
+         * Para notas de crédito se admiten series de factura
+         * (por ejemplo FC01) y de boleta (por ejemplo BC01).
+         */
         $patron =
-            '/^\d{11}-(01|03)-[FB][A-Z0-9]{3}-\d{8}$/';
+            '/^(\d{11})-(01|03|07)-([FB][A-Z0-9]{3})-(\d{8})$/';
+
+        $coincidencias = [];
 
         if (
             !preg_match(
                 $patron,
-                $fileName
+                $fileName,
+                $coincidencias
             )
         ) {
             throw new InvalidArgumentException(
                 'fileName inválido: '
                 . $fileName
-                . '. Debe tener el formato '
-                . 'RUC-01-F001-00000001 o '
-                . 'RUC-03-B001-00000001.'
+                . '. Debe tener un formato como '
+                . 'RUC-01-F001-00000001, '
+                . 'RUC-03-B001-00000001 o '
+                . 'RUC-07-FC01-00000001.'
             );
         }
+
+        $tipo = (string)($coincidencias[2] ?? '');
+        $serie = (string)($coincidencias[3] ?? '');
+
+        if (
+            $tipo === '01'
+            && ($serie[0] ?? '') !== 'F'
+        ) {
+            throw new InvalidArgumentException(
+                'Una factura debe usar una serie que comience con F.'
+            );
+        }
+
+        if (
+            $tipo === '03'
+            && ($serie[0] ?? '') !== 'B'
+        ) {
+            throw new InvalidArgumentException(
+                'Una boleta debe usar una serie que comience con B.'
+            );
+        }
+
+        /*
+         * El tipo 07 puede modificar tanto una factura como una boleta,
+         * por eso admite series que comiencen con F o B.
+         */
     }
 
     /*

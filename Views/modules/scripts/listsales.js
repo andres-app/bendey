@@ -1873,10 +1873,6 @@ function escaparHtml(valor) {
 |--------------------------------------------------------------------------
 | GENERAR NOTA DE CRÉDITO
 |--------------------------------------------------------------------------
-| Controllers/Sell.php genera el botón con:
-| onclick="generarNotaCredito(ID_VENTA)"
-| Esta función debe existir en el ámbito global para abrir el módulo
-| de Nota de Crédito con la venta seleccionada.
 */
 function generarNotaCredito(idventa) {
   const id = Number.parseInt(idventa, 10);
@@ -1896,10 +1892,6 @@ function generarNotaCredito(idventa) {
         "Venta no válida",
         "No se pudo identificar la venta para generar la nota de crédito.",
         "warning"
-      );
-    } else {
-      window.alert(
-        "No se pudo identificar la venta para generar la nota de crédito."
       );
     }
 

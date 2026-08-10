@@ -2619,10 +2619,11 @@ switch ($op) {
                 )
             );
 
-            if ($estadoLocal === 'ANULADA') {
-                $estadoSunat = 'ANULADO';
-            }
-
+            /*
+             * El estado SUNAT no se recalcula con el estado local.
+             * Listsales muestra exactamente nota_credito_sunat.estado_sunat,
+             * igual que la Bandeja SUNAT.
+             */
             $notaEstadoVisual = $nota;
             $notaEstadoVisual['estado_sunat'] =
                 $estadoSunat;

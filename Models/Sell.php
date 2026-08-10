@@ -701,11 +701,8 @@ class Sell
             vs.estado_sunat AS estado_sunat_original,
             vs.mensaje_sunat,
 
-            /* Estado SUNAT unificado */
+            /* Estado SUNAT: misma fuente que la Bandeja SUNAT */
             CASE
-                WHEN v.estado <> 'Aceptado'
-                THEN 'ANULADO'
-
                 WHEN v.tipo_comprobante NOT IN (
                     'Factura Electrónica',
                     'Boleta Electrónica'
@@ -715,23 +712,25 @@ class Sell
                 WHEN vs.idventa_sunat IS NULL
                 THEN 'NO_ENVIADO'
 
+                WHEN TRIM(
+                    COALESCE(
+                        vs.estado_sunat,
+                        ''
+                    )
+                ) <> ''
+                THEN UPPER(
+                    TRIM(
+                        vs.estado_sunat
+                    )
+                )
+
                 WHEN COALESCE(
                     vs.document_id,
                     ''
                 ) = ''
                 THEN 'NO_ENVIADO'
 
-                WHEN COALESCE(
-                    vs.estado_sunat,
-                    ''
-                ) = ''
-                THEN 'PENDIENTE'
-
-                ELSE UPPER(
-                    TRIM(
-                        vs.estado_sunat
-                    )
-                )
+                ELSE 'PENDIENTE'
             END AS estado_sunat
 
         FROM venta v

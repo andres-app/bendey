@@ -1,13 +1,11 @@
 "use strict";
 
 let tablaSunat = null;
+let filtroEstadoSunat = "TODOS";
+let filtroSunatRegistrado = false;
 
-/*
-|--------------------------------------------------------------------------
-| INICIALIZACIÓN
-|--------------------------------------------------------------------------
-*/
 $(document).ready(function () {
+    registrarFiltroEstadosSunat();
     inicializarTablaSunat();
 
     $(document).on(
@@ -17,24 +15,93 @@ $(document).ready(function () {
             recargarTablaSunat(true);
         }
     );
+
+    $(document).on(
+        "click",
+        ".sunat-status-filter",
+        function () {
+            filtroEstadoSunat = String(
+                $(this).data("filtro") || "TODOS"
+            ).toUpperCase();
+
+            $(".sunat-status-filter")
+                .removeClass("is-active");
+
+            $(this).addClass("is-active");
+
+            if (tablaSunat) {
+                tablaSunat.draw(false);
+            }
+        }
+    );
 });
 
-/*
-|--------------------------------------------------------------------------
-| TABLA DE COMPROBANTES
-|--------------------------------------------------------------------------
-*/
+function registrarFiltroEstadosSunat() {
+    if (filtroSunatRegistrado) {
+        return;
+    }
+
+    $.fn.dataTable.ext.search.push(
+        function (settings, data) {
+            if (
+                !settings
+                || !settings.nTable
+                || settings.nTable.id !== "tbllistado"
+            ) {
+                return true;
+            }
+
+            if (filtroEstadoSunat === "TODOS") {
+                return true;
+            }
+
+            const htmlEstado = String(data[3] || "");
+            const coincidencia = htmlEstado.match(
+                /data-estado=["']([^"']+)["']/i
+            );
+
+            const estado = coincidencia
+                ? String(coincidencia[1] || "").toUpperCase()
+                : normalizarTextoSunat(htmlEstado);
+
+            switch (filtroEstadoSunat) {
+                case "PENDIENTES":
+                    return estado === "NO_ENVIADO";
+
+                case "PROCESO":
+                    return [
+                        "PENDIENTE",
+                        "EN_PROCESO",
+                        "ENVIADO"
+                    ].includes(estado);
+
+                case "RECHAZADOS":
+                    return [
+                        "RECHAZADO",
+                        "EXCEPCION",
+                        "ERROR"
+                    ].includes(estado);
+
+                case "ACEPTADOS":
+                    return estado === "ACEPTADO";
+
+                default:
+                    return true;
+            }
+        }
+    );
+
+    filtroSunatRegistrado = true;
+}
+
 function inicializarTablaSunat() {
     tablaSunat = $("#tbllistado").DataTable({
         responsive: true,
         autoWidth: false,
         scrollX: false,
         processing: true,
-
-        /*
-         * El controlador ya devuelve el comprobante más reciente primero.
-         */
         order: [],
+        pageLength: 10,
 
         ajax: {
             url: "Controllers/Sunat.php",
@@ -60,7 +127,7 @@ function inicializarTablaSunat() {
                     icon: "error",
                     title: "No se pudo cargar",
                     text:
-                        "No fue posible obtener los comprobantes SUNAT."
+                        "No fue posible obtener la bandeja de documentos SUNAT."
                 });
             }
         },
@@ -82,34 +149,15 @@ function inicializarTablaSunat() {
             {
                 data: "3",
                 className: "text-center",
-                orderable: false,
-                searchable: false,
-                responsivePriority: 7
+                responsivePriority: 3
             },
             {
                 data: "4",
                 className: "text-center",
-                orderable: false,
-                searchable: false,
-                responsivePriority: 8
-            },
-            {
-                data: "5",
-                className: "text-center",
-                orderable: false,
-                responsivePriority: 3
-            },
-            {
-                data: "6",
-                responsivePriority: 9
-            },
-            {
-                data: "7",
-                className: "text-center",
                 responsivePriority: 6
             },
             {
-                data: "8",
+                data: "5",
                 className: "text-right",
                 orderable: false,
                 searchable: false,
@@ -119,19 +167,19 @@ function inicializarTablaSunat() {
 
         language: {
             emptyTable:
-                "No hay comprobantes electrónicos registrados",
+                "No hay documentos electrónicos registrados",
             processing:
-                "Cargando comprobantes...",
+                "Cargando documentos...",
             search:
                 "Buscar:",
             lengthMenu:
                 "Mostrar _MENU_ registros",
             info:
-                "Mostrando _START_ a _END_ de _TOTAL_ comprobantes",
+                "Mostrando _START_ a _END_ de _TOTAL_ documentos",
             infoEmpty:
-                "No hay comprobantes disponibles",
+                "No hay documentos disponibles",
             infoFiltered:
-                "(filtrado de _MAX_ comprobantes)",
+                "(filtrado de _MAX_ documentos)",
             zeroRecords:
                 "No se encontraron resultados",
             paginate: {
@@ -144,33 +192,29 @@ function inicializarTablaSunat() {
     });
 }
 
-/*
-|--------------------------------------------------------------------------
-| ENVIAR O REINTENTAR
-|--------------------------------------------------------------------------
-*/
-function enviarSunatManual(idventa) {
-    const id = Number.parseInt(
-        idventa,
-        10
-    ) || 0;
+function enviarSunatManual(tipoRegistro, idDocumento) {
+    const tipo = normalizarTipoRegistroJs(tipoRegistro);
+    const id = Number.parseInt(idDocumento, 10) || 0;
 
     if (id <= 0) {
         mostrarErrorSunat(
-            "Venta inválida",
-            "No se pudo determinar el comprobante."
+            "Documento inválido",
+            "No se pudo determinar el documento electrónico."
         );
-
         return;
     }
 
+    const esNota = tipo === "NOTA_CREDITO";
+
     Swal.fire({
         icon: "question",
-        title: "Enviar comprobante",
+        title: esNota
+            ? "Enviar nota de crédito"
+            : "Enviar comprobante",
         html:
             '<div style="text-align:left">' +
-            '<p>El comprobante será enviado mediante APISUNAT.</p>' +
-            '<p class="mb-0"><strong>En un reintento se conserva la serie y el número original.</strong> No se crea otra venta ni se consume otro correlativo.</p>' +
+            '<p>El documento será enviado mediante APISUNAT.</p>' +
+            '<p class="mb-0"><strong>En un reintento se conserva la serie y el número original.</strong> No se crea un nuevo documento ni se consume otro correlativo.</p>' +
             '</div>',
         showCancelButton: true,
         confirmButtonText: "Sí, enviar",
@@ -183,7 +227,7 @@ function enviarSunatManual(idventa) {
         }
 
         Swal.fire({
-            title: "Enviando comprobante",
+            title: "Enviando documento",
             text:
                 "Espere mientras APISUNAT procesa la solicitud.",
             allowOutsideClick: false,
@@ -196,37 +240,36 @@ function enviarSunatManual(idventa) {
             url:
                 "Controllers/Sunat.php" +
                 "?op=enviarsunat",
-
             type: "POST",
             dataType: "json",
             cache: false,
-
             data: {
-                idventa: id
+                tipo_registro: tipo,
+                id: id
             },
 
             success: function (respuesta) {
                 const resultadoEnvio =
-                    respuesta &&
-                    typeof respuesta.resultado === "object"
+                    respuesta
+                    && typeof respuesta.resultado === "object"
                         ? respuesta.resultado
                         : {};
 
                 const estado = String(
-                    resultadoEnvio.status ||
-                    resultadoEnvio.estado ||
-                    ""
+                    resultadoEnvio.status
+                    || resultadoEnvio.estado
+                    || ""
                 ).toUpperCase();
 
                 const mensaje = String(
-                    respuesta.message ||
-                    resultadoEnvio.mensaje ||
-                    "APISUNAT no devolvió un mensaje."
+                    respuesta.message
+                    || resultadoEnvio.mensaje
+                    || "APISUNAT no devolvió un mensaje."
                 );
 
                 if (
-                    !respuesta ||
-                    respuesta.status !== true
+                    !respuesta
+                    || respuesta.status !== true
                 ) {
                     mostrarDetalleErrorSunat(
                         "No se pudo enviar",
@@ -236,30 +279,33 @@ function enviarSunatManual(idventa) {
                     );
 
                     recargarTablaSunat(false);
+                    actualizarContadorGlobalSunat();
                     return;
                 }
 
                 Swal.fire({
                     icon: "success",
-                    title: "Comprobante enviado",
+                    title: "Documento enviado",
                     text:
-                        mensaje +
-                        (
+                        mensaje
+                        + (
                             estado !== ""
                                 ? " Estado: " + estado + "."
                                 : ""
                         )
                 }).then(function () {
                     recargarTablaSunat(false);
+                    actualizarContadorGlobalSunat();
 
                     if (
-                        estado === "PENDIENTE" ||
-                        estado === "EN_PROCESO" ||
-                        estado === "ENVIADO"
+                        estado === "PENDIENTE"
+                        || estado === "EN_PROCESO"
+                        || estado === "ENVIADO"
                     ) {
                         window.setTimeout(
                             function () {
                                 consultarSunatManual(
+                                    tipo,
                                     id,
                                     true
                                 );
@@ -287,31 +333,25 @@ function enviarSunatManual(idventa) {
                 });
 
                 recargarTablaSunat(false);
+                actualizarContadorGlobalSunat();
             }
         });
     });
 }
 
-/*
-|--------------------------------------------------------------------------
-| CONSULTAR ESTADO ACTUAL
-|--------------------------------------------------------------------------
-*/
 function consultarSunatManual(
-    idventa,
+    tipoRegistro,
+    idDocumento,
     automatico = false
 ) {
-    const id = Number.parseInt(
-        idventa,
-        10
-    ) || 0;
+    const tipo = normalizarTipoRegistroJs(tipoRegistro);
+    const id = Number.parseInt(idDocumento, 10) || 0;
 
     if (id <= 0) {
         mostrarErrorSunat(
-            "Venta inválida",
-            "No se pudo determinar el comprobante."
+            "Documento inválido",
+            "No se pudo determinar el documento electrónico."
         );
-
         return;
     }
 
@@ -319,7 +359,7 @@ function consultarSunatManual(
         Swal.fire({
             title: "Consultando SUNAT",
             text:
-                "Obteniendo el estado actual del comprobante.",
+                "Obteniendo el estado actual del documento.",
             allowOutsideClick: false,
             didOpen: function () {
                 Swal.showLoading();
@@ -331,85 +371,86 @@ function consultarSunatManual(
         url:
             "Controllers/Sunat.php" +
             "?op=consultar",
-
         type: "POST",
         dataType: "json",
         cache: false,
-
         data: {
-            idventa: id
+            tipo_registro: tipo,
+            id: id
         },
 
         success: function (respuesta) {
             const resultado =
-                respuesta &&
-                typeof respuesta.resultado === "object"
+                respuesta
+                && typeof respuesta.resultado === "object"
                     ? respuesta.resultado
                     : {};
 
             const estado = String(
-                resultado.status ||
-                resultado.estado ||
-                ""
+                resultado.status
+                || resultado.estado
+                || ""
             ).toUpperCase();
 
             const mensaje = String(
-                respuesta.message ||
-                resultado.mensaje ||
-                "SUNAT no devolvió información adicional."
+                respuesta.message
+                || resultado.mensaje
+                || "SUNAT no devolvió información adicional."
             );
 
-            const aceptado =
-                estado === "ACEPTADO";
-
-            const rechazado =
-                estado === "RECHAZADO" ||
-                estado === "EXCEPCION" ||
-                estado === "ERROR";
+            const aceptado = estado === "ACEPTADO";
+            const rechazado = [
+                "RECHAZADO",
+                "EXCEPCION",
+                "ERROR"
+            ].includes(estado);
 
             let icono = "info";
             let titulo = "Estado actualizado";
 
             if (aceptado) {
                 icono = "success";
-                titulo = "Comprobante aceptado";
+                titulo = "Documento aceptado";
             } else if (rechazado) {
                 icono = "error";
-                titulo = "Comprobante no aceptado";
+                titulo = "Documento no aceptado";
             } else if (
-                respuesta &&
-                respuesta.status !== true
+                respuesta
+                && respuesta.status !== true
             ) {
                 icono = "warning";
                 titulo = "No se pudo confirmar el estado";
             }
 
-            if (rechazado) {
-                mostrarDetalleErrorSunat(
-                    titulo,
-                    (
-                        estado !== ""
-                            ? "Estado: " + estado + ". "
-                            : ""
-                    ) + mensaje,
-                    resultado.faults || [],
-                    resultado.notes || []
-                );
-            } else {
-                Swal.fire({
-                    icon: icono,
-                    title: titulo,
-                    text:
+            if (!automatico) {
+                if (rechazado) {
+                    mostrarDetalleErrorSunat(
+                        titulo,
                         (
                             estado !== ""
                                 ? "Estado: " + estado + ". "
                                 : ""
-                        )
-                        + mensaje
-                });
+                        ) + mensaje,
+                        resultado.faults || [],
+                        resultado.notes || []
+                    );
+                } else {
+                    Swal.fire({
+                        icon: icono,
+                        title: titulo,
+                        text:
+                            (
+                                estado !== ""
+                                    ? "Estado: " + estado + ". "
+                                    : ""
+                            )
+                            + mensaje
+                    });
+                }
             }
 
             recargarTablaSunat(false);
+            actualizarContadorGlobalSunat();
         },
 
         error: function (xhr) {
@@ -425,33 +466,26 @@ function consultarSunatManual(
                     title: "No se pudo consultar",
                     text: obtenerMensajeAjaxSunat(
                         xhr,
-                        "Revise nuevamente el comprobante."
+                        "Revise nuevamente el documento."
                     )
                 });
             }
 
             recargarTablaSunat(false);
+            actualizarContadorGlobalSunat();
         }
     });
 }
 
-/*
-|--------------------------------------------------------------------------
-| VER RESPUESTA COMPLETA DE APISUNAT
-|--------------------------------------------------------------------------
-*/
-function verDetalleSunat(idventa) {
-    const id = Number.parseInt(
-        idventa,
-        10
-    ) || 0;
+function verDetalleSunat(tipoRegistro, idDocumento) {
+    const tipo = normalizarTipoRegistroJs(tipoRegistro);
+    const id = Number.parseInt(idDocumento, 10) || 0;
 
     if (id <= 0) {
         mostrarErrorSunat(
-            "Venta inválida",
-            "No se pudo determinar el comprobante."
+            "Documento inválido",
+            "No se pudo determinar el documento electrónico."
         );
-
         return;
     }
 
@@ -467,13 +501,12 @@ function verDetalleSunat(idventa) {
         url:
             "Controllers/Sunat.php" +
             "?op=detalle",
-
         type: "GET",
         dataType: "json",
         cache: false,
-
         data: {
-            idventa: id,
+            tipo_registro: tipo,
+            id: id,
             v: Date.now()
         },
 
@@ -488,7 +521,6 @@ function verDetalleSunat(idventa) {
                         ? respuesta.message
                         : "No fue posible cargar la respuesta de APISUNAT."
                 );
-
                 return;
             }
 
@@ -498,29 +530,32 @@ function verDetalleSunat(idventa) {
             const rechazoDefinitivo =
                 respuesta.rechazo_definitivo === true;
 
+            const estado = String(
+                respuesta.estado || ""
+            ).toUpperCase();
+
             Swal.fire({
                 icon:
                     rechazoDefinitivo
-                    || puedeReintentar
                         ? "error"
                         : (
-                            String(respuesta.estado || "")
-                                .toUpperCase() === "ACEPTADO"
+                            estado === "ACEPTADO"
                                 ? "success"
-                                : "info"
+                                : (
+                                    puedeReintentar
+                                        ? "error"
+                                        : "info"
+                                )
                         ),
                 title:
                     rechazoDefinitivo
-                        ? "Comprobante rechazado"
+                        ? "Documento rechazado"
                         : (
                             puedeReintentar
                                 ? "Error técnico de envío"
-                                : "Detalle del comprobante"
+                                : "Detalle SUNAT"
                         ),
-                html:
-                    construirHtmlDetalleSunat(
-                        respuesta
-                    ),
+                html: construirHtmlDetalleSunat(respuesta),
                 showCancelButton: puedeReintentar,
                 confirmButtonText:
                     puedeReintentar
@@ -534,7 +569,7 @@ function verDetalleSunat(idventa) {
                     puedeReintentar
                     && resultado.isConfirmed
                 ) {
-                    enviarSunatManual(id);
+                    enviarSunatManual(tipo, id);
                 }
             });
         },
@@ -544,18 +579,16 @@ function verDetalleSunat(idventa) {
                 "No se pudo cargar",
                 obtenerMensajeAjaxSunat(
                     xhr,
-                    "No fue posible cargar el detalle del comprobante."
+                    "No fue posible cargar el detalle del documento."
                 )
             );
         }
     });
 }
 
-function construirHtmlDetalleSunat(
-    respuesta
-) {
+function construirHtmlDetalleSunat(respuesta) {
     const estado = String(
-        respuesta.estado || "PENDIENTE"
+        respuesta.estado || "NO_ENVIADO"
     ).toUpperCase();
 
     const mensaje = String(
@@ -576,7 +609,6 @@ function construirHtmlDetalleSunat(
         respuesta.notes || []
     ).forEach(function (note) {
         const texto = "Nota: " + note;
-
         if (!partes.includes(texto)) {
             partes.push(texto);
         }
@@ -587,27 +619,74 @@ function construirHtmlDetalleSunat(
             ? (
                 '<div style="margin-bottom:12px;padding:11px 13px;border:1px solid #f1b7bf;border-radius:9px;background:#fff5f6;color:#9b2638;text-align:left;font-size:.78rem;line-height:1.45">' +
                 '<strong>No se puede reintentar este número.</strong><br>' +
-                'SUNAT/APISUNAT ya registró la numeración. Debe emitirse un nuevo comprobante corregido con el siguiente correlativo.' +
+                'SUNAT/APISUNAT ya registró la numeración. Revise el motivo antes de emitir otro documento.' +
                 '</div>'
             )
             : '';
 
+    const origen = String(
+        respuesta.comprobante_origen || ""
+    ).trim();
+
+    const origenHtml = origen !== ""
+        ? (
+            '<div><span>Documento original</span><strong>' +
+            escaparHtmlSunat(origen) +
+            '</strong></div>'
+        )
+        : '';
+
+    let archivos = '';
+
+    if (respuesta.tiene_xml === true || respuesta.tiene_cdr === true) {
+        archivos = '<div class="sunat-detail-files">';
+
+        if (respuesta.tiene_xml === true && respuesta.xml_url) {
+            archivos +=
+                '<a class="sunat-detail-file" href="' +
+                escaparHtmlSunat(respuesta.xml_url) +
+                '"><i class="far fa-file-code"></i> Descargar XML</a>';
+        }
+
+        if (respuesta.tiene_cdr === true && respuesta.cdr_url) {
+            archivos +=
+                '<a class="sunat-detail-file" href="' +
+                escaparHtmlSunat(respuesta.cdr_url) +
+                '"><i class="far fa-file-archive"></i> Descargar CDR</a>';
+        }
+
+        archivos += '</div>';
+    }
+
     return (
         avisoRechazo +
         '<div class="sunat-detail-meta">' +
-            '<div><span>Comprobante</span><strong>' +
+            '<div><span>Documento</span><strong>' +
                 escaparHtmlSunat(respuesta.comprobante || "—") +
             '</strong></div>' +
-            '<div><span>Estado</span><strong>' +
+            '<div><span>Estado SUNAT</span><strong>' +
                 escaparHtmlSunat(estado) +
             '</strong></div>' +
+            '<div><span>Tipo</span><strong>' +
+                escaparHtmlSunat(
+                    (respuesta.tipo_documento || "Documento electrónico") +
+                    (respuesta.tipo_documento_sunat
+                        ? " · " + respuesta.tipo_documento_sunat
+                        : "")
+                ) +
+            '</strong></div>' +
+            origenHtml +
             '<div><span>Cliente</span><strong>' +
                 escaparHtmlSunat(respuesta.cliente || "—") +
             '</strong></div>' +
             '<div><span>Total</span><strong>S/ ' +
                 escaparHtmlSunat(respuesta.total || "0.00") +
             '</strong></div>' +
+            '<div><span>Document ID</span><strong>' +
+                escaparHtmlSunat(respuesta.documentId || "—") +
+            '</strong></div>' +
         '</div>' +
+        archivos +
         '<div class="sunat-detail-box">' +
             escaparHtmlSunat(
                 partes
@@ -624,9 +703,7 @@ function mostrarDetalleErrorSunat(
     faults,
     notes
 ) {
-    const partes = [
-        String(mensaje || "")
-    ];
+    const partes = [String(mensaje || "")];
 
     normalizarMensajesSunatJs(
         faults || []
@@ -640,7 +717,6 @@ function mostrarDetalleErrorSunat(
         notes || []
     ).forEach(function (note) {
         const texto = "Nota: " + note;
-
         if (!partes.includes(texto)) {
             partes.push(texto);
         }
@@ -661,9 +737,7 @@ function mostrarDetalleErrorSunat(
     });
 }
 
-function normalizarMensajesSunatJs(
-    valor
-) {
+function normalizarMensajesSunatJs(valor) {
     const salida = [];
 
     const recorrer = function (dato) {
@@ -672,11 +746,9 @@ function normalizarMensajesSunatJs(
             || typeof dato === "number"
         ) {
             const texto = String(dato).trim();
-
             if (texto !== "") {
                 salida.push(texto);
             }
-
             return;
         }
 
@@ -707,9 +779,36 @@ function normalizarMensajesSunatJs(
         });
 }
 
-function escaparHtmlSunat(
-    valor
-) {
+function normalizarTipoRegistroJs(valor) {
+    const tipo = String(valor || "VENTA")
+        .trim()
+        .toUpperCase();
+
+    if (
+        [
+            "NOTA",
+            "NC",
+            "NOTA_CREDITO",
+            "NOTA-CREDITO"
+        ].includes(tipo)
+    ) {
+        return "NOTA_CREDITO";
+    }
+
+    return "VENTA";
+}
+
+function normalizarTextoSunat(valor) {
+    return $("<div>")
+        .html(String(valor || ""))
+        .text()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toUpperCase();
+}
+
+function escaparHtmlSunat(valor) {
     return String(
         valor == null
             ? ""
@@ -722,34 +821,21 @@ function escaparHtmlSunat(
         .replace(/'/g, "&#039;");
 }
 
-/*
-|--------------------------------------------------------------------------
-| RECARGAR TABLA
-|--------------------------------------------------------------------------
-*/
-function recargarTablaSunat(
-    mostrarAviso = false
-) {
+function recargarTablaSunat(mostrarAviso = false) {
     if (
-        !tablaSunat ||
-        !$.fn.DataTable.isDataTable(
-            "#tbllistado"
-        )
+        !tablaSunat
+        || !$.fn.DataTable.isDataTable("#tbllistado")
     ) {
         return;
     }
 
-    const $boton =
-        $("#btnActualizarSunat");
-
-    const contenidoOriginal =
-        $boton.html();
+    const $boton = $("#btnActualizarSunat");
+    const contenidoOriginal = $boton.html();
 
     $boton
         .prop("disabled", true)
         .html(
-            '<span class="spinner-border ' +
-            'spinner-border-sm mr-1"></span>' +
+            '<span class="spinner-border spinner-border-sm mr-1"></span>' +
             "Actualizando"
         );
 
@@ -762,7 +848,7 @@ function recargarTablaSunat(
             if (mostrarAviso) {
                 Swal.fire({
                     icon: "success",
-                    title: "Tabla actualizada",
+                    title: "Bandeja actualizada",
                     timer: 1100,
                     showConfirmButton: false
                 });
@@ -772,25 +858,28 @@ function recargarTablaSunat(
     );
 }
 
-/*
-|--------------------------------------------------------------------------
-| UTILIDADES
-|--------------------------------------------------------------------------
-*/
-function obtenerMensajeAjaxSunat(
-    xhr,
-    predeterminado
-) {
+function actualizarContadorGlobalSunat() {
     if (
-        xhr.responseJSON &&
-        typeof xhr.responseJSON.message === "string"
+        typeof window.actualizarContadorSunatNavbar === "function"
+    ) {
+        window.setTimeout(
+            window.actualizarContadorSunatNavbar,
+            250
+        );
+    }
+}
+
+function obtenerMensajeAjaxSunat(xhr, predeterminado) {
+    if (
+        xhr.responseJSON
+        && typeof xhr.responseJSON.message === "string"
     ) {
         return xhr.responseJSON.message;
     }
 
     if (
-        xhr.responseJSON &&
-        typeof xhr.responseJSON.mensaje === "string"
+        xhr.responseJSON
+        && typeof xhr.responseJSON.mensaje === "string"
     ) {
         return xhr.responseJSON.mensaje;
     }
@@ -798,10 +887,7 @@ function obtenerMensajeAjaxSunat(
     return predeterminado;
 }
 
-function mostrarErrorSunat(
-    titulo,
-    mensaje
-) {
+function mostrarErrorSunat(titulo, mensaje) {
     Swal.fire({
         icon: "error",
         title: titulo,

@@ -856,10 +856,30 @@ class CreditNote
                 nc.total_nota,
                 nc.estado AS estado_local,
 
-                COALESCE(
-                    ncs.estado_sunat,
-                    'NO_ENVIADO'
-                ) AS estado_sunat,
+                CASE
+                    WHEN ncs.idnota_credito IS NULL
+                    THEN 'NO_ENVIADO'
+
+                    WHEN TRIM(
+                        COALESCE(
+                            ncs.estado_sunat,
+                            ''
+                        )
+                    ) <> ''
+                    THEN UPPER(
+                        TRIM(
+                            ncs.estado_sunat
+                        )
+                    )
+
+                    WHEN COALESCE(
+                        ncs.document_id,
+                        ''
+                    ) = ''
+                    THEN 'NO_ENVIADO'
+
+                    ELSE 'PENDIENTE'
+                END AS estado_sunat,
 
                 COALESCE(
                     ncs.mensaje_sunat,
