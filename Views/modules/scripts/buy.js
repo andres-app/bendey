@@ -970,6 +970,375 @@ function guardaryeditar(evento) {
         });
 }
 
+
+let filtroFechaComprasRegistrado = false;
+
+function formatearFechaInputCompra(fecha) {
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+
+    return `${anio}-${mes}-${dia}`;
+}
+
+function parsearFechaCompra(valor) {
+    const texto = String(valor || '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (texto === '') {
+        return null;
+    }
+
+    let coincidencia = texto.match(
+        /\b(\d{4})-(\d{2})-(\d{2})\b/
+    );
+
+    if (coincidencia) {
+        return new Date(
+            Number.parseInt(coincidencia[1], 10),
+            Number.parseInt(coincidencia[2], 10) - 1,
+            Number.parseInt(coincidencia[3], 10)
+        );
+    }
+
+    coincidencia = texto.match(
+        /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/
+    );
+
+    if (coincidencia) {
+        return new Date(
+            Number.parseInt(coincidencia[3], 10),
+            Number.parseInt(coincidencia[2], 10) - 1,
+            Number.parseInt(coincidencia[1], 10)
+        );
+    }
+
+    return null;
+}
+
+function formatearFechaVisibleCompra(valor) {
+    const fecha = parsearFechaCompra(valor);
+
+    if (!fecha || Number.isNaN(fecha.getTime())) {
+        return '';
+    }
+
+    return [
+        String(fecha.getDate()).padStart(2, '0'),
+        String(fecha.getMonth() + 1).padStart(2, '0'),
+        fecha.getFullYear()
+    ].join('/');
+}
+
+function obtenerFechaInputCompra(selector) {
+    const valor = String(
+        $(selector).val() || ''
+    ).trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+        return null;
+    }
+
+    const partes = valor.split('-');
+
+    const fecha = new Date(
+        Number.parseInt(partes[0], 10),
+        Number.parseInt(partes[1], 10) - 1,
+        Number.parseInt(partes[2], 10)
+    );
+
+    return Number.isNaN(fecha.getTime())
+        ? null
+        : fecha;
+}
+
+function registrarFiltroFechaCompras() {
+    if (
+        filtroFechaComprasRegistrado
+        || !$.fn.dataTable
+        || !Array.isArray($.fn.dataTable.ext.search)
+    ) {
+        return;
+    }
+
+    $.fn.dataTable.ext.search.push(
+        function (settings, data) {
+            if (
+                !settings
+                || !settings.nTable
+                || settings.nTable.id !== 'tbllistado'
+            ) {
+                return true;
+            }
+
+            const desde =
+                obtenerFechaInputCompra(
+                    '#compraFechaDesde'
+                );
+
+            const hasta =
+                obtenerFechaInputCompra(
+                    '#compraFechaHasta'
+                );
+
+            if (!desde && !hasta) {
+                return true;
+            }
+
+            const fechaRegistro =
+                parsearFechaCompra(
+                    data[1] || ''
+                );
+
+            if (
+                !fechaRegistro
+                || Number.isNaN(fechaRegistro.getTime())
+            ) {
+                return false;
+            }
+
+            fechaRegistro.setHours(0, 0, 0, 0);
+
+            if (desde) {
+                desde.setHours(0, 0, 0, 0);
+
+                if (
+                    fechaRegistro.getTime()
+                    < desde.getTime()
+                ) {
+                    return false;
+                }
+            }
+
+            if (hasta) {
+                hasta.setHours(23, 59, 59, 999);
+
+                if (
+                    fechaRegistro.getTime()
+                    > hasta.getTime()
+                ) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    );
+
+    filtroFechaComprasRegistrado = true;
+}
+
+function actualizarResumenFiltroCompras() {
+    const periodo = String(
+        $('#compraFiltroPeriodo').val()
+        || 'mes'
+    );
+
+    const desde = String(
+        $('#compraFechaDesde').val()
+        || ''
+    );
+
+    const hasta = String(
+        $('#compraFechaHasta').val()
+        || ''
+    );
+
+    let texto = 'Todo el historial';
+
+    if (periodo === 'hoy') {
+        texto = 'Compras de hoy';
+    } else if (periodo === '7dias') {
+        texto = 'Compras de los últimos 7 días';
+    } else if (periodo === 'mes') {
+        texto = 'Compras del mes actual';
+    } else if (
+        desde !== ''
+        || hasta !== ''
+    ) {
+        const desdeVisible =
+            formatearFechaVisibleCompra(desde);
+
+        const hastaVisible =
+            formatearFechaVisibleCompra(hasta);
+
+        if (
+            desdeVisible !== ''
+            && hastaVisible !== ''
+        ) {
+            texto =
+                `Del ${desdeVisible} al ${hastaVisible}`;
+        } else if (desdeVisible !== '') {
+            texto =
+                `Desde ${desdeVisible}`;
+        } else if (hastaVisible !== '') {
+            texto =
+                `Hasta ${hastaVisible}`;
+        }
+    }
+
+    $('#compraPeriodoResumen span').text(texto);
+}
+
+function aplicarPeriodoFiltroCompras(
+    periodo,
+    redibujar = true
+) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    let desde = null;
+    let hasta = null;
+
+    switch (periodo) {
+        case 'hoy':
+            desde = new Date(hoy);
+            hasta = new Date(hoy);
+            break;
+
+        case '7dias':
+            desde = new Date(hoy);
+            desde.setDate(desde.getDate() - 6);
+            hasta = new Date(hoy);
+            break;
+
+        case 'mes':
+            desde = new Date(
+                hoy.getFullYear(),
+                hoy.getMonth(),
+                1
+            );
+            hasta = new Date(hoy);
+            break;
+
+        case 'todo':
+            break;
+
+        case 'personalizado':
+            actualizarResumenFiltroCompras();
+
+            if (
+                redibujar
+                && tablaCompras
+            ) {
+                tablaCompras.draw();
+            }
+
+            return;
+
+        default:
+            periodo = 'mes';
+            $('#compraFiltroPeriodo').val('mes');
+
+            desde = new Date(
+                hoy.getFullYear(),
+                hoy.getMonth(),
+                1
+            );
+            hasta = new Date(hoy);
+            break;
+    }
+
+    $('#compraFechaDesde').val(
+        desde
+            ? formatearFechaInputCompra(desde)
+            : ''
+    );
+
+    $('#compraFechaHasta').val(
+        hasta
+            ? formatearFechaInputCompra(hasta)
+            : ''
+    );
+
+    actualizarResumenFiltroCompras();
+
+    if (
+        redibujar
+        && tablaCompras
+    ) {
+        tablaCompras.draw();
+    }
+}
+
+function actualizarCantidadFiltradaCompras() {
+    if (!tablaCompras) {
+        $('#compraResultadoCount').text('0 registros');
+        return;
+    }
+
+    const cantidad =
+        tablaCompras
+            .rows({
+                search: 'applied'
+            })
+            .count();
+
+    $('#compraResultadoCount').text(
+        cantidad === 1
+            ? '1 registro'
+            : `${cantidad} registros`
+    );
+}
+
+function registrarEventosFiltroCompras() {
+    $('#compraFiltroPeriodo').on(
+        'change',
+        function () {
+            aplicarPeriodoFiltroCompras(
+                String($(this).val() || 'mes')
+            );
+        }
+    );
+
+    $('#compraFechaDesde, #compraFechaHasta').on(
+        'change',
+        function () {
+            $('#compraFiltroPeriodo').val(
+                'personalizado'
+            );
+
+            actualizarResumenFiltroCompras();
+
+            if (tablaCompras) {
+                tablaCompras.draw();
+            }
+        }
+    );
+
+    $('#compraBuscar').on(
+        'input',
+        function () {
+            if (!tablaCompras) {
+                return;
+            }
+
+            tablaCompras
+                .search(
+                    String($(this).val() || '')
+                )
+                .draw();
+        }
+    );
+
+    $('#btnLimpiarFiltroCompras').on(
+        'click',
+        function () {
+            $('#compraBuscar').val('');
+
+            if (tablaCompras) {
+                tablaCompras.search('');
+            }
+
+            $('#compraFiltroPeriodo').val('mes');
+
+            aplicarPeriodoFiltroCompras('mes');
+        }
+    );
+}
+
 function listar() {
     if ($.fn.DataTable.isDataTable('#tbllistado')) {
         $('#tbllistado').DataTable().destroy();
@@ -978,51 +1347,154 @@ function listar() {
     tablaCompras = $('#tbllistado').DataTable({
         processing: true,
         serverSide: false,
-        dom: 'Bfrtip',
+        autoWidth: false,
+        responsive: false,
+
+        dom:
+            'Brt' +
+            '<"row align-items-center mt-3"' +
+                '<"col-sm-12 col-md-6"i>' +
+                '<"col-sm-12 col-md-6"p>' +
+            '>',
         buttons: [
             {
                 extend: 'excelHtml5',
-                text: '<i class="fa fa-file-excel-o"></i> Excel',
-                titleAttr: 'Exportar a Excel',
-                title: 'Reporte de compras',
-                sheetName: 'Compras',
-                exportOptions: { columns: [1, 2, 3, 4, 5, 6, 7, 8] }
+                text:
+                    '<i class="fas fa-file-excel mr-1"></i> Excel',
+                titleAttr:
+                    'Exportar compras filtradas a Excel',
+                title:
+                    'Reporte de compras',
+                sheetName:
+                    'Compras',
+                exportOptions: {
+                    columns: [1, 2, 3, 4, 5, 6, 7, 8],
+                    modifier: {
+                        search: 'applied',
+                        order: 'applied'
+                    }
+                }
             },
             {
                 extend: 'pdfHtml5',
-                text: '<i class="fa fa-file-pdf-o"></i> PDF',
-                titleAttr: 'Exportar a PDF',
-                title: 'Reporte de compras',
-                pageSize: 'A4',
-                orientation: 'landscape',
-                exportOptions: { columns: [1, 2, 3, 4, 5, 6, 7, 8] }
+                text:
+                    '<i class="fas fa-file-pdf mr-1"></i> PDF',
+                titleAttr:
+                    'Exportar compras filtradas a PDF',
+                title:
+                    'Reporte de compras',
+                pageSize:
+                    'A4',
+                orientation:
+                    'landscape',
+                exportOptions: {
+                    columns: [1, 2, 3, 4, 5, 6, 7, 8],
+                    modifier: {
+                        search: 'applied',
+                        order: 'applied'
+                    }
+                }
             }
         ],
         ajax: {
-            url: 'Controllers/Buy.php?op=listar',
-            type: 'GET',
-            dataType: 'json',
+            url:
+                'Controllers/Buy.php?op=listar',
+            type:
+                'GET',
+            dataType:
+                'json',
+            cache:
+                false,
+            data: function () {
+                return {
+                    v: Date.now()
+                };
+            },
             error: function (xhr) {
-                console.error('ERROR LISTAR COMPRAS:', xhr.responseText);
+                console.error(
+                    'ERROR LISTAR COMPRAS:',
+                    xhr.responseText
+                );
             }
         },
         pageLength: 15,
         order: [[1, 'desc']],
         columnDefs: [
-            { targets: [0], orderable: false, searchable: false }
+            {
+                targets: [0],
+                orderable: false,
+                searchable: false
+            },
+            {
+                targets: [1],
+                render: function (
+                    data,
+                    type
+                ) {
+                    if (
+                        type !== 'sort'
+                        && type !== 'type'
+                    ) {
+                        return data;
+                    }
+
+                    const fecha =
+                        parsearFechaCompra(data);
+
+                    return (
+                        fecha
+                        && !Number.isNaN(
+                            fecha.getTime()
+                        )
+                    )
+                        ? fecha.getTime()
+                        : 0;
+                }
+            },
+            {
+                targets: [7],
+                className: 'text-right'
+            }
         ],
+        initComplete: function () {
+            const api =
+                this.api();
+
+            $('#comprasExportToolbar')
+                .empty()
+                .append(
+                    api
+                        .buttons()
+                        .container()
+                );
+
+            actualizarCantidadFiltradaCompras();
+        },
+        drawCallback: function () {
+            actualizarCantidadFiltradaCompras();
+        },
         language: {
-            emptyTable: 'No hay compras registradas',
-            processing: 'Cargando compras...',
-            search: 'Buscar:',
-            lengthMenu: 'Mostrar _MENU_',
-            info: 'Mostrando _START_ a _END_ de _TOTAL_',
-            infoEmpty: 'Sin registros',
+            emptyTable:
+                'No hay compras para el periodo seleccionado',
+            processing:
+                'Cargando compras...',
+            info:
+                'Mostrando _START_ a _END_ de _TOTAL_ compras',
+            infoEmpty:
+                'Sin compras para mostrar',
+            infoFiltered:
+                '',
+            zeroRecords:
+                'No se encontraron compras con estos filtros',
             paginate: {
-                first: 'Primero',
-                last: 'Último',
-                next: 'Siguiente',
-                previous: 'Anterior'
+                first:
+                    'Primero',
+                last:
+                    'Último',
+                next:
+                    'Siguiente',
+                previous:
+                    'Anterior'
             }
         }
     });
@@ -1221,6 +1693,19 @@ function actualizarCoincidenciasProductoNuevo() {
 
 function init() {
     mostrarform(false);
+
+    registrarFiltroFechaCompras();
+    registrarEventosFiltroCompras();
+
+    /*
+     * Al abrir Compras, mostrar únicamente el mes actual.
+     */
+    $('#compraFiltroPeriodo').val('mes');
+    aplicarPeriodoFiltroCompras(
+        'mes',
+        false
+    );
+
     listar();
     cargarProveedoresCompra();
     cargarDatosCompra();

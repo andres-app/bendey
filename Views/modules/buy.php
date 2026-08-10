@@ -258,6 +258,267 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
         font-size: .8rem;
     }
 
+
+    /* =========================================================
+       LISTADO PREMIUM DE COMPRAS
+       ========================================================= */
+    .compra-list-header {
+        min-height: 86px;
+        padding: 18px 22px;
+        border-bottom: 1px solid #edf1ef;
+    }
+
+    .compra-list-header h4 {
+        color: #243128;
+        font-size: 1.08rem;
+        font-weight: 700;
+    }
+
+    .compra-list-header small {
+        display: block;
+        margin-top: 4px;
+        color: #7d8981 !important;
+        font-size: .79rem;
+        line-height: 1.4;
+    }
+
+    .compra-nueva-btn {
+        min-height: 40px;
+        padding: 8px 15px;
+        border-radius: 10px;
+        font-weight: 500;
+        box-shadow: none !important;
+    }
+
+    .compra-list-toolbar {
+        margin-bottom: 16px;
+        padding: 14px;
+        border: 1px solid #e4ebe6;
+        border-radius: 14px;
+        background: #f9fbfa;
+    }
+
+    .compra-filter-grid {
+        display: grid;
+        grid-template-columns:
+            minmax(150px, .8fr)
+            minmax(135px, .7fr)
+            minmax(135px, .7fr)
+            minmax(220px, 1.3fr)
+            auto;
+        gap: 10px;
+        align-items: end;
+    }
+
+    .compra-filter-field {
+        min-width: 0;
+    }
+
+    .compra-filter-field label {
+        display: block;
+        margin-bottom: 5px;
+        color: #7a867f;
+        font-size: .67rem;
+        font-weight: 700;
+        letter-spacing: .025em;
+        text-transform: uppercase;
+    }
+
+    .compra-filter-field .form-control {
+        min-height: 40px;
+        height: 40px;
+        border-color: #dce4df;
+        border-radius: 9px;
+        background: #fff;
+        font-size: .82rem;
+        font-weight: 400;
+    }
+
+    .compra-filter-search {
+        position: relative;
+    }
+
+    .compra-filter-search > i {
+        position: absolute;
+        top: 50%;
+        left: 12px;
+        z-index: 2;
+        color: #9aa59e;
+        font-size: .82rem;
+        transform: translateY(-50%);
+        pointer-events: none;
+    }
+
+    .compra-filter-search .form-control {
+        padding-left: 35px;
+    }
+
+    .compra-filter-reset {
+        min-height: 40px;
+        height: 40px;
+        padding: 7px 12px;
+        border-radius: 9px;
+        font-size: .8rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .compra-list-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .compra-period-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 30px;
+        padding: 5px 10px;
+        border: 1px solid #e1e8e3;
+        border-radius: 999px;
+        color: #607068;
+        background: #fff;
+        font-size: .75rem;
+        line-height: 1.25;
+    }
+
+    .compra-period-summary i {
+        color: #278c46;
+    }
+
+    .compra-result-count {
+        color: #8a958e;
+        font-size: .75rem;
+        white-space: nowrap;
+    }
+
+    .compra-export-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+    }
+
+    .compra-export-toolbar .dt-buttons {
+        display: flex;
+        gap: 7px;
+        float: none !important;
+    }
+
+    .compra-export-toolbar .dt-button,
+    .compra-export-toolbar .btn {
+        margin: 0 !important;
+        padding: 6px 10px !important;
+        border: 1px solid #dbe3de !important;
+        border-radius: 8px !important;
+        color: #5d6961 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        font-size: .75rem !important;
+        font-weight: 500 !important;
+    }
+
+    .compra-export-toolbar .dt-button:hover,
+    .compra-export-toolbar .btn:hover {
+        border-color: #b9c9be !important;
+        color: #29352e !important;
+        background: #f5f8f6 !important;
+    }
+
+    .compra-table-wrap {
+        overflow: hidden;
+        border: 1px solid #e5ebe7;
+        border-radius: 13px;
+        background: #fff;
+    }
+
+    .compra-table-scroll {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #tbllistado {
+        margin: 0 !important;
+    }
+
+    #tbllistado thead th {
+        padding: 12px 10px;
+        border-top: 0;
+        border-bottom: 1px solid #dde5e0;
+        color: #657269;
+        background: #f7f9f8;
+        font-size: .69rem;
+        font-weight: 700;
+        letter-spacing: .025em;
+        text-transform: uppercase;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    #tbllistado tbody td {
+        padding: 11px 10px;
+        border-top-color: #edf1ef;
+        color: #3f4a43;
+        font-size: .8rem;
+        vertical-align: middle;
+    }
+
+    #tbllistado tbody tr:hover {
+        background: #fbfcfb;
+    }
+
+    #tbllistado tbody td:nth-child(8) {
+        color: #26332b;
+        font-weight: 700;
+    }
+
+    #tbllistado .btn {
+        border-radius: 8px;
+        box-shadow: none !important;
+        font-weight: 500;
+    }
+
+    #tbllistado_wrapper .dataTables_info {
+        padding-top: 12px;
+        color: #8a958e;
+        font-size: .75rem;
+    }
+
+    #tbllistado_wrapper .dataTables_paginate {
+        padding-top: 8px;
+    }
+
+    #tbllistado_wrapper .pagination .page-link {
+        min-width: 33px;
+        border-color: #e1e7e3;
+        color: #606c64;
+        font-size: .76rem;
+        box-shadow: none;
+    }
+
+    #tbllistado_wrapper .pagination .page-item.active .page-link {
+        border-color: #52b848;
+        color: #fff;
+        background: #52b848;
+    }
+
+    @media (max-width: 1199.98px) {
+        .compra-filter-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .compra-filter-field-search {
+            grid-column: 1 / -1;
+        }
+
+        .compra-filter-reset {
+            width: 100%;
+        }
+    }
+
     @media (max-width: 991.98px) {
         .compra-actions {
             grid-template-columns: 1fr;
@@ -268,6 +529,35 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
         .compra-page .card-body {
             padding-left: 14px;
             padding-right: 14px;
+        }
+
+        .compra-list-header {
+            align-items: stretch !important;
+            padding: 16px;
+        }
+
+        .compra-nueva-btn {
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        .compra-filter-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .compra-filter-field-search {
+            grid-column: auto;
+        }
+
+        .compra-list-meta {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .compra-export-toolbar {
+            justify-content: flex-start;
+            overflow-x: auto;
+            padding-bottom: 2px;
         }
 
         .compra-action-btn {
@@ -282,45 +572,127 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
             <div class="row">
                 <div class="col-12">
                     <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="card-header compra-list-header d-flex flex-column flex-md-row justify-content-between align-items-md-center">
                             <div>
                                 <h4 class="mb-0">Compras</h4>
                                 <small class="text-muted">
-                                    Registra mercadería, productos nuevos, gastos y servicios.
+                                    Historial de compras, mercadería, gastos y servicios registrados.
                                 </small>
                             </div>
 
                             <button
                                 type="button"
-                                class="btn btn-success"
+                                class="btn btn-success compra-nueva-btn"
                                 onclick="mostrarform(true)"
                                 id="btnagregar">
-                                <i class="fas fa-plus-circle mr-1"></i>
+                                <i class="fas fa-plus mr-1"></i>
                                 Nueva compra
                             </button>
                         </div>
 
                         <div class="card-body">
-                            <div class="table-responsive" id="listadoregistros">
-                                <table
-                                    id="tbllistado"
-                                    class="table table-striped table-hover text-nowrap"
-                                    style="width:100%;">
-                                    <thead>
-                                        <tr>
-                                            <th>Opciones</th>
-                                            <th>Fecha</th>
-                                            <th>Proveedor</th>
-                                            <th>Usuario</th>
-                                            <th>Documento</th>
-                                            <th>Número</th>
-                                            <th>Tipo de compra</th>
-                                            <th>Total</th>
-                                            <th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
+                            <div id="listadoregistros">
+                                <div class="compra-list-toolbar" id="compraListToolbar">
+                                    <div class="compra-filter-grid">
+                                        <div class="compra-filter-field">
+                                            <label for="compraFiltroPeriodo">Periodo</label>
+                                            <select
+                                                class="form-control"
+                                                id="compraFiltroPeriodo"
+                                                aria-label="Filtrar compras por periodo">
+                                                <option value="mes" selected>Este mes</option>
+                                                <option value="hoy">Hoy</option>
+                                                <option value="7dias">Últimos 7 días</option>
+                                                <option value="todo">Todo el historial</option>
+                                                <option value="personalizado">Personalizado</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="compra-filter-field">
+                                            <label for="compraFechaDesde">Desde</label>
+                                            <input
+                                                type="date"
+                                                class="form-control"
+                                                id="compraFechaDesde"
+                                                aria-label="Fecha inicial">
+                                        </div>
+
+                                        <div class="compra-filter-field">
+                                            <label for="compraFechaHasta">Hasta</label>
+                                            <input
+                                                type="date"
+                                                class="form-control"
+                                                id="compraFechaHasta"
+                                                aria-label="Fecha final">
+                                        </div>
+
+                                        <div class="compra-filter-field compra-filter-field-search">
+                                            <label for="compraBuscar">Buscar</label>
+                                            <div class="compra-filter-search">
+                                                <i class="fas fa-search" aria-hidden="true"></i>
+                                                <input
+                                                    type="search"
+                                                    class="form-control"
+                                                    id="compraBuscar"
+                                                    autocomplete="off"
+                                                    placeholder="Proveedor, documento, número...">
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary compra-filter-reset"
+                                            id="btnLimpiarFiltroCompras"
+                                            title="Restablecer al mes actual">
+                                            <i class="fas fa-undo-alt mr-1"></i>
+                                            Restablecer
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="compra-list-meta">
+                                    <div
+                                        class="compra-period-summary"
+                                        id="compraPeriodoResumen">
+                                        <i class="far fa-calendar-alt" aria-hidden="true"></i>
+                                        <span>Compras del mes actual</span>
+                                    </div>
+
+                                    <span
+                                        class="compra-result-count"
+                                        id="compraResultadoCount">
+                                        0 registros
+                                    </span>
+                                </div>
+
+                                <div
+                                    class="compra-export-toolbar"
+                                    id="comprasExportToolbar">
+                                </div>
+
+                                <div class="compra-table-wrap">
+                                    <div class="compra-table-scroll">
+                                        <table
+                                            id="tbllistado"
+                                            class="table table-hover text-nowrap"
+                                            style="width:100%;">
+                                            <thead>
+                                                <tr>
+                                                    <th>Opciones</th>
+                                                    <th>Fecha</th>
+                                                    <th>Proveedor</th>
+                                                    <th>Usuario</th>
+                                                    <th>Documento</th>
+                                                    <th>Número</th>
+                                                    <th>Tipo de compra</th>
+                                                    <th>Total</th>
+                                                    <th>Estado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
 
                             <div id="formularioregistros" style="display:none;">
