@@ -1,7 +1,15 @@
 Options All -Indexes
 
-RewriteEngine on
-#RewriteCond %{REQUEST_FILENAME} !-d
-#RewriteCond %{REQUEST_FILENAME} !-f
-#RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
-RewriteRule ^([-a-zA-Z0-9]+)$ index.php?url=$1
+RewriteEngine On
+
+# No reescribir archivos o carpetas físicas existentes.
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+
+# Rutas limpias de TiquePOS.
+# Acepta letras, números, guiones y guiones bajos.
+# Ejemplos:
+#   /listsales
+#   /contabilidad_libro_ventas
+#   /contabilidad_reporte_compras
+RewriteRule ^([A-Za-z0-9_-]+)/?$ index.php?url=$1 [QSA,L]
