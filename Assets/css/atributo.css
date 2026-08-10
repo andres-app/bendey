@@ -41,7 +41,7 @@
     margin: 3px 0 4px;
     font-size: 25px;
     line-height: 1.2;
-    font-weight: 750;
+    font-weight: 700;
     color: var(--atributo-text);
   }
   
@@ -320,7 +320,7 @@
   }
   
   .atributo-table td:nth-child(2) {
-    font-weight: 750;
+    font-weight: 700;
   }
   
   .atributo-table td:nth-child(3) {
@@ -334,7 +334,7 @@
     padding: 6px 9px;
     border-radius: 20px;
     font-size: 10px;
-    font-weight: 750;
+    font-weight: 700;
   }
   
   .atributo-table .badge-success {
@@ -437,7 +437,7 @@
     margin: 3px 0 4px;
     color: var(--atributo-text);
     font-size: 20px;
-    font-weight: 750;
+    font-weight: 700;
   }
   
   .atributo-back-button {
@@ -462,7 +462,7 @@
   .atributo-form-card label {
     color: #4c5668;
     font-size: 12px;
-    font-weight: 750;
+    font-weight: 700;
   }
   
   .atributo-optional {
@@ -639,7 +639,7 @@
     margin-bottom: 2px;
     color: var(--atributo-primary);
     font-size: 9px;
-    font-weight: 850;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -714,7 +714,7 @@
     background: #f1f3f7;
     color: var(--atributo-muted);
     font-size: 10px;
-    font-weight: 650;
+    font-weight: 600;
   }
   
   .atributo-value-stats .is-active {

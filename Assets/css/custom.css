@@ -551,3 +551,151 @@ button.caja-sesion-navbar:active,
     }
 }
 
+/* =========================================================
+   TIQUEPOS · SISTEMA TIPOGRÁFICO GLOBAL
+   ---------------------------------------------------------
+   Objetivo:
+   - Evitar mezcla visual entre Nunito y la fuente nativa.
+   - Unificar inputs, selects, buscadores, tablas y modales.
+   - Mantener intactas las fuentes de iconos.
+   - No forzar tamaños para respetar responsive/iOS.
+========================================================= */
+
+:root {
+    --tp-font-ui:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI Variable Text",
+        "Segoe UI",
+        Roboto,
+        "Helvetica Neue",
+        Arial,
+        sans-serif;
+}
+
+/*
+ * style.css define Nunito en body.
+ * custom.css se usa como capa final para que toda la aplicación
+ * comparta una sola tipografía de interfaz.
+ */
+html,
+body {
+    font-family: var(--tp-font-ui) !important;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Controles nativos.
+ * No se fija font-size para conservar los tamaños especiales de
+ * cada vista y el 16px móvil que evita zoom automático en iOS.
+ */
+button,
+input,
+optgroup,
+select,
+textarea,
+.form-control,
+.custom-select,
+.input-group-text,
+.custom-file-label {
+    font-family: var(--tp-font-ui) !important;
+    font-style: normal;
+    font-variant: normal;
+    font-feature-settings: normal;
+    letter-spacing: 0;
+}
+
+/* Texto ingresado y seleccionado: lectura uniforme. */
+input:not([type="button"]):not([type="submit"]):not([type="reset"]),
+select,
+textarea,
+.form-control,
+.custom-select {
+    font-weight: 400;
+}
+
+/* Placeholders: mismo dibujo tipográfico, sin pseudo-negrita. */
+input::placeholder,
+textarea::placeholder,
+.form-control::placeholder {
+    font-family: var(--tp-font-ui) !important;
+    font-size: inherit;
+    font-weight: 400 !important;
+    font-style: normal;
+    font-variant: normal;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    opacity: 1;
+}
+
+/* Compatibilidad con motores antiguos. */
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+    font-family: var(--tp-font-ui) !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+    font-family: var(--tp-font-ui) !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+
+/* Plugins y componentes que no siempre heredan correctamente del body. */
+.select2-container,
+.select2-dropdown,
+.select2-results,
+.select2-search__field,
+.selectric,
+.selectric-items,
+.dataTables_wrapper,
+table.dataTable,
+.dropdown-menu,
+.modal,
+.swal-modal,
+.swal2-popup,
+.tooltip,
+.popover {
+    font-family: var(--tp-font-ui) !important;
+}
+
+/* Select2: texto visual del control en peso normal. */
+.select2-container--default
+.select2-selection--single
+.select2-selection__rendered,
+.select2-container--default
+.select2-selection--multiple
+.select2-selection__rendered,
+.select2-results__option,
+.selectric .label,
+.selectric-items li {
+    font-family: var(--tp-font-ui) !important;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+/*
+ * Las familias de iconos se dejan explícitamente fuera del sistema UI.
+ * Estas clases mantienen Font Awesome, Bootstrap Icons, Material Icons,
+ * Feather/Ionicons según la librería que las renderiza.
+ */
+.fas,
+.far,
+.fab,
+.fal,
+.fa,
+.bi,
+.material-icons,
+[class^="icon-"],
+[class*=" icon-"] {
+    font-synthesis: initial;
+}
+

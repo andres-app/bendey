@@ -389,89 +389,29 @@ if ($_SESSION['ventas'] == 1) {
 
 
                                         <!-- =====================================
-                                             DATOS TRIBUTARIOS
+                                             TIPO DE OPERACIÓN SUNAT
                                         ====================================== -->
-                                        <div class="venta-tributaria-panel mb-4" id="ventaTributariaPanel">
-                                            <div class="venta-tributaria-header">
-                                                <div class="venta-tributaria-title-wrap">
-                                                    <span class="venta-tributaria-icon">
-                                                        <i class="fas fa-file-invoice"></i>
-                                                    </span>
-                                                    <div>
-                                                        <h5>Datos tributarios</h5>
-                                                        <small>
-                                                            Se calculan según la configuración de cada producto.
-                                                        </small>
-                                                    </div>
-                                                </div>
+                                        <div class="row g-3 mb-4 venta-tipo-operacion-row">
+                                            <div class="col-12">
+                                                <label for="tipo_operacion_sunat">
+                                                    Tipo de operación SUNAT
+                                                </label>
 
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-light btn-sm venta-tributaria-toggle"
-                                                    data-toggle="collapse"
-                                                    data-target="#ventaTributariaContenido"
-                                                    aria-expanded="true"
-                                                    aria-controls="ventaTributariaContenido">
-                                                    <i class="fas fa-chevron-up"></i>
-                                                </button>
-                                            </div>
+                                                <select
+                                                    class="form-control form-select"
+                                                    id="tipo_operacion_sunat"
+                                                    name="tipo_operacion_sunat"
+                                                    required>
+                                                    <option value="0101">
+                                                        0101 — Venta interna
+                                                    </option>
+                                                </select>
 
-                                            <div class="collapse show" id="ventaTributariaContenido">
-                                                <div class="venta-tributaria-body">
-                                                    <div class="row g-3 align-items-end">
-                                                        <div class="col-lg-8 col-md-7 col-12">
-                                                            <label for="tipo_operacion_sunat">
-                                                                Tipo de operación SUNAT
-                                                            </label>
-                                                            <select
-                                                                class="form-control form-select"
-                                                                id="tipo_operacion_sunat"
-                                                                name="tipo_operacion_sunat"
-                                                                required>
-                                                                <option value="0101">
-                                                                    0101 — Venta interna
-                                                                </option>
-                                                            </select>
-                                                            <small class="form-text text-muted" id="ayudaTipoOperacionSunat">
-                                                                Se utilizará la configuración tributaria de la empresa o sucursal.
-                                                            </small>
-                                                        </div>
-
-                                                        <div class="col-lg-4 col-md-5 col-12">
-                                                            <div class="venta-tributaria-config" id="resumenConfiguracionTributaria">
-                                                                <span>Configuración</span>
-                                                                <strong>Precios con impuesto incluido</strong>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="venta-tributaria-summary" aria-live="polite">
-                                                        <div class="venta-tax-item venta-tax-gravada">
-                                                            <span>Op. gravada</span>
-                                                            <strong id="resumenOperacionGravada">S/ 0.00</strong>
-                                                        </div>
-                                                        <div class="venta-tax-item">
-                                                            <span>Op. exonerada</span>
-                                                            <strong id="resumenOperacionExonerada">S/ 0.00</strong>
-                                                        </div>
-                                                        <div class="venta-tax-item">
-                                                            <span>Op. inafecta</span>
-                                                            <strong id="resumenOperacionInafecta">S/ 0.00</strong>
-                                                        </div>
-                                                        <div class="venta-tax-item">
-                                                            <span>Exportación</span>
-                                                            <strong id="resumenOperacionExportacion">S/ 0.00</strong>
-                                                        </div>
-                                                        <div class="venta-tax-item venta-tax-igv">
-                                                            <span>IGV</span>
-                                                            <strong id="resumenIgvVenta">S/ 0.00</strong>
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="venta-tributaria-message" id="mensajeTributarioVenta">
-                                                        Los productos nuevos heredan la afectación configurada en la empresa; cada producto puede tener su propia clasificación.
-                                                    </div>
-                                                </div>
+                                                <small
+                                                    class="form-text text-muted"
+                                                    id="ayudaTipoOperacionSunat">
+                                                    Se utilizará la configuración tributaria de la empresa o sucursal.
+                                                </small>
                                             </div>
                                         </div>
 
@@ -606,27 +546,10 @@ if ($_SESSION['ventas'] == 1) {
                                         </div>
 
                                         <!-- =====================================
-                                             OBSERVACIÓN Y MODO DE ENVÍO
+                                             MODO DE ENVÍO
                                         ====================================== -->
                                         <div class="row g-3 venta-fila-final">
-
-                                            <div class="col-md-5 venta-observacion">
-                                                <label
-                                                    for="observacion"
-                                                    class="form-label">
-                                                    Observación
-                                                </label>
-
-                                                <textarea
-                                                    class="form-control"
-                                                    id="observacion"
-                                                    name="observacion"
-                                                    rows="2"
-                                                    placeholder="Opcional"
-                                                    spellcheck="false"></textarea>
-                                            </div>
-
-                                            <div class="col-md-7 venta-modo-envio">
+                                            <div class="col-12 venta-modo-envio">
                                                 <label
                                                     for="modo_envio"
                                                     class="form-label">
@@ -655,7 +578,6 @@ if ($_SESSION['ventas'] == 1) {
                                                     La venta se registrará y luego será enviada automáticamente mediante APISUNAT.
                                                 </small>
                                             </div>
-
                                         </div>
 
                                     </div>
@@ -1582,11 +1504,6 @@ if ($_SESSION['ventas'] == 1) {
             .venta-form-scroll {
                 padding: 14px 14px 10px !important;
             }
-
-            .venta-fila-final .venta-observacion {
-                margin-bottom: 12px;
-            }
-
             .venta-form-footer {
                 grid-template-columns: minmax(0, 40%) minmax(0, 60%);
                 align-items: center;
@@ -1848,11 +1765,6 @@ if ($_SESSION['ventas'] == 1) {
                 padding: 8px;
                 border-radius: 10px;
             }
-
-            .venta-fila-final .venta-observacion {
-                margin-bottom: 8px;
-            }
-
             #mensajeModoEnvio {
                 min-height: 22px;
                 margin-top: 3px !important;
@@ -2996,159 +2908,39 @@ if ($_SESSION['ventas'] == 1) {
 
 
         /* =========================================================
-           DATOS TRIBUTARIOS DE LA VENTA
+           TIPO DE OPERACIÓN SUNAT
+           Vista compacta: la tributación detallada continúa calculándose
+           internamente, pero no ocupa espacio en el formulario.
         ========================================================== */
-        .venta-tributaria-panel {
-            overflow: visible;
-            border: 1px solid #e3e8ee;
-            border-radius: 14px;
-            background: #fff;
-            box-shadow: 0 6px 18px rgba(15, 23, 42, .045);
+        .venta-tipo-operacion-row {
+            margin-bottom: 11px !important;
         }
 
-        .venta-tributaria-header {
-            min-height: 66px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            padding: 13px 15px;
-            border-bottom: 1px solid #edf0f3;
-            background: linear-gradient(180deg, #fff 0%, #fbfcfd 100%);
+        .venta-tipo-operacion-row > .col-12 {
+            padding-right: 6px;
+            padding-left: 6px;
         }
 
-        .venta-tributaria-title-wrap {
-            min-width: 0;
-            display: flex;
-            align-items: center;
-            gap: 11px;
-        }
-
-        .venta-tributaria-icon {
-            width: 38px;
-            height: 38px;
-            flex: 0 0 38px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 11px;
-            color: #238553;
-            background: #edf8f2;
-        }
-
-        .venta-tributaria-title-wrap h5 {
-            margin: 0 0 2px;
-            color: #303a47;
-            font-size: .88rem;
-            font-weight: 800;
-        }
-
-        .venta-tributaria-title-wrap small {
-            color: #818b98;
-            font-size: .7rem;
-        }
-
-        .venta-tributaria-toggle {
-            width: 34px;
-            height: 34px;
-            padding: 0;
-            border: 1px solid #e2e7ec;
-            border-radius: 9px;
-            color: #707b88;
-            background: #fff;
-        }
-
-        .venta-tributaria-toggle[aria-expanded="false"] i {
-            transform: rotate(180deg);
-        }
-
-        .venta-tributaria-toggle i {
-            transition: transform .18s ease;
-        }
-
-        .venta-tributaria-body {
-            padding: 15px;
-        }
-
-        .venta-tributaria-config {
-            min-height: 39px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 7px 11px;
-            border: 1px solid #e3e8ee;
-            border-radius: 10px;
-            background: #f8fafb;
-        }
-
-        .venta-tributaria-config span {
-            color: #98a2b3;
-            font-size: .58rem;
-            font-weight: 750;
-            letter-spacing: .045em;
-            text-transform: uppercase;
-        }
-
-        .venta-tributaria-config strong {
-            margin-top: 2px;
-            color: #475467;
-            font-size: .69rem;
-            font-weight: 700;
-        }
-
-        .venta-tributaria-summary {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 8px;
-            margin-top: 14px;
-        }
-
-        .venta-tax-item {
-            min-width: 0;
-            padding: 9px 10px;
-            border: 1px solid #e5e9ee;
-            border-radius: 10px;
-            background: #fafbfc;
-        }
-
-        .venta-tax-item span {
+        #ayudaTipoOperacionSunat {
             display: block;
-            overflow: hidden;
-            color: #8b95a3;
-            font-size: .59rem;
-            font-weight: 700;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .venta-tax-item strong {
-            display: block;
+            min-height: 15px;
             margin-top: 4px;
-            color: #364152;
-            font-size: .76rem;
-            font-weight: 800;
-            white-space: nowrap;
-        }
-
-        .venta-tax-gravada {
-            border-color: #cee8d9;
-            background: #f4fbf7;
-        }
-
-        .venta-tax-igv {
-            border-color: #d9def5;
-            background: #f7f8ff;
-        }
-
-        .venta-tributaria-message {
-            margin-top: 10px;
-            padding: 8px 10px;
-            border-left: 3px solid #35a56f;
-            border-radius: 0 8px 8px 0;
-            color: #6c7683;
-            background: #f5faf7;
+            color: #7a8780 !important;
             font-size: .67rem;
-            line-height: 1.4;
+            line-height: 1.3;
+        }
+
+        @media (max-width: 430px) {
+            .venta-tipo-operacion-row {
+                margin-bottom: 8px !important;
+            }
+
+            #ayudaTipoOperacionSunat {
+                min-height: 12px;
+                margin-top: 3px;
+                font-size: 10px;
+                line-height: 1.22;
+            }
         }
 
         .venta-product-tax-badge {

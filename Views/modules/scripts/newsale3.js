@@ -634,19 +634,13 @@ function actualizarVistaConfiguracionTributaria() {
         configuracionTributariaVentaCache.precios_incluyen_impuesto ?? 1
     ) === 1;
 
-    $('#precios_incluyen_impuesto').val(incluye ? '1' : '0');
-
-    const afectacion = etiquetaAfectacionIgv(
-        configuracionTributariaVentaCache.codigo_afectacion_igv,
-        configuracionTributariaVentaCache.porcentaje_igv
-    );
-
-    $('#resumenConfiguracionTributaria strong').text(
-        (incluye
-            ? 'Precios con impuesto incluido'
-            : 'Precios sin impuesto incluido')
-        + ' · '
-        + afectacion
+    /*
+     * La configuración tributaria sigue siendo necesaria para los
+     * cálculos y el backend, pero ya no se muestra como un resumen
+     * adicional en el formulario.
+     */
+    $('#precios_incluyen_impuesto').val(
+        incluye ? '1' : '0'
     );
 }
 
@@ -1464,25 +1458,6 @@ function calcularTotales() {
     $('#total_inafecto').val(totalInafecto.toFixed(2));
     $('#total_exportacion').val(totalExportacion.toFixed(2));
     $('#total_igv').val(totalIgv.toFixed(2));
-
-    $('#resumenOperacionGravada').text(monedaTributaria(totalGravado));
-    $('#resumenOperacionExonerada').text(monedaTributaria(totalExonerado));
-    $('#resumenOperacionInafecta').text(monedaTributaria(totalInafecto));
-    $('#resumenOperacionExportacion').text(monedaTributaria(totalExportacion));
-    $('#resumenIgvVenta').text(monedaTributaria(totalIgv));
-
-    const clasificaciones = lineas.reduce(function (acumulado, linea) {
-        acumulado.add(linea.codigo);
-        return acumulado;
-    }, new Set());
-
-    $('#mensajeTributarioVenta').text(
-        lineas.length === 0
-            ? 'Agrega productos para visualizar el resumen tributario.'
-            : clasificaciones.size > 1
-                ? 'Venta mixta: el sistema separará automáticamente las operaciones por afectación al IGV.'
-                : 'La tributación se obtuvo de la configuración registrada en los productos.'
-    );
 
     if (typeof sincronizarTotalRecibido === 'function') {
         sincronizarTotalRecibido();
