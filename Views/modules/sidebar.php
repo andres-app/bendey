@@ -95,6 +95,56 @@
             object-fit: contain;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | SIDEBAR MINI: SUBMENÚ SOLO CUANDO EL USUARIO LO SELECCIONA / APUNTA
+        |--------------------------------------------------------------------------
+        | Si el módulo actual está activo, Stisla conserva .show en su submenú.
+        | Eso hacía que el panel quedara sobresaliendo permanentemente aunque
+        | el usuario no estuviera interactuando con el icono.
+        |
+        | En modo colapsado:
+        | - Estado normal: submenu oculto.
+        | - Hover / foco sobre el módulo: submenu visible como flyout.
+        | - Al retirar el cursor: vuelve a ocultarse.
+        */
+        body.sidebar-mini
+        .main-sidebar
+        .sidebar-menu
+        > li.dropdown
+        > ul.dropdown-menu,
+        body.sidebar-mini
+        .main-sidebar
+        .sidebar-menu
+        > li.dropdown.active
+        > ul.dropdown-menu,
+        body.sidebar-mini
+        .main-sidebar
+        .sidebar-menu
+        > li.dropdown
+        > ul.dropdown-menu.show {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        body.sidebar-mini
+        .main-sidebar
+        .sidebar-menu
+        > li.dropdown:hover
+        > ul.dropdown-menu,
+        body.sidebar-mini
+        .main-sidebar
+        .sidebar-menu
+        > li.dropdown:focus-within
+        > ul.dropdown-menu {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
         /* Drawer móvil: conserva el ancho y posicionamiento nativos de Stisla. */
         @media (max-width: 1024px) {
             body:not(.sidebar-mini) .main-sidebar .tiquepos-sidebar-brand {
@@ -377,3 +427,227 @@
             </ul>
         </aside>
     </div>
+
+    <script>
+        (function (window, document) {
+            'use strict';
+
+            /*
+            |--------------------------------------------------------------------------
+            | CONSERVAR ESTADO DEL SIDEBAR ENTRE MÓDULOS
+            |--------------------------------------------------------------------------
+            | Si el usuario colapsa el menú en escritorio, la preferencia queda
+            | guardada y se restaura después de navegar a otro módulo.
+            |
+            | No se fuerza este comportamiento en tablet/móvil para no alterar
+            | el drawer nativo de Stisla.
+            */
+            const STORAGE_KEY = 'tiquepos.sidebar.desktop';
+            const COOKIE_KEY = 'tiquepos_sidebar_desktop';
+            const DESKTOP_MIN_WIDTH = 1025;
+
+            function esEscritorio() {
+                return window.innerWidth >= DESKTOP_MIN_WIDTH;
+            }
+
+            function esVistaPos() {
+                return document.body.classList.contains(
+                    'pos-navbar-layout'
+                );
+            }
+
+            function leerCookie(nombre) {
+                const prefijo = encodeURIComponent(nombre) + '=';
+
+                const partes = String(
+                    document.cookie || ''
+                ).split(';');
+
+                for (const parte of partes) {
+                    const item = parte.trim();
+
+                    if (item.indexOf(prefijo) === 0) {
+                        return decodeURIComponent(
+                            item.substring(prefijo.length)
+                        );
+                    }
+                }
+
+                return null;
+            }
+
+            function guardarCookie(estado) {
+                let cookie =
+                    encodeURIComponent(COOKIE_KEY)
+                    + '='
+                    + encodeURIComponent(estado)
+                    + '; path=/'
+                    + '; max-age=31536000'
+                    + '; SameSite=Lax';
+
+                if (window.location.protocol === 'https:') {
+                    cookie += '; Secure';
+                }
+
+                document.cookie = cookie;
+            }
+
+            function obtenerEstadoGuardado() {
+                let estado = null;
+
+                try {
+                    estado = window.localStorage.getItem(
+                        STORAGE_KEY
+                    );
+                } catch (error) {
+                    estado = null;
+                }
+
+                if (
+                    estado !== 'collapsed'
+                    && estado !== 'expanded'
+                ) {
+                    estado = leerCookie(
+                        COOKIE_KEY
+                    );
+                }
+
+                return (
+                    estado === 'collapsed'
+                    || estado === 'expanded'
+                )
+                    ? estado
+                    : null;
+            }
+
+            function guardarEstado(estado) {
+                if (
+                    estado !== 'collapsed'
+                    && estado !== 'expanded'
+                ) {
+                    return;
+                }
+
+                try {
+                    window.localStorage.setItem(
+                        STORAGE_KEY,
+                        estado
+                    );
+                } catch (error) {
+                    // localStorage puede estar bloqueado.
+                }
+
+                /*
+                 * La cookie es importante: header.php puede leerla
+                 * antes de imprimir el <body> de la siguiente página.
+                 */
+                guardarCookie(estado);
+            }
+
+            function aplicarEstadoGuardado() {
+                if (
+                    !esEscritorio()
+                    || esVistaPos()
+                ) {
+                    return;
+                }
+
+                const estado = obtenerEstadoGuardado();
+
+                if (estado === 'collapsed') {
+                    document.body.classList.add(
+                        'sidebar-mini'
+                    );
+                    return;
+                }
+
+                if (estado === 'expanded') {
+                    document.body.classList.remove(
+                        'sidebar-mini'
+                    );
+                }
+            }
+
+            /*
+             * Sincronizar inmediatamente localStorage -> cookie.
+             * Esto también migra la preferencia creada por la versión anterior.
+             */
+            const estadoInicial =
+                obtenerEstadoGuardado();
+
+            if (estadoInicial !== null) {
+                guardarEstado(
+                    estadoInicial
+                );
+            }
+
+            /*
+             * Restaurar inmediatamente. Esto evita que al entrar a Productos,
+             * Compras, Ventas, etc., el sidebar vuelva a abrirse.
+             */
+            aplicarEstadoGuardado();
+
+            /*
+             * El botón de Stisla modifica .sidebar-mini.
+             * Esperamos a que termine su propio manejador y guardamos
+             * el estado REAL resultante.
+             */
+            document.addEventListener(
+                'click',
+                function (evento) {
+                    const boton = evento.target.closest(
+                        '[data-toggle="sidebar"]'
+                    );
+
+                    if (
+                        !boton
+                        || !esEscritorio()
+                        || esVistaPos()
+                    ) {
+                        return;
+                    }
+
+                    window.setTimeout(
+                        function () {
+                            guardarEstado(
+                                document.body.classList.contains('sidebar-mini')
+                                    ? 'collapsed'
+                                    : 'expanded'
+                            );
+                        },
+                        120
+                    );
+                },
+                false
+            );
+
+            /*
+             * Algunos scripts de la plantilla recalculan el sidebar al terminar
+             * de cargar. Si el usuario había elegido colapsado, se reafirma una
+             * vez más después de la inicialización completa.
+             */
+            window.addEventListener(
+                'load',
+                function () {
+                    window.setTimeout(
+                        aplicarEstadoGuardado,
+                        80
+                    );
+                }
+            );
+
+            /*
+             * Si se vuelve desde móvil a escritorio en la misma pestaña,
+             * recuperar la preferencia de escritorio.
+             */
+            window.addEventListener(
+                'resize',
+                function () {
+                    if (esEscritorio()) {
+                        aplicarEstadoGuardado();
+                    }
+                }
+            );
+        })(window, document);
+    </script>
+

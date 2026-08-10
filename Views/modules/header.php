@@ -115,9 +115,42 @@ $esVistaPos = in_array(
     true
 );
 
-$class = $esVistaPos
-    ? 'sidebar-mini pos-navbar-layout'
-    : '';
+/*
+|--------------------------------------------------------------------------
+| ESTADO PERSISTENTE DEL SIDEBAR EN ESCRITORIO
+|--------------------------------------------------------------------------
+| El estado se guarda en cookie desde sidebar.php para que PHP pueda
+| aplicarlo ANTES de renderizar la nueva vista. De esta forma, al entrar
+| a Productos, Compras, Ventas, etc. no vuelve a aparecer expandido.
+|
+| El POS conserva su comportamiento especial y siempre inicia en mini.
+*/
+$estadoSidebarDesktop = strtolower(
+    trim(
+        (string)(
+            $_COOKIE['tiquepos_sidebar_desktop']
+            ?? ''
+        )
+    )
+);
+
+$clasesBody = [];
+
+if ($esVistaPos) {
+    $clasesBody[] = 'sidebar-mini';
+    $clasesBody[] = 'pos-navbar-layout';
+} elseif ($estadoSidebarDesktop === 'collapsed') {
+    $clasesBody[] = 'sidebar-mini';
+}
+
+$class = implode(
+    ' ',
+    array_values(
+        array_unique(
+            $clasesBody
+        )
+    )
+);
 
 $modoCajaSesion = strtoupper(
     trim((string)($_SESSION['modo_caja'] ?? 'LEGACY'))
@@ -228,8 +261,8 @@ $puedeVerSunatNavbar =
                             <a
                                 href="sunat"
                                 class="nav-link nav-link-lg sunat-navbar-link"
-                                title="Documentos pendientes de envío a SUNAT"
-                                aria-label="Ver documentos pendientes de envío a SUNAT">
+                                title="Comprobantes pendientes de enviar a SUNAT"
+                                aria-label="Ver comprobantes pendientes de enviar a SUNAT">
 
                                 <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
 
@@ -354,7 +387,7 @@ $puedeVerSunatNavbar =
                                 contador.classList.add('is-hidden');
                                 contador.setAttribute(
                                     'aria-label',
-                                    'Sin documentos pendientes de envío a SUNAT'
+                                    'Sin comprobantes pendientes'
                                 );
                                 return;
                             }
@@ -367,9 +400,9 @@ $puedeVerSunatNavbar =
                             contador.setAttribute(
                                 'aria-label',
                                 cantidadValida === 1
-                                    ? '1 documento pendiente de envío a SUNAT'
+                                    ? '1 comprobante pendiente de envío a SUNAT'
                                     : cantidadValida
-                                        + ' documentos pendientes de envío a SUNAT'
+                                        + ' comprobantes pendientes de envío a SUNAT'
                             );
                         }
 
@@ -448,7 +481,7 @@ $puedeVerSunatNavbar =
                                             : ''
                                     );
 
-                                    const esOperacionBandejaSunat =
+                                    const esOperacionSunat =
                                         url.indexOf('Controllers/Sunat.php') !== -1
                                         && (
                                             url.indexOf('op=enviarsunat') !== -1
@@ -456,18 +489,7 @@ $puedeVerSunatNavbar =
                                             || url.indexOf('op=getStatus') !== -1
                                         );
 
-                                    const esOperacionNotaCreditoSunat =
-                                        url.indexOf('Controllers/CreditNote.php') !== -1
-                                        && (
-                                            url.indexOf('op=guardar') !== -1
-                                            || url.indexOf('op=enviar') !== -1
-                                            || url.indexOf('op=consultar') !== -1
-                                        );
-
-                                    if (
-                                        esOperacionBandejaSunat
-                                        || esOperacionNotaCreditoSunat
-                                    ) {
+                                    if (esOperacionSunat) {
                                         window.setTimeout(
                                             actualizarContadorSunatNavbar,
                                             350
