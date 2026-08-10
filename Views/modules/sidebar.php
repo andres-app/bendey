@@ -97,16 +97,8 @@
 
         /*
         |--------------------------------------------------------------------------
-        | SIDEBAR MINI: SUBMENÚ SOLO CUANDO EL USUARIO LO SELECCIONA / APUNTA
+        | SIDEBAR MINI: FLYOUT SOLO DURANTE INTERACCIÓN
         |--------------------------------------------------------------------------
-        | Si el módulo actual está activo, Stisla conserva .show en su submenú.
-        | Eso hacía que el panel quedara sobresaliendo permanentemente aunque
-        | el usuario no estuviera interactuando con el icono.
-        |
-        | En modo colapsado:
-        | - Estado normal: submenu oculto.
-        | - Hover / foco sobre el módulo: submenu visible como flyout.
-        | - Al retirar el cursor: vuelve a ocultarse.
         */
         body.sidebar-mini
         .main-sidebar
@@ -434,41 +426,52 @@
 
             /*
             |--------------------------------------------------------------------------
-            | CONSERVAR ESTADO DEL SIDEBAR ENTRE MÓDULOS
+            | ESTADO REAL DEL SIDEBAR
             |--------------------------------------------------------------------------
-            | Si el usuario colapsa el menú en escritorio, la preferencia queda
-            | guardada y se restaura después de navegar a otro módulo.
+            | Stisla (Assets/js/scripts.js) elimina sidebar-mini cuando el ancho
+            | es <= 1024 px. Eso provoca que, al navegar, el menú vuelva a abrirse.
             |
-            | No se fuerza este comportamiento en tablet/móvil para no alterar
-            | el drawer nativo de Stisla.
+            | Este controlador convierte la preferencia del usuario en la fuente
+            | de verdad y la restaura incluso si Stisla modifica las clases.
             */
-            const STORAGE_KEY = 'tiquepos.sidebar.desktop';
-            const COOKIE_KEY = 'tiquepos_sidebar_desktop';
-            const DESKTOP_MIN_WIDTH = 1025;
+            const STORAGE_KEY =
+                'tiquepos.sidebar.desktop';
 
-            function esEscritorio() {
-                return window.innerWidth >= DESKTOP_MIN_WIDTH;
-            }
+            const COOKIE_KEY =
+                'tiquepos_sidebar_desktop';
 
-            function esVistaPos() {
-                return document.body.classList.contains(
-                    'pos-navbar-layout'
-                );
-            }
+            const ES_POS =
+                <?= $esPOS ? 'true' : 'false' ?>;
 
-            function leerCookie(nombre) {
-                const prefijo = encodeURIComponent(nombre) + '=';
+            let aplicandoEstado = false;
+            let liberarObservadorHasta = 0;
 
-                const partes = String(
-                    document.cookie || ''
-                ).split(';');
+            function obtenerCookie(nombre) {
+                const buscado =
+                    encodeURIComponent(nombre)
+                    + '=';
 
-                for (const parte of partes) {
-                    const item = parte.trim();
+                const partes =
+                    String(
+                        document.cookie || ''
+                    ).split(';');
 
-                    if (item.indexOf(prefijo) === 0) {
+                for (
+                    let indice = 0;
+                    indice < partes.length;
+                    indice += 1
+                ) {
+                    const item =
+                        partes[indice].trim();
+
+                    if (
+                        item.indexOf(buscado)
+                        === 0
+                    ) {
                         return decodeURIComponent(
-                            item.substring(prefijo.length)
+                            item.substring(
+                                buscado.length
+                            )
                         );
                     }
                 }
@@ -478,27 +481,35 @@
 
             function guardarCookie(estado) {
                 let cookie =
-                    encodeURIComponent(COOKIE_KEY)
+                    encodeURIComponent(
+                        COOKIE_KEY
+                    )
                     + '='
-                    + encodeURIComponent(estado)
+                    + encodeURIComponent(
+                        estado
+                    )
                     + '; path=/'
                     + '; max-age=31536000'
                     + '; SameSite=Lax';
 
-                if (window.location.protocol === 'https:') {
+                if (
+                    window.location.protocol
+                    === 'https:'
+                ) {
                     cookie += '; Secure';
                 }
 
                 document.cookie = cookie;
             }
 
-            function obtenerEstadoGuardado() {
+            function obtenerEstado() {
                 let estado = null;
 
                 try {
-                    estado = window.localStorage.getItem(
-                        STORAGE_KEY
-                    );
+                    estado =
+                        window.localStorage.getItem(
+                            STORAGE_KEY
+                        );
                 } catch (error) {
                     estado = null;
                 }
@@ -507,9 +518,10 @@
                     estado !== 'collapsed'
                     && estado !== 'expanded'
                 ) {
-                    estado = leerCookie(
-                        COOKIE_KEY
-                    );
+                    estado =
+                        obtenerCookie(
+                            COOKIE_KEY
+                        );
                 }
 
                 return (
@@ -520,7 +532,9 @@
                     : null;
             }
 
-            function guardarEstado(estado) {
+            function guardarEstado(
+                estado
+            ) {
                 if (
                     estado !== 'collapsed'
                     && estado !== 'expanded'
@@ -534,83 +548,182 @@
                         estado
                     );
                 } catch (error) {
-                    // localStorage puede estar bloqueado.
+                    // El navegador puede bloquear localStorage.
                 }
 
-                /*
-                 * La cookie es importante: header.php puede leerla
-                 * antes de imprimir el <body> de la siguiente página.
-                 */
-                guardarCookie(estado);
+                guardarCookie(
+                    estado
+                );
             }
 
-            function aplicarEstadoGuardado() {
+            function limpiarEstadosDrawer() {
+                document.body.classList.remove(
+                    'sidebar-gone',
+                    'sidebar-show'
+                );
+            }
+
+            function aplicarColapsado() {
                 if (
-                    !esEscritorio()
-                    || esVistaPos()
+                    ES_POS
+                    || aplicandoEstado
                 ) {
                     return;
                 }
 
-                const estado = obtenerEstadoGuardado();
+                aplicandoEstado = true;
 
-                if (estado === 'collapsed') {
-                    document.body.classList.add(
-                        'sidebar-mini'
-                    );
+                document.body.classList.add(
+                    'sidebar-mini'
+                );
+
+                limpiarEstadosDrawer();
+
+                aplicandoEstado = false;
+            }
+
+            function aplicarExpandido() {
+                if (
+                    ES_POS
+                    || aplicandoEstado
+                ) {
                     return;
                 }
 
-                if (estado === 'expanded') {
-                    document.body.classList.remove(
-                        'sidebar-mini'
+                aplicandoEstado = true;
+
+                document.body.classList.remove(
+                    'sidebar-mini'
+                );
+
+                /*
+                 * Stisla puede haber dejado display:none inline
+                 * en los submenús cuando estaba en modo mini.
+                 */
+                document
+                    .querySelectorAll(
+                        '.main-sidebar .sidebar-menu > li > ul.dropdown-menu'
+                    )
+                    .forEach(
+                        function (submenu) {
+                            submenu.style.removeProperty(
+                                'display'
+                            );
+                        }
                     );
+
+                aplicandoEstado = false;
+            }
+
+            function restaurarPreferencia() {
+                if (ES_POS) {
+                    return;
+                }
+
+                const estado =
+                    obtenerEstado();
+
+                if (
+                    estado === 'collapsed'
+                ) {
+                    aplicarColapsado();
+                } else if (
+                    estado === 'expanded'
+                ) {
+                    aplicarExpandido();
                 }
             }
 
             /*
-             * Sincronizar inmediatamente localStorage -> cookie.
-             * Esto también migra la preferencia creada por la versión anterior.
+             * Si ya llega sidebar-mini desde el servidor, conservarlo.
+             * No se toma el mini forzado del POS como preferencia.
              */
-            const estadoInicial =
-                obtenerEstadoGuardado();
-
-            if (estadoInicial !== null) {
+            if (
+                !ES_POS
+                && document.body.classList.contains(
+                    'sidebar-mini'
+                )
+                && obtenerEstado() === null
+            ) {
                 guardarEstado(
-                    estadoInicial
+                    'collapsed'
                 );
             }
 
-            /*
-             * Restaurar inmediatamente. Esto evita que al entrar a Productos,
-             * Compras, Ventas, etc., el sidebar vuelva a abrirse.
-             */
-            aplicarEstadoGuardado();
+            restaurarPreferencia();
 
             /*
-             * El botón de Stisla modifica .sidebar-mini.
-             * Esperamos a que termine su propio manejador y guardamos
-             * el estado REAL resultante.
+             * En desktop dejamos trabajar a Stisla y guardamos el resultado.
+             * En ventanas <= 1024 px, si el usuario ya eligió un modo
+             * persistente, gestionamos el botón nosotros porque Stisla
+             * cambia a modo drawer y destruye sidebar-mini.
              */
             document.addEventListener(
                 'click',
                 function (evento) {
-                    const boton = evento.target.closest(
-                        '[data-toggle="sidebar"]'
-                    );
+                    const boton =
+                        evento.target.closest(
+                            '[data-toggle="sidebar"]'
+                        );
 
                     if (
                         !boton
-                        || !esEscritorio()
-                        || esVistaPos()
+                        || ES_POS
                     ) {
                         return;
                     }
 
+                    const estado =
+                        obtenerEstado();
+
+                    const modoPersistente =
+                        estado === 'collapsed'
+                        || estado === 'expanded';
+
+                    if (
+                        window.innerWidth <= 1024
+                        && modoPersistente
+                    ) {
+                        evento.preventDefault();
+                        evento.stopPropagation();
+                        evento.stopImmediatePropagation();
+
+                        liberarObservadorHasta =
+                            Date.now() + 250;
+
+                        const estaColapsado =
+                            document.body.classList.contains(
+                                'sidebar-mini'
+                            );
+
+                        if (estaColapsado) {
+                            guardarEstado(
+                                'expanded'
+                            );
+                            aplicarExpandido();
+                        } else {
+                            guardarEstado(
+                                'collapsed'
+                            );
+                            aplicarColapsado();
+                        }
+
+                        return;
+                    }
+
+                    /*
+                     * En escritorio Stisla hace el cambio.
+                     * Guardamos el estado resultante después.
+                     */
                     window.setTimeout(
                         function () {
+                            const colapsado =
+                                document.body.classList.contains(
+                                    'sidebar-mini'
+                                );
+
                             guardarEstado(
-                                document.body.classList.contains('sidebar-mini')
+                                colapsado
                                     ? 'collapsed'
                                     : 'expanded'
                             );
@@ -618,35 +731,81 @@
                         120
                     );
                 },
-                false
+                true
             );
 
             /*
-             * Algunos scripts de la plantilla recalculan el sidebar al terminar
-             * de cargar. Si el usuario había elegido colapsado, se reafirma una
-             * vez más después de la inicialización completa.
+             * Punto clave:
+             * Assets/js/scripts.js ejecuta toggleLayout() y en <=1024
+             * elimina sidebar-mini. Si la preferencia es "collapsed",
+             * la restauramos inmediatamente.
              */
+            const observador =
+                new MutationObserver(
+                    function () {
+                        if (
+                            ES_POS
+                            || aplicandoEstado
+                            || Date.now()
+                                < liberarObservadorHasta
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            obtenerEstado()
+                            !== 'collapsed'
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            !document.body.classList.contains(
+                                'sidebar-mini'
+                            )
+                            || document.body.classList.contains(
+                                'sidebar-gone'
+                            )
+                            || document.body.classList.contains(
+                                'sidebar-show'
+                            )
+                        ) {
+                            aplicarColapsado();
+                        }
+                    }
+                );
+
+            observador.observe(
+                document.body,
+                {
+                    attributes: true,
+                    attributeFilter: ['class']
+                }
+            );
+
+            document.addEventListener(
+                'DOMContentLoaded',
+                restaurarPreferencia
+            );
+
             window.addEventListener(
                 'load',
                 function () {
                     window.setTimeout(
-                        aplicarEstadoGuardado,
-                        80
+                        restaurarPreferencia,
+                        0
+                    );
+
+                    window.setTimeout(
+                        restaurarPreferencia,
+                        150
                     );
                 }
             );
 
-            /*
-             * Si se vuelve desde móvil a escritorio en la misma pestaña,
-             * recuperar la preferencia de escritorio.
-             */
             window.addEventListener(
-                'resize',
-                function () {
-                    if (esEscritorio()) {
-                        aplicarEstadoGuardado();
-                    }
-                }
+                'pageshow',
+                restaurarPreferencia
             );
         })(window, document);
     </script>
