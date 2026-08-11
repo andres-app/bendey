@@ -25,6 +25,33 @@ require 'sidebar.php';
 
 if ($_SESSION['ventas'] == 1) {
 ?>
+    <!-- Tailwind aislado para esta vista. Preflight desactivado para no interferir con Bootstrap/Stisla. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            prefix: 'tw-',
+            corePlugins: {
+                preflight: false
+            },
+            theme: {
+                extend: {
+                    colors: {
+                        tique: {
+                            50: '#f2fbf3',
+                            100: '#e1f6e4',
+                            500: '#52b848',
+                            600: '#469f3e',
+                            700: '#357f31'
+                        }
+                    },
+                    boxShadow: {
+                        'tique-float': '0 18px 45px rgba(15, 23, 42, .16)'
+                    }
+                }
+            }
+        };
+    </script>
+
     <div class="main-content venta-pos-main-content">
         <section class="section venta-pos-section">
             <div class="section-body">
@@ -39,7 +66,7 @@ if ($_SESSION['ventas'] == 1) {
                     aria-label="Cambiar sección de la venta">
 
                     <div
-                        class="venta-mobile-switch"
+                        class="venta-mobile-switch tw-bg-white tw-border tw-border-slate-200"
                         role="tablist"
                         aria-label="Secciones de nueva venta">
 
@@ -50,7 +77,7 @@ if ($_SESSION['ventas'] == 1) {
 
                         <button
                             type="button"
-                            class="venta-mobile-switch-btn active"
+                            class="venta-mobile-switch-btn active tw-transition-colors"
                             id="ventaSwitchDatos"
                             data-venta-panel="datos"
                             role="tab"
@@ -61,7 +88,7 @@ if ($_SESSION['ventas'] == 1) {
 
                         <button
                             type="button"
-                            class="venta-mobile-switch-btn"
+                            class="venta-mobile-switch-btn tw-transition-colors"
                             id="ventaSwitchProductos"
                             data-venta-panel="productos"
                             role="tab"
@@ -652,28 +679,6 @@ if ($_SESSION['ventas'] == 1) {
 
                                     </div>
 
-                                    <!-- =====================================
-                                         FOOTER DE LA VENTA
-                                    ====================================== -->
-                                    <div class="card-footer venta-form-footer">
-
-                                        <div class="venta-footer-total">
-                                            <span class="venta-footer-total-label">Total</span>
-                                            <span id="totalGeneral" class="venta-footer-total-monto">
-                                                S/0.00
-                                            </span>
-                                        </div>
-
-                                        <button
-                                            type="submit"
-                                            id="btnProcesarVenta"
-                                            class="btn venta-procesar-btn">
-                                            <i class="bi bi-check2-circle" aria-hidden="true"></i>
-                                            <span>Procesar venta</span>
-                                        </button>
-
-                                    </div>
-
                                 </div>
                             </div>
                         </div>
@@ -884,6 +889,33 @@ if ($_SESSION['ventas'] == 1) {
                             </div>
 
                         </div>
+
+                    </div>
+
+                    <!-- =====================================
+                         ACCIÓN PRINCIPAL FIJA DEL POS
+                         Se mantiene visible en Datos y Productos.
+                    ====================================== -->
+                    <div
+                        class="card-footer venta-form-footer tw-bg-white tw-border tw-border-slate-200 tw-shadow-tique-float"
+                        id="ventaProcesarFooter"
+                        role="region"
+                        aria-label="Total y procesamiento de venta">
+
+                        <div class="venta-footer-total tw-min-w-0">
+                            <span class="venta-footer-total-label tw-text-slate-500">Total</span>
+                            <span id="totalGeneral" class="venta-footer-total-monto tw-text-slate-900">
+                                S/0.00
+                            </span>
+                        </div>
+
+                        <button
+                            type="submit"
+                            id="btnProcesarVenta"
+                            class="btn venta-procesar-btn tw-bg-tique-500 hover:tw-bg-tique-600 focus:tw-ring-4 focus:tw-ring-green-100">
+                            <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                            <span>Procesar venta</span>
+                        </button>
 
                     </div>
 
@@ -3377,6 +3409,236 @@ if ($_SESSION['ventas'] == 1) {
 
             .venta-tax-igv {
                 grid-column: 1 / -1;
+            }
+        }
+
+        /* =========================================================
+           CAPA VISUAL TAILWIND + FOOTER FLOTANTE CENTRAL
+           Mantiene compatibilidad con Bootstrap/Stisla y usa el
+           verde corporativo de TiquePOS como color de acción.
+        ========================================================== */
+        :root {
+            --tique-primary: #52b848;
+            --tique-primary-hover: #469f3e;
+            --tique-primary-dark: #357f31;
+            --tique-border: #dbe5df;
+            --tique-border-strong: #cbd9d0;
+            --tique-surface: #ffffff;
+            --tique-surface-soft: #f7faf8;
+            --tique-text: #26332c;
+            --tique-muted: #6f7d75;
+        }
+
+        .venta-pos-main-content {
+            padding-bottom: 108px !important;
+        }
+
+        .venta-panel-card {
+            border-color: var(--tique-border);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, .07);
+        }
+
+        .venta-form-scroll .form-control,
+        .venta-form-scroll .form-select,
+        #buscarProductoPedido,
+        #modalProductos .form-control,
+        #modalProductos .form-select {
+            color: var(--tique-text);
+            border-color: var(--tique-border);
+            background-color: #ffffff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .025);
+            transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+        }
+
+        .venta-form-scroll .form-control:hover,
+        .venta-form-scroll .form-select:hover,
+        #buscarProductoPedido:hover,
+        #modalProductos .form-control:hover,
+        #modalProductos .form-select:hover {
+            border-color: var(--tique-border-strong);
+        }
+
+        .venta-form-scroll .form-control:focus,
+        .venta-form-scroll .form-select:focus,
+        #buscarProductoPedido:focus,
+        #modalProductos .form-control:focus,
+        #modalProductos .form-select:focus {
+            border-color: var(--tique-primary) !important;
+            box-shadow: 0 0 0 3px rgba(82, 184, 72, .12) !important;
+        }
+
+        .venta-form-scroll .form-control[readonly],
+        .venta-form-scroll .form-control:disabled,
+        .venta-form-scroll .form-select:disabled {
+            color: #66736c;
+            background: #f2f5f3;
+            cursor: not-allowed;
+        }
+
+        #btnConsultarCliente,
+        #btnAgregarPagoMixto {
+            color: #347b40 !important;
+            border-color: #bcd8c3 !important;
+            background: #f4fbf5 !important;
+        }
+
+        #btnConsultarCliente:hover,
+        #btnConsultarCliente:focus,
+        #btnAgregarPagoMixto:hover,
+        #btnAgregarPagoMixto:focus {
+            color: #ffffff !important;
+            border-color: var(--tique-primary) !important;
+            background: var(--tique-primary) !important;
+            box-shadow: 0 0 0 3px rgba(82, 184, 72, .12) !important;
+        }
+
+        .venta-cola-nueva,
+        #btnActivarEscaner,
+        #btnAbrirModal,
+        #modalProductos #btnMostrarProductoRapido,
+        #modalProductos #btnEscanearModalFooter {
+            border-color: var(--tique-primary) !important;
+            background: var(--tique-primary) !important;
+        }
+
+        .venta-cola-nueva:hover,
+        #btnActivarEscaner:hover,
+        #btnAbrirModal:hover,
+        #modalProductos #btnMostrarProductoRapido:hover,
+        #modalProductos #btnEscanearModalFooter:hover {
+            border-color: var(--tique-primary-hover) !important;
+            background: var(--tique-primary-hover) !important;
+        }
+
+        /* Footer principal: fijo, flotante y centrado en la ventana. */
+        #ventaProcesarFooter.venta-form-footer {
+            position: fixed !important;
+            left: 50% !important;
+            right: auto !important;
+            bottom: 18px !important;
+            z-index: 1028 !important;
+            width: min(680px, calc(100vw - 36px));
+            min-height: 72px;
+            grid-template-columns: minmax(0, 40%) minmax(0, 60%);
+            padding: 10px 12px 10px 18px;
+            border: 1px solid var(--tique-border) !important;
+            border-radius: 18px !important;
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            box-shadow: 0 18px 46px rgba(15, 23, 42, .18) !important;
+            transform: translateX(-50%) !important;
+            opacity: 1 !important;
+            isolation: isolate;
+        }
+
+        #ventaProcesarFooter .venta-footer-total {
+            padding-right: 16px;
+        }
+
+        #ventaProcesarFooter .venta-footer-total-label {
+            color: #748078;
+            font-size: .68rem;
+            font-weight: 600;
+            letter-spacing: .06em;
+        }
+
+        #ventaProcesarFooter .venta-footer-total-monto {
+            color: #1f2c24;
+            font-size: clamp(1.55rem, 2.2vw, 1.95rem);
+            font-weight: 700;
+        }
+
+        #ventaProcesarFooter #btnProcesarVenta {
+            min-height: 50px;
+            border-radius: 13px;
+            box-shadow: 0 8px 20px rgba(82, 184, 72, .24);
+        }
+
+        #ventaProcesarFooter #btnProcesarVenta:hover,
+        #ventaProcesarFooter #btnProcesarVenta:focus {
+            box-shadow: 0 10px 24px rgba(70, 159, 62, .27) !important;
+            transform: translateY(-1px);
+        }
+
+        #ventaProcesarFooter #btnProcesarVenta:active {
+            transform: translateY(0);
+        }
+
+        @media (max-width: 1199.98px) {
+            body.venta-switch-responsive-activo {
+                padding-bottom: calc(158px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            .venta-pos-main-content {
+                padding-bottom: calc(164px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            #ventaProcesarFooter.venta-form-footer {
+                bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important;
+                width: min(620px, calc(100vw - 24px));
+                min-height: 66px;
+                padding: 8px 10px 8px 14px;
+                border-radius: 16px !important;
+            }
+
+            .venta-mobile-switch-wrap {
+                z-index: 1029;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            #ventaProcesarFooter.venta-form-footer {
+                bottom: calc(62px + env(safe-area-inset-bottom, 0px)) !important;
+                width: calc(100vw - 18px);
+                min-height: 58px;
+                grid-template-columns: minmax(0, 39%) minmax(0, 61%);
+                padding: 6px 7px 6px 11px;
+                border-radius: 14px !important;
+                box-shadow: 0 12px 30px rgba(15, 23, 42, .16) !important;
+            }
+
+            #ventaProcesarFooter .venta-footer-total {
+                padding-right: 8px;
+            }
+
+            #ventaProcesarFooter .venta-footer-total-label {
+                font-size: 9px;
+                font-weight: 500;
+            }
+
+            #ventaProcesarFooter .venta-footer-total-monto {
+                font-size: 21px;
+                font-weight: 700;
+            }
+
+            #ventaProcesarFooter #btnProcesarVenta {
+                min-height: 44px;
+                padding: 7px 10px;
+                border-radius: 11px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 430px) {
+            body.venta-switch-responsive-activo {
+                padding-bottom: calc(142px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            .venta-pos-main-content {
+                padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            #ventaProcesarFooter.venta-form-footer {
+                bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+                width: calc(100vw - 14px);
+                min-height: 56px;
+                padding: 5px 6px 5px 10px;
+                border-radius: 13px !important;
+            }
+
+            #ventaProcesarFooter #btnProcesarVenta {
+                min-height: 42px;
+                border-radius: 10px;
             }
         }
     </style>
