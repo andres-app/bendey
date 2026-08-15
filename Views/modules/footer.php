@@ -667,7 +667,14 @@ if ($url === 'producto') {
 }
 
 if ($url === 'cajachica') {
-    echo '<script src="Views/modules/scripts/cajachica.js"></script>';
+    $rutaCajaChicaJs = __DIR__ . '/scripts/cajachica.js';
+    $versionCajaChicaJs = is_file($rutaCajaChicaJs)
+        ? filemtime($rutaCajaChicaJs)
+        : time();
+
+    echo '<script src="Views/modules/scripts/cajachica.js?v='
+        . (int)$versionCajaChicaJs
+        . '"></script>';
 }
 ?>
 
