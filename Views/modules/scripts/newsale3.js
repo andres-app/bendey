@@ -2793,9 +2793,23 @@ function moverSeleccionBusquedaPedido(direccion) {
     const activa = $activa.get(0);
 
     if (contenedor && activa) {
-        activa.scrollIntoView({
-            block: 'nearest'
-        });
+        /*
+         * Solo desplazar el listado interno de resultados.
+         * scrollIntoView() podía mover también la ventana/documento.
+         */
+        const superior = activa.offsetTop;
+        const inferior = superior + activa.offsetHeight;
+        const visibleSuperior = contenedor.scrollTop;
+        const visibleInferior = visibleSuperior + contenedor.clientHeight;
+
+        if (superior < visibleSuperior) {
+            contenedor.scrollTop = superior;
+        } else if (inferior > visibleInferior) {
+            contenedor.scrollTop = Math.max(
+                0,
+                inferior - contenedor.clientHeight
+            );
+        }
     }
 }
 

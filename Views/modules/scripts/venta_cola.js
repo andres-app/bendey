@@ -499,8 +499,17 @@
 
         $contenedor.html(html);
 
+        /*
+         * IMPORTANTE:
+         * renderizarTabs() se ejecuta también cuando el usuario escribe o
+         * cambia un campo del formulario. scrollIntoView() sobre la pestaña
+         * activa desplazaba verticalmente toda la página hasta la barra de
+         * ventas en cola. Aquí solo ajustamos el scroll HORIZONTAL del
+         * contenedor de pestañas; nunca modificamos el scroll de la página.
+         */
         window.requestAnimationFrame(
             function () {
+                const contenedorTabs = $contenedor.get(0);
                 const activa =
                     $contenedor
                         .find(
@@ -508,11 +517,26 @@
                         )
                         .get(0);
 
-                if (activa) {
-                    activa.scrollIntoView({
-                        block: 'nearest',
-                        inline: 'nearest'
-                    });
+                if (!contenedorTabs || !activa) {
+                    return;
+                }
+
+                const izquierda = activa.offsetLeft;
+                const derecha = izquierda + activa.offsetWidth;
+                const visibleIzquierda = contenedorTabs.scrollLeft;
+                const visibleDerecha =
+                    visibleIzquierda + contenedorTabs.clientWidth;
+
+                if (izquierda < visibleIzquierda) {
+                    contenedorTabs.scrollLeft = Math.max(0, izquierda - 6);
+                    return;
+                }
+
+                if (derecha > visibleDerecha) {
+                    contenedorTabs.scrollLeft = Math.max(
+                        0,
+                        derecha - contenedorTabs.clientWidth + 6
+                    );
                 }
             }
         );
