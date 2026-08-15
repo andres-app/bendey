@@ -1058,10 +1058,18 @@ if ($_SESSION['ventas'] == 1) {
             border-radius: 0 !important;
             box-shadow: none !important;
             background: transparent !important;
-            font-size: 1.18rem !important;
-            font-weight: 700 !important;
+            font-size: 1.42rem !important;
+            font-weight: 600 !important;
             line-height: 1.1;
             text-align: right;
+        }
+
+        /* El texto gris de ayuda no debe crecer junto con el monto. */
+        .venta-moneda-control .total-display::placeholder {
+            color: #9aa49e;
+            font-size: 1.42rem !important;
+            font-weight: 600 !important;
+            opacity: 1;
         }
 
         .venta-moneda-control--readonly {
@@ -3941,7 +3949,12 @@ if ($_SESSION['ventas'] == 1) {
             .venta-moneda-control .total-display {
                 height: 42px !important;
                 min-height: 42px !important;
-                font-size: 16px !important;
+                font-size: 1.30rem !important;
+            }
+
+            .venta-moneda-control .total-display::placeholder {
+                font-size: 1.30rem !important;
+                font-weight: 600 !important;
             }
 
             .venta-moneda-prefijo {

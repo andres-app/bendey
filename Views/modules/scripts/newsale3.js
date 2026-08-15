@@ -5577,6 +5577,24 @@ function consultarEstadoSunat(idventa, intento = 1) {
         activeInput = null;
     }
 
+    /*
+     * Al hacer click/tap para empezar una nueva captura, el valor anterior
+     * se limpia una sola vez. Si el usuario vuelve a hacer click mientras
+     * el mismo campo sigue enfocado, no se borra lo que ya está escribiendo.
+     *
+     * Esto aplica a Descuento y Recibido:
+     * - escritorio: antes de abrir el keypad del POS;
+     * - móvil: antes de mostrar el teclado numérico nativo.
+     */
+    document.addEventListener('pointerdown', function (event) {
+        const input = event.target.closest?.(SELECTOR);
+        if (!input || input.readOnly || input.disabled) return;
+
+        if (document.activeElement !== input) {
+            aplicarValor(input, '');
+        }
+    });
+
     document.addEventListener('focusin', function (event) {
         const input = event.target.closest?.(SELECTOR);
         if (input) abrirKeypad(input);
