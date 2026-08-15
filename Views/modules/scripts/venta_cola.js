@@ -233,6 +233,11 @@
                     $('#celular').val() || ''
                 ),
 
+            fechaEmision:
+                String(
+                    $('#fecha_emision').val() || ''
+                ),
+
             tipoPago:
                 String(
                     $('#tipo_pago').val() || ''
@@ -812,6 +817,18 @@
                     estado.celular || ''
                 )
             );
+
+            if ($('#fecha_emision').length) {
+                const fechaEmision = String(
+                    estado.fechaEmision
+                    || $('#fecha_emision').attr('data-max')
+                    || ''
+                );
+
+                $('#fecha_emision')
+                    .val(fechaEmision)
+                    .trigger('change');
+            }
 
             $('#tipo_pago')
                 .val(

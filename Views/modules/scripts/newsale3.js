@@ -68,6 +68,354 @@ const CLIENTE_GENERICO = Object.freeze({
     direccion: '-'
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| FECHA DE EMISIÓN - SELECTOR VISUAL
+|--------------------------------------------------------------------------
+| Se evita el datepicker nativo de iOS/Android porque cambia de tamaño y
+| alineación según el navegador. El valor real sigue viajando en formato
+| YYYY-MM-DD mediante #fecha_emision.
+*/
+const ESTADO_FECHA_EMISION = {
+    vista: null
+};
+
+function obtenerFechaLocalISO(fecha = new Date()) {
+    return [
+        fecha.getFullYear(),
+        String(fecha.getMonth() + 1).padStart(2, '0'),
+        String(fecha.getDate()).padStart(2, '0')
+    ].join('-');
+}
+
+function fechaISOValida(valor) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(valor || '').trim());
+}
+
+function fechaISOADateLocal(valor) {
+    if (!fechaISOValida(valor)) {
+        return null;
+    }
+
+    const [anio, mes, dia] = String(valor)
+        .split('-')
+        .map(Number);
+
+    const fecha = new Date(anio, mes - 1, dia);
+
+    if (
+        fecha.getFullYear() !== anio
+        || fecha.getMonth() !== mes - 1
+        || fecha.getDate() !== dia
+    ) {
+        return null;
+    }
+
+    return fecha;
+}
+
+function formatearFechaEmision(valor, modo = 'corto') {
+    const fecha = fechaISOADateLocal(valor);
+
+    if (!fecha) {
+        return '';
+    }
+
+    const opciones = modo === 'largo'
+        ? {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }
+        : {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        };
+
+    return new Intl.DateTimeFormat('es-PE', opciones)
+        .format(fecha)
+        .replace(/\.$/, '');
+}
+
+function obtenerMaxFechaEmisionISO() {
+    const $input = $('#fecha_emision');
+    const maximo = String(
+        $input.attr('data-max')
+        || obtenerFechaLocalISO()
+    ).trim();
+
+    return fechaISOValida(maximo)
+        ? maximo
+        : obtenerFechaLocalISO();
+}
+
+function sincronizarFechaEmisionVisual() {
+    const $input = $('#fecha_emision');
+
+    if (!$input.length) {
+        return;
+    }
+
+    let valor = String($input.val() || '').trim();
+    const maximo = obtenerMaxFechaEmisionISO();
+
+    if (!fechaISOValida(valor)) {
+        valor = maximo;
+        $input.val(valor);
+    }
+
+    if (valor > maximo) {
+        valor = maximo;
+        $input.val(valor);
+    }
+
+    $('#fechaEmisionTexto').text(
+        formatearFechaEmision(valor, 'corto')
+    );
+
+    $('#fechaEmisionSeleccionResumen').text(
+        formatearFechaEmision(valor, 'largo')
+    );
+}
+
+function renderizarCalendarioFechaEmision() {
+    const contenedor = document.getElementById('fechaEmisionDias');
+
+    if (!contenedor) {
+        return;
+    }
+
+    const valorSeleccionado = String(
+        $('#fecha_emision').val() || obtenerMaxFechaEmisionISO()
+    ).trim();
+
+    const fechaSeleccionada =
+        fechaISOADateLocal(valorSeleccionado)
+        || fechaISOADateLocal(obtenerMaxFechaEmisionISO())
+        || new Date();
+
+    const fechaMaxima =
+        fechaISOADateLocal(obtenerMaxFechaEmisionISO())
+        || new Date();
+
+    if (!(ESTADO_FECHA_EMISION.vista instanceof Date)) {
+        ESTADO_FECHA_EMISION.vista = new Date(
+            fechaSeleccionada.getFullYear(),
+            fechaSeleccionada.getMonth(),
+            1
+        );
+    }
+
+    const limiteMes = new Date(
+        fechaMaxima.getFullYear(),
+        fechaMaxima.getMonth(),
+        1
+    );
+
+    if (ESTADO_FECHA_EMISION.vista > limiteMes) {
+        ESTADO_FECHA_EMISION.vista = new Date(limiteMes);
+    }
+
+    const anio = ESTADO_FECHA_EMISION.vista.getFullYear();
+    const mes = ESTADO_FECHA_EMISION.vista.getMonth();
+    const primerDia = new Date(anio, mes, 1);
+    const ultimoDiaMes = new Date(anio, mes + 1, 0).getDate();
+
+    /* JS: domingo=0. La grilla visual comienza en lunes. */
+    const desplazamiento = (primerDia.getDay() + 6) % 7;
+    const hoyISO = obtenerFechaLocalISO();
+
+    $('#fechaEmisionMesTitulo').text(
+        new Intl.DateTimeFormat('es-PE', {
+            month: 'long',
+            year: 'numeric'
+        }).format(primerDia)
+    );
+
+    const fragmento = document.createDocumentFragment();
+
+    for (let celda = 0; celda < 42; celda += 1) {
+        const numeroDia = celda - desplazamiento + 1;
+
+        if (numeroDia < 1 || numeroDia > ultimoDiaMes) {
+            const vacio = document.createElement('span');
+            vacio.className = 'venta-calendario-dia is-empty';
+            vacio.setAttribute('aria-hidden', 'true');
+            fragmento.appendChild(vacio);
+            continue;
+        }
+
+        const fechaCelda = new Date(anio, mes, numeroDia);
+        const fechaISO = obtenerFechaLocalISO(fechaCelda);
+        const esFutura = fechaCelda > fechaMaxima;
+        const esSeleccionada = fechaISO === valorSeleccionado;
+        const esHoy = fechaISO === hoyISO;
+
+        const boton = document.createElement('button');
+        boton.type = 'button';
+        boton.className = 'venta-calendario-dia';
+        boton.textContent = String(numeroDia);
+        boton.dataset.fecha = fechaISO;
+        boton.setAttribute('role', 'gridcell');
+        boton.setAttribute(
+            'aria-label',
+            formatearFechaEmision(fechaISO, 'largo')
+        );
+
+        if (esSeleccionada) {
+            boton.classList.add('is-selected');
+            boton.setAttribute('aria-selected', 'true');
+        }
+
+        if (esHoy) {
+            boton.classList.add('is-today');
+        }
+
+        if (esFutura) {
+            boton.classList.add('is-disabled');
+            boton.disabled = true;
+            boton.setAttribute('aria-disabled', 'true');
+        }
+
+        fragmento.appendChild(boton);
+    }
+
+    contenedor.replaceChildren(fragmento);
+
+    const siguiente = document.getElementById('btnFechaEmisionSiguiente');
+
+    if (siguiente) {
+        const mesSiguiente = new Date(anio, mes + 1, 1);
+        const deshabilitar = mesSiguiente > limiteMes;
+
+        siguiente.disabled = deshabilitar;
+        siguiente.setAttribute(
+            'aria-disabled',
+            deshabilitar ? 'true' : 'false'
+        );
+    }
+
+    sincronizarFechaEmisionVisual();
+}
+
+function abrirSelectorFechaEmision() {
+    const valor = String(
+        $('#fecha_emision').val() || obtenerMaxFechaEmisionISO()
+    ).trim();
+
+    const fecha =
+        fechaISOADateLocal(valor)
+        || fechaISOADateLocal(obtenerMaxFechaEmisionISO())
+        || new Date();
+
+    ESTADO_FECHA_EMISION.vista = new Date(
+        fecha.getFullYear(),
+        fecha.getMonth(),
+        1
+    );
+
+    renderizarCalendarioFechaEmision();
+    $('#modalFechaEmision').modal('show');
+}
+
+function inicializarSelectorFechaEmision() {
+    const $input = $('#fecha_emision');
+
+    if (!$input.length || !$('#btnFechaEmision').length) {
+        return;
+    }
+
+    const maximo = obtenerFechaLocalISO();
+
+    $input.attr('data-max', maximo);
+
+    if (!fechaISOValida($input.val())) {
+        $input.val(maximo);
+    }
+
+    sincronizarFechaEmisionVisual();
+
+    $(document)
+        .off('click.fechaEmisionAbrir', '#btnFechaEmision')
+        .on('click.fechaEmisionAbrir', '#btnFechaEmision', function () {
+            abrirSelectorFechaEmision();
+        })
+        .off('change.fechaEmision', '#fecha_emision')
+        .on('change.fechaEmision', '#fecha_emision', function () {
+            sincronizarFechaEmisionVisual();
+        })
+        .off('click.fechaEmisionDia', '#fechaEmisionDias [data-fecha]')
+        .on('click.fechaEmisionDia', '#fechaEmisionDias [data-fecha]', function () {
+            if (this.disabled) {
+                return;
+            }
+
+            const fecha = String(this.dataset.fecha || '').trim();
+
+            if (!fechaISOValida(fecha)) {
+                return;
+            }
+
+            $input
+                .val(fecha)
+                .trigger('change');
+
+            $('#modalFechaEmision').modal('hide');
+        })
+        .off('click.fechaEmisionAnterior', '#btnFechaEmisionAnterior')
+        .on('click.fechaEmisionAnterior', '#btnFechaEmisionAnterior', function () {
+            if (!(ESTADO_FECHA_EMISION.vista instanceof Date)) {
+                return;
+            }
+
+            ESTADO_FECHA_EMISION.vista = new Date(
+                ESTADO_FECHA_EMISION.vista.getFullYear(),
+                ESTADO_FECHA_EMISION.vista.getMonth() - 1,
+                1
+            );
+
+            renderizarCalendarioFechaEmision();
+        })
+        .off('click.fechaEmisionSiguiente', '#btnFechaEmisionSiguiente')
+        .on('click.fechaEmisionSiguiente', '#btnFechaEmisionSiguiente', function () {
+            if (this.disabled || !(ESTADO_FECHA_EMISION.vista instanceof Date)) {
+                return;
+            }
+
+            ESTADO_FECHA_EMISION.vista = new Date(
+                ESTADO_FECHA_EMISION.vista.getFullYear(),
+                ESTADO_FECHA_EMISION.vista.getMonth() + 1,
+                1
+            );
+
+            renderizarCalendarioFechaEmision();
+        })
+        .off('click.fechaEmisionHoy', '#btnFechaEmisionHoy')
+        .on('click.fechaEmisionHoy', '#btnFechaEmisionHoy', function () {
+            const hoy = obtenerMaxFechaEmisionISO();
+
+            $input
+                .val(hoy)
+                .trigger('change');
+
+            $('#modalFechaEmision').modal('hide');
+        });
+
+    $('#modalFechaEmision')
+        .off('shown.bs.modal.fechaEmision')
+        .on('shown.bs.modal.fechaEmision', function () {
+            const seleccionado = this.querySelector(
+                '.venta-calendario-dia.is-selected:not(:disabled)'
+            );
+
+            if (seleccionado) {
+                seleccionado.focus({ preventScroll: true });
+            }
+        });
+}
+
 function asegurarCampoClienteGenerico() {
     const formulario = document.getElementById('formularioVenta');
 
@@ -301,6 +649,7 @@ $(document).ready(function () {
     inicializarConfiguracionTributariaVenta();
     inicializarSwitchVentaResponsive();
     inicializarAjustesCamposVenta();
+    inicializarSelectorFechaEmision();
 
 });
 
@@ -764,8 +1113,9 @@ function inicializarAjustesCamposVenta() {
 
     if ($('#fecha_emision').length) {
         $('#fecha_emision')
-            .attr('max', fechaLocal)
-            .val(fechaLocal);
+            .attr('data-max', fechaLocal)
+            .val(fechaLocal)
+            .trigger('change');
     }
 
     /*
@@ -1884,9 +2234,9 @@ function guardarVenta() {
 
                     limpiarDatosCliente(false);
                     sincronizarDireccionVisible();
-                    $('#fecha_emision').val(
-                        new Date().toLocaleDateString('en-CA')
-                    );
+                    $('#fecha_emision')
+                        .val(obtenerFechaLocalISO())
+                        .trigger('change');
                     actualizarReglaCliente();
 
                     $('#detallesCards').empty();

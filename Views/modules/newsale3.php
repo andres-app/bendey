@@ -299,8 +299,26 @@ if ($_SESSION['ventas'] == 1) {
                                             </div>
 
                                             <div class="venta-campo venta-campo--compacto" id="ventaCampoFechaEmision" data-venta-campo="fecha_emision" hidden aria-hidden="true" style="display:none !important;">
-                                                <label for="fecha_emision">Fecha de emisión</label>
-                                                <input type="date" class="form-control" id="fecha_emision" name="fecha_emision" max="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d') ?>">
+                                                <label for="btnFechaEmision">Fecha de emisión</label>
+                                                <input
+                                                    type="hidden"
+                                                    id="fecha_emision"
+                                                    name="fecha_emision"
+                                                    value="<?= date('Y-m-d') ?>"
+                                                    data-max="<?= date('Y-m-d') ?>">
+
+                                                <button
+                                                    type="button"
+                                                    id="btnFechaEmision"
+                                                    class="venta-fecha-trigger tw-w-full tw-bg-white tw-border tw-border-slate-200 tw-transition"
+                                                    aria-haspopup="dialog"
+                                                    aria-controls="modalFechaEmision">
+                                                    <span class="venta-fecha-trigger-icon" aria-hidden="true">
+                                                        <i class="bi bi-calendar3"></i>
+                                                    </span>
+                                                    <span class="venta-fecha-trigger-texto" id="fechaEmisionTexto"></span>
+                                                    <i class="bi bi-chevron-down venta-fecha-trigger-chevron" aria-hidden="true"></i>
+                                                </button>
                                             </div>
 
                                         </div>
@@ -867,6 +885,115 @@ if ($_SESSION['ventas'] == 1) {
                         class="tw-inline-flex tw-h-10 tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border tw-border-tique-500 tw-bg-tique-500 tw-px-4 tw-text-sm tw-font-normal tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 focus:tw-ring-4 focus:tw-ring-green-100">
                         <i class="bi bi-check2" aria-hidden="true"></i>
                         Guardar cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
+         SELECTOR MODERNO DE FECHA DE EMISIÓN
+         Evita el datepicker nativo de iOS/Android, que puede
+         desalinear el campo y cambia de apariencia por navegador.
+    ====================================================== -->
+    <div
+        class="modal fade"
+        id="modalFechaEmision"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="modalFechaEmisionTitulo"
+        aria-hidden="true"
+        data-backdrop="static"
+        data-keyboard="true">
+
+        <div class="modal-dialog modal-dialog-centered venta-fecha-modal-dialog" role="document">
+            <div class="modal-content venta-fecha-modal-content tw-border-0 tw-rounded-2xl tw-shadow-2xl tw-overflow-hidden">
+                <div class="modal-header venta-fecha-modal-header tw-border-b tw-border-slate-100 tw-bg-white tw-px-5 tw-py-4">
+                    <div class="tw-flex tw-items-center tw-gap-3 tw-min-w-0">
+                        <span class="venta-fecha-modal-icon" aria-hidden="true">
+                            <i class="bi bi-calendar3"></i>
+                        </span>
+                        <div class="tw-min-w-0">
+                            <h5
+                                class="modal-title tw-text-slate-900 tw-font-medium"
+                                id="modalFechaEmisionTitulo">
+                                Fecha de emisión
+                            </h5>
+                            <small class="tw-block tw-mt-1 tw-text-slate-500">
+                                Selecciona la fecha del comprobante
+                            </small>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="venta-fecha-modal-close tw-inline-flex tw-items-center tw-justify-center tw-rounded-xl tw-border-0 tw-bg-slate-50 tw-text-slate-500 tw-transition hover:tw-bg-slate-100 hover:tw-text-slate-700"
+                        data-dismiss="modal"
+                        aria-label="Cerrar">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body venta-fecha-modal-body tw-bg-slate-50 tw-p-4 sm:tw-p-5">
+                    <div class="venta-calendario tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-white tw-p-3 sm:tw-p-4">
+                        <div class="venta-calendario-nav">
+                            <button
+                                type="button"
+                                class="venta-calendario-nav-btn"
+                                id="btnFechaEmisionAnterior"
+                                aria-label="Mes anterior">
+                                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            </button>
+
+                            <div class="venta-calendario-mes" id="fechaEmisionMesTitulo"></div>
+
+                            <button
+                                type="button"
+                                class="venta-calendario-nav-btn"
+                                id="btnFechaEmisionSiguiente"
+                                aria-label="Mes siguiente">
+                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                            </button>
+                        </div>
+
+                        <div class="venta-calendario-semana" aria-hidden="true">
+                            <span>Lu</span>
+                            <span>Ma</span>
+                            <span>Mi</span>
+                            <span>Ju</span>
+                            <span>Vi</span>
+                            <span>Sá</span>
+                            <span>Do</span>
+                        </div>
+
+                        <div
+                            class="venta-calendario-dias"
+                            id="fechaEmisionDias"
+                            role="grid"
+                            aria-label="Calendario de fecha de emisión">
+                        </div>
+                    </div>
+
+                    <div class="venta-fecha-seleccion-resumen tw-mt-3 tw-rounded-xl tw-border tw-border-green-100 tw-bg-green-50 tw-px-3 tw-py-2.5">
+                        <span class="tw-text-xs tw-text-slate-500">Fecha seleccionada</span>
+                        <strong id="fechaEmisionSeleccionResumen" class="tw-block tw-mt-0.5 tw-text-sm tw-font-medium tw-text-slate-800"></strong>
+                    </div>
+                </div>
+
+                <div class="modal-footer venta-fecha-modal-footer tw-border-t tw-border-slate-100 tw-bg-white tw-px-4 tw-py-3 sm:tw-px-5">
+                    <button
+                        type="button"
+                        id="btnFechaEmisionHoy"
+                        class="venta-fecha-hoy-btn">
+                        <i class="bi bi-calendar-check" aria-hidden="true"></i>
+                        Hoy
+                    </button>
+
+                    <button
+                        type="button"
+                        class="venta-fecha-cerrar-btn"
+                        data-dismiss="modal">
+                        Cerrar
                     </button>
                 </div>
             </div>
@@ -4231,6 +4358,366 @@ if ($_SESSION['ventas'] == 1) {
             --tique-surface-soft: #f7faf8;
             --tique-text: #26332c;
             --tique-muted: #6f7d75;
+        }
+
+
+        /* =========================================================
+           FECHA DE EMISIÓN: CONTROL + CALENDARIO MODERNO
+        ========================================================== */
+        .venta-fecha-trigger {
+            width: 100%;
+            min-height: 42px;
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid var(--tique-border);
+            border-radius: 10px;
+            color: var(--tique-text);
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .025);
+            text-align: left;
+        }
+
+        .venta-fecha-trigger:hover {
+            border-color: var(--tique-border-strong);
+            background: #fff;
+        }
+
+        .venta-fecha-trigger:focus,
+        .venta-fecha-trigger:focus-visible {
+            outline: none !important;
+            border-color: var(--tique-primary) !important;
+            box-shadow: 0 0 0 3px rgba(82, 184, 72, .12) !important;
+        }
+
+        .venta-fecha-trigger-icon {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            color: var(--tique-primary-dark);
+            background: #f1faf3;
+            font-size: 13px;
+        }
+
+        .venta-fecha-trigger-texto {
+            min-width: 0;
+            flex: 1 1 auto;
+            overflow: hidden;
+            color: #36453d;
+            font-size: .82rem;
+            font-weight: 500;
+            line-height: 1.2;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .venta-fecha-trigger-chevron {
+            flex: 0 0 auto;
+            color: #8a9890;
+            font-size: 11px;
+        }
+
+        #modalFechaEmision .venta-fecha-modal-dialog {
+            width: auto;
+            max-width: 430px;
+        }
+
+        #modalFechaEmision .venta-fecha-modal-content {
+            border: 0;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+        }
+
+        #modalFechaEmision .venta-fecha-modal-header {
+            align-items: center;
+        }
+
+        #modalFechaEmision .venta-fecha-modal-icon {
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            color: var(--tique-primary-dark);
+            background: #eff9f1;
+            font-size: 16px;
+        }
+
+        #modalFechaEmision .venta-fecha-modal-close {
+            width: 36px;
+            height: 36px;
+            flex: 0 0 36px;
+            padding: 0;
+        }
+
+        #modalFechaEmision button:focus,
+        #modalFechaEmision button:active,
+        #modalFechaEmision button:focus-visible {
+            outline: none !important;
+        }
+
+        #modalFechaEmision button:focus-visible {
+            box-shadow: 0 0 0 3px rgba(82, 184, 72, .14) !important;
+        }
+
+        .venta-calendario {
+            user-select: none;
+        }
+
+        .venta-calendario-nav {
+            display: grid;
+            grid-template-columns: 38px minmax(0, 1fr) 38px;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .venta-calendario-nav-btn {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #e3ebe6;
+            border-radius: 11px;
+            color: #526159;
+            background: #fff;
+            transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+        }
+
+        .venta-calendario-nav-btn:hover:not(:disabled) {
+            color: var(--tique-primary-dark);
+            border-color: #cce4d1;
+            background: #f4fbf5;
+        }
+
+        .venta-calendario-nav-btn:disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+
+        .venta-calendario-mes {
+            overflow: hidden;
+            color: #26332c;
+            font-size: .92rem;
+            font-weight: 600;
+            text-align: center;
+            text-transform: capitalize;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .venta-calendario-semana,
+        .venta-calendario-dias {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 5px;
+        }
+
+        .venta-calendario-semana {
+            margin-bottom: 6px;
+        }
+
+        .venta-calendario-semana span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 24px;
+            color: #91a097;
+            font-size: .66rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .venta-calendario-dia {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            min-width: 0;
+            min-height: 34px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
+            border-radius: 11px;
+            color: #435149;
+            background: transparent;
+            font-size: .78rem;
+            font-weight: 500;
+            line-height: 1;
+            transition: background-color .14s ease, border-color .14s ease, color .14s ease, transform .14s ease;
+        }
+
+        .venta-calendario-dia:hover:not(:disabled):not(.is-empty) {
+            color: var(--tique-primary-dark);
+            border-color: #d4ead8;
+            background: #f2faf4;
+        }
+
+        .venta-calendario-dia.is-today:not(.is-selected) {
+            color: var(--tique-primary-dark);
+            border-color: #bfe1c6;
+            background: #f7fcf8;
+        }
+
+        .venta-calendario-dia.is-selected {
+            color: #fff;
+            border-color: var(--tique-primary);
+            background: var(--tique-primary);
+            box-shadow: 0 6px 14px rgba(82, 184, 72, .22);
+        }
+
+        .venta-calendario-dia.is-disabled,
+        .venta-calendario-dia:disabled {
+            color: #c7d0ca;
+            background: transparent;
+            cursor: not-allowed;
+        }
+
+        .venta-calendario-dia.is-empty {
+            pointer-events: none;
+        }
+
+        .venta-fecha-modal-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .venta-fecha-hoy-btn,
+        .venta-fecha-cerrar-btn {
+            min-height: 40px;
+            padding: 0 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            border-radius: 11px;
+            font-size: .78rem;
+            font-weight: 500;
+            transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+        }
+
+        .venta-fecha-hoy-btn {
+            color: var(--tique-primary-dark);
+            border: 1px solid #bfe0c6;
+            background: #f4fbf5;
+        }
+
+        .venta-fecha-hoy-btn:hover {
+            color: #fff;
+            border-color: var(--tique-primary);
+            background: var(--tique-primary);
+        }
+
+        .venta-fecha-cerrar-btn {
+            color: #5d6962;
+            border: 1px solid #dfe6e2;
+            background: #fff;
+        }
+
+        .venta-fecha-cerrar-btn:hover {
+            border-color: #cfd9d3;
+            background: #f7f9f8;
+        }
+
+        /* =========================================================
+           CLIENTE: input y botón DNI/RUC con la misma altura
+        ========================================================== */
+        #ventaCampoCliente .input-group {
+            flex-wrap: nowrap;
+            align-items: stretch;
+        }
+
+        #ventaCampoCliente .input-group-append {
+            display: flex;
+            align-items: stretch;
+        }
+
+        #ventaCampoCliente #btnConsultarCliente {
+            height: 100%;
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 575.98px) {
+            #ventaCampoCliente .input-group {
+                min-height: 42px;
+            }
+
+            #ventaCampoCliente #num_documento,
+            #ventaCampoCliente #btnConsultarCliente {
+                min-height: 42px !important;
+                height: 42px !important;
+            }
+
+            #ventaCampoCliente #btnConsultarCliente {
+                width: 48px;
+                min-width: 48px;
+                padding: 0 !important;
+            }
+
+            #ventaCampoCliente #btnConsultarCliente i {
+                font-size: 15px;
+                line-height: 1;
+            }
+
+            .venta-fecha-trigger {
+                min-height: 42px;
+                padding-right: 11px;
+                padding-left: 10px;
+                border-radius: 10px;
+            }
+
+            .venta-fecha-trigger-texto {
+                font-size: 16px;
+                font-weight: 400;
+            }
+
+            #modalFechaEmision .venta-fecha-modal-dialog {
+                max-width: none;
+                margin: 10px;
+            }
+
+            #modalFechaEmision .venta-fecha-modal-content {
+                border-radius: 18px;
+            }
+
+            #modalFechaEmision .venta-fecha-modal-body {
+                padding: 12px !important;
+            }
+
+            .venta-calendario {
+                padding: 12px !important;
+            }
+
+            .venta-calendario-semana,
+            .venta-calendario-dias {
+                gap: 4px;
+            }
+
+            .venta-calendario-dia {
+                min-height: 36px;
+                border-radius: 10px;
+                font-size: 13px;
+            }
+
+            .venta-fecha-modal-footer {
+                padding-right: 12px !important;
+                padding-left: 12px !important;
+            }
         }
 
         .venta-pos-main-content {
