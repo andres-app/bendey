@@ -303,36 +303,6 @@ if ($_SESSION['ventas'] == 1) {
                                                 <input type="date" class="form-control" id="fecha_emision" name="fecha_emision" max="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d') ?>">
                                             </div>
 
-                                            <div class="venta-campo venta-campo--ancho" id="ventaCampoTipoOperacionSunat" data-venta-campo="tipo_operacion_sunat" hidden aria-hidden="true" style="display:none !important;">
-                                                <label for="tipo_operacion_sunat">Tipo de operación SUNAT</label>
-                                                <select class="form-control form-select" id="tipo_operacion_sunat" name="tipo_operacion_sunat" required>
-                                                    <option value="0101">0101 — Venta interna</option>
-                                                </select>
-                                                <small class="form-text text-muted" id="ayudaTipoOperacionSunat">Se utilizará la configuración tributaria de la empresa o sucursal.</small>
-                                            </div>
-
-                                            <div class="venta-campo venta-campo--medio" id="ventaCampoDescuentos" data-venta-campo="descuento" hidden aria-hidden="true" style="display:none !important;">
-                                                <label class="d-block">Descuentos</label>
-                                                <div class="venta-descuento-inline">
-                                                    <label class="custom-switch mb-0">
-                                                        <input type="checkbox" id="descuentoSwitch" class="custom-switch-input" checked>
-                                                        <span class="custom-switch-indicator bg-success"></span>
-                                                        <span class="custom-switch-description" id="labelDescuento">Descuento en %</span>
-                                                    </label>
-                                                    <input type="number" id="descuentoPorcentaje" class="form-control text-center" value="0" min="0" max="100" step="0.1" placeholder="%">
-                                                </div>
-                                            </div>
-
-                                            <div class="venta-campo venta-campo--ancho" id="ventaCampoEnvioComprobante" data-venta-campo="envio_comprobante" hidden aria-hidden="true" style="display:none !important;">
-                                                <label for="modo_envio">Envío del comprobante</label>
-                                                <select class="form-control form-select" id="modo_envio" name="modo_envio" required>
-                                                    <option value="inmediato">Enviar inmediatamente a SUNAT</option>
-                                                    <option value="manual">Guardar y enviar manualmente después</option>
-                                                    <option value="resumen_diario">Incluir en Resumen Diario de Boletas</option>
-                                                </select>
-                                                <small class="text-muted d-block mt-2" id="mensajeModoEnvio">La venta se registrará y luego será enviada automáticamente mediante APISUNAT.</small>
-                                            </div>
-
                                         </div>
 
                                         <!-- DATOS OCULTOS NECESARIOS PARA BACKEND -->
@@ -368,58 +338,6 @@ if ($_SESSION['ventas'] == 1) {
                                         </div>
 
                                         <!-- =====================================
-                                             TOTAL RECIBIDO Y VUELTO
-                                        ====================================== -->
-                                        <div class="row g-4 mb-5 text-center venta-cobro-row">
-
-                                            <div class="col-md-6">
-
-                                                <label
-                                                    for="total_recibido"
-                                                    class="form-label text-muted fw-semibold mb-2">
-                                                    Total recibido (S/)
-                                                </label>
-
-                                                <div class="d-flex justify-content-center">
-
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        id="total_recibido"
-                                                        name="total_recibido"
-                                                        placeholder="0.00"
-                                                        class="form-control total-display text-success">
-
-                                                </div>
-
-                                            </div>
-
-                                            <div class="col-md-6">
-
-                                                <label
-                                                    for="vuelto"
-                                                    class="form-label text-muted fw-semibold mb-2">
-                                                    Vuelto (S/)
-                                                </label>
-
-                                                <div class="d-flex justify-content-center">
-
-                                                    <input
-                                                        type="text"
-                                                        id="vuelto"
-                                                        name="vuelto"
-                                                        value="0.00"
-                                                        readonly
-                                                        class="form-control total-display total-disabled">
-
-                                                </div>
-
-                                            </div>
-
-                                        </div>
-
-                                        <!-- =====================================
                                              PAGO MIXTO
                                         ====================================== -->
                                         <div
@@ -445,6 +363,123 @@ if ($_SESSION['ventas'] == 1) {
                                             <small class="text-muted d-block mt-2">
                                                 El vuelto se calcula solamente con el importe pagado en efectivo.
                                             </small>
+
+                                        </div>
+
+                                        <!-- =====================================
+                                             DESCUENTO · RECIBIDO · VUELTO
+                                             Controles compactos antes de SUNAT.
+                                        ====================================== -->
+                                        <div class="venta-finanzas-rapidas">
+
+                                            <div
+                                                class="venta-finanza-item venta-finanza-descuento"
+                                                id="ventaCampoDescuentos"
+                                                data-venta-campo="descuento"
+                                                hidden
+                                                aria-hidden="true"
+                                                style="display:none !important;">
+
+                                                <div class="venta-descuento-inline" aria-label="Descuento">
+                                                    <label class="venta-descuento-switch" for="descuentoSwitch">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="descuentoSwitch"
+                                                            checked
+                                                            aria-label="Cambiar descuento entre soles y porcentaje">
+
+                                                        <span class="venta-descuento-track" aria-hidden="true">
+                                                            <span
+                                                                class="venta-descuento-sign venta-descuento-sign--sol"
+                                                                id="labelDescuento">S/.</span>
+
+                                                            <span
+                                                                class="venta-descuento-sign venta-descuento-sign--porcentaje">%</span>
+
+                                                            <span class="venta-descuento-thumb"></span>
+                                                        </span>
+                                                    </label>
+
+                                                    <input
+                                                        type="number"
+                                                        id="descuentoPorcentaje"
+                                                        class="form-control text-center venta-descuento-valor"
+                                                        value="0"
+                                                        min="0"
+                                                        step="0.01"
+                                                        inputmode="decimal"
+                                                        aria-label="Valor del descuento"
+                                                        placeholder="0">
+                                                </div>
+                                            </div>
+
+                                            <div class="venta-finanza-item venta-cobro-item">
+                                                <label for="total_recibido" class="venta-finanza-label">Recibido</label>
+                                                <div class="venta-moneda-control">
+                                                    <span class="venta-moneda-prefijo" id="prefijoRecibido">S/.</span>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        id="total_recibido"
+                                                        name="total_recibido"
+                                                        placeholder="0.00"
+                                                        inputmode="decimal"
+                                                        class="form-control total-display text-success">
+                                                </div>
+                                            </div>
+
+                                            <div class="venta-finanza-item venta-cobro-item">
+                                                <label for="vuelto" class="venta-finanza-label">Vuelto</label>
+                                                <div class="venta-moneda-control venta-moneda-control--readonly">
+                                                    <span class="venta-moneda-prefijo" id="prefijoVuelto">S/.</span>
+                                                    <input
+                                                        type="text"
+                                                        id="vuelto"
+                                                        name="vuelto"
+                                                        value="0.00"
+                                                        readonly
+                                                        inputmode="decimal"
+                                                        class="form-control total-display total-disabled">
+                                                </div>
+                                            </div>
+
+                                        </div>
+
+                                        <!-- =====================================
+                                             CAMPOS SUNAT AL FINAL
+                                        ====================================== -->
+                                        <div class="venta-campos-finales">
+
+                                            <div
+                                                class="venta-campo-final"
+                                                id="ventaCampoTipoOperacionSunat"
+                                                data-venta-campo="tipo_operacion_sunat"
+                                                hidden
+                                                aria-hidden="true"
+                                                style="display:none !important;">
+                                                <label for="tipo_operacion_sunat">Tipo de operación SUNAT</label>
+                                                <select class="form-control form-select" id="tipo_operacion_sunat" name="tipo_operacion_sunat" required>
+                                                    <option value="0101">0101 — Venta interna</option>
+                                                </select>
+                                                <small class="form-text text-muted" id="ayudaTipoOperacionSunat">Se utilizará la configuración tributaria de la empresa o sucursal.</small>
+                                            </div>
+
+                                            <div
+                                                class="venta-campo-final"
+                                                id="ventaCampoEnvioComprobante"
+                                                data-venta-campo="envio_comprobante"
+                                                hidden
+                                                aria-hidden="true"
+                                                style="display:none !important;">
+                                                <label for="modo_envio">Envío del comprobante</label>
+                                                <select class="form-control form-select" id="modo_envio" name="modo_envio" required>
+                                                    <option value="inmediato">Enviar inmediatamente a SUNAT</option>
+                                                    <option value="manual">Guardar y enviar manualmente después</option>
+                                                    <option value="resumen_diario">Incluir en Resumen Diario de Boletas</option>
+                                                </select>
+                                                <small class="text-muted d-block mt-2" id="mensajeModoEnvio">La venta se registrará y luego será enviada automáticamente mediante APISUNAT.</small>
+                                            </div>
 
                                         </div>
 
@@ -800,6 +835,251 @@ if ($_SESSION['ventas'] == 1) {
         .venta-descuento-inline #descuentoPorcentaje { width:104px; margin-left:auto; }
         .venta-bloque-extra { margin-top:4px; }
 
+        /* =========================================================
+           CIERRE DE VENTA · DESCUENTO / RECIBIDO / VUELTO
+        ========================================================== */
+        .venta-finanzas-rapidas {
+            display: grid;
+            grid-template-columns: repeat(2, 156px);
+            align-items: end;
+            justify-content: center;
+            gap: 12px 22px;
+            margin: 8px 0 22px;
+            padding: 14px 12px;
+            border: 1px solid #e4ebe7;
+            border-radius: 14px;
+            background: #fbfcfb;
+        }
+
+        .venta-finanza-item {
+            min-width: 0;
+        }
+
+        /* El descuento ocupa una fila completa, siempre arriba de Recibido/Vuelto. */
+        .venta-finanza-descuento {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding-top: 0;
+        }
+
+        .venta-descuento-inline {
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        /* Switch tipo slider: S/. y % viven dentro del propio control. */
+        .venta-descuento-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            width: 94px;
+            height: 42px;
+            margin: 0;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .venta-descuento-switch > input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            border: 0;
+            white-space: nowrap;
+        }
+
+        .venta-descuento-track {
+            position: relative;
+            width: 94px;
+            height: 42px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            overflow: hidden;
+            border: 1px solid #d7e0da;
+            border-radius: 999px;
+            background: #eef2ef;
+            box-shadow:
+                inset 0 1px 3px rgba(15, 23, 42, .10),
+                0 1px 2px rgba(15, 23, 42, .05);
+            transition:
+                background-color .18s ease,
+                border-color .18s ease,
+                box-shadow .18s ease;
+        }
+
+        .venta-descuento-sign {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: .78rem;
+            font-weight: 700;
+            line-height: 1;
+            transition: color .18s ease, opacity .18s ease;
+        }
+
+        .venta-descuento-sign--sol {
+            color: #9aa69f;
+        }
+
+        .venta-descuento-sign--porcentaje {
+            color: #357f31;
+        }
+
+        .venta-descuento-thumb {
+            position: absolute;
+            z-index: 2;
+            top: 3px;
+            left: 3px;
+            width: 34px;
+            height: 34px;
+            border: 1px solid rgba(15, 23, 42, .07);
+            border-radius: 50%;
+            background: #fff;
+            box-shadow:
+                0 3px 8px rgba(15, 23, 42, .18),
+                inset 0 1px 0 rgba(255, 255, 255, .95);
+            transition: transform .20s ease;
+        }
+
+        .venta-descuento-switch > input:checked + .venta-descuento-track {
+            border-color: #b9ddbf;
+            background: #eef8f0;
+            box-shadow:
+                inset 0 1px 3px rgba(53, 127, 49, .10),
+                0 1px 2px rgba(15, 23, 42, .04);
+        }
+
+        .venta-descuento-switch > input:checked + .venta-descuento-track .venta-descuento-thumb {
+            transform: translateX(52px);
+        }
+
+        .venta-descuento-switch > input:checked + .venta-descuento-track .venta-descuento-sign--sol {
+            color: #357f31;
+        }
+
+        .venta-descuento-switch > input:checked + .venta-descuento-track .venta-descuento-sign--porcentaje {
+            color: #9aa69f;
+        }
+
+        .venta-descuento-switch > input:focus-visible + .venta-descuento-track {
+            border-color: #79bf84;
+            box-shadow: 0 0 0 3px rgba(82, 184, 72, .16);
+        }
+
+        #descuentoPorcentaje.venta-descuento-valor {
+            width: 76px !important;
+            min-width: 76px;
+            height: 44px !important;
+            min-height: 44px !important;
+            margin: 0 !important;
+            padding: 6px 8px !important;
+            border-radius: 12px;
+            font-size: 1.05rem !important;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .venta-cobro-item {
+            width: 156px;
+        }
+
+        .venta-finanza-label {
+            display: block;
+            margin: 0 0 5px;
+            color: #65736b;
+            font-size: .76rem;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .venta-moneda-control {
+            width: 156px;
+            height: 46px;
+            display: flex;
+            align-items: stretch;
+            overflow: hidden;
+            border: 1px solid #d8e2dc;
+            border-radius: 12px;
+            background: #fff;
+            transition: border-color .16s ease, box-shadow .16s ease;
+        }
+
+        .venta-moneda-control:focus-within {
+            border-color: #8fc99a;
+            box-shadow: 0 0 0 3px rgba(82, 184, 72, .10);
+        }
+
+        .venta-moneda-prefijo {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            padding: 0 0 0 12px;
+            color: #65736b;
+            font-size: .84rem;
+            font-weight: 600;
+            white-space: nowrap;
+            background: transparent;
+        }
+
+        .venta-moneda-control .total-display {
+            width: 100% !important;
+            min-width: 0;
+            height: 44px !important;
+            min-height: 44px !important;
+            padding: 5px 10px 5px 7px !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            font-size: 1.18rem !important;
+            font-weight: 700 !important;
+            line-height: 1.1;
+            text-align: right;
+        }
+
+        .venta-moneda-control--readonly {
+            background: #f3f6f4;
+        }
+
+        .venta-moneda-control--readonly .total-disabled {
+            color: #4f5c55;
+            background: transparent !important;
+        }
+
+        .venta-campos-finales {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-top: 4px;
+            margin-bottom: 8px;
+        }
+
+        .venta-campo-final {
+            min-width: 0;
+        }
+
+        .venta-campo-final[hidden],
+        .venta-campo-final.is-hidden,
+        .venta-finanza-item[hidden],
+        .venta-finanza-item.is-hidden {
+            display: none !important;
+        }
+
         @media (max-width: 991.98px) {
             .venta-campo,
             .venta-campo--compacto,
@@ -817,8 +1097,36 @@ if ($_SESSION['ventas'] == 1) {
             .venta-ajustes-btn span { display:none; }
             .venta-ajustes-btn { width:38px; justify-content:center; padding:7px; }
             .venta-ajustes-panel { right:-4px; }
-            .venta-descuento-inline { align-items:flex-start; flex-direction:column; gap:10px; }
-            .venta-descuento-inline #descuentoPorcentaje { width:100%; margin-left:0; }
+
+            .venta-finanzas-rapidas {
+                grid-template-columns: repeat(2, 142px);
+                gap: 12px 14px;
+                padding: 12px 8px;
+            }
+
+            .venta-finanza-descuento {
+                grid-column: 1 / -1;
+                min-height: 48px;
+                padding-top: 0;
+            }
+
+            .venta-descuento-inline {
+                flex-direction: row;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+            }
+
+            #descuentoPorcentaje.venta-descuento-valor {
+                width: 74px !important;
+                min-width: 74px;
+                margin: 0 !important;
+            }
+
+            .venta-cobro-item,
+            .venta-moneda-control {
+                width: 142px;
+            }
         }
 
         /* =========================================================
@@ -3525,7 +3833,46 @@ if ($_SESSION['ventas'] == 1) {
                 border-radius: 10px;
             }
         }
-    </style>
+    
+        /* Ajuste final para controles monetarios compactos. */
+        @media (max-width: 430px) {
+            .venta-finanzas-rapidas {
+                grid-template-columns: repeat(2, 134px);
+                margin-bottom: 14px;
+                gap: 10px 12px;
+                padding: 10px 6px;
+            }
+
+            .venta-cobro-item,
+            .venta-moneda-control {
+                width: 134px;
+            }
+
+            .venta-moneda-control {
+                height: 44px;
+                border-radius: 11px;
+            }
+
+            .venta-moneda-control .total-display {
+                height: 42px !important;
+                min-height: 42px !important;
+                font-size: 16px !important;
+            }
+
+            .venta-moneda-prefijo {
+                padding-left: 9px;
+                font-size: 11px;
+            }
+
+            #descuentoPorcentaje.venta-descuento-valor {
+                width: 70px !important;
+                min-width: 70px;
+                height: 42px !important;
+                min-height: 42px !important;
+                font-size: 16px !important;
+            }
+        }
+</style>
 
     <!-- =========================================================
          MODAL DE PRODUCTOS

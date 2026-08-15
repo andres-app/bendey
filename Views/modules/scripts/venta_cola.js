@@ -275,7 +275,8 @@
                 ),
 
             descuento: {
-                esPorcentaje:
+                /* ACTIVADO = monto en S/. | DESACTIVADO = porcentaje */
+                esMonto:
                     $('#descuentoSwitch')
                         .is(':checked'),
                 valor:
@@ -366,7 +367,7 @@
         };
 
         base.descuento = {
-            esPorcentaje: true,
+            esMonto: true,
             valor: '0'
         };
 
@@ -896,11 +897,27 @@
             const descuento =
                 estado.descuento || {};
 
-            $('#descuentoSwitch')
-                .prop(
-                    'checked',
-                    descuento.esPorcentaje !== false
+            let descuentoEsMonto = true;
+
+            if (
+                Object.prototype.hasOwnProperty.call(
+                    descuento,
+                    'esMonto'
                 )
+            ) {
+                descuentoEsMonto = descuento.esMonto === true;
+            } else if (
+                Object.prototype.hasOwnProperty.call(
+                    descuento,
+                    'esPorcentaje'
+                )
+            ) {
+                /* Compatibilidad con borradores guardados antes del cambio. */
+                descuentoEsMonto = descuento.esPorcentaje === false;
+            }
+
+            $('#descuentoSwitch')
+                .prop('checked', descuentoEsMonto)
                 .trigger('change');
 
             $('#descuentoPorcentaje')

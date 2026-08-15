@@ -722,12 +722,12 @@ function totalVentaParaReglaSunatPEN(totalVenta) {
 function actualizarMonedaVenta() {
     const simbolo = simboloMonedaVenta();
 
-    $('label[for="total_recibido"]').text(
-        'Total recibido (' + simbolo + ')'
-    );
-    $('label[for="vuelto"]').text(
-        'Vuelto (' + simbolo + ')'
-    );
+    /*
+     * El símbolo vive dentro del control monetario. Los labels se mantienen
+     * cortos para que Recibido y Vuelto ocupen solo el ancho necesario.
+     */
+    $('#prefijoRecibido').text(simbolo);
+    $('#prefijoVuelto').text(simbolo);
 
     calcularTotales();
     recalcularCuotasCredito();
@@ -1578,29 +1578,27 @@ function inicializarEventos() {
 
 
 
-    // Control del descuento (switch o input)
+    // Control del descuento: ACTIVADO = S/. | DESACTIVADO = %
     $('#descuentoSwitch').on('change', function () {
 
-        const esPorcentaje = $(this).is(':checked');
+        const esMonto = $(this).is(':checked');
 
-        if (esPorcentaje) {
-            // 🔢 MODO PORCENTAJE
-            $('#labelDescuento').text('Descuento en %');
-
-            $('#descuentoPorcentaje')
-                .prop('disabled', false)
-                .attr('max', 100)
-                .attr('step', '0.1')
-                .attr('placeholder', '%');
-        } else {
-            // 💰 MODO SOLES
-            $('#labelDescuento').text('Descuento en ' + simboloMonedaVenta());
+        if (esMonto) {
+            $('#labelDescuento').text(simboloMonedaVenta());
 
             $('#descuentoPorcentaje')
                 .prop('disabled', false)
                 .removeAttr('max')
                 .attr('step', '0.01')
-                .attr('placeholder', simboloMonedaVenta());
+                .attr('placeholder', '0');
+        } else {
+            $('#labelDescuento').text('%');
+
+            $('#descuentoPorcentaje')
+                .prop('disabled', false)
+                .attr('max', 100)
+                .attr('step', '0.1')
+                .attr('placeholder', '0');
         }
 
         calcularTotales();
@@ -2045,7 +2043,7 @@ function calcularTotales() {
     let valorDescuento = Number.parseFloat(
         $('#descuentoPorcentaje').val()
     ) || 0;
-    const esPorcentaje = $('#descuentoSwitch').is(':checked');
+    const esPorcentaje = !$('#descuentoSwitch').is(':checked');
 
     let descuento = 0;
 
@@ -5230,7 +5228,7 @@ function totalVentaActual() {
 
     let descuento = 0;
     let valor = parseFloat($('#descuentoPorcentaje').val()) || 0;
-    let esPorcentaje = $('#descuentoSwitch').is(':checked');
+    let esPorcentaje = !$('#descuentoSwitch').is(':checked');
 
     if (valor > 0) {
         if (esPorcentaje) {
