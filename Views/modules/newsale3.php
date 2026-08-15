@@ -4691,6 +4691,114 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         /* =========================================================
+           CONTROLES CONECTADOS: CLIENTE + BUSCADOR DE PEDIDO
+           El borde exterior pertenece al grupo completo. Los botones
+           funcionan como una extensión visual del campo y no como
+           controles independientes con borde en los cuatro lados.
+        ========================================================== */
+        #ventaCampoCliente .input-group {
+            overflow: hidden;
+            border: 1px solid #d8e1dc;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, .045);
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+
+        #ventaCampoCliente .input-group:focus-within {
+            border-color: #00a46a;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .11);
+        }
+
+        #ventaCampoCliente #num_documento {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent;
+        }
+
+        #ventaCampoCliente .input-group-append {
+            margin-left: 0;
+            border-left: 1px solid #e2e9e5;
+        }
+
+        #ventaCampoCliente #btnConsultarCliente {
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: #f2faf6 !important;
+            color: #008d5b !important;
+            box-shadow: none !important;
+            transition: color .18s ease, background .18s ease;
+        }
+
+        #ventaCampoCliente #btnConsultarCliente:hover,
+        #ventaCampoCliente #btnConsultarCliente:focus,
+        #ventaCampoCliente #btnConsultarCliente:active {
+            border: 0 !important;
+            outline: 0 !important;
+            box-shadow: none !important;
+            background: #00a46a !important;
+            color: #ffffff !important;
+        }
+
+        .buscador-pedido-input-group {
+            overflow: hidden;
+            border: 1px solid #d8e1dc !important;
+            border-radius: 13px !important;
+            background: #ffffff;
+            box-shadow: 0 5px 16px rgba(15, 23, 42, .055);
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+
+        .buscador-pedido-input-group:focus-within {
+            border-color: #00a46a !important;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .11);
+        }
+
+        .buscador-pedido-input-group .input-group-prepend,
+        .buscador-pedido-input-group .input-group-append {
+            margin: 0;
+        }
+
+        .buscador-pedido-input-group .input-group-text,
+        .buscador-pedido-input-group .form-control,
+        .buscador-pedido-input-group .btn {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+
+        .buscador-pedido-input-group .input-group-text {
+            padding-right: 8px;
+            color: #00a46a;
+            background: #ffffff !important;
+        }
+
+        .buscador-pedido-input-group .form-control {
+            padding-left: 5px;
+            background: #ffffff;
+        }
+
+        .buscador-pedido-input-group .input-group-append {
+            border-left: 1px solid #e2e9e5;
+        }
+
+        #btnLimpiarBusquedaPedido {
+            background: #f2faf6 !important;
+            color: #527063 !important;
+        }
+
+        #btnLimpiarBusquedaPedido:hover,
+        #btnLimpiarBusquedaPedido:focus,
+        #btnLimpiarBusquedaPedido:active {
+            border: 0 !important;
+            outline: 0 !important;
+            box-shadow: none !important;
+            background: #00a46a !important;
+            color: #ffffff !important;
+        }
+
+        /* =========================================================
            CLIENTE: input y botón DNI/RUC con la misma altura
         ========================================================== */
         #ventaCampoCliente .input-group {
