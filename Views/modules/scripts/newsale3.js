@@ -2135,6 +2135,15 @@ function calcularTotales() {
         sincronizarTotalRecibido();
     }
 
+    /*
+     * Si Recibido fue escrito manualmente, sincronizarTotalRecibido()
+     * no lo sobrescribe. En ese caso debemos recalcular el Vuelto
+     * inmediatamente cuando cambie el descuento o el total de la venta.
+     */
+    if (typeof calcularVuelto === 'function') {
+        calcularVuelto();
+    }
+
     if (typeof recalcularCuotasCredito === 'function') {
         recalcularCuotasCredito();
     }
@@ -5411,3 +5420,226 @@ function consultarEstadoSunat(idventa, intento = 1) {
         });
     }, intento === 1 ? 3000 : 5000);
 }
+
+/* =========================================================
+   TECLADO NUMÉRICO VIRTUAL DEL POS
+   - Escritorio: muestra keypad al enfocar Descuento/Recibido.
+   - Móvil/tablet angosta: usa el teclado numérico nativo mediante inputmode.
+========================================================== */
+(function () {
+    'use strict';
+
+    const SELECTOR = '[data-venta-keypad="decimal"]';
+    const DESKTOP_QUERY = window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)');
+    let keypad = null;
+    let activeInput = null;
+
+    function normalizarDecimal(value) {
+        let limpio = String(value ?? '')
+            .replace(',', '.')
+            .replace(/[^0-9.]/g, '');
+
+        const primerPunto = limpio.indexOf('.');
+        if (primerPunto !== -1) {
+            limpio = limpio.slice(0, primerPunto + 1) + limpio.slice(primerPunto + 1).replace(/\./g, '');
+        }
+
+        return limpio;
+    }
+
+    function limiteCampo(input) {
+        if (!input) return null;
+        const max = Number.parseFloat(input.getAttribute('max'));
+        return Number.isFinite(max) ? max : null;
+    }
+
+    function aplicarValor(input, value) {
+        if (!input) return;
+
+        let limpio = normalizarDecimal(value);
+        const max = limiteCampo(input);
+        const numero = Number.parseFloat(limpio);
+
+        if (max !== null && Number.isFinite(numero) && numero > max) {
+            limpio = String(max);
+        }
+
+        input.value = limpio;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function crearKeypad() {
+        if (keypad) return keypad;
+
+        keypad = document.createElement('div');
+        keypad.className = 'venta-keypad';
+        keypad.setAttribute('role', 'dialog');
+        keypad.setAttribute('aria-label', 'Teclado numérico');
+        keypad.innerHTML = `
+            <div class="venta-keypad__grid">
+                <button type="button" class="venta-keypad__btn" data-key="7">7</button>
+                <button type="button" class="venta-keypad__btn" data-key="8">8</button>
+                <button type="button" class="venta-keypad__btn" data-key="9">9</button>
+                <button type="button" class="venta-keypad__btn venta-keypad__btn--action" data-key="backspace" aria-label="Borrar último dígito">⌫</button>
+
+                <button type="button" class="venta-keypad__btn" data-key="4">4</button>
+                <button type="button" class="venta-keypad__btn" data-key="5">5</button>
+                <button type="button" class="venta-keypad__btn" data-key="6">6</button>
+                <button type="button" class="venta-keypad__btn venta-keypad__btn--action" data-key="clear">C</button>
+
+                <button type="button" class="venta-keypad__btn" data-key="1">1</button>
+                <button type="button" class="venta-keypad__btn" data-key="2">2</button>
+                <button type="button" class="venta-keypad__btn" data-key="3">3</button>
+                <button type="button" class="venta-keypad__btn" data-key="decimal">.</button>
+
+                <button type="button" class="venta-keypad__btn" data-key="00">00</button>
+                <button type="button" class="venta-keypad__btn" data-key="0">0</button>
+                <button type="button" class="venta-keypad__btn venta-keypad__btn--ok" data-key="done">Listo</button>
+            </div>
+        `;
+
+        document.body.appendChild(keypad);
+
+        keypad.addEventListener('pointerdown', function (event) {
+            // Evita que el input pierda foco antes de procesar la tecla.
+            event.preventDefault();
+        });
+
+        keypad.addEventListener('click', function (event) {
+            const button = event.target.closest('[data-key]');
+            if (!button || !activeInput) return;
+
+            const key = button.dataset.key;
+            let value = normalizarDecimal(activeInput.value);
+
+            if (key === 'done') {
+                const input = activeInput;
+                cerrarKeypad();
+                input?.blur();
+                return;
+            }
+
+            if (key === 'clear') {
+                aplicarValor(activeInput, '');
+                return;
+            }
+
+            if (key === 'backspace') {
+                aplicarValor(activeInput, value.slice(0, -1));
+                return;
+            }
+
+            if (key === 'decimal') {
+                if (!value.includes('.')) {
+                    aplicarValor(activeInput, value === '' ? '0.' : value + '.');
+                }
+                return;
+            }
+
+            aplicarValor(activeInput, value + key);
+        });
+
+        return keypad;
+    }
+
+    function posicionarKeypad(input) {
+        if (!keypad || !input) return;
+
+        const rect = input.getBoundingClientRect();
+        const width = keypad.offsetWidth || 236;
+        const height = keypad.offsetHeight || 210;
+        const gap = 8;
+        const margen = 10;
+
+        let left = rect.left + (rect.width / 2) - (width / 2);
+        left = Math.max(margen, Math.min(left, window.innerWidth - width - margen));
+
+        let top = rect.bottom + gap;
+        if (top + height > window.innerHeight - margen) {
+            top = Math.max(margen, rect.top - height - gap);
+        }
+
+        keypad.style.left = `${Math.round(left)}px`;
+        keypad.style.top = `${Math.round(top)}px`;
+    }
+
+    function abrirKeypad(input) {
+        if (!DESKTOP_QUERY.matches || !input || input.readOnly || input.disabled) return;
+
+        activeInput = input;
+        crearKeypad();
+        keypad.classList.add('is-open');
+        posicionarKeypad(input);
+    }
+
+    function cerrarKeypad() {
+        if (keypad) keypad.classList.remove('is-open');
+        activeInput = null;
+    }
+
+    document.addEventListener('focusin', function (event) {
+        const input = event.target.closest?.(SELECTOR);
+        if (input) abrirKeypad(input);
+    });
+
+    document.addEventListener('click', function (event) {
+        const input = event.target.closest?.(SELECTOR);
+        if (input) {
+            abrirKeypad(input);
+            return;
+        }
+
+        if (keypad && keypad.classList.contains('is-open') && !keypad.contains(event.target)) {
+            cerrarKeypad();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && keypad?.classList.contains('is-open')) {
+            cerrarKeypad();
+        }
+
+        if (event.key === 'Enter' && activeInput && keypad?.classList.contains('is-open')) {
+            const input = activeInput;
+            cerrarKeypad();
+            input?.blur();
+        }
+    });
+
+    // Mantiene el contenido numérico también cuando se usa teclado físico.
+    document.addEventListener('input', function (event) {
+        const input = event.target.closest?.(SELECTOR);
+        if (!input || input.dataset.ventaKeypadSanitizing === '1') return;
+
+        let limpio = normalizarDecimal(input.value);
+        const max = limiteCampo(input);
+        const numero = Number.parseFloat(limpio);
+
+        if (max !== null && Number.isFinite(numero) && numero > max) {
+            limpio = String(max);
+        }
+
+        if (limpio !== input.value) {
+            input.dataset.ventaKeypadSanitizing = '1';
+            input.value = limpio;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            delete input.dataset.ventaKeypadSanitizing;
+        }
+    });
+
+    window.addEventListener('resize', function () {
+        if (!DESKTOP_QUERY.matches) {
+            cerrarKeypad();
+            return;
+        }
+        if (activeInput && keypad?.classList.contains('is-open')) {
+            posicionarKeypad(activeInput);
+        }
+    });
+
+    window.addEventListener('scroll', function () {
+        if (activeInput && keypad?.classList.contains('is-open')) {
+            posicionarKeypad(activeInput);
+        }
+    }, true);
+})();

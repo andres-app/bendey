@@ -401,13 +401,15 @@ if ($_SESSION['ventas'] == 1) {
                                                     </label>
 
                                                     <input
-                                                        type="number"
+                                                        type="text"
                                                         id="descuentoPorcentaje"
                                                         class="form-control text-center venta-descuento-valor"
                                                         value="0"
                                                         min="0"
                                                         step="0.01"
                                                         inputmode="decimal"
+                                                        autocomplete="off"
+                                                        data-venta-keypad="decimal"
                                                         aria-label="Valor del descuento"
                                                         placeholder="0">
                                                 </div>
@@ -418,13 +420,15 @@ if ($_SESSION['ventas'] == 1) {
                                                 <div class="venta-moneda-control">
                                                     <span class="venta-moneda-prefijo" id="prefijoRecibido">S/.</span>
                                                     <input
-                                                        type="number"
+                                                        type="text"
                                                         step="0.01"
                                                         min="0"
                                                         id="total_recibido"
                                                         name="total_recibido"
                                                         placeholder="0.00"
                                                         inputmode="decimal"
+                                                        autocomplete="off"
+                                                        data-venta-keypad="decimal"
                                                         class="form-control total-display text-success">
                                                 </div>
                                             </div>
@@ -1067,6 +1071,79 @@ if ($_SESSION['ventas'] == 1) {
         .venta-moneda-control--readonly .total-disabled {
             color: #4f5c55;
             background: transparent !important;
+        }
+
+        /* =========================================================
+           TECLADO NUMÉRICO VIRTUAL · SOLO ESCRITORIO
+        ========================================================== */
+        .venta-keypad {
+            position: fixed;
+            z-index: 12000;
+            width: 236px;
+            padding: 10px;
+            border: 1px solid #dce5df;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 14px 36px rgba(15, 23, 42, .18);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-4px) scale(.98);
+            transform-origin: top center;
+            transition: opacity .14s ease, transform .14s ease, visibility .14s ease;
+        }
+
+        .venta-keypad.is-open {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .venta-keypad__grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 7px;
+        }
+
+        .venta-keypad__btn {
+            min-width: 0;
+            height: 46px;
+            padding: 0;
+            border: 1px solid #dfe7e2;
+            border-radius: 11px;
+            background: #f8faf9;
+            color: #34443a;
+            font-size: 1rem;
+            font-weight: 500;
+            line-height: 1;
+            cursor: pointer;
+            transition: background-color .12s ease, border-color .12s ease, transform .06s ease;
+        }
+
+        .venta-keypad__btn:hover {
+            border-color: #b9d9c0;
+            background: #f0f8f2;
+        }
+
+        .venta-keypad__btn:active {
+            transform: scale(.96);
+        }
+
+        .venta-keypad__btn--action {
+            background: #f2f5f3;
+            color: #617068;
+        }
+
+        .venta-keypad__btn--ok {
+            grid-column: span 2;
+            border-color: #9fd5a7;
+            background: #eef8f0;
+            color: #2f7d39;
+        }
+
+        @media (max-width: 767.98px) {
+            .venta-keypad {
+                display: none !important;
+            }
         }
 
         .venta-campos-finales {
