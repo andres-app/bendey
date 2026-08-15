@@ -106,7 +106,7 @@ if ($_SESSION['ventas'] == 1) {
                      No se registra en la BD hasta pulsar "Procesar venta".
                 ====================================================== -->
                 <div
-                    class="venta-cola-bar"
+                    class="venta-cola-bar tw-flex tw-items-center tw-gap-2"
                     id="ventaColaShell"
                     data-usuario="<?= (int)($_SESSION['idusuario'] ?? 0) ?>"
                     data-sucursal="<?= (int)($_SESSION['idsucursal_activa'] ?? 0) ?>"
@@ -114,7 +114,7 @@ if ($_SESSION['ventas'] == 1) {
                     aria-label="Ventas en cola">
 
                     <div
-                        class="venta-cola-tabs"
+                        class="venta-cola-tabs tw-flex tw-items-center tw-gap-2"
                         id="ventaColaTabs"
                         role="tablist"
                         aria-label="Ventas abiertas">
@@ -122,23 +122,23 @@ if ($_SESSION['ventas'] == 1) {
 
                     <button
                         type="button"
-                        class="venta-cola-nueva"
+                        class="venta-cola-nueva tw-inline-flex tw-h-10 tw-w-10 tw-flex-none tw-items-center tw-justify-center tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-green-100"
                         id="btnNuevaVentaCola"
                         title="Nueva venta"
                         aria-label="Abrir nueva venta">
-                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        <i class="bi bi-cart-plus" aria-hidden="true"></i>
                     </button>
                 </div>
 
                 <div
-                    class="venta-cola-menu"
+                    class="venta-cola-menu tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-shadow-xl"
                     id="ventaColaMenu"
                     role="menu"
                     aria-hidden="true">
 
                     <button
                         type="button"
-                        class="venta-cola-menu-item"
+                        class="venta-cola-menu-item tw-flex tw-items-center tw-gap-2 tw-rounded-lg tw-transition hover:tw-bg-slate-50"
                         data-venta-cola-accion="renombrar"
                         role="menuitem">
                         <i class="bi bi-pencil"></i>
@@ -147,7 +147,7 @@ if ($_SESSION['ventas'] == 1) {
 
                     <button
                         type="button"
-                        class="venta-cola-menu-item"
+                        class="venta-cola-menu-item tw-flex tw-items-center tw-gap-2 tw-rounded-lg tw-transition hover:tw-bg-slate-50"
                         data-venta-cola-accion="duplicar"
                         role="menuitem">
                         <i class="bi bi-copy"></i>
@@ -158,7 +158,7 @@ if ($_SESSION['ventas'] == 1) {
 
                     <button
                         type="button"
-                        class="venta-cola-menu-item venta-cola-menu-item-peligro"
+                        class="venta-cola-menu-item venta-cola-menu-item-peligro tw-flex tw-items-center tw-gap-2 tw-rounded-lg tw-transition"
                         data-venta-cola-accion="cerrar"
                         role="menuitem">
                         <i class="bi bi-x-circle"></i>
@@ -1485,23 +1485,26 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         /* =========================================================
-           VENTAS EN COLA · PESTAÑAS DEL POS
+           VENTAS EN COLA · PESTAÑAS FLOTANTES CON TAILWIND
+           Sin contenedor tipo card: las ventas quedan agrupadas y
+           el botón Nueva venta se mantiene pegado a las pestañas.
         ========================================================== */
         .venta-cola-bar {
             position: relative;
             z-index: 70;
             width: 100%;
             min-width: 0;
-            min-height: 46px;
+            min-height: 42px;
             display: flex;
-            align-items: stretch;
-            gap: 8px;
-            margin: 12px 0 10px;
-            padding: 5px;
-            border: 1px solid #dfe6e2;
-            border-radius: 13px;
-            background: #f5f8f6;
-            box-shadow: 0 5px 15px rgba(15, 23, 42, .045);
+            align-items: center;
+            justify-content: flex-start;
+            gap: 7px;
+            margin: 14px 0 10px;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
         }
 
         .venta-cola-bar.is-locked {
@@ -1510,15 +1513,18 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .venta-cola-tabs {
+            width: auto;
+            max-width: calc(100% - 47px);
             min-width: 0;
-            flex: 1 1 auto;
+            flex: 0 1 auto;
             display: flex;
-            align-items: stretch;
-            gap: 6px;
+            align-items: center;
+            gap: 7px;
+            padding: 1px;
             overflow-x: auto;
             overflow-y: hidden;
             scrollbar-width: thin;
-            scrollbar-color: #c9d3cc transparent;
+            scrollbar-color: #d2dbd5 transparent;
             overscroll-behavior-x: contain;
         }
 
@@ -1527,52 +1533,57 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .venta-cola-tabs::-webkit-scrollbar-thumb {
-            border-radius: 99px;
-            background: #c9d3cc;
+            border-radius: 999px;
+            background: #d2dbd5;
         }
 
         .venta-cola-tab-item {
-            min-width: 158px;
-            max-width: 230px;
+            width: max-content;
+            min-width: max-content;
+            max-width: 270px;
             flex: 0 0 auto;
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 34px;
+            grid-template-columns: minmax(0, auto) 32px;
             align-items: stretch;
-            border: 1px solid #dfe5e1;
-            border-radius: 10px;
             overflow: hidden;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
             background: #ffffff;
-            transition:
-                border-color .16s ease,
-                background-color .16s ease,
-                box-shadow .16s ease;
+            box-shadow: 0 2px 7px rgba(15, 23, 42, .055);
+            transition: border-color .16s ease, background-color .16s ease,
+                        box-shadow .16s ease, transform .16s ease;
         }
 
         .venta-cola-tab-item:hover {
-            border-color: #bcd3c3;
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, .075);
+            transform: translateY(-1px);
         }
 
         .venta-cola-tab-item.active {
-            border-color: #6fbd7c;
-            background: #f4fbf6;
-            box-shadow: inset 0 -2px 0 #52b848;
+            border-color: #52b848;
+            background: #f2fbf3;
+            box-shadow: 0 4px 14px rgba(82, 184, 72, .12);
         }
 
         .venta-cola-tab {
             min-width: 0;
-            display: flex;
+            width: max-content;
+            max-width: 236px;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 7px 6px 10px;
-            border: 0;
-            color: #4f5d55;
-            background: transparent;
+            padding: 6px 9px;
+            border: 0 !important;
+            color: #475569;
+            background: transparent !important;
             text-align: left;
             cursor: pointer;
         }
 
         .venta-cola-tab:hover,
         .venta-cola-tab:focus,
+        .venta-cola-tab:focus-visible,
         .venta-cola-tab:active {
             border: 0 !important;
             outline: 0 !important;
@@ -1581,16 +1592,17 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .venta-cola-tab-icono {
-            width: 26px;
-            height: 26px;
-            flex: 0 0 26px;
+            width: 29px;
+            height: 29px;
+            flex: 0 0 29px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 8px;
-            color: #478658;
-            background: #edf6ef;
-            font-size: .78rem;
+            border-radius: 9px;
+            color: #357f31;
+            background: #eef8ef;
+            font-size: .82rem;
+            transition: color .16s ease, background-color .16s ease;
         }
 
         .venta-cola-tab-item.active .venta-cola-tab-icono {
@@ -1600,80 +1612,106 @@ if ($_SESSION['ventas'] == 1) {
 
         .venta-cola-tab-contenido {
             min-width: 0;
+            width: max-content;
+            max-width: 186px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: 1px;
+            gap: 2px;
         }
 
         .venta-cola-tab-nombre {
+            max-width: 186px;
             overflow: hidden;
-            color: #354239;
+            color: #334155;
             font-size: .76rem;
-            font-weight: 600;
+            font-weight: 500;
             line-height: 1.15;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
         .venta-cola-tab-total {
-            color: #89938d;
+            color: #94a3b8;
             font-size: .64rem;
-            font-weight: 500;
+            font-weight: 400;
             line-height: 1.1;
+            white-space: nowrap;
         }
 
         .venta-cola-tab-item.active .venta-cola-tab-nombre {
-            color: #286f3c;
+            color: #2f7833;
+        }
+
+        .venta-cola-tab-item.active .venta-cola-tab-total {
+            color: #5f8f65;
         }
 
         .venta-cola-tab-menu-btn {
-            width: 34px;
-            min-width: 34px;
+            width: 32px;
+            min-width: 32px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             padding: 0;
-            border: 0;
-            border-left: 1px solid #edf1ee;
-            color: #87928b;
+            border: 0 !important;
+            border-left: 1px solid #edf2f7 !important;
+            color: #94a3b8;
             background: transparent;
-            font-size: 1rem;
+            font-size: .96rem;
             cursor: pointer;
         }
 
         .venta-cola-tab-menu-btn:hover,
-        .venta-cola-tab-menu-btn:focus {
-            color: #34443a;
-            background: #eef4f0;
-            outline: 0;
-            box-shadow: none;
+        .venta-cola-tab-menu-btn:focus,
+        .venta-cola-tab-menu-btn:focus-visible {
+            color: #475569;
+            border-top: 0 !important;
+            border-right: 0 !important;
+            border-bottom: 0 !important;
+            border-left: 1px solid #e2e8f0 !important;
+            background: #f8fafc;
+            outline: 0 !important;
+            box-shadow: none !important;
         }
 
         .venta-cola-nueva {
-            width: 38px;
-            min-width: 38px;
-            flex: 0 0 38px;
+            width: 40px;
+            min-width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             padding: 0;
-            border: 1px solid #b9d7c1;
-            border-radius: 10px;
-            color: #277f42;
-            background: #edf8f0;
-            font-size: 1rem;
+            border: 0 !important;
+            border-radius: 12px;
+            color: #ffffff !important;
+            background: #52b848 !important;
+            box-shadow: 0 4px 12px rgba(82, 184, 72, .20);
+            font-size: 1.05rem;
+            line-height: 1;
             cursor: pointer;
-            transition: .16s ease;
+            transition: background-color .16s ease, box-shadow .16s ease,
+                        transform .16s ease;
         }
 
-        .venta-cola-nueva:hover,
-        .venta-cola-nueva:focus {
-            color: #ffffff;
-            border-color: #52b848;
-            background: #52b848;
-            outline: 0;
-            box-shadow: none;
+        .venta-cola-nueva:hover {
+            color: #ffffff !important;
+            border: 0 !important;
+            background: #469f3e !important;
+            box-shadow: 0 6px 16px rgba(82, 184, 72, .25) !important;
+            transform: translateY(-1px);
+        }
+
+        .venta-cola-nueva:focus,
+        .venta-cola-nueva:focus-visible,
+        .venta-cola-nueva:active {
+            color: #ffffff !important;
+            border: 0 !important;
+            outline: 0 !important;
+            background: #469f3e !important;
+            box-shadow: 0 0 0 4px rgba(82, 184, 72, .14) !important;
         }
 
         .venta-cola-menu {
@@ -1682,10 +1720,10 @@ if ($_SESSION['ventas'] == 1) {
             width: 190px;
             display: none;
             padding: 6px;
-            border: 1px solid #dfe6e2;
-            border-radius: 11px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
             background: #ffffff;
-            box-shadow: 0 16px 38px rgba(15, 23, 42, .17);
+            box-shadow: 0 16px 38px rgba(15, 23, 42, .16);
         }
 
         .venta-cola-menu.show {
@@ -1698,9 +1736,9 @@ if ($_SESSION['ventas'] == 1) {
             align-items: center;
             gap: 9px;
             padding: 9px 10px;
-            border: 0;
-            border-radius: 8px;
-            color: #46534b;
+            border: 0 !important;
+            border-radius: 9px;
+            color: #475569;
             background: transparent;
             font-size: .78rem;
             font-weight: 400;
@@ -1709,32 +1747,35 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .venta-cola-menu-item:hover,
-        .venta-cola-menu-item:focus {
-            color: #26352d;
-            background: #f2f6f3;
-            outline: 0;
+        .venta-cola-menu-item:focus,
+        .venta-cola-menu-item:focus-visible {
+            color: #334155;
+            border: 0 !important;
+            background: #f8fafc;
+            outline: 0 !important;
+            box-shadow: none !important;
         }
 
         .venta-cola-menu-item i {
             width: 17px;
-            color: #718078;
+            color: #64748b;
             text-align: center;
         }
 
         .venta-cola-menu-item-peligro,
         .venta-cola-menu-item-peligro i {
-            color: #ba4b4b;
+            color: #dc4c5b;
         }
 
         .venta-cola-menu-item-peligro:hover {
-            color: #a83e3e;
-            background: #fff4f4;
+            color: #c83d4b;
+            background: #fff5f6;
         }
 
         .venta-cola-menu-separador {
             height: 1px;
             margin: 4px 3px;
-            background: #edf1ee;
+            background: #edf2f7;
         }
 
         @media (min-width: 1200px) {
@@ -1759,31 +1800,40 @@ if ($_SESSION['ventas'] == 1) {
 
         @media (max-width: 767.98px) {
             .venta-cola-bar {
-                min-height: 43px;
+                min-height: 38px;
+                gap: 6px;
                 margin-top: 4px;
                 margin-bottom: 8px;
-                padding: 4px;
-                border-radius: 10px;
+            }
+
+            .venta-cola-tabs {
+                max-width: calc(100% - 43px);
+                gap: 6px;
             }
 
             .venta-cola-tab-item {
-                min-width: 145px;
-                max-width: 195px;
-                grid-template-columns: minmax(0, 1fr) 32px;
-                border-radius: 8px;
+                max-width: 230px;
+                grid-template-columns: minmax(0, auto) 30px;
+                border-radius: 11px;
             }
 
             .venta-cola-tab {
-                padding: 5px 6px 5px 8px;
+                max-width: 198px;
+                padding: 5px 8px;
                 gap: 6px;
             }
 
             .venta-cola-tab-icono {
-                width: 24px;
-                height: 24px;
-                flex-basis: 24px;
-                border-radius: 7px;
-                font-size: .7rem;
+                width: 27px;
+                height: 27px;
+                flex-basis: 27px;
+                border-radius: 8px;
+                font-size: .76rem;
+            }
+
+            .venta-cola-tab-contenido,
+            .venta-cola-tab-nombre {
+                max-width: 154px;
             }
 
             .venta-cola-tab-nombre {
@@ -1795,15 +1845,17 @@ if ($_SESSION['ventas'] == 1) {
             }
 
             .venta-cola-tab-menu-btn {
-                width: 32px;
-                min-width: 32px;
+                width: 30px;
+                min-width: 30px;
             }
 
             .venta-cola-nueva {
-                width: 34px;
-                min-width: 34px;
-                flex-basis: 34px;
-                border-radius: 8px;
+                width: 37px;
+                min-width: 37px;
+                height: 37px;
+                flex-basis: 37px;
+                border-radius: 11px;
+                font-size: .98rem;
             }
         }
 

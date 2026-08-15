@@ -465,23 +465,23 @@
 
             html += `
                 <div
-                    class="venta-cola-tab-item ${activa ? 'active' : ''}"
+                    class="venta-cola-tab-item ${activa ? 'active' : ''} tw-flex-none tw-overflow-hidden tw-rounded-xl tw-border tw-bg-white tw-shadow-sm tw-transition"
                     data-venta-cola-id="${escaparHtml(tab.id)}">
 
                     <button
                         type="button"
-                        class="venta-cola-tab"
+                        class="venta-cola-tab tw-inline-flex tw-items-center tw-gap-2 tw-bg-transparent"
                         data-venta-cola-seleccionar="${escaparHtml(tab.id)}"
                         role="tab"
                         aria-selected="${activa ? 'true' : 'false'}"
                         title="${escaparHtml(tab.name)}">
 
-                        <span class="venta-cola-tab-icono">
-                            <i class="bi bi-receipt"></i>
+                        <span class="venta-cola-tab-icono tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg">
+                            <i class="bi bi-cart3"></i>
                         </span>
 
-                        <span class="venta-cola-tab-contenido">
-                            <span class="venta-cola-tab-nombre">
+                        <span class="venta-cola-tab-contenido tw-min-w-0">
+                            <span class="venta-cola-tab-nombre tw-whitespace-nowrap tw-font-medium">
                                 ${escaparHtml(tab.name)}
                             </span>
 
@@ -493,7 +493,7 @@
 
                     <button
                         type="button"
-                        class="venta-cola-tab-menu-btn"
+                        class="venta-cola-tab-menu-btn tw-inline-flex tw-items-center tw-justify-center tw-bg-transparent tw-transition"
                         data-venta-cola-menu="${escaparHtml(tab.id)}"
                         aria-label="Opciones de ${escaparHtml(tab.name)}"
                         title="Opciones">
