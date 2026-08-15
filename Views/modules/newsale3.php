@@ -844,11 +844,19 @@ if ($_SESSION['ventas'] == 1) {
             align-items: end;
             justify-content: center;
             gap: 12px 22px;
-            margin: 8px 0 22px;
-            padding: 14px 12px;
-            border: 1px solid #e4ebe7;
-            border-radius: 14px;
-            background: #fbfcfb;
+            margin: 10px 0 22px;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            outline: 0 !important;
+        }
+
+        .venta-finanzas-rapidas::before,
+        .venta-finanzas-rapidas::after {
+            content: none !important;
+            display: none !important;
         }
 
         .venta-finanza-item {
@@ -1101,7 +1109,7 @@ if ($_SESSION['ventas'] == 1) {
             .venta-finanzas-rapidas {
                 grid-template-columns: repeat(2, 142px);
                 gap: 12px 14px;
-                padding: 12px 8px;
+                padding: 0;
             }
 
             .venta-finanza-descuento {
@@ -3840,7 +3848,7 @@ if ($_SESSION['ventas'] == 1) {
                 grid-template-columns: repeat(2, 134px);
                 margin-bottom: 14px;
                 gap: 10px 12px;
-                padding: 10px 6px;
+                padding: 0;
             }
 
             .venta-cobro-item,
