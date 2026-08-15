@@ -1114,6 +1114,61 @@ try {
 
         /*
         |--------------------------------------------------------------------------
+        | CAMPOS VISIBLES DE NUEVA VENTA
+        |--------------------------------------------------------------------------
+        */
+        case 'venta_campos_visibles':
+
+            responderCompanyJson([
+                'success' => true,
+                'configuracion' => $company->obtenerCamposVentaVisibles()
+            ]);
+
+            break;
+
+        case 'guardar_venta_campos_visibles':
+
+            if (
+                ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST'
+            ) {
+                responderCompanyJson([
+                    'success' => false,
+                    'mensaje' => 'La operación requiere una petición POST.'
+                ], 405);
+            }
+
+            $configuracionJson = trim(
+                (string)($_POST['configuracion'] ?? '')
+            );
+
+            $configuracion = json_decode(
+                $configuracionJson,
+                true
+            );
+
+            if (!is_array($configuracion)) {
+                responderCompanyJson([
+                    'success' => false,
+                    'mensaje' => 'La configuración recibida no es válida.'
+                ], 422);
+            }
+
+            $guardado = $company->guardarCamposVentaVisibles(
+                $configuracion
+            );
+
+            responderCompanyJson([
+                'success' => $guardado,
+                'configuracion' => $company->obtenerCamposVentaVisibles(),
+                'mensaje' => $guardado
+                    ? 'Ajustes de Nueva Venta guardados.'
+                    : 'No se pudieron guardar los ajustes.'
+            ], $guardado ? 200 : 500);
+
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
         | OPERACIÓN INVÁLIDA
         |--------------------------------------------------------------------------
         */

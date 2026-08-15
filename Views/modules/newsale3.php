@@ -181,8 +181,66 @@ if ($_SESSION['ventas'] == 1) {
 
                             <div class="card venta-panel-card venta-panel-card-formulario">
 
-                                <div class="card-header venta-panel-header">
+                                <div class="card-header venta-panel-header venta-panel-header-ajustes">
                                     <h4>Nueva venta</h4>
+
+                                    <div class="venta-ajustes-wrap">
+                                        <button
+                                            type="button"
+                                            class="venta-ajustes-btn"
+                                            id="btnAjustesVenta"
+                                            aria-expanded="false"
+                                            aria-controls="panelAjustesVenta"
+                                            title="Configurar campos de Nueva Venta">
+                                            <i class="bi bi-gear"></i>
+                                            <span>Ajustes</span>
+                                        </button>
+
+                                        <div
+                                            class="venta-ajustes-panel"
+                                            id="panelAjustesVenta"
+                                            aria-hidden="true">
+                                            <div class="venta-ajustes-panel-cabecera">
+                                                <div>
+                                                    <strong>Campos de Nueva Venta</strong>
+                                                    <small>Activa solo la información que necesitas.</small>
+                                                </div>
+                                                <button type="button" class="venta-ajustes-cerrar" id="btnCerrarAjustesVenta" aria-label="Cerrar ajustes">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+
+                                            <div class="venta-ajustes-lista">
+                                                <label class="venta-ajuste-item is-fixed">
+                                                    <span>Tipo de comprobante</span>
+                                                    <input type="checkbox" checked disabled>
+                                                    <span class="venta-ajuste-switch"></span>
+                                                </label>
+                                                <label class="venta-ajuste-item is-fixed">
+                                                    <span>Cliente</span>
+                                                    <input type="checkbox" checked disabled>
+                                                    <span class="venta-ajuste-switch"></span>
+                                                </label>
+                                                <label class="venta-ajuste-item"><span>Dirección</span><input type="checkbox" data-campo-switch="direccion"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Tipo de pago</span><input type="checkbox" data-campo-switch="tipo_pago"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Forma de pago</span><input type="checkbox" data-campo-switch="forma_pago"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Celular</span><input type="checkbox" data-campo-switch="celular"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Fecha de emisión</span><input type="checkbox" data-campo-switch="fecha_emision"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Guía de remisión</span><input type="checkbox" data-campo-switch="guia_remision"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Tipo de moneda</span><input type="checkbox" data-campo-switch="tipo_moneda"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Tipo de cambio SUNAT</span><input type="checkbox" data-campo-switch="tipo_cambio_sunat"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>IGV - SUNAT</span><input type="checkbox" data-campo-switch="igv_sunat"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Tipo de operación SUNAT</span><input type="checkbox" data-campo-switch="tipo_operacion_sunat"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Descuento en S/. y %</span><input type="checkbox" data-campo-switch="descuento"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Envío del comprobante</span><input type="checkbox" data-campo-switch="envio_comprobante"><span class="venta-ajuste-switch"></span></label>
+                                            </div>
+
+                                            <div class="venta-ajustes-acciones">
+                                                <button type="button" class="btn btn-light btn-sm" id="btnRestablecerCamposVenta">Restablecer</button>
+                                                <button type="button" class="btn btn-success btn-sm" id="btnGuardarCamposVenta">Guardar ajustes</button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="venta-form-shell">
@@ -190,371 +248,153 @@ if ($_SESSION['ventas'] == 1) {
                                     <div class="card-body px-0 pt-0 venta-form-scroll">
 
                                         <!-- =====================================
-                                             COMPROBANTE Y CLIENTE
+                                             CAMPOS CONFIGURABLES DE LA VENTA
                                         ====================================== -->
-                                        <div class="row g-3 mb-4">
+                                        <div class="venta-campos-grid" id="ventaCamposGrid">
 
-                                            <div class="col-md-6">
-                                                <label for="tipo_comprobante">
-                                                    Tipo de comprobante
-                                                </label>
-
-                                                <select
-                                                    id="tipo_comprobante"
-                                                    name="tipo_comprobante"
-                                                    class="form-control form-select"
-                                                    required>
-                                                </select>
-
-                                                <!-- Vista previa únicamente.
-                                                     El correlativo definitivo se
-                                                     asigna en el backend. -->
-                                                <input
-                                                    type="hidden"
-                                                    id="serie_comprobante"
-                                                    name="serie_comprobante">
-
-                                                <input
-                                                    type="hidden"
-                                                    id="num_comprobante"
-                                                    name="num_comprobante">
+                                            <div class="venta-campo venta-campo--medio" data-venta-campo="tipo_comprobante">
+                                                <label for="tipo_comprobante">Tipo de comprobante</label>
+                                                <select id="tipo_comprobante" name="tipo_comprobante" class="form-control form-select" required></select>
+                                                <input type="hidden" id="serie_comprobante" name="serie_comprobante">
+                                                <input type="hidden" id="num_comprobante" name="num_comprobante">
                                             </div>
 
-                                            <div class="col-md-6">
-
-                                                <label for="num_documento" class="mb-1">
-                                                    Cliente
-                                                </label>
-
+                                            <div class="venta-campo venta-campo--medio" data-venta-campo="cliente">
+                                                <label for="num_documento" class="mb-1">Cliente</label>
                                                 <div class="input-group">
-
-                                                    <input
-                                                        type="text"
-                                                        class="form-control"
-                                                        id="num_documento"
-                                                        name="num_documento"
-                                                        maxlength="11"
-                                                        inputmode="numeric"
-                                                        autocomplete="off"
-                                                        placeholder="DNI o RUC">
-
+                                                    <input type="text" class="form-control" id="num_documento" name="num_documento" maxlength="11" inputmode="numeric" autocomplete="off" placeholder="DNI o RUC">
                                                     <div class="input-group-append">
-                                                        <button
-                                                            type="button"
-                                                            class="btn btn-outline-secondary px-3"
-                                                            id="btnConsultarCliente"
-                                                            onclick="consultarCliente()"
-                                                            title="Consultar DNI o RUC">
-
+                                                        <button type="button" class="btn btn-outline-secondary px-3" id="btnConsultarCliente" onclick="consultarCliente()" title="Consultar DNI o RUC">
                                                             <i class="bi bi-arrow-repeat"></i>
                                                         </button>
                                                     </div>
-
                                                 </div>
+                                                <small id="nombre_cliente" class="text-muted d-block mt-2">Déjelo vacío para usar CLIENTE VARIOS.</small>
 
-                                                <small
-                                                    id="nombre_cliente"
-                                                    class="text-muted d-block mt-2">
-                                                    Déjelo vacío para usar CLIENTE VARIOS.
-                                                </small>
+                                                <input type="hidden" id="idcliente" name="idcliente" value="">
+                                                <input type="hidden" id="cliente_generico" name="cliente_generico" value="0">
+                                                <input type="hidden" id="tipo_documento" name="tipo_documento" value="">
+                                                <input type="hidden" id="num_doc_real" name="num_doc_real" value="">
+                                                <input type="hidden" id="nombre_cli" name="nombre_cli" value="">
+                                                <input type="hidden" id="direccion" name="direccion" value="">
+                                                <input type="hidden" id="email" name="email" value="">
+                                            </div>
 
-                                                <!-- =================================
-                                                     DATOS REALES DEL CLIENTE
-                                                ================================== -->
-                                                <input
-                                                    type="hidden"
-                                                    id="idcliente"
-                                                    name="idcliente"
-                                                    value="">
+                                            <div class="venta-campo venta-campo--ancho" data-venta-campo="direccion">
+                                                <label for="direccion_visible">Dirección</label>
+                                                <input type="text" class="form-control" id="direccion_visible" autocomplete="off" maxlength="255" placeholder="Dirección del cliente">
+                                                <small class="text-muted d-block mt-2">Se completa con la información obtenida del cliente o de la API DNI/RUC.</small>
+                                            </div>
 
-                                                <input
-                                                    type="hidden"
-                                                    id="cliente_generico"
-                                                    name="cliente_generico"
-                                                    value="0">
+                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="tipo_pago">
+                                                <label for="tipo_pago">Tipo de pago</label>
+                                                <select class="form-control form-select" id="tipo_pago" name="idtipopago" required></select>
+                                                <input type="hidden" id="condicion_pago" name="condicion_pago" value="">
+                                            </div>
 
-                                                <input
-                                                    type="hidden"
-                                                    id="tipo_documento"
-                                                    name="tipo_documento"
-                                                    value="">
+                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="forma_pago">
+                                                <label for="forma_pago">Forma de pago</label>
+                                                <select class="form-control form-select" id="forma_pago" name="idforma_pago" required></select>
+                                            </div>
 
-                                                <input
-                                                    type="hidden"
-                                                    id="num_doc_real"
-                                                    name="num_doc_real"
-                                                    value="">
+                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="celular">
+                                                <label for="celular">Celular</label>
+                                                <input type="text" class="form-control" id="celular" name="celular" maxlength="9" inputmode="numeric" autocomplete="off" placeholder="Ej.: 986634352">
+                                            </div>
 
-                                                <input
-                                                    type="hidden"
-                                                    id="nombre_cli"
-                                                    name="nombre_cli"
-                                                    value="">
+                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="fecha_emision">
+                                                <label for="fecha_emision">Fecha de emisión</label>
+                                                <input type="date" class="form-control" id="fecha_emision" name="fecha_emision" max="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d') ?>">
+                                            </div>
 
-                                                <input
-                                                    type="hidden"
-                                                    id="direccion"
-                                                    name="direccion"
-                                                    value="">
+                                            <div class="venta-campo venta-campo--medio" data-venta-campo="guia_remision">
+                                                <label for="guia_remision">Guía de remisión</label>
+                                                <input type="text" class="form-control" id="guia_remision" name="guia_remision" maxlength="50" autocomplete="off" placeholder="Ej.: T001-00000125">
+                                            </div>
 
-                                                <input
-                                                    type="hidden"
-                                                    id="email"
-                                                    name="email"
-                                                    value="">
+                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="tipo_moneda">
+                                                <label for="moneda_codigo">Tipo de moneda</label>
+                                                <select class="form-control form-select" id="moneda_codigo" name="moneda_codigo">
+                                                    <option value="PEN">PEN — Sol peruano</option>
+                                                    <option value="USD">USD — Dólar estadounidense</option>
+                                                    <option value="EUR">EUR — Euro</option>
+                                                </select>
+                                            </div>
 
-                                                <!-- =================================
-                                                     DESCUENTOS PARA BACKEND
-                                                ================================== -->
-                                                <input
-                                                    type="hidden"
-                                                    id="descuento_total"
-                                                    name="descuento_total"
-                                                    value="0.00">
+                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="tipo_cambio_sunat">
+                                                <label for="tipo_cambio_sunat">Tipo de cambio SUNAT</label>
+                                                <input type="number" class="form-control" id="tipo_cambio_sunat" name="tipo_cambio_sunat" min="0.000001" step="0.000001" value="1.000000" inputmode="decimal">
+                                                <small class="text-muted d-block mt-2" id="ayudaTipoCambioSunat">Para PEN se utiliza 1.000000.</small>
+                                            </div>
 
-                                                <input
-                                                    type="hidden"
-                                                    id="descuento_porcentaje"
-                                                    name="descuento_porcentaje"
-                                                    value="0.00">
+                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="igv_sunat">
+                                                <label for="igv_sunat_visual">IGV - SUNAT</label>
+                                                <input type="text" class="form-control bg-light" id="igv_sunat_visual" value="18% · Gravado" readonly>
+                                                <small class="text-muted d-block mt-2">Se obtiene de la configuración tributaria efectiva.</small>
+                                            </div>
 
+                                            <div class="venta-campo venta-campo--ancho" data-venta-campo="tipo_operacion_sunat">
+                                                <label for="tipo_operacion_sunat">Tipo de operación SUNAT</label>
+                                                <select class="form-control form-select" id="tipo_operacion_sunat" name="tipo_operacion_sunat" required>
+                                                    <option value="0101">0101 — Venta interna</option>
+                                                </select>
+                                                <small class="form-text text-muted" id="ayudaTipoOperacionSunat">Se utilizará la configuración tributaria de la empresa o sucursal.</small>
+                                            </div>
 
-                                                <!-- RESUMEN TRIBUTARIO CALCULADO -->
-                                                <input type="hidden" id="total_gravado" name="total_gravado" value="0.00">
-                                                <input type="hidden" id="total_exonerado" name="total_exonerado" value="0.00">
-                                                <input type="hidden" id="total_inafecto" name="total_inafecto" value="0.00">
-                                                <input type="hidden" id="total_exportacion" name="total_exportacion" value="0.00">
-                                                <input type="hidden" id="total_igv" name="total_igv" value="0.00">
-                                                <input type="hidden" id="precios_incluyen_impuesto" name="precios_incluyen_impuesto" value="1">
+                                            <div class="venta-campo venta-campo--medio" data-venta-campo="descuento">
+                                                <label class="d-block">Descuento en S/. y %</label>
+                                                <div class="venta-descuento-inline">
+                                                    <label class="custom-switch mb-0">
+                                                        <input type="checkbox" id="descuentoSwitch" class="custom-switch-input" checked>
+                                                        <span class="custom-switch-indicator bg-success"></span>
+                                                        <span class="custom-switch-description" id="labelDescuento">Descuento en %</span>
+                                                    </label>
+                                                    <input type="number" id="descuentoPorcentaje" class="form-control text-center" value="0" min="0" max="100" step="0.1" placeholder="%">
+                                                </div>
+                                            </div>
 
+                                            <div class="venta-campo venta-campo--ancho" data-venta-campo="envio_comprobante">
+                                                <label for="modo_envio">Envío del comprobante</label>
+                                                <select class="form-control form-select" id="modo_envio" name="modo_envio" required>
+                                                    <option value="inmediato">Enviar inmediatamente a SUNAT</option>
+                                                    <option value="manual">Guardar y enviar manualmente después</option>
+                                                    <option value="resumen_diario">Incluir en Resumen Diario de Boletas</option>
+                                                </select>
+                                                <small class="text-muted d-block mt-2" id="mensajeModoEnvio">La venta se registrará y luego será enviada automáticamente mediante APISUNAT.</small>
                                             </div>
 
                                         </div>
 
-                                        <!-- =====================================
-                                             PAGOS
-                                        ====================================== -->
-                                        <div class="row g-3 mb-4">
-
-                                            <div class="col-md-4">
-
-                                                <label for="celular">
-                                                    Celular
-                                                </label>
-
-                                                <div class="form-group mb-0">
-                                                    <input
-                                                        type="text"
-                                                        class="form-control"
-                                                        id="celular"
-                                                        name="celular"
-                                                        maxlength="9"
-                                                        inputmode="numeric"
-                                                        autocomplete="off"
-                                                        placeholder="Ej.: 986634352">
-                                                </div>
-
-                                            </div>
-
-                                            <div class="col-md-4">
-
-                                                <label for="tipo_pago">
-                                                    Tipo de pago
-                                                </label>
-
-                                                <div class="form-group mb-0">
-
-                                                    <select
-                                                        class="form-control form-select"
-                                                        id="tipo_pago"
-                                                        name="idtipopago"
-                                                        required>
-                                                    </select>
-
-                                                    <!-- Se sincroniza con el texto
-                                                         seleccionado: Contado/Crédito -->
-                                                    <input
-                                                        type="hidden"
-                                                        id="condicion_pago"
-                                                        name="condicion_pago"
-                                                        value="">
-
-                                                </div>
-
-                                            </div>
-
-                                            <div class="col-md-4">
-
-                                                <label for="forma_pago">
-                                                    Forma de pago
-                                                </label>
-
-                                                <div class="form-group mb-0">
-                                                    <select
-                                                        class="form-control form-select"
-                                                        id="forma_pago"
-                                                        name="idforma_pago"
-                                                        required>
-                                                    </select>
-                                                </div>
-
-                                            </div>
-
-                                        </div>
+                                        <!-- DATOS OCULTOS NECESARIOS PARA BACKEND -->
+                                        <input type="hidden" id="descuento_total" name="descuento_total" value="0.00">
+                                        <input type="hidden" id="descuento_porcentaje" name="descuento_porcentaje" value="0.00">
+                                        <input type="hidden" id="total_gravado" name="total_gravado" value="0.00">
+                                        <input type="hidden" id="total_exonerado" name="total_exonerado" value="0.00">
+                                        <input type="hidden" id="total_inafecto" name="total_inafecto" value="0.00">
+                                        <input type="hidden" id="total_exportacion" name="total_exportacion" value="0.00">
+                                        <input type="hidden" id="total_igv" name="total_igv" value="0.00">
+                                        <input type="hidden" id="precios_incluyen_impuesto" name="precios_incluyen_impuesto" value="1">
 
                                         <!-- =====================================
                                              DATOS DE CRÉDITO
                                         ====================================== -->
-                                        <div
-                                            id="bloque_credito"
-                                            class="row g-3 mb-4"
-                                            style="display:none;">
-
+                                        <div id="bloque_credito" class="row g-3 mb-4 venta-bloque-extra" style="display:none;">
                                             <div class="col-md-4">
-
-                                                <label
-                                                    for="numero_cuotas"
-                                                    class="fw-bold">
-                                                    N.º de cuotas
-                                                </label>
-
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    class="form-control"
-                                                    id="numero_cuotas"
-                                                    name="numero_cuotas"
-                                                    placeholder="Ej.: 3">
-
+                                                <label for="numero_cuotas" class="fw-bold">N.º de cuotas</label>
+                                                <input type="number" min="1" class="form-control" id="numero_cuotas" name="numero_cuotas" placeholder="Ej.: 3">
                                             </div>
-
                                             <div class="col-md-4">
-
-                                                <label
-                                                    for="monto_cuota"
-                                                    class="fw-bold">
-                                                    Monto por cuota
-                                                </label>
-
-                                                <input
-                                                    type="text"
-                                                    class="form-control bg-light"
-                                                    id="monto_cuota"
-                                                    readonly
-                                                    placeholder="S/ 0.00">
-
-                                                <input
-                                                    type="hidden"
-                                                    id="monto_cuota_real"
-                                                    name="monto_cuota"
-                                                    value="0.00">
-
+                                                <label for="monto_cuota" class="fw-bold">Monto por cuota</label>
+                                                <input type="text" class="form-control bg-light" id="monto_cuota" readonly placeholder="S/ 0.00">
+                                                <input type="hidden" id="monto_cuota_real" name="monto_cuota" value="0.00">
                                             </div>
-
                                             <div class="col-md-4">
-
-                                                <label
-                                                    for="fecha_pago"
-                                                    class="fw-bold">
-                                                    Fecha del primer pago
-                                                </label>
-
-                                                <input
-                                                    type="date"
-                                                    class="form-control"
-                                                    id="fecha_pago"
-                                                    name="fecha_pago"
-                                                    min="<?= htmlspecialchars(
-                                                                $fechaMinimaCredito,
-                                                                ENT_QUOTES,
-                                                                'UTF-8'
-                                                            ) ?>">
-
+                                                <label for="fecha_pago" class="fw-bold">Fecha del primer pago</label>
+                                                <input type="date" class="form-control" id="fecha_pago" name="fecha_pago" min="<?= htmlspecialchars($fechaMinimaCredito, ENT_QUOTES, 'UTF-8') ?>">
                                             </div>
-
                                             <div class="col-12">
-                                                <small class="text-muted">
-                                                    El importe se calculará según el total de la venta y el número de cuotas.
-                                                </small>
+                                                <small class="text-muted">El importe se calculará según el total de la venta y el número de cuotas.</small>
                                             </div>
-
-                                        </div>
-
-
-                                        <!-- =====================================
-                                             TIPO DE OPERACIÓN SUNAT
-                                        ====================================== -->
-                                        <div class="row g-3 mb-4 venta-tipo-operacion-row">
-                                            <div class="col-12">
-                                                <label for="tipo_operacion_sunat">
-                                                    Tipo de operación SUNAT
-                                                </label>
-
-                                                <select
-                                                    class="form-control form-select"
-                                                    id="tipo_operacion_sunat"
-                                                    name="tipo_operacion_sunat"
-                                                    required>
-                                                    <option value="0101">
-                                                        0101 — Venta interna
-                                                    </option>
-                                                </select>
-
-                                                <small
-                                                    class="form-text text-muted"
-                                                    id="ayudaTipoOperacionSunat">
-                                                    Se utilizará la configuración tributaria de la empresa o sucursal.
-                                                </small>
-                                            </div>
-                                        </div>
-
-                                        <!-- =====================================
-                                             DESCUENTO
-                                        ====================================== -->
-                                        <div class="row mb-4 venta-descuento-row">
-
-                                            <div class="col-12 d-flex justify-content-center">
-
-                                                <div class="d-flex align-items-center">
-
-                                                    <label class="custom-switch mb-0">
-
-                                                        <input
-                                                            type="checkbox"
-                                                            id="descuentoSwitch"
-                                                            class="custom-switch-input"
-                                                            checked>
-
-                                                        <span
-                                                            class="custom-switch-indicator bg-success">
-                                                        </span>
-
-                                                        <span
-                                                            class="custom-switch-description"
-                                                            id="labelDescuento">
-                                                            Descuento en %
-                                                        </span>
-
-                                                    </label>
-
-                                                    <!-- No lleva name para evitar
-                                                         duplicidad con el campo
-                                                         oculto descuento_porcentaje -->
-                                                    <input
-                                                        type="number"
-                                                        id="descuentoPorcentaje"
-                                                        class="form-control text-center"
-                                                        style="width:90px; margin-left:24px;"
-                                                        value="0"
-                                                        min="0"
-                                                        max="100"
-                                                        step="0.1"
-                                                        placeholder="%">
-
-                                                </div>
-
-                                            </div>
-
                                         </div>
 
                                         <!-- =====================================
@@ -636,45 +476,6 @@ if ($_SESSION['ventas'] == 1) {
                                                 El vuelto se calcula solamente con el importe pagado en efectivo.
                                             </small>
 
-                                        </div>
-
-                                        <!-- =====================================
-                                             MODO DE ENVÍO
-                                        ====================================== -->
-                                        <div class="row g-3 venta-fila-final">
-                                            <div class="col-12 venta-modo-envio">
-                                                <label
-                                                    for="modo_envio"
-                                                    class="form-label">
-                                                    Envío del comprobante
-                                                </label>
-
-                                                <select
-                                                    class="form-control form-select"
-                                                    id="modo_envio"
-                                                    name="modo_envio"
-                                                    required>
-
-                                                    <option value="inmediato">
-                                                        Enviar inmediatamente a SUNAT
-                                                    </option>
-
-                                                    <option value="manual">
-                                                        Guardar y enviar manualmente después
-                                                    </option>
-
-                                                    <option value="resumen_diario">
-                                                        Incluir en Resumen Diario de Boletas
-                                                    </option>
-
-                                                </select>
-
-                                                <small
-                                                    class="text-muted d-block mt-2"
-                                                    id="mensajeModoEnvio">
-                                                    La venta se registrará y luego será enviada automáticamente mediante APISUNAT.
-                                                </small>
-                                            </div>
                                         </div>
 
                                     </div>
@@ -937,6 +738,105 @@ if ($_SESSION['ventas'] == 1) {
 
 
     <style>
+        /* =========================================================
+           AJUSTES Y GRID INTELIGENTE DE NUEVA VENTA
+        ========================================================== */
+        .venta-panel-header-ajustes {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .venta-ajustes-wrap { position: relative; margin-left: auto; }
+
+        .venta-ajustes-btn {
+            border: 1px solid #dfe7e1;
+            background: #fff;
+            color: #42524a;
+            min-height: 36px;
+            padding: 7px 12px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: .86rem;
+            cursor: pointer;
+        }
+
+        .venta-ajustes-btn:hover { background: #f6faf7; border-color: #bcd5c2; color: #357f31; }
+
+        .venta-ajustes-panel {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            z-index: 1500;
+            width: min(390px, calc(100vw - 32px));
+            max-height: min(660px, calc(100vh - 120px));
+            overflow: hidden;
+            display: none;
+            flex-direction: column;
+            background: #fff;
+            border: 1px solid #dfe7e1;
+            border-radius: 16px;
+            box-shadow: 0 22px 55px rgba(15, 23, 42, .18);
+        }
+
+        .venta-ajustes-panel.is-open { display: flex; }
+        .venta-ajustes-panel-cabecera { padding: 16px 17px 12px; border-bottom: 1px solid #edf1ee; display:flex; justify-content:space-between; gap:12px; }
+        .venta-ajustes-panel-cabecera strong { display:block; color:#26332b; font-size:.96rem; }
+        .venta-ajustes-panel-cabecera small { display:block; margin-top:3px; color:#7a8880; font-size:.78rem; }
+        .venta-ajustes-cerrar { border:0; background:transparent; color:#718078; padding:4px; cursor:pointer; }
+        .venta-ajustes-lista { overflow-y:auto; padding:8px 12px; }
+        .venta-ajuste-item { min-height:42px; display:grid; grid-template-columns:minmax(0,1fr) 38px; align-items:center; gap:12px; padding:7px 6px; margin:0; color:#37463e; font-size:.84rem; cursor:pointer; position:relative; }
+        .venta-ajuste-item input { position:absolute; opacity:0; pointer-events:none; }
+        .venta-ajuste-switch { width:36px; height:20px; border-radius:999px; background:#d9e0dc; position:relative; transition:.18s ease; justify-self:end; }
+        .venta-ajuste-switch::after { content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:#fff; top:2px; left:2px; box-shadow:0 1px 3px rgba(0,0,0,.18); transition:.18s ease; }
+        .venta-ajuste-item input:checked + .venta-ajuste-switch { background:#52b848; }
+        .venta-ajuste-item input:checked + .venta-ajuste-switch::after { transform:translateX(16px); }
+        .venta-ajuste-item.is-fixed { color:#7a8880; cursor:default; }
+        .venta-ajuste-item.is-fixed::after { content:"Fijo"; position:absolute; right:48px; font-size:.68rem; color:#9aa69f; }
+        .venta-ajustes-acciones { padding:12px 14px 14px; border-top:1px solid #edf1ee; display:flex; justify-content:flex-end; gap:8px; }
+
+        .venta-campos-grid {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+            align-items: start;
+        }
+
+        .venta-campo { min-width:0; grid-column: span 4; }
+        .venta-campo--compacto { grid-column: span 4; }
+        .venta-campo--medio { grid-column: span 6; }
+        .venta-campo--ancho { grid-column: span 8; }
+        .venta-campo.is-hidden { display:none !important; }
+        .venta-descuento-inline { min-height:42px; display:flex; align-items:center; gap:18px; }
+        .venta-descuento-inline #descuentoPorcentaje { width:104px; margin-left:auto; }
+        .venta-bloque-extra { margin-top:4px; }
+
+        @media (max-width: 991.98px) {
+            .venta-campo,
+            .venta-campo--compacto,
+            .venta-campo--medio,
+            .venta-campo--ancho { grid-column: span 6; }
+            .venta-campo--ancho { grid-column: span 12; }
+        }
+
+        @media (max-width: 575.98px) {
+            .venta-campos-grid { grid-template-columns: 1fr; gap:14px; }
+            .venta-campo,
+            .venta-campo--compacto,
+            .venta-campo--medio,
+            .venta-campo--ancho { grid-column: 1 / -1; }
+            .venta-ajustes-btn span { display:none; }
+            .venta-ajustes-btn { width:38px; justify-content:center; padding:7px; }
+            .venta-ajustes-panel { right:-4px; }
+            .venta-descuento-inline { align-items:flex-start; flex-direction:column; gap:10px; }
+            .venta-descuento-inline #descuentoPorcentaje { width:100%; margin-left:0; }
+        }
+
         /* =========================================================
            SWITCH FIJO DATOS / PRODUCTOS (MÓVIL Y TABLET)
         ========================================================== */

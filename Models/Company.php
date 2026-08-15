@@ -600,6 +600,120 @@ class Company
 
     /*
     |--------------------------------------------------------------------------
+    | CAMPOS VISIBLES EN NUEVA VENTA
+    |--------------------------------------------------------------------------
+    */
+    public function obtenerCamposVentaVisibles(): array
+    {
+        $predeterminados = [
+            'tipo_comprobante' => 1,
+            'cliente' => 1,
+            'direccion' => 0,
+            'tipo_pago' => 1,
+            'forma_pago' => 1,
+            'celular' => 1,
+            'fecha_emision' => 0,
+            'guia_remision' => 0,
+            'tipo_moneda' => 0,
+            'tipo_cambio_sunat' => 0,
+            'igv_sunat' => 0,
+            'tipo_operacion_sunat' => 1,
+            'descuento' => 1,
+            'envio_comprobante' => 1
+        ];
+
+        if (!$this->columnaExiste('venta_campos_visibles')) {
+            return $predeterminados;
+        }
+
+        $idNegocio = $this->obtenerIdNegocioActivo();
+
+        if ($idNegocio <= 0) {
+            return $predeterminados;
+        }
+
+        $registro = $this->conexion->getData(
+            "SELECT venta_campos_visibles
+             FROM {$this->tableName}
+             WHERE id_negocio = ?
+             LIMIT 1",
+            [$idNegocio]
+        );
+
+        $json = is_array($registro)
+            ? trim((string)($registro['venta_campos_visibles'] ?? ''))
+            : '';
+
+        if ($json === '') {
+            return $predeterminados;
+        }
+
+        $guardado = json_decode($json, true);
+
+        if (!is_array($guardado)) {
+            return $predeterminados;
+        }
+
+        foreach ($predeterminados as $clave => $valor) {
+            if (in_array($clave, ['tipo_comprobante', 'cliente'], true)) {
+                $predeterminados[$clave] = 1;
+                continue;
+            }
+
+            if (array_key_exists($clave, $guardado)) {
+                $predeterminados[$clave] = (int)(bool)$guardado[$clave];
+            }
+        }
+
+        return $predeterminados;
+    }
+
+    public function guardarCamposVentaVisibles(array $configuracion): bool
+    {
+        if (!$this->columnaExiste('venta_campos_visibles')) {
+            throw new RuntimeException(
+                'Falta la columna venta_campos_visibles en datos_negocio. Ejecute primero la migración SQL incluida.'
+            );
+        }
+
+        $idNegocio = $this->obtenerIdNegocioActivo();
+
+        if ($idNegocio <= 0) {
+            throw new RuntimeException('No existe una empresa activa.');
+        }
+
+        $permitidos = array_keys($this->obtenerCamposVentaVisibles());
+        $normalizada = [];
+
+        foreach ($permitidos as $clave) {
+            if (in_array($clave, ['tipo_comprobante', 'cliente'], true)) {
+                $normalizada[$clave] = 1;
+                continue;
+            }
+
+            $normalizada[$clave] = (int)(bool)($configuracion[$clave] ?? 0);
+        }
+
+        $json = json_encode(
+            $normalizada,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        if ($json === false) {
+            throw new RuntimeException('No se pudo serializar la configuración de Nueva Venta.');
+        }
+
+        return (bool)$this->conexion->setData(
+            "UPDATE {$this->tableName}
+             SET venta_campos_visibles = ?
+             WHERE id_negocio = ?",
+            [$json, $idNegocio]
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | COMPROBAR COLUMNA
     |--------------------------------------------------------------------------
     */

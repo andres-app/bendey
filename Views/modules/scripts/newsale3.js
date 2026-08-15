@@ -111,6 +111,7 @@ function limpiarDatosCliente(mantenerDocumentoVisible = true) {
     $('#num_doc_real').val('');
     $('#nombre_cli').val('');
     $('#direccion').val('');
+    sincronizarDireccionVisible();
     $('#email').val('');
 
     $('#num_documento')
@@ -146,6 +147,7 @@ function usarClienteGenerico(mostrarMensaje = true) {
     $('#num_doc_real').val(CLIENTE_GENERICO.numeroDocumento);
     $('#nombre_cli').val(CLIENTE_GENERICO.nombre);
     $('#direccion').val(CLIENTE_GENERICO.direccion);
+    sincronizarDireccionVisible();
     $('#email').val('');
 
     $('#num_documento')
@@ -223,7 +225,7 @@ function validarClienteAntesDeVender(totalVenta) {
      * CLIENTE VARIOS antes de enviar el formulario.
      */
     if (documentoVisible === '' && !$('#idcliente').val()) {
-        if (esBoletaSeleccionada() && Number(totalVenta) > 700) {
+        if (esBoletaSeleccionada() && totalVentaParaReglaSunatPEN(totalVenta) > 700) {
             Swal.fire(
                 'Identificación obligatoria',
                 'Las boletas mayores a S/ 700 deben incluir los nombres y el documento del cliente.',
@@ -239,7 +241,7 @@ function validarClienteAntesDeVender(totalVenta) {
 
     if (
         esBoletaSeleccionada()
-        && Number(totalVenta) > 700
+        && totalVentaParaReglaSunatPEN(totalVenta) > 700
         && (
             esGenerico
             || !/^\d{8}$|^\d{11}$/.test(documentoReal)
@@ -291,6 +293,7 @@ $(document).ready(function () {
     inicializarConfiguracionVentaPredeterminada();
     inicializarConfiguracionTributariaVenta();
     inicializarSwitchVentaResponsive();
+    inicializarAjustesCamposVenta();
 
 });
 
@@ -309,6 +312,339 @@ $(document).ready(function () {
 });
 
 
+
+
+/*
+ |--------------------------------------------------------------------------
+ | AJUSTES DE CAMPOS DE NUEVA VENTA
+ |--------------------------------------------------------------------------
+ */
+const CAMPOS_VENTA_PREDETERMINADOS = Object.freeze({
+    tipo_comprobante: 1,
+    cliente: 1,
+    direccion: 0,
+    tipo_pago: 1,
+    forma_pago: 1,
+    celular: 1,
+    fecha_emision: 0,
+    guia_remision: 0,
+    tipo_moneda: 0,
+    tipo_cambio_sunat: 0,
+    igv_sunat: 0,
+    tipo_operacion_sunat: 1,
+    descuento: 1,
+    envio_comprobante: 1
+});
+
+let configuracionCamposVenta = {
+    ...CAMPOS_VENTA_PREDETERMINADOS
+};
+
+function normalizarConfiguracionCamposVenta(configuracion) {
+    const salida = {
+        ...CAMPOS_VENTA_PREDETERMINADOS
+    };
+
+    if (configuracion && typeof configuracion === 'object') {
+        Object.keys(salida).forEach(function (clave) {
+            if (['tipo_comprobante', 'cliente'].includes(clave)) {
+                salida[clave] = 1;
+                return;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(configuracion, clave)) {
+                salida[clave] = Number(configuracion[clave]) === 1
+                    || configuracion[clave] === true
+                    ? 1
+                    : 0;
+            }
+        });
+    }
+
+    salida.tipo_comprobante = 1;
+    salida.cliente = 1;
+    return salida;
+}
+
+function aplicarConfiguracionCamposVenta(configuracion) {
+    configuracionCamposVenta = normalizarConfiguracionCamposVenta(
+        configuracion
+    );
+
+    $('[data-venta-campo]').each(function () {
+        const clave = String($(this).attr('data-venta-campo') || '');
+        const visible = Number(configuracionCamposVenta[clave] ?? 1) === 1;
+        $(this).toggleClass('is-hidden', !visible);
+    });
+
+    $('[data-campo-switch]').each(function () {
+        const clave = String($(this).attr('data-campo-switch') || '');
+        $(this).prop(
+            'checked',
+            Number(configuracionCamposVenta[clave] ?? 0) === 1
+        );
+    });
+}
+
+function abrirPanelAjustesVenta(abrir = true) {
+    const $panel = $('#panelAjustesVenta');
+    const $boton = $('#btnAjustesVenta');
+
+    $panel.toggleClass('is-open', abrir)
+        .attr('aria-hidden', abrir ? 'false' : 'true');
+
+    $boton.attr('aria-expanded', abrir ? 'true' : 'false');
+}
+
+function cargarConfiguracionCamposVenta() {
+    $.ajax({
+        url: 'Controllers/Company.php',
+        type: 'GET',
+        dataType: 'json',
+        cache: false,
+        data: {
+            op: 'venta_campos_visibles',
+            v: Date.now()
+        }
+    }).done(function (respuesta) {
+        if (respuesta && respuesta.success === true) {
+            aplicarConfiguracionCamposVenta(
+                respuesta.configuracion || {}
+            );
+        } else {
+            aplicarConfiguracionCamposVenta(
+                CAMPOS_VENTA_PREDETERMINADOS
+            );
+        }
+    }).fail(function () {
+        aplicarConfiguracionCamposVenta(
+            CAMPOS_VENTA_PREDETERMINADOS
+        );
+    });
+}
+
+function guardarConfiguracionCamposVenta() {
+    const configuracion = {
+        ...CAMPOS_VENTA_PREDETERMINADOS
+    };
+
+    $('[data-campo-switch]').each(function () {
+        const clave = String($(this).attr('data-campo-switch') || '');
+        if (clave) {
+            configuracion[clave] = $(this).is(':checked') ? 1 : 0;
+        }
+    });
+
+    configuracion.tipo_comprobante = 1;
+    configuracion.cliente = 1;
+
+    const $boton = $('#btnGuardarCamposVenta');
+    const textoOriginal = $boton.text();
+
+    $boton.prop('disabled', true).text('Guardando...');
+
+    $.ajax({
+        url: 'Controllers/Company.php?op=guardar_venta_campos_visibles',
+        type: 'POST',
+        dataType: 'json',
+        data: {
+            configuracion: JSON.stringify(configuracion)
+        }
+    }).done(function (respuesta) {
+        if (!respuesta || respuesta.success !== true) {
+            Swal.fire(
+                'Ajustes',
+                respuesta && respuesta.mensaje
+                    ? respuesta.mensaje
+                    : 'No se pudieron guardar los ajustes.',
+                'error'
+            );
+            return;
+        }
+
+        aplicarConfiguracionCamposVenta(
+            respuesta.configuracion || configuracion
+        );
+        abrirPanelAjustesVenta(false);
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Ajustes guardados',
+            text: 'Nueva Venta se reorganizó con los campos seleccionados.',
+            timer: 1400,
+            showConfirmButton: false
+        });
+    }).fail(function (xhr) {
+        Swal.fire(
+            'Ajustes',
+            xhr.responseJSON && xhr.responseJSON.mensaje
+                ? xhr.responseJSON.mensaje
+                : 'No se pudieron guardar los ajustes.',
+            'error'
+        );
+    }).always(function () {
+        $boton.prop('disabled', false).text(textoOriginal);
+    });
+}
+
+function sincronizarDireccionVisible() {
+    $('#direccion_visible').val(
+        String($('#direccion').val() || '')
+    );
+}
+
+function monedaVentaCodigo() {
+    return String(
+        $('#moneda_codigo').val()
+        || configuracionTributariaVentaCache.moneda_codigo
+        || 'PEN'
+    ).trim().toUpperCase();
+}
+
+function simboloMonedaVenta() {
+    const codigo = monedaVentaCodigo();
+
+    if (codigo === 'USD') return '$';
+    if (codigo === 'EUR') return '€';
+
+    return 'S/';
+}
+
+function tipoCambioVenta() {
+    const codigo = monedaVentaCodigo();
+    if (codigo === 'PEN') return 1;
+
+    return Number.parseFloat(
+        $('#tipo_cambio_sunat').val()
+    ) || 0;
+}
+
+function totalVentaParaReglaSunatPEN(totalVenta) {
+    const total = Number(totalVenta || 0);
+    return monedaVentaCodigo() === 'PEN'
+        ? total
+        : total * tipoCambioVenta();
+}
+
+function actualizarMonedaVenta() {
+    const codigo = monedaVentaCodigo();
+    const simbolo = simboloMonedaVenta();
+    const $tipoCambio = $('#tipo_cambio_sunat');
+
+    configuracionTributariaVentaCache.moneda_codigo = codigo;
+    configuracionTributariaVentaCache.simbolo = simbolo;
+
+    if (codigo === 'PEN') {
+        $tipoCambio
+            .val('1.000000')
+            .prop('readonly', true)
+            .addClass('bg-light');
+        $('#ayudaTipoCambioSunat').text(
+            'Para PEN se utiliza 1.000000.'
+        );
+    } else {
+        $tipoCambio
+            .prop('readonly', false)
+            .removeClass('bg-light');
+        $('#ayudaTipoCambioSunat').text(
+            'Ingrese el tipo de cambio SUNAT hacia PEN utilizado para esta emisión.'
+        );
+    }
+
+    $('label[for="total_recibido"]').text(
+        'Total recibido (' + simbolo + ')'
+    );
+    $('label[for="vuelto"]').text(
+        'Vuelto (' + simbolo + ')'
+    );
+
+    calcularTotales();
+    recalcularCuotasCredito();
+}
+
+function validarDatosAdicionalesVenta() {
+    sincronizarDireccionVisible();
+
+    if (
+        monedaVentaCodigo() !== 'PEN'
+        && tipoCambioVenta() <= 0
+    ) {
+        Swal.fire(
+            'Tipo de cambio',
+            'Ingrese un tipo de cambio SUNAT mayor que cero.',
+            'warning'
+        );
+        $('#tipo_cambio_sunat').focus();
+        return false;
+    }
+
+    return true;
+}
+
+function inicializarAjustesCamposVenta() {
+    const hoy = new Date();
+    const fechaLocal = [
+        hoy.getFullYear(),
+        String(hoy.getMonth() + 1).padStart(2, '0'),
+        String(hoy.getDate()).padStart(2, '0')
+    ].join('-');
+
+    if ($('#fecha_emision').length) {
+        $('#fecha_emision')
+            .attr('max', fechaLocal)
+            .val(fechaLocal);
+    }
+
+    aplicarConfiguracionCamposVenta(
+        CAMPOS_VENTA_PREDETERMINADOS
+    );
+    cargarConfiguracionCamposVenta();
+    sincronizarDireccionVisible();
+
+    $(document)
+        .off('click.ajustesVenta', '#btnAjustesVenta')
+        .on('click.ajustesVenta', '#btnAjustesVenta', function (e) {
+            e.stopPropagation();
+            abrirPanelAjustesVenta(
+                !$('#panelAjustesVenta').hasClass('is-open')
+            );
+        })
+        .off('click.cerrarAjustesVenta', '#btnCerrarAjustesVenta')
+        .on('click.cerrarAjustesVenta', '#btnCerrarAjustesVenta', function () {
+            abrirPanelAjustesVenta(false);
+        })
+        .off('click.guardarAjustesVenta', '#btnGuardarCamposVenta')
+        .on('click.guardarAjustesVenta', '#btnGuardarCamposVenta', function () {
+            guardarConfiguracionCamposVenta();
+        })
+        .off('click.restablecerAjustesVenta', '#btnRestablecerCamposVenta')
+        .on('click.restablecerAjustesVenta', '#btnRestablecerCamposVenta', function () {
+            aplicarConfiguracionCamposVenta(
+                CAMPOS_VENTA_PREDETERMINADOS
+            );
+        })
+        .off('click.cerrarAjustesVentaFuera')
+        .on('click.cerrarAjustesVentaFuera', function (e) {
+            if ($(e.target).closest('.venta-ajustes-wrap').length === 0) {
+                abrirPanelAjustesVenta(false);
+            }
+        })
+        .off('input.direccionVenta', '#direccion_visible')
+        .on('input.direccionVenta', '#direccion_visible', function () {
+            $('#direccion').val($(this).val());
+        })
+        .off('change.monedaVenta', '#moneda_codigo')
+        .on('change.monedaVenta', '#moneda_codigo', function () {
+            $(this).data('usuario-cambio', true);
+            actualizarMonedaVenta();
+        })
+        .off('input.tipoCambioVenta', '#tipo_cambio_sunat')
+        .on('input.tipoCambioVenta', '#tipo_cambio_sunat', function () {
+            recalcularCuotasCredito();
+        });
+
+    actualizarMonedaVenta();
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -560,6 +896,17 @@ function inicializarConfiguracionTributariaVenta() {
 
         renderizarTiposOperacionSunat();
         actualizarVistaConfiguracionTributaria();
+
+        if ($('#moneda_codigo').length && !$('#moneda_codigo').data('usuario-cambio')) {
+            const monedaConfigurada = String(
+                configuracionTributariaVentaCache.moneda_codigo || 'PEN'
+            ).toUpperCase();
+            if ($('#moneda_codigo option[value="' + monedaConfigurada + '"]').length) {
+                $('#moneda_codigo').val(monedaConfigurada);
+            }
+        }
+
+        actualizarMonedaVenta();
         calcularTotales();
     }).fail(function (xhr) {
         console.warn(
@@ -645,6 +992,17 @@ function actualizarVistaConfiguracionTributaria() {
      */
     $('#precios_incluyen_impuesto').val(
         incluye ? '1' : '0'
+    );
+
+    const afectacion = String(
+        configuracionTributariaVentaCache.codigo_afectacion_igv || '10'
+    );
+    const porcentaje = Number(
+        configuracionTributariaVentaCache.porcentaje_igv || 0
+    );
+
+    $('#igv_sunat_visual').val(
+        etiquetaAfectacionIgv(afectacion, porcentaje)
     );
 }
 
@@ -1010,6 +1368,7 @@ function inicializarEventos() {
                 data = JSON.parse(data);
                 $('#celular').val(data.celular || '');
                 $('#direccion').val(data.direccion || '');
+                sincronizarDireccionVisible();
                 // ...otros campos si tienes
             } catch (e) { }
         });
@@ -1039,7 +1398,7 @@ function inicializarEventos() {
 
         let monto = totalVenta / cuotas;
 
-        $('#monto_cuota').val('S/ ' + monto.toFixed(2));
+        $('#monto_cuota').val(simboloMonedaVenta() + ' ' + monto.toFixed(2));
     });
 
 
@@ -1060,13 +1419,13 @@ function inicializarEventos() {
                 .attr('placeholder', '%');
         } else {
             // 💰 MODO SOLES
-            $('#labelDescuento').text('Descuento en S/');
+            $('#labelDescuento').text('Descuento en ' + simboloMonedaVenta());
 
             $('#descuentoPorcentaje')
                 .prop('disabled', false)
                 .removeAttr('max')
                 .attr('step', '0.01')
-                .attr('placeholder', 'S/');
+                .attr('placeholder', simboloMonedaVenta());
         }
 
         calcularTotales();
@@ -1344,10 +1703,14 @@ function guardarVenta() {
                     form.reset();
 
                     limpiarDatosCliente(false);
+                    sincronizarDireccionVisible();
+                    $('#fecha_emision').val(
+                        new Date().toLocaleDateString('en-CA')
+                    );
                     actualizarReglaCliente();
 
                     $('#detallesCards').empty();
-                    $('#totalGeneral').text('S/0.00');
+                    $('#totalGeneral').text(simboloMonedaVenta() + '0.00');
                     $('#total_recibido').val('');
                     $('#vuelto').val('0.00');
 
@@ -1581,8 +1944,8 @@ function calcularTotales() {
     totalIgv = redondearVenta(totalIgv, 2);
     totalFinal = redondearVenta(totalFinal, 2);
 
-    $('#totalGeneral').text('S/' + totalFinal.toFixed(2));
-    $('#totalPedidoHeader').text('S/ ' + totalFinal.toFixed(2));
+    $('#totalGeneral').text(simboloMonedaVenta() + totalFinal.toFixed(2));
+    $('#totalPedidoHeader').text(simboloMonedaVenta() + ' ' + totalFinal.toFixed(2));
 
     $('#descuento_total').val(descuento.toFixed(2));
     $('#descuento_porcentaje').val(
@@ -1628,7 +1991,7 @@ function recalcularCuotasCredito() {
     let totalVenta = totalVentaActual();
     let monto = totalVenta / cuotas;
 
-    $('#monto_cuota').val('S/ ' + monto.toFixed(2));
+    $('#monto_cuota').val(simboloMonedaVenta() + ' ' + monto.toFixed(2));
 }
 
 
@@ -1703,6 +2066,7 @@ function consultarCliente() {
                 $('#nombre_cli').val(cliente.nombre || '');
                 $('#idcliente').val(cliente.idpersona || '');
                 $('#direccion').val(cliente.direccion || '');
+                sincronizarDireccionVisible();
                 $('#email').val(cliente.email || '');
                 $('#celular').val(
                     cliente.celular
@@ -1815,6 +2179,7 @@ function consultarClienteReniec(
             $('#num_doc_real').val(num_documento);
             $('#nombre_cli').val(nombre);
             $('#direccion').val(resultado.direccion || '-');
+            sincronizarDireccionVisible();
             $('#email').val(resultado.email || '');
 
             $('#nombre_cliente')
@@ -2132,7 +2497,7 @@ function renderResultadosBusquedaPedido(productos, termino) {
                 </span>
 
                 <span class="resultado-producto-precio">
-                    S/ ${precioVenta.toFixed(2)}
+                    ${simboloMonedaVenta()} ${precioVenta.toFixed(2)}
                 </span>
             </button>
         `;
@@ -2794,7 +3159,7 @@ function calcularGananciaProductoRapido() {
 
     $('#rapido_ganancia').html(
         '<div class="small text-muted mb-1">Ganancia estimada por unidad</div>' +
-        '<strong class="' + clase + '">S/ ' + ganancia.toFixed(2) + '</strong>' +
+        '<strong class="' + clase + '">' + simboloMonedaVenta() + ' ' + ganancia.toFixed(2) + '</strong>' +
         '<span class="small ' + clase + '"> (' + porcentaje.toFixed(1) + '%)</span>'
     );
 }
@@ -3229,7 +3594,7 @@ function renderProductos(data) {
                                 </span>
 
                                 <span class="producto-precio">
-                                    S/ ${precioVenta.toFixed(2)}
+                                    ${simboloMonedaVenta()} ${precioVenta.toFixed(2)}
                                 </span>
                             </div>
                         </div>
@@ -3550,7 +3915,7 @@ function agregarDetalle(
 
                     <div class="text-muted small">
                         Precio Unitario:
-                        <span class="fw-semibold">S/ ${Number(precio_venta).toFixed(2)}</span>
+                        <span class="fw-semibold">${simboloMonedaVenta()} ${Number(precio_venta).toFixed(2)}</span>
 
                         <!-- valor real oculto para backend -->
                         <input type="hidden" name="precio_venta[]" value="${precio_venta}">
@@ -3567,7 +3932,7 @@ function agregarDetalle(
                             value="${cantidad}">
                     </div>
                     <div class="fw-bold mt-2 text-dark">
-                        Total: S/
+                        Total: ${simboloMonedaVenta()}
                         <span name="subtotal" id="subtotal${cont}">
                             ${subtotal.toFixed(2)}
                         </span>
@@ -4191,7 +4556,7 @@ function modificarSubtotales() {
         total += valor;
     });
 
-    $("#totalGeneral").text("S/" + total.toFixed(2));
+    $("#totalGeneral").text(simboloMonedaVenta() + total.toFixed(2));
 }
 
 function eliminarDetalle(indice) {
@@ -4246,7 +4611,7 @@ function actualizarMensajePedido() {
     );
 
     $("#totalPedidoHeader").text(
-        "S/ " + totalActual.toFixed(2)
+        simboloMonedaVenta() + " " + totalActual.toFixed(2)
     );
 }
 
@@ -4298,6 +4663,10 @@ $('#formularioVenta').on('submit', function (e) {
             'warning'
         );
 
+        return false;
+    }
+
+    if (!validarDatosAdicionalesVenta()) {
         return false;
     }
 
@@ -4426,9 +4795,9 @@ $('#formularioVenta').on('submit', function (e) {
     if (diferencia > 0.01) {
         Swal.fire(
             'Total de pagos incorrecto',
-            'La suma de los pagos debe ser exactamente S/ ' +
+            'La suma de los pagos debe ser exactamente ' + simboloMonedaVenta() + ' ' +
                 totalVenta.toFixed(2) +
-                '. Actualmente ingresó S/ ' +
+                '. Actualmente ingresó ' + simboloMonedaVenta() + ' ' +
                 totalPagado.toFixed(2) +
                 '.',
             'warning'

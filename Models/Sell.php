@@ -38,10 +38,38 @@ class Sell
         $idsucursal = null,
         $idcaja = null,
         $idapertura = null,
-        array $tributacion = []
+        array $tributacion = [],
+        array $datosExtra = []
     ) {
         date_default_timezone_set('America/Lima');
+
+        $fechaEmision = trim((string)($datosExtra['fecha_emision'] ?? ''));
         $fecha_hora = date('Y-m-d H:i:s');
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision)) {
+            $fecha_hora = $fechaEmision . ' ' . date('H:i:s');
+        }
+
+        $monedaCodigo = strtoupper(trim((string)($datosExtra['moneda_codigo'] ?? ($tributacion['moneda_codigo'] ?? 'PEN'))));
+        if (!preg_match('/^[A-Z]{3}$/', $monedaCodigo)) {
+            $monedaCodigo = 'PEN';
+        }
+
+        $tipoCambioSunat = round((float)($datosExtra['tipo_cambio_sunat'] ?? 1), 6);
+        if ($monedaCodigo === 'PEN') {
+            $tipoCambioSunat = 1.000000;
+        } elseif ($tipoCambioSunat <= 0) {
+            $tipoCambioSunat = 1.000000;
+        }
+
+        $guiaRemision = trim((string)($datosExtra['guia_remision'] ?? ''));
+        $direccionCliente = trim((string)($datosExtra['direccion_cliente'] ?? ''));
+        $celularCliente = trim((string)($datosExtra['celular_cliente'] ?? ''));
+        $modoEnvioSunat = strtolower(trim((string)($datosExtra['modo_envio_sunat'] ?? 'inmediato')));
+
+        if (!in_array($modoEnvioSunat, ['inmediato', 'manual', 'resumen_diario'], true)) {
+            $modoEnvioSunat = 'inmediato';
+        }
 
         $idsucursal = (int)$idsucursal > 0
             ? (int)$idsucursal
@@ -97,6 +125,11 @@ class Sell
             fecha_hora,
             impuesto,
             moneda_codigo,
+            tipo_cambio_sunat,
+            guia_remision,
+            direccion_cliente,
+            celular_cliente,
+            modo_envio_sunat,
             total_gravado,
             total_exonerado,
             total_inafecto,
@@ -110,7 +143,7 @@ class Sell
             num_transac,
             estado,
             idforma_pago
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $arrData = [
             $idcliente,
@@ -124,7 +157,12 @@ class Sell
             $num_comprobante,
             $fecha_hora,
             $impuesto,
-            (string)($tributacion['moneda_codigo'] ?? 'PEN'),
+            $monedaCodigo,
+            $tipoCambioSunat,
+            $guiaRemision !== '' ? $guiaRemision : null,
+            $direccionCliente !== '' ? $direccionCliente : null,
+            $celularCliente !== '' ? $celularCliente : null,
+            $modoEnvioSunat,
             round((float)($tributacion['total_gravado'] ?? 0), 2),
             round((float)($tributacion['total_exonerado'] ?? 0), 2),
             round((float)($tributacion['total_inafecto'] ?? 0), 2),
@@ -794,11 +832,11 @@ class Sell
             v.idventa,
             v.idcliente,
             p.nombre AS cliente,
-            p.direccion,
+            COALESCE(NULLIF(v.direccion_cliente, ''), p.direccion) AS direccion,
             p.tipo_documento,
             p.num_documento,
             p.email,
-            p.telefono,
+            COALESCE(NULLIF(v.celular_cliente, ''), p.telefono) AS telefono,
             v.idusuario,
             u.nombre AS usuario,
             v.tipo_comprobante,
@@ -809,6 +847,9 @@ class Sell
             v.tipo_operacion_sunat,
             v.impuesto,
             v.moneda_codigo,
+            v.tipo_cambio_sunat,
+            v.guia_remision,
+            v.modo_envio_sunat,
             v.precios_incluyen_impuesto,
             v.total_gravado,
             v.total_exonerado,

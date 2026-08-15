@@ -411,6 +411,66 @@ switch ($op) {
             );
 
             // =================================================
+            // 3.1 DATOS ADICIONALES DEL COMPROBANTE
+            // =================================================
+            $fechaEmision = trim(
+                (string)($_POST['fecha_emision'] ?? date('Y-m-d'))
+            );
+
+            $fechaEmisionObj = DateTimeImmutable::createFromFormat(
+                '!Y-m-d',
+                $fechaEmision,
+                new DateTimeZone('America/Lima')
+            );
+
+            if (!$fechaEmisionObj || $fechaEmisionObj->format('Y-m-d') !== $fechaEmision) {
+                throw new Exception('La fecha de emisión no es válida.');
+            }
+
+            $hoyLima = new DateTimeImmutable(
+                'today',
+                new DateTimeZone('America/Lima')
+            );
+
+            if ($fechaEmisionObj > $hoyLima) {
+                throw new Exception('La fecha de emisión no puede ser futura.');
+            }
+
+            $guiaRemision = mb_substr(
+                trim((string)($_POST['guia_remision'] ?? '')),
+                0,
+                50,
+                'UTF-8'
+            );
+
+            $monedaCodigo = strtoupper(
+                trim(
+                    (string)(
+                        $_POST['moneda_codigo']
+                        ?? $configuracionTributariaVenta['moneda_codigo']
+                        ?? 'PEN'
+                    )
+                )
+            );
+
+            if (!preg_match('/^[A-Z]{3}$/', $monedaCodigo)) {
+                throw new Exception('El tipo de moneda no es válido.');
+            }
+
+            $tipoCambioSunat = round(
+                (float)($_POST['tipo_cambio_sunat'] ?? 1),
+                6
+            );
+
+            if ($monedaCodigo === 'PEN') {
+                $tipoCambioSunat = 1.000000;
+            } elseif ($tipoCambioSunat <= 0) {
+                throw new Exception(
+                    'Ingrese un tipo de cambio SUNAT válido para una venta en moneda extranjera.'
+                );
+            }
+
+            // =================================================
             // 4. CLIENTE
             // =================================================
             $idcliente = (int)($_POST['idcliente'] ?? 0);
@@ -420,6 +480,24 @@ switch ($op) {
 
             $esBoleta =
                 stripos($tipo_comprobante, 'boleta') !== false;
+
+            $modoEnvio = strtolower(
+                trim((string)($_POST['modo_envio'] ?? 'inmediato'))
+            );
+
+            if (!in_array(
+                $modoEnvio,
+                ['inmediato', 'manual', 'resumen_diario'],
+                true
+            )) {
+                $modoEnvio = 'inmediato';
+            }
+
+            if ($modoEnvio === 'resumen_diario' && !$esBoleta) {
+                throw new Exception(
+                    'El Resumen Diario solo está disponible para Boleta Electrónica.'
+                );
+            }
 
             $clienteGenericoSolicitado = in_array(
                 strtolower(
@@ -794,6 +872,8 @@ switch ($op) {
                 $tipoOperacionSolicitada
             );
 
+            $tributacion['moneda_codigo'] = $monedaCodigo;
+
             $total_venta = round(
                 (float)($tributacion['total_venta'] ?? 0),
                 2
@@ -1094,6 +1174,16 @@ switch ($op) {
             // =================================================
             // 10. INSERTAR VENTA Y DETALLES
             // =================================================
+            $datosVentaExtra = [
+                'fecha_emision' => $fechaEmision,
+                'guia_remision' => $guiaRemision,
+                'moneda_codigo' => $monedaCodigo,
+                'tipo_cambio_sunat' => $tipoCambioSunat,
+                'direccion_cliente' => $direccion,
+                'celular_cliente' => $telefono,
+                'modo_envio_sunat' => $modoEnvio
+            ];
+
             $idventa = $sell->insertar(
                 $idcliente,
                 $idusuario,
@@ -1115,7 +1205,8 @@ switch ($op) {
                 $idsucursalVenta,
                 $idcajaVenta,
                 $idaperturaVenta,
-                $tributacion
+                $tributacion,
+                $datosVentaExtra
             );
             if (!$idventa) {
                 throw new Exception(
@@ -1353,28 +1444,6 @@ switch ($op) {
                 | Si APISUNAT falla, la venta sigue registrada y no debe duplicarse.
                 */
 
-            $modoEnvio = strtolower(
-                trim(
-                    (string)(
-                        $_POST['modo_envio']
-                        ?? 'inmediato'
-                    )
-                )
-            );
-
-            if (
-                !in_array(
-                    $modoEnvio,
-                    [
-                        'inmediato',
-                        'manual'
-                    ],
-                    true
-                )
-            ) {
-                $modoEnvio = 'inmediato';
-            }
-
             $tipoNormalizado = mb_strtolower(
                 trim($tipo_comprobante),
                 'UTF-8'
@@ -1424,6 +1493,23 @@ switch ($op) {
                     'production' => true,
                     'mensaje' =>
                     'Comprobante registrado para envío manual posterior.'
+                ];
+            }
+
+            if (
+                $esBoletaElectronica
+                && $modoEnvio === 'resumen_diario'
+            ) {
+                $resultadoSunat = [
+                    'aplica' => true,
+                    'intentado' => false,
+                    'success' => null,
+                    'status' => 'NO_ENVIADO',
+                    'documentId' => null,
+                    'fileName' => null,
+                    'production' => true,
+                    'mensaje' =>
+                    'Boleta registrada para inclusión en el Resumen Diario.'
                 ];
             }
 
@@ -1494,6 +1580,12 @@ switch ($op) {
                 'Venta registrada correctamente.';
 
             if (
+                $esBoletaElectronica
+                && $modoEnvio === 'resumen_diario'
+            ) {
+                $mensajeRespuesta =
+                    'Venta registrada. La boleta quedó pendiente para el Resumen Diario.';
+            } elseif (
                 $esComprobanteElectronico
                 && $modoEnvio === 'manual'
             ) {
@@ -1524,6 +1616,9 @@ switch ($op) {
                     . '-'
                     . $num_comprobante,
                 'total_venta' => $total_venta,
+                'celular' => $telefono,
+                'moneda_codigo' => $monedaCodigo,
+                'tipo_cambio_sunat' => $tipoCambioSunat,
                 'modo_envio' => $modoEnvio,
                 'mensaje' => $mensajeRespuesta,
                 'sunat' => $resultadoSunat

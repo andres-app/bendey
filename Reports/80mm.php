@@ -165,6 +165,24 @@ $moneda = trim(
     (string) ($empresaData['moneda'] ?? 'SOLES')
 );
 
+$monedaCodigo = strtoupper(trim((string)($reg['moneda_codigo'] ?? 'PEN')));
+$simbolo = match ($monedaCodigo) {
+    'USD' => '$',
+    'EUR' => '€',
+    default => 'S/'
+};
+$moneda = match ($monedaCodigo) {
+    'USD' => 'DÓLARES AMERICANOS',
+    'EUR' => 'EUROS',
+    default => 'SOLES'
+};
+$tipoCambioSunat = round((float)($reg['tipo_cambio_sunat'] ?? 1), 6);
+$guiaRemision = trim((string)($reg['guia_remision'] ?? ''));
+$direccionCliente = trim((string)($reg['direccion'] ?? ''));
+$telefonoCliente = trim((string)($reg['telefono'] ?? ''));
+$tipoOperacionSunat = trim((string)($reg['tipo_operacion_sunat'] ?? '0101'));
+$modoEnvioSunat = strtolower(trim((string)($reg['modo_envio_sunat'] ?? '')));
+
 // ===============================
 // DATOS DEL COMPROBANTE
 // ===============================
@@ -414,6 +432,17 @@ $pdf->MultiCell(
     0,
     'L'
 );
+
+$documentoCliente = trim((string)($reg['num_documento'] ?? ''));
+if ($documentoCliente !== '' && $documentoCliente !== '99999999') {
+    $pdf->MultiCell(0, 4, textoPdf('Documento: ' . $documentoCliente), 0, 'L');
+}
+if ($direccionCliente !== '' && $direccionCliente !== '-') {
+    $pdf->MultiCell(0, 4, textoPdf('Dirección: ' . $direccionCliente), 0, 'L');
+}
+if ($telefonoCliente !== '') {
+    $pdf->MultiCell(0, 4, textoPdf('Celular: ' . $telefonoCliente), 0, 'L');
+}
 
 // ===============================
 // USUARIO QUE ATENDIÓ
@@ -922,6 +951,32 @@ $pdf->MultiCell(
     0,
     'L'
 );
+
+$tipoPagoTexto = match (trim((string)($reg['tipo_pago'] ?? ''))) {
+    '1' => 'Contado',
+    '4' => 'Crédito',
+    default => trim((string)($reg['tipo_pago'] ?? ''))
+};
+if ($tipoPagoTexto !== '') {
+    $pdf->MultiCell(0, 5, textoPdf('Tipo de pago: ' . $tipoPagoTexto), 0, 'L');
+}
+
+$pdf->MultiCell(0, 5, textoPdf('Moneda: ' . $monedaCodigo . ' - ' . $moneda), 0, 'L');
+if ($monedaCodigo !== 'PEN') {
+    $pdf->MultiCell(0, 5, textoPdf('Tipo de cambio SUNAT: ' . number_format($tipoCambioSunat, 6, '.', '')), 0, 'L');
+}
+$pdf->MultiCell(0, 5, textoPdf('Operación SUNAT: ' . $tipoOperacionSunat), 0, 'L');
+if ($guiaRemision !== '') {
+    $pdf->MultiCell(0, 5, textoPdf('Guía de remisión: ' . $guiaRemision), 0, 'L');
+}
+if ($modoEnvioSunat !== '') {
+    $modoEnvioTexto = match ($modoEnvioSunat) {
+        'manual' => 'Envío manual',
+        'resumen_diario' => 'Resumen Diario',
+        default => 'Envío inmediato'
+    };
+    $pdf->MultiCell(0, 5, textoPdf('Envío del comprobante: ' . $modoEnvioTexto), 0, 'L');
+}
 
 // ===============================
 // DETALLE DEL PAGO MIXTO

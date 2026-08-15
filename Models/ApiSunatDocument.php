@@ -118,6 +118,23 @@ class ApiSunatDocument
             new DateTimeZone('America/Lima')
         );
 
+        $tipoCambioSunat = round(
+            (float)($venta['tipo_cambio_sunat'] ?? 1),
+            6
+        );
+
+        if ($moneda === 'PEN') {
+            $tipoCambioSunat = 1.000000;
+        } elseif ($tipoCambioSunat <= 0) {
+            throw new RuntimeException(
+                'La venta en moneda extranjera no tiene un tipo de cambio SUNAT válido.'
+            );
+        }
+
+        $guiaRemision = strtoupper(
+            trim((string)($venta['guia_remision'] ?? ''))
+        );
+
         $lineas = [];
         $gruposTributo = [];
         $totalExtension = 0.00;
@@ -420,7 +437,7 @@ class ApiSunatDocument
                 '_text' => $tipoSunat
             ],
             'cbc:Note' => [[
-                '_text' => $this->importeEnLetras($totalDocumento),
+                '_text' => $this->importeEnLetras($totalDocumento, $moneda),
                 '_attributes' => ['languageLocaleID' => '1000']
             ]],
             'cbc:DocumentCurrencyCode' => ['_text' => $moneda],
@@ -476,6 +493,34 @@ class ApiSunatDocument
             'cac:InvoiceLine' => $lineas
         ];
 
+        if ($guiaRemision !== '') {
+            $documentBody = $this->insertarAntesDeClave(
+                $documentBody,
+                'cac:AccountingSupplierParty',
+                'cac:DespatchDocumentReference',
+                [
+                    'cbc:ID' => ['_text' => $guiaRemision],
+                    'cbc:DocumentTypeCode' => ['_text' => '09']
+                ]
+            );
+        }
+
+        if ($moneda !== 'PEN') {
+            $documentBody = $this->insertarAntesDeClave(
+                $documentBody,
+                'cac:TaxTotal',
+                'cac:PaymentExchangeRate',
+                [
+                    'cbc:SourceCurrencyCode' => ['_text' => $moneda],
+                    'cbc:TargetCurrencyCode' => ['_text' => 'PEN'],
+                    'cbc:CalculationRate' => [
+                        '_text' => $this->numeroJson($tipoCambioSunat, 6)
+                    ],
+                    'cbc:Date' => ['_text' => $fechaHora->format('Y-m-d')]
+                ]
+            );
+        }
+
         if ($tipoSunat === '01' && $esCredito && $fechaUltimaCuota !== null) {
             $documentBody = $this->insertarAntesDeClave(
                 $documentBody,
@@ -506,6 +551,9 @@ class ApiSunatDocument
             'customerEmail' => filter_var($cliente['email'], FILTER_VALIDATE_EMAIL)
                 ? $cliente['email']
                 : null,
+            'moneda' => $moneda,
+            'tipoCambioSunat' => $tipoCambioSunat,
+            'guiaRemision' => $guiaRemision !== '' ? $guiaRemision : null,
             'documentBody' => $documentBody,
             'totales' => [
                 'gravada' => round((float)($venta['total_gravado'] ?? 0), 2),
@@ -531,6 +579,8 @@ class ApiSunatDocument
                 v.impuesto,
                 v.tipo_operacion_sunat,
                 v.moneda_codigo,
+                v.tipo_cambio_sunat,
+                v.guia_remision,
                 v.total_gravado,
                 v.total_exonerado,
                 v.total_inafecto,
@@ -967,7 +1017,8 @@ class ApiSunatDocument
     }
 
     private function importeEnLetras(
-        float $importe
+        float $importe,
+        string $moneda = 'PEN'
     ): string {
         $entero = (int)floor($importe);
 
@@ -988,6 +1039,13 @@ class ApiSunatDocument
             $texto
         );
 
+        $nombreMoneda = match (strtoupper(trim($moneda))) {
+            'USD' => 'DÓLARES AMERICANOS',
+            'EUR' => 'EUROS',
+            'PEN' => 'SOLES',
+            default => strtoupper(trim($moneda))
+        };
+
         return mb_strtoupper(
             trim($texto)
                 . ' CON '
@@ -997,7 +1055,7 @@ class ApiSunatDocument
                     '0',
                     STR_PAD_LEFT
                 )
-                . '/100 SOLES',
+                . '/100 ' . $nombreMoneda,
             'UTF-8'
         );
     }
