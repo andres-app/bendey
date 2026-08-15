@@ -64,7 +64,7 @@ require 'sidebar.php';
         justify-content: center;
         margin-bottom: 18px;
         border-radius: 24px;
-        color: #6777ef;
+        color: #00a46a;
         background: #eef0ff;
         font-size: 2rem;
     }

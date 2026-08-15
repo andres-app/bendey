@@ -5,10 +5,10 @@
 ========================================================== */
 
 #modalCajaChica {
-  --caja-primary: #6777ef;
-  --caja-primary-dark: #5262df;
-  --caja-success: #16a34a;
-  --caja-success-dark: #0b7f3c;
+  --caja-primary: #00a46a;
+  --caja-primary-dark: #00754d;
+  --caja-success: #00a46a;
+  --caja-success-dark: #00754d;
   --caja-title: #18212f;
   --caja-text: #6f7888;
   --caja-border: #e4e8f1;
@@ -44,9 +44,9 @@
   background:
     linear-gradient(
       135deg,
-      #5364e8 0%,
-      #6777ef 52%,
-      #7459e9 100%
+      #00603f 0%,
+      #00a46a 52%,
+      #31c18e 100%
     );
 }
 
@@ -94,7 +94,7 @@
   background: rgba(255, 255, 255, 0.16);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 10px 22px rgba(26, 34, 100, 0.16);
+    0 10px 22px rgba(0, 96, 63, 0.16);
 }
 
 #modalCajaChica .caja-header-copy {
@@ -160,7 +160,7 @@
 
 #modalCajaChica #idcajaOperacion:focus {
   border-color: var(--caja-primary);
-  box-shadow: 0 0 0 4px rgba(103, 119, 239, 0.12);
+  box-shadow: 0 0 0 4px rgba(0, 164, 106, 0.12);
 }
 
 #modalCajaChica #idcajaOperacion:disabled {
@@ -257,7 +257,7 @@
 
 #modalCajaChica .caja-monto-control:focus-within {
   border-color: var(--caja-primary);
-  box-shadow: 0 0 0 5px rgba(103, 119, 239, 0.10);
+  box-shadow: 0 0 0 5px rgba(0, 164, 106, 0.10);
 }
 
 #modalCajaChica .caja-moneda {

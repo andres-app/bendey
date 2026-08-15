@@ -55,8 +55,8 @@ input.form-control.total-display::placeholder {
 
 /* Focus tipo POS */
 input.form-control.total-display:focus {
-    box-shadow: 0 0 0 4px rgba(82, 184, 72, 0.25);
-    border-color: #52b848;
+    box-shadow: 0 0 0 4px rgba(0, 164, 106, 0.25);
+    border-color: #00a46a;
 }
 
 /* =========================================================
@@ -302,7 +302,7 @@ input.form-control.total-display:focus {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: #6777ef;
+    color: #00a46a;
     font-size: 11px;
     font-weight: 600;
 }
@@ -699,3 +699,182 @@ table.dataTable,
     font-synthesis: initial;
 }
 
+
+
+/* =========================================================
+   TIQUEPOS · IDENTIDAD VISUAL CORPORATIVA
+   Fuente de verdad del color de marca: #00a46a.
+   Esta capa se carga al final y evita editar librerías externas.
+========================================================= */
+:root {
+    --tp-brand: #00a46a;
+    --tp-brand-rgb: 0, 164, 106;
+    --tp-brand-hover: #008d5b;
+    --tp-brand-hover-rgb: 0, 141, 91;
+    --tp-brand-dark: #00754d;
+    --tp-brand-active: #006b46;
+    --tp-brand-soft: #ecfdf6;
+    --tp-brand-soft-strong: #d7f7e9;
+    --tp-brand-border: #adebd2;
+    --tp-brand-shadow: rgba(0, 164, 106, .18);
+}
+
+.btn-primary,
+.btn-success,
+.bg-primary,
+.bg-success,
+.badge-primary,
+.badge-success,
+.dropdown-item.active,
+.dropdown-item:active {
+    border-color: var(--tp-brand) !important;
+    background-color: var(--tp-brand) !important;
+}
+
+.btn-primary,
+.btn-success,
+.badge-primary,
+.badge-success,
+.dropdown-item.active,
+.dropdown-item:active { color: #fff !important; }
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-success:hover,
+.btn-success:focus {
+    color: #fff !important;
+    border-color: var(--tp-brand-hover) !important;
+    background-color: var(--tp-brand-hover) !important;
+    box-shadow: 0 0 0 .18rem rgba(var(--tp-brand-rgb), .14) !important;
+}
+
+.btn-primary:active,
+.btn-primary.active,
+.btn-success:active,
+.btn-success.active,
+.show > .btn-primary.dropdown-toggle,
+.show > .btn-success.dropdown-toggle {
+    color: #fff !important;
+    border-color: var(--tp-brand-active) !important;
+    background-color: var(--tp-brand-active) !important;
+}
+
+.btn-outline-primary,
+.btn-outline-success {
+    color: var(--tp-brand-dark) !important;
+    border-color: var(--tp-brand-border) !important;
+    background-color: #fff !important;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-success:hover,
+.btn-outline-success:focus {
+    color: #fff !important;
+    border-color: var(--tp-brand) !important;
+    background-color: var(--tp-brand) !important;
+    box-shadow: 0 0 0 .18rem rgba(var(--tp-brand-rgb), .12) !important;
+}
+
+.text-primary,
+.text-success { color: var(--tp-brand) !important; }
+
+.border-primary,
+.border-success { border-color: var(--tp-brand) !important; }
+
+.form-control:focus,
+.custom-select:focus,
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--focus .select2-selection--multiple,
+.select2-container--default .select2-selection--single:focus,
+.select2-container--default .select2-selection--multiple:focus {
+    border-color: var(--tp-brand) !important;
+    box-shadow: 0 0 0 .18rem rgba(var(--tp-brand-rgb), .10) !important;
+    outline: 0 !important;
+}
+
+button:focus-visible,
+.btn:focus-visible { outline: none !important; }
+
+.custom-control-input:checked ~ .custom-control-label::before,
+.form-check-input:checked,
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+    border-color: var(--tp-brand);
+    background-color: var(--tp-brand);
+    accent-color: var(--tp-brand);
+}
+
+.page-item.active .page-link,
+.pagination .page-item.active .page-link {
+    color: #fff !important;
+    border-color: var(--tp-brand) !important;
+    background-color: var(--tp-brand) !important;
+}
+
+.page-link { color: var(--tp-brand-dark); }
+.page-link:hover {
+    color: var(--tp-brand-dark);
+    border-color: var(--tp-brand-border);
+    background: var(--tp-brand-soft);
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link {
+    color: #fff !important;
+    background-color: var(--tp-brand) !important;
+}
+
+.progress-bar { background-color: var(--tp-brand); }
+
+.btn:not(.btn-link) {
+    border-radius: 10px;
+    font-weight: 400;
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn:not(.btn-link):hover:not(:disabled) { transform: translateY(-1px); }
+.btn:not(.btn-link):active:not(:disabled) { transform: translateY(0); }
+
+.select2-container--default .select2-results__option--highlighted[aria-selected],
+.select2-container--default .select2-results__option[aria-selected="true"] {
+    color: #fff !important;
+    background-color: var(--tp-brand) !important;
+}
+
+.main-sidebar .sidebar-menu li.active > a,
+.main-sidebar .sidebar-menu li ul.dropdown-menu li.active > a,
+.usuario-caja-dropdown .usuario-caja { color: var(--tp-brand) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+    .btn, .form-control, .custom-select { transition: none !important; }
+}
+
+
+/* Evita que Stisla/SweetAlert recuperen el morado heredado en hover/focus. */
+.theme-white .btn-primary:hover,
+.theme-white .btn-primary:focus,
+.theme-white .btn-primary:active,
+.theme-white .btn-primary:focus:active,
+.theme-white .btn-outline-primary:hover,
+.theme-white .btn-outline-primary:focus,
+.theme-white .btn-outline-primary:active,
+.theme-white .btn-outline-primary:focus:active {
+    color: #fff !important;
+    border-color: var(--tp-brand-hover) !important;
+    background-color: var(--tp-brand-hover) !important;
+}
+
+.swal-button.swal-button--confirm,
+.swal2-confirm {
+    color: #fff !important;
+    border-color: var(--tp-brand) !important;
+    background: var(--tp-brand) !important;
+    box-shadow: 0 6px 16px rgba(var(--tp-brand-rgb), .16) !important;
+}
+
+.swal-button.swal-button--confirm:hover,
+.swal2-confirm:hover {
+    background: var(--tp-brand-hover) !important;
+}

@@ -31,7 +31,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
         border: 1px solid #e8edf3;
         border-radius: 20px;
         background:
-            radial-gradient(circle at top right, rgba(103, 119, 239, .10), transparent 34%),
+            radial-gradient(circle at top right, rgba(0, 164, 106, .10), transparent 34%),
             linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         padding: 22px;
         box-shadow: 0 10px 28px rgba(31, 41, 55, .06);
@@ -43,7 +43,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
         width: 170px;
         height: 170px;
         border-radius: 50%;
-        background: rgba(103, 119, 239, .055);
+        background: rgba(0, 164, 106, .055);
         right: -72px;
         bottom: -92px;
         pointer-events: none;
@@ -99,9 +99,9 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
 
     .empresa-logo-dropzone:hover,
     .empresa-logo-dropzone.is-dragover {
-        border-color: #6777ef;
-        background: #f6f7ff;
-        box-shadow: 0 0 0 4px rgba(103, 119, 239, .08);
+        border-color: #00a46a;
+        background: #ecfdf6;
+        box-shadow: 0 0 0 4px rgba(0, 164, 106, .08);
         transform: translateY(-1px);
     }
 
@@ -112,8 +112,8 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: #eef0ff;
-        color: #6777ef;
+        background: #d7f7e9;
+        color: #00a46a;
         font-size: 1.15rem;
         flex: 0 0 42px;
     }
@@ -163,8 +163,8 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
     }
 
     .empresa-logo-help {
-        border-left: 3px solid #6777ef;
-        background: rgba(103, 119, 239, .055);
+        border-left: 3px solid #00a46a;
+        background: rgba(0, 164, 106, .055);
         border-radius: 0 12px 12px 0;
         padding: 10px 12px;
         color: #667085;
@@ -225,10 +225,10 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
         align-items: center;
         gap: 7px;
         padding: 7px 11px;
-        border: 1px solid #d9defa;
+        border: 1px solid #adebd2;
         border-radius: 999px;
-        color: #4f5fd1;
-        background: #f4f5ff;
+        color: #00754d;
+        background: #ecfdf6;
         font-size: .7rem;
         font-weight: 750;
         white-space: nowrap;
@@ -252,8 +252,8 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
     }
 
     .tributario-field .form-control:focus {
-        border-color: #9aa7f0;
-        box-shadow: 0 0 0 3px rgba(103, 119, 239, .09);
+        border-color: #72d9b3;
+        box-shadow: 0 0 0 3px rgba(0, 164, 106, .09);
     }
 
     .tributario-help {
@@ -292,7 +292,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
     .tributario-note {
         margin: 4px 22px 20px;
         padding: 12px 14px;
-        border-left: 3px solid #6777ef;
+        border-left: 3px solid #00a46a;
         border-radius: 0 10px 10px 0;
         color: #667085;
         background: #f7f8ff;
@@ -365,8 +365,8 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
     }
 
     .config-accordion-item.is-open {
-        border-color: rgba(103, 119, 239, .34);
-        box-shadow: 0 12px 28px rgba(56, 67, 128, .08);
+        border-color: rgba(0, 164, 106, .34);
+        box-shadow: 0 12px 28px rgba(0, 164, 106, .08);
     }
 
     .config-accordion-trigger {
@@ -388,7 +388,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
     }
 
     .config-accordion-item.is-open > .config-accordion-trigger {
-        background: linear-gradient(90deg, rgba(103,119,239,.055), rgba(255,255,255,0));
+        background: linear-gradient(90deg, rgba(0,164,106,.055), rgba(255,255,255,0));
     }
 
     .config-accordion-index {
@@ -399,8 +399,8 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
         align-items: center;
         justify-content: center;
         border-radius: 12px;
-        background: #f1f3ff;
-        color: #5d6de0;
+        background: #ecfdf6;
+        color: #00754d;
         font-size: .76rem;
         font-weight: 700;
         letter-spacing: .02em;
@@ -462,7 +462,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
 
     .config-accordion-item.is-open > .config-accordion-trigger .config-accordion-chevron {
         transform: rotate(180deg);
-        color: #6777ef;
+        color: #00a46a;
     }
 
     .config-accordion-content {

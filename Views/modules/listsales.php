@@ -865,7 +865,7 @@ if (!isset($_SESSION['nombre'])) {
                 border-color: #cdd4f8;
                 color: #344054;
                 background: #f7f8ff;
-                box-shadow: 0 0 0 3px rgba(103, 119, 239, .07);
+                box-shadow: 0 0 0 3px rgba(0, 164, 106, .07);
             }
 
             .ventas-summary-icon {
@@ -942,7 +942,7 @@ if (!isset($_SESSION['nombre'])) {
 
             .ventas-filter-field .form-control:focus {
                 border-color: #9aa7f0;
-                box-shadow: 0 0 0 3px rgba(103, 119, 239, .09);
+                box-shadow: 0 0 0 3px rgba(0, 164, 106, .09);
             }
 
             .ventas-input-icon {
@@ -1298,7 +1298,7 @@ if (!isset($_SESSION['nombre'])) {
             .ventas-document-type-select.is-open
             .ventas-document-type-trigger {
                 border-color: #9aa7f0;
-                box-shadow: 0 0 0 3px rgba(103, 119, 239, .09);
+                box-shadow: 0 0 0 3px rgba(0, 164, 106, .09);
             }
 
             .ventas-document-type-trigger-icon {
@@ -1414,7 +1414,7 @@ if (!isset($_SESSION['nombre'])) {
 
             .ventas-document-type-search input:focus {
                 border-color: #9aa7f0;
-                box-shadow: 0 0 0 3px rgba(103, 119, 239, .08);
+                box-shadow: 0 0 0 3px rgba(0, 164, 106, .08);
             }
 
             .ventas-document-type-list {

@@ -1,9 +1,9 @@
 :root {
-    --atributo-primary: #6777ef;
+    --atributo-primary: #00a46a;
     --atributo-primary-dark: #5265e8;
-    --atributo-primary-soft: rgba(103, 119, 239, 0.11);
-    --atributo-success: #36b37e;
-    --atributo-success-soft: rgba(54, 179, 126, 0.12);
+    --atributo-primary-soft: rgba(0, 164, 106, 0.11);
+    --atributo-success: #00a46a;
+    --atributo-success-soft: rgba(0, 164, 106, 0.12);
     --atributo-danger: #e05260;
     --atributo-danger-soft: rgba(224, 82, 96, 0.11);
     --atributo-warning: #f6a723;
@@ -210,8 +210,8 @@
   
   .atributo-search-wrap .form-control:focus,
   .atributo-input-icon .form-control:focus {
-    border-color: rgba(103, 119, 239, 0.65);
-    box-shadow: 0 0 0 3px rgba(103, 119, 239, 0.1);
+    border-color: rgba(0, 164, 106, 0.65);
+    box-shadow: 0 0 0 3px rgba(0, 164, 106, 0.1);
     background: var(--atributo-white);
   }
   
@@ -621,9 +621,9 @@
   }
   
   .atributo-value-editor.is-editing {
-    border-color: rgba(103, 119, 239, 0.36);
+    border-color: rgba(0, 164, 106, 0.36);
     background: #f8f8ff;
-    box-shadow: 0 0 0 3px rgba(103, 119, 239, 0.07);
+    box-shadow: 0 0 0 3px rgba(0, 164, 106, 0.07);
   }
   
   .atributo-value-editor-header {
@@ -790,7 +790,7 @@
   }
   
   @keyframes atributoFlash {
-    0% { background: rgba(103, 119, 239, 0.16); }
+    0% { background: rgba(0, 164, 106, 0.16); }
     100% { background: transparent; }
   }
   

@@ -37,11 +37,16 @@ if ($_SESSION['ventas'] == 1) {
                 extend: {
                     colors: {
                         tique: {
-                            50: '#f2fbf3',
-                            100: '#e1f6e4',
-                            500: '#52b848',
-                            600: '#469f3e',
-                            700: '#357f31'
+                            50: '#ecfdf6',
+                            100: '#d7f7e9',
+                            200: '#adebd2',
+                            300: '#72d9b3',
+                            400: '#31c18e',
+                            500: '#00a46a',
+                            600: '#008d5b',
+                            700: '#00754d',
+                            800: '#00603f',
+                            900: '#004f35'
                         }
                     },
                     boxShadow: {
@@ -122,7 +127,7 @@ if ($_SESSION['ventas'] == 1) {
 
                     <button
                         type="button"
-                        class="venta-cola-nueva tw-inline-flex tw-h-10 tw-w-10 tw-flex-none tw-items-center tw-justify-center tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-green-100"
+                        class="venta-cola-nueva tw-inline-flex tw-h-10 tw-w-10 tw-flex-none tw-items-center tw-justify-center tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-100"
                         id="btnNuevaVentaCola"
                         title="Nueva venta"
                         aria-label="Abrir nueva venta">
@@ -690,7 +695,7 @@ if ($_SESSION['ventas'] == 1) {
                         <button
                             type="submit"
                             id="btnProcesarVenta"
-                            class="btn venta-procesar-btn tw-bg-tique-500 hover:tw-bg-tique-600 focus:tw-ring-4 focus:tw-ring-green-100">
+                            class="btn venta-procesar-btn tw-bg-tique-500 hover:tw-bg-tique-600 focus:tw-ring-4 focus:tw-ring-tique-100">
                             <i class="bi bi-check2-circle" aria-hidden="true"></i>
                             <span>Procesar venta</span>
                         </button>
@@ -832,7 +837,7 @@ if ($_SESSION['ventas'] == 1) {
                                 id="editarPedidoNombreInput"
                                 maxlength="180"
                                 autocomplete="off"
-                                class="form-control tw-h-11 tw-rounded-xl tw-border-slate-200 focus:tw-border-tique-500 focus:tw-ring-4 focus:tw-ring-green-100"
+                                class="form-control tw-h-11 tw-rounded-xl tw-border-slate-200 focus:tw-border-tique-500 focus:tw-ring-4 focus:tw-ring-tique-100"
                                 placeholder="Nombre del producto">
                         </div>
 
@@ -855,13 +860,13 @@ if ($_SESSION['ventas'] == 1) {
                                     id="editarPedidoPrecio"
                                     inputmode="decimal"
                                     autocomplete="off"
-                                    class="form-control editar-pedido-precio-input tw-h-11 tw-rounded-xl tw-border-slate-200 focus:tw-border-tique-500 focus:tw-ring-4 focus:tw-ring-green-100"
+                                    class="form-control editar-pedido-precio-input tw-h-11 tw-rounded-xl tw-border-slate-200 focus:tw-border-tique-500 focus:tw-ring-4 focus:tw-ring-tique-100"
                                     placeholder="0.00">
                             </div>
                         </div>
                     </div>
 
-                    <div class="tw-mt-4 tw-rounded-xl tw-border tw-border-green-100 tw-bg-green-50 tw-p-3">
+                    <div class="tw-mt-4 tw-rounded-xl tw-border tw-border-tique-100 tw-bg-tique-50 tw-p-3">
                         <div class="tw-flex tw-gap-2">
                             <i class="bi bi-tags tw-mt-0.5 tw-text-tique-700" aria-hidden="true"></i>
                             <p class="tw-m-0 tw-text-xs tw-leading-5 tw-text-slate-600">
@@ -882,7 +887,7 @@ if ($_SESSION['ventas'] == 1) {
                     <button
                         type="button"
                         id="btnGuardarEdicionProductoPedido"
-                        class="tw-inline-flex tw-h-10 tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border tw-border-tique-500 tw-bg-tique-500 tw-px-4 tw-text-sm tw-font-normal tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 focus:tw-ring-4 focus:tw-ring-green-100">
+                        class="tw-inline-flex tw-h-10 tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border tw-border-tique-500 tw-bg-tique-500 tw-px-4 tw-text-sm tw-font-normal tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 focus:tw-ring-4 focus:tw-ring-tique-100">
                         <i class="bi bi-check2" aria-hidden="true"></i>
                         Guardar cambios
                     </button>
@@ -974,7 +979,7 @@ if ($_SESSION['ventas'] == 1) {
                         </div>
                     </div>
 
-                    <div class="venta-fecha-seleccion-resumen tw-mt-3 tw-rounded-xl tw-border tw-border-green-100 tw-bg-green-50 tw-px-3 tw-py-2.5">
+                    <div class="venta-fecha-seleccion-resumen tw-mt-3 tw-rounded-xl tw-border tw-border-tique-100 tw-bg-tique-50 tw-px-3 tw-py-2.5">
                         <span class="tw-text-xs tw-text-slate-500">Fecha seleccionada</span>
                         <strong id="fechaEmisionSeleccionResumen" class="tw-block tw-mt-0.5 tw-text-sm tw-font-medium tw-text-slate-800"></strong>
                     </div>
@@ -1029,7 +1034,7 @@ if ($_SESSION['ventas'] == 1) {
             cursor: pointer;
         }
 
-        .venta-ajustes-btn:hover { background: #f6faf7; border-color: #bcd5c2; color: #357f31; }
+        .venta-ajustes-btn:hover { background: #f6faf7; border-color: #bcd5c2; color: #00754d; }
 
         .venta-ajustes-panel {
             position: absolute;
@@ -1057,7 +1062,7 @@ if ($_SESSION['ventas'] == 1) {
         .venta-ajuste-item input { position:absolute; opacity:0; pointer-events:none; }
         .venta-ajuste-switch { width:36px; height:20px; border-radius:999px; background:#d9e0dc; position:relative; transition:.18s ease; justify-self:end; }
         .venta-ajuste-switch::after { content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:#fff; top:2px; left:2px; box-shadow:0 1px 3px rgba(0,0,0,.18); transition:.18s ease; }
-        .venta-ajuste-item input:checked + .venta-ajuste-switch { background:#52b848; }
+        .venta-ajuste-item input:checked + .venta-ajuste-switch { background:#00a46a; }
         .venta-ajuste-item input:checked + .venta-ajuste-switch::after { transform:translateX(16px); }
         .venta-ajuste-item.is-fixed { color:#7a8880; cursor:default; }
         .venta-ajuste-item.is-fixed::after { content:"Fijo"; position:absolute; right:48px; font-size:.68rem; color:#9aa69f; }
@@ -1073,7 +1078,7 @@ if ($_SESSION['ventas'] == 1) {
         }
         .venta-ajustes-autoguardado i { font-size: .92rem; }
         .venta-ajustes-autoguardado.is-saving { color: #526170; }
-        .venta-ajustes-autoguardado.is-saved { color: #357f31; }
+        .venta-ajustes-autoguardado.is-saved { color: #00754d; }
         .venta-ajustes-autoguardado.is-error { color: #b42318; }
 
         .venta-campos-grid {
@@ -1204,7 +1209,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .venta-descuento-sign--porcentaje {
-            color: #357f31;
+            color: #00754d;
         }
 
         .venta-descuento-thumb {
@@ -1236,7 +1241,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .venta-descuento-switch > input:checked + .venta-descuento-track .venta-descuento-sign--sol {
-            color: #357f31;
+            color: #00754d;
         }
 
         .venta-descuento-switch > input:checked + .venta-descuento-track .venta-descuento-sign--porcentaje {
@@ -1245,7 +1250,7 @@ if ($_SESSION['ventas'] == 1) {
 
         .venta-descuento-switch > input:focus-visible + .venta-descuento-track {
             border-color: #79bf84;
-            box-shadow: 0 0 0 3px rgba(82, 184, 72, .16);
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .16);
         }
 
         #descuentoPorcentaje.venta-descuento-valor {
@@ -1288,7 +1293,7 @@ if ($_SESSION['ventas'] == 1) {
 
         .venta-moneda-control:focus-within {
             border-color: #8fc99a;
-            box-shadow: 0 0 0 3px rgba(82, 184, 72, .10);
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .10);
         }
 
         .venta-moneda-prefijo {
@@ -1561,9 +1566,9 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .venta-cola-tab-item.active {
-            border-color: #52b848;
+            border-color: #00a46a;
             background: #f2fbf3;
-            box-shadow: 0 4px 14px rgba(82, 184, 72, .12);
+            box-shadow: 0 4px 14px rgba(0, 164, 106, .12);
         }
 
         .venta-cola-tab {
@@ -1599,7 +1604,7 @@ if ($_SESSION['ventas'] == 1) {
             align-items: center;
             justify-content: center;
             border-radius: 9px;
-            color: #357f31;
+            color: #00754d;
             background: #eef8ef;
             font-size: .82rem;
             transition: color .16s ease, background-color .16s ease;
@@ -1607,7 +1612,7 @@ if ($_SESSION['ventas'] == 1) {
 
         .venta-cola-tab-item.active .venta-cola-tab-icono {
             color: #ffffff;
-            background: #52b848;
+            background: #00a46a;
         }
 
         .venta-cola-tab-contenido {
@@ -1687,8 +1692,8 @@ if ($_SESSION['ventas'] == 1) {
             border: 0 !important;
             border-radius: 12px;
             color: #ffffff !important;
-            background: #52b848 !important;
-            box-shadow: 0 4px 12px rgba(82, 184, 72, .20);
+            background: #00a46a !important;
+            box-shadow: 0 4px 12px rgba(0, 164, 106, .20);
             font-size: 1.05rem;
             line-height: 1;
             cursor: pointer;
@@ -1699,8 +1704,8 @@ if ($_SESSION['ventas'] == 1) {
         .venta-cola-nueva:hover {
             color: #ffffff !important;
             border: 0 !important;
-            background: #469f3e !important;
-            box-shadow: 0 6px 16px rgba(82, 184, 72, .25) !important;
+            background: #008d5b !important;
+            box-shadow: 0 6px 16px rgba(0, 164, 106, .25) !important;
             transform: translateY(-1px);
         }
 
@@ -1710,8 +1715,8 @@ if ($_SESSION['ventas'] == 1) {
             color: #ffffff !important;
             border: 0 !important;
             outline: 0 !important;
-            background: #469f3e !important;
-            box-shadow: 0 0 0 4px rgba(82, 184, 72, .14) !important;
+            background: #008d5b !important;
+            box-shadow: 0 0 0 4px rgba(0, 164, 106, .14) !important;
         }
 
         .venta-cola-menu {
@@ -2012,7 +2017,7 @@ if ($_SESSION['ventas'] == 1) {
         .venta-form-scroll .form-control:focus,
         .venta-form-scroll .form-select:focus {
             border-color: #7fc28d;
-            box-shadow: 0 0 0 .16rem rgba(82, 184, 72, .11);
+            box-shadow: 0 0 0 .16rem rgba(0, 164, 106, .11);
         }
 
         #nombre_cliente,
@@ -2184,12 +2189,12 @@ if ($_SESSION['ventas'] == 1) {
             justify-content: center;
             gap: 8px;
             padding: 9px 18px;
-            border: 1px solid #4daf45 !important;
+            border: 1px solid #009b64 !important;
             border-radius: 10px;
             color: #ffffff !important;
-            background: #52b848 !important;
-            background-color: #52b848 !important;
-            box-shadow: 0 7px 15px rgba(82, 184, 72, .16);
+            background: #00a46a !important;
+            background-color: #00a46a !important;
+            box-shadow: 0 7px 15px rgba(0, 164, 106, .16);
             font-size: .9rem;
             font-weight: 400;
             text-shadow: none;
@@ -2204,29 +2209,29 @@ if ($_SESSION['ventas'] == 1) {
         #btnProcesarVenta.venta-procesar-btn:focus,
         #btnProcesarVenta.venta-procesar-btn:focus-visible {
             color: #ffffff !important;
-            background: #469f3e !important;
-            background-color: #469f3e !important;
-            border-color: #469f3e !important;
-            box-shadow: 0 0 0 .18rem rgba(82, 184, 72, .18);
+            background: #008d5b !important;
+            background-color: #008d5b !important;
+            border-color: #008d5b !important;
+            box-shadow: 0 0 0 .18rem rgba(0, 164, 106, .18);
             outline: 0;
         }
 
         #btnProcesarVenta.venta-procesar-btn:active,
         #btnProcesarVenta.venta-procesar-btn.active {
             color: #ffffff !important;
-            background: #3f9138 !important;
-            background-color: #3f9138 !important;
-            border-color: #3f9138 !important;
-            box-shadow: 0 3px 8px rgba(63, 145, 56, .22) !important;
+            background: #007c50 !important;
+            background-color: #007c50 !important;
+            border-color: #007c50 !important;
+            box-shadow: 0 3px 8px rgba(0, 124, 80, .22) !important;
             transform: translateY(1px);
         }
 
         #btnProcesarVenta.venta-procesar-btn:disabled,
         #btnProcesarVenta.venta-procesar-btn.disabled {
             color: #ffffff !important;
-            background: #52b848 !important;
-            background-color: #52b848 !important;
-            border-color: #4daf45 !important;
+            background: #00a46a !important;
+            background-color: #00a46a !important;
+            border-color: #009b64 !important;
             opacity: .72;
             cursor: not-allowed;
         }
@@ -2407,9 +2412,9 @@ if ($_SESSION['ventas'] == 1) {
                 z-index: 1;
                 width: calc(50% - 4px);
                 border-radius: 999px;
-                background: #52b848;
+                background: #00a46a;
                 box-shadow:
-                    0 6px 14px rgba(82, 184, 72, .24),
+                    0 6px 14px rgba(0, 164, 106, .24),
                     inset 0 1px 0 rgba(255, 255, 255, .22);
                 transform: translateX(0);
                 transition: transform .28s cubic-bezier(.22, .61, .36, 1);
@@ -2604,7 +2609,7 @@ if ($_SESSION['ventas'] == 1) {
                 bottom: 3px;
                 left: 3px;
                 width: calc(50% - 3px);
-                box-shadow: 0 4px 10px rgba(82, 184, 72, .2);
+                box-shadow: 0 4px 10px rgba(0, 164, 106, .2);
             }
 
             .venta-mobile-switch-btn {
@@ -2930,7 +2935,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         .buscador-pedido-input-group .form-control:focus {
-            border-color: #70b985;
+            border-color: #68c9a7;
             box-shadow: none;
         }
 
@@ -2963,15 +2968,15 @@ if ($_SESSION['ventas'] == 1) {
         #btnLimpiarBusquedaPedido:hover,
         #btnLimpiarBusquedaPedido:focus {
             color: #ffffff !important;
-            background: #3f8f52 !important;
-            border-color: #3f8f52 !important;
-            box-shadow: 0 0 0 .18rem rgba(63, 143, 82, .16);
+            background: #008d5b !important;
+            border-color: #008d5b !important;
+            box-shadow: 0 0 0 .18rem rgba(0, 141, 91, .16);
         }
 
         #btnLimpiarBusquedaPedido:active {
             color: #ffffff !important;
-            background: #327442 !important;
-            border-color: #327442 !important;
+            background: #00754d !important;
+            border-color: #00754d !important;
         }
 
         .buscador-pedido-ayuda {
@@ -3060,7 +3065,7 @@ if ($_SESSION['ventas'] == 1) {
 
         .resultado-producto-precio {
             flex: 0 0 auto;
-            color: #237b3e;
+            color: #00754d;
             font-size: .93rem;
             font-weight: 800;
             white-space: nowrap;
@@ -3145,7 +3150,7 @@ if ($_SESSION['ventas'] == 1) {
             align-items: center;
             justify-content: center;
             border-radius: 13px;
-            color: #278c46;
+            color: #008d5b;
             background: #eaf7ee;
             font-size: 1.25rem;
         }
@@ -3205,7 +3210,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #modalProductos .categoria-nav-btn:hover {
-            color: #278c46;
+            color: #008d5b;
             border-color: #bcd9c5;
             background: #edf8f0;
         }
@@ -3264,9 +3269,9 @@ if ($_SESSION['ventas'] == 1) {
 
         #modalProductos .categoria-chip.active {
             color: #ffffff;
-            border-color: #389c56;
-            background: #389c56;
-            box-shadow: 0 6px 14px rgba(56, 156, 86, .18);
+            border-color: #00a46a;
+            background: #00a46a;
+            box-shadow: 0 6px 14px rgba(0, 164, 106, .18);
         }
 
         #modalProductos .modal-productos-buscador {
@@ -3290,7 +3295,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #modalProductos .buscador-productos-box .form-control:focus {
-            border-color: #70b985;
+            border-color: #68c9a7;
             box-shadow: none;
         }
 
@@ -3401,7 +3406,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #modalProductos .producto-precio {
-            color: #237b3e;
+            color: #00754d;
             font-size: 1.08rem;
             font-weight: 800;
         }
@@ -3437,8 +3442,8 @@ if ($_SESSION['ventas'] == 1) {
             width: 9px;
             height: 9px;
             border-radius: 50%;
-            background: #52b848;
-            box-shadow: 0 0 0 4px rgba(82, 184, 72, .13);
+            background: #00a46a;
+            box-shadow: 0 0 0 4px rgba(0, 164, 106, .13);
         }
 
         #modalProductos #formProductoRapido {
@@ -3559,8 +3564,8 @@ if ($_SESSION['ventas'] == 1) {
             top: 50%;
             height: 2px;
             transform: translateY(-50%);
-            background: #52b848;
-            box-shadow: 0 0 12px rgba(82, 184, 72, .95);
+            background: #00a46a;
+            box-shadow: 0 0 12px rgba(0, 164, 106, .95);
         }
 
         .venta-camara-estado {
@@ -4179,7 +4184,7 @@ if ($_SESSION['ventas'] == 1) {
             border: 1px solid #bfe0c4;
             border-radius: 999px;
             background: #effaf1;
-            color: #2f7d32;
+            color: #00754d;
             font-size: .62rem;
             font-weight: 600;
             vertical-align: middle;
@@ -4187,7 +4192,7 @@ if ($_SESSION['ventas'] == 1) {
 
         #detallesCards .venta-pedido-item.es-oferta {
             border-color: #bfe0c4 !important;
-            box-shadow: 0 8px 24px rgba(82, 184, 72, .10) !important;
+            box-shadow: 0 8px 24px rgba(0, 164, 106, .10) !important;
         }
 
         #detallesCards .venta-pedido-item.es-oferta .venta-precio-original,
@@ -4196,7 +4201,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #detallesCards .venta-pedido-item.es-oferta .precio-venta-label {
-            color: #2f7d32;
+            color: #00754d;
             font-weight: 600;
         }
 
@@ -4238,7 +4243,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #detallesCards .venta-item-btn--plus {
-            color: #357f31;
+            color: #00754d;
             border-color: #cce8cf;
             background: #f2fbf3;
         }
@@ -4250,7 +4255,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #detallesCards .venta-item-btn--edit {
-            color: #357f31;
+            color: #00754d;
             border-color: #bfe0c4;
             background: #ffffff;
         }
@@ -4280,8 +4285,8 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #modalEditarProductoPedido .form-control:focus {
-            border-color: var(--tique-primary, #52b848) !important;
-            box-shadow: 0 0 0 3px rgba(82, 184, 72, .12) !important;
+            border-color: var(--tique-primary, #00a46a) !important;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .12) !important;
         }
 
         /*
@@ -4299,7 +4304,7 @@ if ($_SESSION['ventas'] == 1) {
         .venta-pos-main-content button:focus-visible,
         #modalEditarProductoPedido button:focus-visible {
             outline: none !important;
-            box-shadow: 0 0 0 3px rgba(82, 184, 72, .14) !important;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .14) !important;
         }
 
         #detallesCards .venta-item-btn:focus,
@@ -4401,13 +4406,15 @@ if ($_SESSION['ventas'] == 1) {
            verde corporativo de TiquePOS como color de acción.
         ========================================================== */
         :root {
-            --tique-primary: #52b848;
-            --tique-primary-hover: #469f3e;
-            --tique-primary-dark: #357f31;
-            --tique-border: #dbe5df;
-            --tique-border-strong: #cbd9d0;
+            --tique-primary: var(--tp-brand, #00a46a);
+            --tique-primary-hover: var(--tp-brand-hover, #008d5b);
+            --tique-primary-dark: var(--tp-brand-dark, #00754d);
+            --tique-primary-soft: var(--tp-brand-soft, #ecfdf6);
+            --tique-primary-border: var(--tp-brand-border, #adebd2);
+            --tique-border: #dce8e3;
+            --tique-border-strong: #c8d9d2;
             --tique-surface: #ffffff;
-            --tique-surface-soft: #f7faf8;
+            --tique-surface-soft: #f7faf9;
             --tique-text: #26332c;
             --tique-muted: #6f7d75;
         }
@@ -4440,7 +4447,7 @@ if ($_SESSION['ventas'] == 1) {
         .venta-fecha-trigger:focus-visible {
             outline: none !important;
             border-color: var(--tique-primary) !important;
-            box-shadow: 0 0 0 3px rgba(82, 184, 72, .12) !important;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .12) !important;
         }
 
         .venta-fecha-trigger-icon {
@@ -4517,7 +4524,7 @@ if ($_SESSION['ventas'] == 1) {
         }
 
         #modalFechaEmision button:focus-visible {
-            box-shadow: 0 0 0 3px rgba(82, 184, 72, .14) !important;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .14) !important;
         }
 
         .venta-calendario {
@@ -4625,7 +4632,7 @@ if ($_SESSION['ventas'] == 1) {
             color: #fff;
             border-color: var(--tique-primary);
             background: var(--tique-primary);
-            box-shadow: 0 6px 14px rgba(82, 184, 72, .22);
+            box-shadow: 0 6px 14px rgba(0, 164, 106, .22);
         }
 
         .venta-calendario-dia.is-disabled,
@@ -4807,7 +4814,7 @@ if ($_SESSION['ventas'] == 1) {
         #modalProductos .form-control:focus,
         #modalProductos .form-select:focus {
             border-color: var(--tique-primary) !important;
-            box-shadow: 0 0 0 3px rgba(82, 184, 72, .12) !important;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .12) !important;
         }
 
         .venta-form-scroll .form-control[readonly],
@@ -4832,7 +4839,7 @@ if ($_SESSION['ventas'] == 1) {
             color: #ffffff !important;
             border-color: var(--tique-primary) !important;
             background: var(--tique-primary) !important;
-            box-shadow: 0 0 0 3px rgba(82, 184, 72, .12) !important;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .12) !important;
         }
 
         .venta-cola-nueva,
@@ -4894,12 +4901,12 @@ if ($_SESSION['ventas'] == 1) {
         #ventaProcesarFooter #btnProcesarVenta {
             min-height: 50px;
             border-radius: 13px;
-            box-shadow: 0 8px 20px rgba(82, 184, 72, .24);
+            box-shadow: 0 8px 20px rgba(0, 164, 106, .24);
         }
 
         #ventaProcesarFooter #btnProcesarVenta:hover,
         #ventaProcesarFooter #btnProcesarVenta:focus {
-            box-shadow: 0 10px 24px rgba(70, 159, 62, .27) !important;
+            box-shadow: 0 10px 24px rgba(0, 141, 91, .27) !important;
             transform: translateY(-1px);
         }
 
@@ -5027,6 +5034,89 @@ if ($_SESSION['ventas'] == 1) {
                 min-height: 42px !important;
                 font-size: 16px !important;
             }
+        }
+
+
+        /* =========================================================
+           TIQUEPOS · ACCIONES MODERNAS / RESPONSIVAS
+           Color corporativo centralizado: #00a46a
+        ========================================================== */
+        .venta-pos-main-content .btn:not(.btn-link),
+        .venta-cola-menu button,
+        #modalEditarPedidoItem button,
+        #modalFechaEmision button,
+        #modalProductos button {
+            font-weight: 400 !important;
+            border-radius: 11px;
+            transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .venta-pos-main-content .btn:focus,
+        .venta-pos-main-content .btn:focus-visible,
+        .venta-cola-menu button:focus,
+        #modalEditarPedidoItem button:focus,
+        #modalFechaEmision button:focus,
+        #modalProductos button:focus { outline: none !important; }
+
+        .venta-pos-main-content .btn-primary,
+        .venta-pos-main-content .btn-success,
+        #modalEditarPedidoItem .btn-primary,
+        #modalEditarPedidoItem .btn-success,
+        #modalProductos .btn-primary,
+        #modalProductos .btn-success {
+            color: #fff !important;
+            border-color: var(--tique-primary) !important;
+            background: var(--tique-primary) !important;
+            box-shadow: 0 6px 16px rgba(0, 164, 106, .16);
+        }
+
+        .venta-pos-main-content .btn-primary:hover,
+        .venta-pos-main-content .btn-success:hover,
+        #modalEditarPedidoItem .btn-primary:hover,
+        #modalEditarPedidoItem .btn-success:hover,
+        #modalProductos .btn-primary:hover,
+        #modalProductos .btn-success:hover {
+            border-color: var(--tique-primary-hover) !important;
+            background: var(--tique-primary-hover) !important;
+            box-shadow: 0 8px 20px rgba(0, 164, 106, .20);
+            transform: translateY(-1px);
+        }
+
+        .venta-pos-main-content .btn-outline-primary,
+        .venta-pos-main-content .btn-outline-success,
+        #modalEditarPedidoItem .btn-outline-primary,
+        #modalEditarPedidoItem .btn-outline-success,
+        #modalProductos .btn-outline-primary,
+        #modalProductos .btn-outline-success {
+            color: var(--tique-primary-dark) !important;
+            border-color: var(--tique-primary-border) !important;
+            background: var(--tique-primary-soft) !important;
+        }
+
+        .venta-pos-main-content .btn-outline-primary:hover,
+        .venta-pos-main-content .btn-outline-success:hover,
+        #modalEditarPedidoItem .btn-outline-primary:hover,
+        #modalEditarPedidoItem .btn-outline-success:hover,
+        #modalProductos .btn-outline-primary:hover,
+        #modalProductos .btn-outline-success:hover {
+            color: #fff !important;
+            border-color: var(--tique-primary) !important;
+            background: var(--tique-primary) !important;
+        }
+
+        .venta-pos-main-content .form-control:focus,
+        .venta-pos-main-content .custom-select:focus,
+        #modalEditarPedidoItem .form-control:focus,
+        #modalProductos .form-control:focus {
+            border-color: var(--tique-primary) !important;
+            box-shadow: 0 0 0 3px rgba(0, 164, 106, .11) !important;
+        }
+
+        @media (max-width: 575.98px) {
+            .venta-pos-main-content .btn:not(.btn-link),
+            #modalEditarPedidoItem button,
+            #modalProductos button { min-height: 42px; }
         }
 </style>
 
@@ -5215,8 +5305,8 @@ if ($_SESSION['ventas'] == 1) {
                         }
 
                         #formProductoRapido .form-control:focus {
-                            border-color:#52b848;
-                            box-shadow:0 0 0 .18rem rgba(82, 184, 72, .13);
+                            border-color:#00a46a;
+                            box-shadow:0 0 0 .18rem rgba(0, 164, 106, .13);
                         }
 
                         #formProductoRapido .producto-rapido-aviso {

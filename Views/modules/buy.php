@@ -42,8 +42,8 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
     }
 
     .compra-page .form-control:focus {
-        border-color: #52b848;
-        box-shadow: 0 0 0 .18rem rgba(82, 184, 72, .12);
+        border-color: #00a46a;
+        box-shadow: 0 0 0 .18rem rgba(0, 164, 106, .12);
     }
 
     .compra-actions {
@@ -500,9 +500,9 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
     }
 
     #tbllistado_wrapper .pagination .page-item.active .page-link {
-        border-color: #52b848;
+        border-color: #00a46a;
         color: #fff;
-        background: #52b848;
+        background: #00a46a;
     }
 
     @media (max-width: 1199.98px) {

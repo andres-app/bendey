@@ -4552,7 +4552,7 @@ function agregarDetalle(
 
                     <button
                         type="button"
-                        class="venta-item-btn venta-item-btn--plus tw-inline-flex tw-items-center tw-justify-center tw-w-10 tw-h-10 tw-rounded-xl tw-border tw-border-green-200 tw-bg-green-50 tw-text-green-700 tw-transition hover:tw-bg-green-100 hover:tw-shadow-sm"
+                        class="venta-item-btn venta-item-btn--plus tw-inline-flex tw-items-center tw-justify-center tw-w-10 tw-h-10 tw-rounded-xl tw-border tw-border-tique-200 tw-bg-tique-50 tw-text-tique-700 tw-transition hover:tw-bg-tique-100 hover:tw-shadow-sm"
                         onclick="incrementarCantidad(${indiceFila}, ${stockDisponible})"
                         title="Aumentar cantidad"
                         aria-label="Aumentar cantidad">
@@ -4570,7 +4570,7 @@ function agregarDetalle(
 
                     <button
                         type="button"
-                        class="venta-item-btn venta-item-btn--edit tw-inline-flex tw-items-center tw-justify-center tw-w-10 tw-h-10 tw-rounded-xl tw-border tw-border-green-200 tw-bg-white tw-text-green-700 tw-transition hover:tw-bg-green-50 hover:tw-shadow-sm"
+                        class="venta-item-btn venta-item-btn--edit tw-inline-flex tw-items-center tw-justify-center tw-w-10 tw-h-10 tw-rounded-xl tw-border tw-border-tique-200 tw-bg-white tw-text-tique-700 tw-transition hover:tw-bg-tique-50 hover:tw-shadow-sm"
                         onclick="editarProductoPedido(${indiceFila})"
                         title="Editar producto"
                         aria-label="Editar producto">

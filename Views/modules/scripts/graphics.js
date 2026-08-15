@@ -301,7 +301,7 @@ function resumen_compras() {
                   "#63ed7a",
                   "#ffa426",
                   "#fc544b",
-                  "#6777ef",
+                  "#00a46a",
                   "#3abaf4",
                   "#f59e0b",
                   "#8b5cf6",

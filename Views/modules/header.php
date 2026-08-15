@@ -77,7 +77,7 @@
             align-items: center;
             justify-content: center;
             padding: 0 5px;
-            border: 2px solid #6777ef;
+            border: 2px solid #00a46a;
             border-radius: 999px;
             color: #ffffff;
             background: #fc544b;
