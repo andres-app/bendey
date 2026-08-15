@@ -318,6 +318,8 @@ $(document).ready(function () {
  |--------------------------------------------------------------------------
  | AJUSTES DE CAMPOS DE NUEVA VENTA
  |--------------------------------------------------------------------------
+ | Los switches son la fuente visual del formulario y cada cambio se guarda
+ | automáticamente en datos_negocio.venta_campos_visibles.
  */
 const CAMPOS_VENTA_PREDETERMINADOS = Object.freeze({
     tipo_comprobante: 1,
@@ -327,10 +329,6 @@ const CAMPOS_VENTA_PREDETERMINADOS = Object.freeze({
     forma_pago: 1,
     celular: 1,
     fecha_emision: 0,
-    guia_remision: 0,
-    tipo_moneda: 0,
-    tipo_cambio_sunat: 0,
-    igv_sunat: 0,
     tipo_operacion_sunat: 1,
     descuento: 1,
     envio_comprobante: 1
@@ -339,6 +337,12 @@ const CAMPOS_VENTA_PREDETERMINADOS = Object.freeze({
 let configuracionCamposVenta = {
     ...CAMPOS_VENTA_PREDETERMINADOS
 };
+let configuracionCamposVentaPersistida = {
+    ...CAMPOS_VENTA_PREDETERMINADOS
+};
+let temporizadorGuardadoCamposVenta = null;
+let guardandoCamposVenta = false;
+let guardadoCamposVentaPendiente = false;
 
 function normalizarConfiguracionCamposVenta(configuracion) {
     const salida = {
@@ -363,6 +367,7 @@ function normalizarConfiguracionCamposVenta(configuracion) {
 
     salida.tipo_comprobante = 1;
     salida.cliente = 1;
+
     return salida;
 }
 
@@ -374,16 +379,73 @@ function aplicarConfiguracionCamposVenta(configuracion) {
     $('[data-venta-campo]').each(function () {
         const clave = String($(this).attr('data-venta-campo') || '');
         const visible = Number(configuracionCamposVenta[clave] ?? 1) === 1;
-        $(this).toggleClass('is-hidden', !visible);
+        const $campo = $(this);
+
+        /*
+         * No dependemos solamente de una clase CSS. Se sincronizan
+         * simultáneamente hidden, aria-hidden, display y la clase visual.
+         * Así OFF siempre significa oculto y ON siempre significa visible,
+         * incluso si Bootstrap/Stisla aplica reglas de display posteriores.
+         */
+        this.hidden = !visible;
+        $campo
+            .toggleClass('is-hidden', !visible)
+            .attr('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            $campo.removeAttr('hidden').css('display', '');
+        } else {
+            $campo.attr('hidden', 'hidden').css('display', 'none');
+        }
     });
 
     $('[data-campo-switch]').each(function () {
         const clave = String($(this).attr('data-campo-switch') || '');
+
         $(this).prop(
             'checked',
             Number(configuracionCamposVenta[clave] ?? 0) === 1
         );
     });
+}
+
+function obtenerConfiguracionCamposVentaDesdeSwitches() {
+    const configuracion = {
+        ...configuracionCamposVenta
+    };
+
+    $('[data-campo-switch]').each(function () {
+        const clave = String($(this).attr('data-campo-switch') || '');
+
+        if (clave && Object.prototype.hasOwnProperty.call(
+            CAMPOS_VENTA_PREDETERMINADOS,
+            clave
+        )) {
+            configuracion[clave] = $(this).is(':checked') ? 1 : 0;
+        }
+    });
+
+    configuracion.tipo_comprobante = 1;
+    configuracion.cliente = 1;
+
+    return normalizarConfiguracionCamposVenta(configuracion);
+}
+
+function actualizarEstadoGuardadoCamposVenta(estado, texto) {
+    const $contenedor = $('.venta-ajustes-autoguardado');
+    const $texto = $('#estadoGuardadoAjustesVenta');
+
+    $contenedor.removeClass('is-saving is-saved is-error');
+
+    if (estado) {
+        $contenedor.addClass('is-' + estado);
+    }
+
+    if ($texto.length) {
+        $texto.text(
+            texto || 'Los cambios se guardan automáticamente'
+        );
+    }
 }
 
 function abrirPanelAjustesVenta(abrir = true) {
@@ -397,6 +459,11 @@ function abrirPanelAjustesVenta(abrir = true) {
 }
 
 function cargarConfiguracionCamposVenta() {
+    actualizarEstadoGuardadoCamposVenta(
+        '',
+        'Cargando configuración...'
+    );
+
     $.ajax({
         url: 'Controllers/Company.php',
         type: 'GET',
@@ -407,84 +474,209 @@ function cargarConfiguracionCamposVenta() {
             v: Date.now()
         }
     }).done(function (respuesta) {
-        if (respuesta && respuesta.success === true) {
-            aplicarConfiguracionCamposVenta(
-                respuesta.configuracion || {}
-            );
-        } else {
+        if (!respuesta || respuesta.success !== true) {
             aplicarConfiguracionCamposVenta(
                 CAMPOS_VENTA_PREDETERMINADOS
             );
+            configuracionCamposVentaPersistida = {
+                ...configuracionCamposVenta
+            };
+            actualizarEstadoGuardadoCamposVenta(
+                'error',
+                'No se pudo cargar la configuración guardada'
+            );
+            return;
         }
+
+        const configuracion = normalizarConfiguracionCamposVenta(
+            respuesta.configuracion || {}
+        );
+
+        configuracionCamposVentaPersistida = {
+            ...configuracion
+        };
+
+        aplicarConfiguracionCamposVenta(configuracion);
+        actualizarEstadoGuardadoCamposVenta(
+            'saved',
+            'Configuración guardada'
+        );
     }).fail(function () {
         aplicarConfiguracionCamposVenta(
             CAMPOS_VENTA_PREDETERMINADOS
         );
+        configuracionCamposVentaPersistida = {
+            ...configuracionCamposVenta
+        };
+        actualizarEstadoGuardadoCamposVenta(
+            'error',
+            'No se pudo cargar la configuración guardada'
+        );
     });
 }
 
-function guardarConfiguracionCamposVenta() {
-    const configuracion = {
-        ...CAMPOS_VENTA_PREDETERMINADOS
-    };
+function ejecutarGuardadoAutomaticoCamposVenta() {
+    if (guardandoCamposVenta) {
+        guardadoCamposVentaPendiente = true;
+        return;
+    }
 
-    $('[data-campo-switch]').each(function () {
-        const clave = String($(this).attr('data-campo-switch') || '');
-        if (clave) {
-            configuracion[clave] = $(this).is(':checked') ? 1 : 0;
-        }
-    });
+    const configuracionAEnviar =
+        obtenerConfiguracionCamposVentaDesdeSwitches();
 
-    configuracion.tipo_comprobante = 1;
-    configuracion.cliente = 1;
-
-    const $boton = $('#btnGuardarCamposVenta');
-    const textoOriginal = $boton.text();
-
-    $boton.prop('disabled', true).text('Guardando...');
+    guardandoCamposVenta = true;
+    actualizarEstadoGuardadoCamposVenta(
+        'saving',
+        'Guardando...'
+    );
 
     $.ajax({
         url: 'Controllers/Company.php?op=guardar_venta_campos_visibles',
         type: 'POST',
         dataType: 'json',
+        cache: false,
         data: {
-            configuracion: JSON.stringify(configuracion)
+            configuracion: JSON.stringify(configuracionAEnviar)
         }
     }).done(function (respuesta) {
         if (!respuesta || respuesta.success !== true) {
-            Swal.fire(
-                'Ajustes',
+            if (!guardadoCamposVentaPendiente) {
+                aplicarConfiguracionCamposVenta(
+                    configuracionCamposVentaPersistida
+                );
+            }
+
+            actualizarEstadoGuardadoCamposVenta(
+                'error',
                 respuesta && respuesta.mensaje
                     ? respuesta.mensaje
-                    : 'No se pudieron guardar los ajustes.',
+                    : 'No se pudo guardar'
+            );
+
+            Swal.fire(
+                'No se guardó el ajuste',
+                respuesta && respuesta.mensaje
+                    ? respuesta.mensaje
+                    : 'No se pudo guardar la configuración de Nueva Venta.',
                 'error'
             );
             return;
         }
 
-        aplicarConfiguracionCamposVenta(
-            respuesta.configuracion || configuracion
-        );
-        abrirPanelAjustesVenta(false);
+        const configuracionGuardada =
+            normalizarConfiguracionCamposVenta(
+                respuesta.configuracion || configuracionAEnviar
+            );
 
-        Swal.fire({
-            icon: 'success',
-            title: 'Ajustes guardados',
-            text: 'Nueva Venta se reorganizó con los campos seleccionados.',
-            timer: 1400,
-            showConfirmButton: false
+        const configuracionEsperada = normalizarConfiguracionCamposVenta(
+            configuracionAEnviar
+        );
+
+        const guardadoCoincide = Object.keys(
+            CAMPOS_VENTA_PREDETERMINADOS
+        ).every(function (clave) {
+            return Number(configuracionGuardada[clave])
+                === Number(configuracionEsperada[clave]);
         });
+
+        if (!guardadoCoincide) {
+            actualizarEstadoGuardadoCamposVenta(
+                'error',
+                'La base de datos no confirmó el cambio'
+            );
+
+            if (!guardadoCamposVentaPendiente) {
+                aplicarConfiguracionCamposVenta(
+                    configuracionCamposVentaPersistida
+                );
+            }
+
+            Swal.fire(
+                'No se confirmó el ajuste',
+                'La base de datos devolvió una configuración distinta. El cambio no se considerará guardado.',
+                'error'
+            );
+            return;
+        }
+
+        configuracionCamposVentaPersistida = {
+            ...configuracionGuardada
+        };
+
+        /*
+         * La respuesta del servidor es la fuente de verdad. Solo cuando
+         * coincide exactamente con lo solicitado mostramos "Guardado".
+         */
+        if (!guardadoCamposVentaPendiente) {
+            aplicarConfiguracionCamposVenta(
+                configuracionGuardada
+            );
+        }
+
+        actualizarEstadoGuardadoCamposVenta(
+            'saved',
+            'Guardado automáticamente'
+        );
     }).fail(function (xhr) {
+        if (!guardadoCamposVentaPendiente) {
+            aplicarConfiguracionCamposVenta(
+                configuracionCamposVentaPersistida
+            );
+        }
+
+        const mensaje = xhr.responseJSON && xhr.responseJSON.mensaje
+            ? xhr.responseJSON.mensaje
+            : 'No se pudo guardar la configuración de Nueva Venta.';
+
+        actualizarEstadoGuardadoCamposVenta(
+            'error',
+            'No se pudo guardar'
+        );
+
         Swal.fire(
-            'Ajustes',
-            xhr.responseJSON && xhr.responseJSON.mensaje
-                ? xhr.responseJSON.mensaje
-                : 'No se pudieron guardar los ajustes.',
+            'No se guardó el ajuste',
+            mensaje,
             'error'
         );
     }).always(function () {
-        $boton.prop('disabled', false).text(textoOriginal);
+        guardandoCamposVenta = false;
+
+        if (guardadoCamposVentaPendiente) {
+            guardadoCamposVentaPendiente = false;
+            ejecutarGuardadoAutomaticoCamposVenta();
+        }
     });
+}
+
+function programarGuardadoAutomaticoCamposVenta() {
+    actualizarEstadoGuardadoCamposVenta(
+        'saving',
+        'Guardando...'
+    );
+
+    /*
+     * Si existe una petición en curso, no permitimos que su respuesta
+     * reemplace un switch que el usuario acaba de mover. La última
+     * configuración se enviará inmediatamente al terminar esa petición.
+     */
+    if (guardandoCamposVenta) {
+        guardadoCamposVentaPendiente = true;
+        return;
+    }
+
+    if (temporizadorGuardadoCamposVenta) {
+        window.clearTimeout(
+            temporizadorGuardadoCamposVenta
+        );
+    }
+
+    temporizadorGuardadoCamposVenta = window.setTimeout(
+        function () {
+            temporizadorGuardadoCamposVenta = null;
+            ejecutarGuardadoAutomaticoCamposVenta();
+        },
+        180
+    );
 }
 
 function sincronizarDireccionVisible() {
@@ -493,63 +685,42 @@ function sincronizarDireccionVisible() {
     );
 }
 
+/*
+ * La moneda y el IGV se administran desde Configuración de empresa.
+ * Nueva Venta solo consume esa configuración; no ofrece controles locales.
+ */
 function monedaVentaCodigo() {
     return String(
-        $('#moneda_codigo').val()
-        || configuracionTributariaVentaCache.moneda_codigo
-        || 'PEN'
+        configuracionTributariaVentaCache.moneda_codigo || 'PEN'
     ).trim().toUpperCase();
 }
 
 function simboloMonedaVenta() {
-    const codigo = monedaVentaCodigo();
+    const simboloConfigurado = String(
+        configuracionTributariaVentaCache.simbolo || ''
+    ).trim();
 
-    if (codigo === 'USD') return '$';
-    if (codigo === 'EUR') return '€';
+    if (simboloConfigurado) {
+        return simboloConfigurado;
+    }
 
-    return 'S/';
+    return monedaVentaCodigo() === 'USD'
+        ? '$'
+        : monedaVentaCodigo() === 'EUR'
+            ? '€'
+            : 'S/';
 }
 
 function tipoCambioVenta() {
-    const codigo = monedaVentaCodigo();
-    if (codigo === 'PEN') return 1;
-
-    return Number.parseFloat(
-        $('#tipo_cambio_sunat').val()
-    ) || 0;
+    return 1;
 }
 
 function totalVentaParaReglaSunatPEN(totalVenta) {
-    const total = Number(totalVenta || 0);
-    return monedaVentaCodigo() === 'PEN'
-        ? total
-        : total * tipoCambioVenta();
+    return Number(totalVenta || 0);
 }
 
 function actualizarMonedaVenta() {
-    const codigo = monedaVentaCodigo();
     const simbolo = simboloMonedaVenta();
-    const $tipoCambio = $('#tipo_cambio_sunat');
-
-    configuracionTributariaVentaCache.moneda_codigo = codigo;
-    configuracionTributariaVentaCache.simbolo = simbolo;
-
-    if (codigo === 'PEN') {
-        $tipoCambio
-            .val('1.000000')
-            .prop('readonly', true)
-            .addClass('bg-light');
-        $('#ayudaTipoCambioSunat').text(
-            'Para PEN se utiliza 1.000000.'
-        );
-    } else {
-        $tipoCambio
-            .prop('readonly', false)
-            .removeClass('bg-light');
-        $('#ayudaTipoCambioSunat').text(
-            'Ingrese el tipo de cambio SUNAT hacia PEN utilizado para esta emisión.'
-        );
-    }
 
     $('label[for="total_recibido"]').text(
         'Total recibido (' + simbolo + ')'
@@ -564,24 +735,19 @@ function actualizarMonedaVenta() {
 
 function validarDatosAdicionalesVenta() {
     sincronizarDireccionVisible();
-
-    if (
-        monedaVentaCodigo() !== 'PEN'
-        && tipoCambioVenta() <= 0
-    ) {
-        Swal.fire(
-            'Tipo de cambio',
-            'Ingrese un tipo de cambio SUNAT mayor que cero.',
-            'warning'
-        );
-        $('#tipo_cambio_sunat').focus();
-        return false;
-    }
-
     return true;
 }
 
 function inicializarAjustesCamposVenta() {
+    /*
+     * v4 lleva el motor de visibilidad/autoguardado inline en newsale3.php.
+     * Esto evita conflictos con copias antiguas del JS y garantiza que
+     * OFF oculte y ON muestre el campo inmediatamente.
+     */
+    if (window.__VENTA_CAMPOS_INLINE_V4__ === true) {
+        return;
+    }
+
     const hoy = new Date();
     const fechaLocal = [
         hoy.getFullYear(),
@@ -595,6 +761,10 @@ function inicializarAjustesCamposVenta() {
             .val(fechaLocal);
     }
 
+    /*
+     * Se aplican los predeterminados solo mientras llega la BD.
+     * En cuanto responde Company.php, switches y campos se sincronizan.
+     */
     aplicarConfiguracionCamposVenta(
         CAMPOS_VENTA_PREDETERMINADOS
     );
@@ -613,15 +783,29 @@ function inicializarAjustesCamposVenta() {
         .on('click.cerrarAjustesVenta', '#btnCerrarAjustesVenta', function () {
             abrirPanelAjustesVenta(false);
         })
-        .off('click.guardarAjustesVenta', '#btnGuardarCamposVenta')
-        .on('click.guardarAjustesVenta', '#btnGuardarCamposVenta', function () {
-            guardarConfiguracionCamposVenta();
-        })
-        .off('click.restablecerAjustesVenta', '#btnRestablecerCamposVenta')
-        .on('click.restablecerAjustesVenta', '#btnRestablecerCamposVenta', function () {
-            aplicarConfiguracionCamposVenta(
-                CAMPOS_VENTA_PREDETERMINADOS
+        .off('change.camposVentaAuto', '[data-campo-switch]')
+        .on('change.camposVentaAuto', '[data-campo-switch]', function () {
+            const clave = String(
+                $(this).attr('data-campo-switch') || ''
             );
+
+            if (!Object.prototype.hasOwnProperty.call(
+                CAMPOS_VENTA_PREDETERMINADOS,
+                clave
+            )) {
+                return;
+            }
+
+            configuracionCamposVenta[clave] =
+                $(this).is(':checked') ? 1 : 0;
+
+            /* Aparición/desaparición inmediata del campo. */
+            aplicarConfiguracionCamposVenta(
+                configuracionCamposVenta
+            );
+
+            /* Persistencia automática sin botón Guardar. */
+            programarGuardadoAutomaticoCamposVenta();
         })
         .off('click.cerrarAjustesVentaFuera')
         .on('click.cerrarAjustesVentaFuera', function (e) {
@@ -632,15 +816,6 @@ function inicializarAjustesCamposVenta() {
         .off('input.direccionVenta', '#direccion_visible')
         .on('input.direccionVenta', '#direccion_visible', function () {
             $('#direccion').val($(this).val());
-        })
-        .off('change.monedaVenta', '#moneda_codigo')
-        .on('change.monedaVenta', '#moneda_codigo', function () {
-            $(this).data('usuario-cambio', true);
-            actualizarMonedaVenta();
-        })
-        .off('input.tipoCambioVenta', '#tipo_cambio_sunat')
-        .on('input.tipoCambioVenta', '#tipo_cambio_sunat', function () {
-            recalcularCuotasCredito();
         });
 
     actualizarMonedaVenta();

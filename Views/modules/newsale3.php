@@ -221,23 +221,19 @@ if ($_SESSION['ventas'] == 1) {
                                                     <input type="checkbox" checked disabled>
                                                     <span class="venta-ajuste-switch"></span>
                                                 </label>
-                                                <label class="venta-ajuste-item"><span>Dirección</span><input type="checkbox" data-campo-switch="direccion"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Tipo de pago</span><input type="checkbox" data-campo-switch="tipo_pago"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Forma de pago</span><input type="checkbox" data-campo-switch="forma_pago"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Celular</span><input type="checkbox" data-campo-switch="celular"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Fecha de emisión</span><input type="checkbox" data-campo-switch="fecha_emision"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Guía de remisión</span><input type="checkbox" data-campo-switch="guia_remision"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Tipo de moneda</span><input type="checkbox" data-campo-switch="tipo_moneda"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Tipo de cambio SUNAT</span><input type="checkbox" data-campo-switch="tipo_cambio_sunat"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>IGV - SUNAT</span><input type="checkbox" data-campo-switch="igv_sunat"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Tipo de operación SUNAT</span><input type="checkbox" data-campo-switch="tipo_operacion_sunat"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Descuento en S/. y %</span><input type="checkbox" data-campo-switch="descuento"><span class="venta-ajuste-switch"></span></label>
-                                                <label class="venta-ajuste-item"><span>Envío del comprobante</span><input type="checkbox" data-campo-switch="envio_comprobante"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Dirección</span><input type="checkbox" autocomplete="off" data-campo-switch="direccion"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Tipo de pago</span><input type="checkbox" autocomplete="off" data-campo-switch="tipo_pago"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Forma de pago</span><input type="checkbox" autocomplete="off" data-campo-switch="forma_pago"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Celular</span><input type="checkbox" autocomplete="off" data-campo-switch="celular"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Fecha de emisión</span><input type="checkbox" autocomplete="off" data-campo-switch="fecha_emision"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Tipo de operación SUNAT</span><input type="checkbox" autocomplete="off" data-campo-switch="tipo_operacion_sunat"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Descuentos</span><input type="checkbox" autocomplete="off" data-campo-switch="descuento"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Envío del comprobante</span><input type="checkbox" autocomplete="off" data-campo-switch="envio_comprobante"><span class="venta-ajuste-switch"></span></label>
                                             </div>
 
-                                            <div class="venta-ajustes-acciones">
-                                                <button type="button" class="btn btn-light btn-sm" id="btnRestablecerCamposVenta">Restablecer</button>
-                                                <button type="button" class="btn btn-success btn-sm" id="btnGuardarCamposVenta">Guardar ajustes</button>
+                                            <div class="venta-ajustes-autoguardado" aria-live="polite">
+                                                <i class="bi bi-cloud-check"></i>
+                                                <span id="estadoGuardadoAjustesVenta">Los cambios se guardan automáticamente</span>
                                             </div>
                                         </div>
                                     </div>
@@ -252,14 +248,14 @@ if ($_SESSION['ventas'] == 1) {
                                         ====================================== -->
                                         <div class="venta-campos-grid" id="ventaCamposGrid">
 
-                                            <div class="venta-campo venta-campo--medio" data-venta-campo="tipo_comprobante">
+                                            <div class="venta-campo venta-campo--medio" id="ventaCampoTipoComprobante" data-venta-campo="tipo_comprobante">
                                                 <label for="tipo_comprobante">Tipo de comprobante</label>
                                                 <select id="tipo_comprobante" name="tipo_comprobante" class="form-control form-select" required></select>
                                                 <input type="hidden" id="serie_comprobante" name="serie_comprobante">
                                                 <input type="hidden" id="num_comprobante" name="num_comprobante">
                                             </div>
 
-                                            <div class="venta-campo venta-campo--medio" data-venta-campo="cliente">
+                                            <div class="venta-campo venta-campo--medio" id="ventaCampoCliente" data-venta-campo="cliente">
                                                 <label for="num_documento" class="mb-1">Cliente</label>
                                                 <div class="input-group">
                                                     <input type="text" class="form-control" id="num_documento" name="num_documento" maxlength="11" inputmode="numeric" autocomplete="off" placeholder="DNI o RUC">
@@ -280,60 +276,34 @@ if ($_SESSION['ventas'] == 1) {
                                                 <input type="hidden" id="email" name="email" value="">
                                             </div>
 
-                                            <div class="venta-campo venta-campo--ancho" data-venta-campo="direccion">
+                                            <div class="venta-campo venta-campo--ancho" id="ventaCampoDireccion" data-venta-campo="direccion" hidden aria-hidden="true" style="display:none !important;">
                                                 <label for="direccion_visible">Dirección</label>
                                                 <input type="text" class="form-control" id="direccion_visible" autocomplete="off" maxlength="255" placeholder="Dirección del cliente">
                                                 <small class="text-muted d-block mt-2">Se completa con la información obtenida del cliente o de la API DNI/RUC.</small>
                                             </div>
 
-                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="tipo_pago">
+                                            <div class="venta-campo venta-campo--compacto" id="ventaCampoTipoPago" data-venta-campo="tipo_pago" hidden aria-hidden="true" style="display:none !important;">
                                                 <label for="tipo_pago">Tipo de pago</label>
                                                 <select class="form-control form-select" id="tipo_pago" name="idtipopago" required></select>
                                                 <input type="hidden" id="condicion_pago" name="condicion_pago" value="">
                                             </div>
 
-                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="forma_pago">
+                                            <div class="venta-campo venta-campo--compacto" id="ventaCampoFormaPago" data-venta-campo="forma_pago" hidden aria-hidden="true" style="display:none !important;">
                                                 <label for="forma_pago">Forma de pago</label>
                                                 <select class="form-control form-select" id="forma_pago" name="idforma_pago" required></select>
                                             </div>
 
-                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="celular">
+                                            <div class="venta-campo venta-campo--compacto" id="ventaCampoCelular" data-venta-campo="celular" hidden aria-hidden="true" style="display:none !important;">
                                                 <label for="celular">Celular</label>
                                                 <input type="text" class="form-control" id="celular" name="celular" maxlength="9" inputmode="numeric" autocomplete="off" placeholder="Ej.: 986634352">
                                             </div>
 
-                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="fecha_emision">
+                                            <div class="venta-campo venta-campo--compacto" id="ventaCampoFechaEmision" data-venta-campo="fecha_emision" hidden aria-hidden="true" style="display:none !important;">
                                                 <label for="fecha_emision">Fecha de emisión</label>
                                                 <input type="date" class="form-control" id="fecha_emision" name="fecha_emision" max="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d') ?>">
                                             </div>
 
-                                            <div class="venta-campo venta-campo--medio" data-venta-campo="guia_remision">
-                                                <label for="guia_remision">Guía de remisión</label>
-                                                <input type="text" class="form-control" id="guia_remision" name="guia_remision" maxlength="50" autocomplete="off" placeholder="Ej.: T001-00000125">
-                                            </div>
-
-                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="tipo_moneda">
-                                                <label for="moneda_codigo">Tipo de moneda</label>
-                                                <select class="form-control form-select" id="moneda_codigo" name="moneda_codigo">
-                                                    <option value="PEN">PEN — Sol peruano</option>
-                                                    <option value="USD">USD — Dólar estadounidense</option>
-                                                    <option value="EUR">EUR — Euro</option>
-                                                </select>
-                                            </div>
-
-                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="tipo_cambio_sunat">
-                                                <label for="tipo_cambio_sunat">Tipo de cambio SUNAT</label>
-                                                <input type="number" class="form-control" id="tipo_cambio_sunat" name="tipo_cambio_sunat" min="0.000001" step="0.000001" value="1.000000" inputmode="decimal">
-                                                <small class="text-muted d-block mt-2" id="ayudaTipoCambioSunat">Para PEN se utiliza 1.000000.</small>
-                                            </div>
-
-                                            <div class="venta-campo venta-campo--compacto" data-venta-campo="igv_sunat">
-                                                <label for="igv_sunat_visual">IGV - SUNAT</label>
-                                                <input type="text" class="form-control bg-light" id="igv_sunat_visual" value="18% · Gravado" readonly>
-                                                <small class="text-muted d-block mt-2">Se obtiene de la configuración tributaria efectiva.</small>
-                                            </div>
-
-                                            <div class="venta-campo venta-campo--ancho" data-venta-campo="tipo_operacion_sunat">
+                                            <div class="venta-campo venta-campo--ancho" id="ventaCampoTipoOperacionSunat" data-venta-campo="tipo_operacion_sunat" hidden aria-hidden="true" style="display:none !important;">
                                                 <label for="tipo_operacion_sunat">Tipo de operación SUNAT</label>
                                                 <select class="form-control form-select" id="tipo_operacion_sunat" name="tipo_operacion_sunat" required>
                                                     <option value="0101">0101 — Venta interna</option>
@@ -341,8 +311,8 @@ if ($_SESSION['ventas'] == 1) {
                                                 <small class="form-text text-muted" id="ayudaTipoOperacionSunat">Se utilizará la configuración tributaria de la empresa o sucursal.</small>
                                             </div>
 
-                                            <div class="venta-campo venta-campo--medio" data-venta-campo="descuento">
-                                                <label class="d-block">Descuento en S/. y %</label>
+                                            <div class="venta-campo venta-campo--medio" id="ventaCampoDescuentos" data-venta-campo="descuento" hidden aria-hidden="true" style="display:none !important;">
+                                                <label class="d-block">Descuentos</label>
                                                 <div class="venta-descuento-inline">
                                                     <label class="custom-switch mb-0">
                                                         <input type="checkbox" id="descuentoSwitch" class="custom-switch-input" checked>
@@ -353,7 +323,7 @@ if ($_SESSION['ventas'] == 1) {
                                                 </div>
                                             </div>
 
-                                            <div class="venta-campo venta-campo--ancho" data-venta-campo="envio_comprobante">
+                                            <div class="venta-campo venta-campo--ancho" id="ventaCampoEnvioComprobante" data-venta-campo="envio_comprobante" hidden aria-hidden="true" style="display:none !important;">
                                                 <label for="modo_envio">Envío del comprobante</label>
                                                 <select class="form-control form-select" id="modo_envio" name="modo_envio" required>
                                                     <option value="inmediato">Enviar inmediatamente a SUNAT</option>
@@ -797,7 +767,20 @@ if ($_SESSION['ventas'] == 1) {
         .venta-ajuste-item input:checked + .venta-ajuste-switch::after { transform:translateX(16px); }
         .venta-ajuste-item.is-fixed { color:#7a8880; cursor:default; }
         .venta-ajuste-item.is-fixed::after { content:"Fijo"; position:absolute; right:48px; font-size:.68rem; color:#9aa69f; }
-        .venta-ajustes-acciones { padding:12px 14px 14px; border-top:1px solid #edf1ee; display:flex; justify-content:flex-end; gap:8px; }
+        .venta-ajustes-autoguardado {
+            min-height: 42px;
+            padding: 10px 16px 12px;
+            border-top: 1px solid #edf1ee;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #7a8880;
+            font-size: .76rem;
+        }
+        .venta-ajustes-autoguardado i { font-size: .92rem; }
+        .venta-ajustes-autoguardado.is-saving { color: #526170; }
+        .venta-ajustes-autoguardado.is-saved { color: #357f31; }
+        .venta-ajustes-autoguardado.is-error { color: #b42318; }
 
         .venta-campos-grid {
             display: grid;
@@ -811,6 +794,7 @@ if ($_SESSION['ventas'] == 1) {
         .venta-campo--compacto { grid-column: span 4; }
         .venta-campo--medio { grid-column: span 6; }
         .venta-campo--ancho { grid-column: span 8; }
+        [data-venta-campo][hidden],
         .venta-campo.is-hidden { display:none !important; }
         .venta-descuento-inline { min-height:42px; display:flex; align-items:center; gap:18px; }
         .venta-descuento-inline #descuentoPorcentaje { width:104px; margin-left:auto; }
@@ -4117,6 +4101,352 @@ $versionNewsaleJs = file_exists($rutaNewsaleJs)
 
 <script
     src="Views/modules/scripts/newsale3.js?v=<?= $versionNewsaleJs ?>">
+</script>
+
+<script>
+/**
+ * AJUSTES NUEVA VENTA v4
+ * Motor autocontenido de visibilidad + persistencia.
+ * Se mantiene aquí para que el estado ON/OFF no dependa de una copia
+ * anterior de newsale3.js almacenada por el navegador o CDN.
+ */
+window.__VENTA_CAMPOS_INLINE_V4__ = true;
+
+(function () {
+    'use strict';
+
+    const CAMPOS = Object.freeze({
+        direccion: 'ventaCampoDireccion',
+        tipo_pago: 'ventaCampoTipoPago',
+        forma_pago: 'ventaCampoFormaPago',
+        celular: 'ventaCampoCelular',
+        fecha_emision: 'ventaCampoFechaEmision',
+        tipo_operacion_sunat: 'ventaCampoTipoOperacionSunat',
+        descuento: 'ventaCampoDescuentos',
+        envio_comprobante: 'ventaCampoEnvioComprobante'
+    });
+
+    const PREDETERMINADOS = Object.freeze({
+        tipo_comprobante: 1,
+        cliente: 1,
+        direccion: 0,
+        tipo_pago: 1,
+        forma_pago: 1,
+        celular: 1,
+        fecha_emision: 0,
+        tipo_operacion_sunat: 1,
+        descuento: 1,
+        envio_comprobante: 1
+    });
+
+    let estadoActual = { ...PREDETERMINADOS };
+    let temporizador = null;
+    let secuenciaGuardado = 0;
+
+    function aBit(valor) {
+        return Number(valor) === 1 || valor === true ? 1 : 0;
+    }
+
+    function normalizar(configuracion) {
+        const salida = { ...PREDETERMINADOS };
+        const entrada = configuracion && typeof configuracion === 'object'
+            ? configuracion
+            : {};
+
+        Object.keys(salida).forEach(function (clave) {
+            if (clave === 'tipo_comprobante' || clave === 'cliente') {
+                salida[clave] = 1;
+                return;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(entrada, clave)) {
+                salida[clave] = aBit(entrada[clave]);
+            }
+        });
+
+        return salida;
+    }
+
+    function mostrarCampo(clave, visible) {
+        const id = CAMPOS[clave];
+        if (!id) return;
+
+        const campo = document.getElementById(id);
+        if (!campo) return;
+
+        if (visible) {
+            campo.hidden = false;
+            campo.setAttribute('aria-hidden', 'false');
+            campo.classList.remove('is-hidden');
+            campo.style.removeProperty('display');
+        } else {
+            campo.hidden = true;
+            campo.setAttribute('aria-hidden', 'true');
+            campo.classList.add('is-hidden');
+            campo.style.setProperty('display', 'none', 'important');
+        }
+    }
+
+    function sincronizarSwitchesDesdeEstado() {
+        document.querySelectorAll('[data-campo-switch]').forEach(function (sw) {
+            const clave = String(sw.getAttribute('data-campo-switch') || '');
+            if (!clave) return;
+
+            const activo = estadoActual[clave] === 1;
+
+            /*
+             * checked controla el estado actual. defaultChecked + atributo
+             * checked evitan que la restauración automática del navegador
+             * vuelva a imponer el HTML inicial después de F5.
+             */
+            sw.checked = activo;
+            sw.defaultChecked = activo;
+
+            if (activo) {
+                sw.setAttribute('checked', 'checked');
+            } else {
+                sw.removeAttribute('checked');
+            }
+        });
+    }
+
+    function aplicar(configuracion) {
+        estadoActual = normalizar(configuracion);
+
+        Object.keys(CAMPOS).forEach(function (clave) {
+            mostrarCampo(clave, estadoActual[clave] === 1);
+        });
+
+        sincronizarSwitchesDesdeEstado();
+    }
+
+    function leerSwitches() {
+        const salida = { ...estadoActual };
+
+        document.querySelectorAll('[data-campo-switch]').forEach(function (sw) {
+            const clave = String(sw.getAttribute('data-campo-switch') || '');
+            if (!Object.prototype.hasOwnProperty.call(PREDETERMINADOS, clave)) return;
+            salida[clave] = sw.checked ? 1 : 0;
+        });
+
+        salida.tipo_comprobante = 1;
+        salida.cliente = 1;
+        return normalizar(salida);
+    }
+
+    function estadoTexto(texto, clase) {
+        const contenedor = document.querySelector('.venta-ajustes-autoguardado');
+        const etiqueta = document.getElementById('estadoGuardadoAjustesVenta');
+
+        if (contenedor) {
+            contenedor.classList.remove('is-saving', 'is-saved', 'is-error');
+            if (clase) contenedor.classList.add('is-' + clase);
+        }
+
+        if (etiqueta) etiqueta.textContent = texto;
+    }
+
+    async function cargar() {
+        estadoTexto('Cargando configuración...', 'saving');
+
+        try {
+            const respuesta = await fetch(
+                'Controllers/Company.php?op=venta_campos_visibles&v=' + Date.now(),
+                {
+                    method: 'GET',
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' }
+                }
+            );
+
+            const datos = await respuesta.json();
+            if (!respuesta.ok || !datos || datos.success !== true) {
+                throw new Error(datos && datos.mensaje ? datos.mensaje : 'No se pudo cargar.');
+            }
+
+            aplicar(datos.configuracion || {});
+
+            /*
+             * Algunos navegadores restauran controles de formulario al final
+             * del ciclo de carga. Reafirmamos el estado guardado sin volver a
+             * consultar ni guardar nada.
+             */
+            window.setTimeout(sincronizarSwitchesDesdeEstado, 0);
+            window.setTimeout(sincronizarSwitchesDesdeEstado, 250);
+            window.setTimeout(sincronizarSwitchesDesdeEstado, 800);
+
+            estadoTexto('Configuración guardada', 'saved');
+        } catch (error) {
+            aplicar(PREDETERMINADOS);
+            estadoTexto('No se pudo cargar la configuración', 'error');
+            console.error('[Nueva Venta · Ajustes v4]', error);
+        }
+    }
+
+    async function guardar(configuracion, secuencia) {
+        estadoTexto('Guardando...', 'saving');
+
+        const cuerpo = new URLSearchParams();
+        cuerpo.set('configuracion', JSON.stringify(configuracion));
+
+        try {
+            const respuesta = await fetch(
+                'Controllers/Company.php?op=guardar_venta_campos_visibles&v=' + Date.now(),
+                {
+                    method: 'POST',
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                    },
+                    body: cuerpo.toString()
+                }
+            );
+
+            const datos = await respuesta.json();
+            if (!respuesta.ok || !datos || datos.success !== true) {
+                throw new Error(datos && datos.mensaje ? datos.mensaje : 'No se pudo guardar.');
+            }
+
+            /* Ignorar respuestas antiguas si el usuario movió otro switch. */
+            if (secuencia !== secuenciaGuardado) return;
+
+            aplicar(datos.configuracion || configuracion);
+            estadoTexto('Guardado automáticamente', 'saved');
+        } catch (error) {
+            if (secuencia !== secuenciaGuardado) return;
+            estadoTexto('No se pudo guardar', 'error');
+            console.error('[Nueva Venta · Ajustes v4]', error);
+        }
+    }
+
+    function programarGuardado() {
+        const configuracion = leerSwitches();
+
+        /* ON/OFF manda inmediatamente en pantalla. */
+        aplicar(configuracion);
+
+        if (temporizador) window.clearTimeout(temporizador);
+        const miSecuencia = ++secuenciaGuardado;
+
+        temporizador = window.setTimeout(function () {
+            temporizador = null;
+            guardar(configuracion, miSecuencia);
+        }, 140);
+    }
+
+    /*
+     * El motor inline v4 asumía la visibilidad/autoguardado, pero al marcar
+     * __VENTA_CAMPOS_INLINE_V4__ newsale3.js salía antes de registrar los
+     * eventos del botón Ajustes. Por eso el botón quedaba sin manejador.
+     * Esta interacción vive aquí junto al motor inline para tener una sola
+     * fuente de verdad y evitar listeners duplicados.
+     */
+    function abrirPanelAjustes(abrir) {
+        const panel = document.getElementById('panelAjustesVenta');
+        const boton = document.getElementById('btnAjustesVenta');
+
+        if (!panel || !boton) return;
+
+        const debeAbrir = typeof abrir === 'boolean'
+            ? abrir
+            : !panel.classList.contains('is-open');
+
+        /*
+         * La BD / estadoActual es la única fuente de verdad. Al abrir el
+         * panel se resincronizan siempre los switches. Esto corrige el caso
+         * en que Chrome restaura los checkbox como OFF después de F5 aunque
+         * los campos hayan sido cargados correctamente desde la BD.
+         */
+        if (debeAbrir) {
+            sincronizarSwitchesDesdeEstado();
+        }
+
+        panel.classList.toggle('is-open', debeAbrir);
+        panel.setAttribute('aria-hidden', debeAbrir ? 'false' : 'true');
+        boton.setAttribute('aria-expanded', debeAbrir ? 'true' : 'false');
+    }
+
+    function inicializarInteraccionAjustes() {
+        const boton = document.getElementById('btnAjustesVenta');
+        const cerrar = document.getElementById('btnCerrarAjustesVenta');
+        const panel = document.getElementById('panelAjustesVenta');
+
+        if (!boton || !panel) return;
+
+        /* Evita registrar el mismo listener más de una vez. */
+        if (boton.dataset.ajustesVentaInicializado === '1') return;
+        boton.dataset.ajustesVentaInicializado = '1';
+
+        boton.addEventListener('click', function (evento) {
+            evento.preventDefault();
+            evento.stopPropagation();
+            abrirPanelAjustes();
+        });
+
+        if (cerrar) {
+            cerrar.addEventListener('click', function (evento) {
+                evento.preventDefault();
+                evento.stopPropagation();
+                abrirPanelAjustes(false);
+            });
+        }
+
+        document.addEventListener('click', function (evento) {
+            if (!panel.classList.contains('is-open')) return;
+
+            const objetivo = evento.target;
+            if (!(objetivo instanceof Element)) return;
+
+            if (!objetivo.closest('.venta-ajustes-wrap')) {
+                abrirPanelAjustes(false);
+            }
+        });
+
+        document.addEventListener('keydown', function (evento) {
+            if (evento.key === 'Escape' && panel.classList.contains('is-open')) {
+                abrirPanelAjustes(false);
+                boton.focus();
+            }
+        });
+    }
+
+    document.addEventListener('change', function (evento) {
+        const objetivo = evento.target;
+        if (!(objetivo instanceof HTMLInputElement)) return;
+        if (!objetivo.matches('[data-campo-switch]')) return;
+        programarGuardado();
+    }, true);
+
+    window.addEventListener('pageshow', function () {
+        /*
+         * También cubre restauraciones de página desde caché de navegación.
+         * No escribe en BD; solo refleja estadoActual en los controles.
+         */
+        window.setTimeout(sincronizarSwitchesDesdeEstado, 0);
+    });
+
+    function iniciar() {
+        /* El botón debe quedar operativo antes de esperar la respuesta de BD. */
+        inicializarInteraccionAjustes();
+
+        /* Evita que los opcionales aparezcan un instante antes de cargar BD. */
+        Object.keys(CAMPOS).forEach(function (clave) {
+            mostrarCampo(clave, false);
+        });
+        cargar();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', iniciar, { once: true });
+    } else {
+        iniciar();
+    }
+
+    window.VentaCamposAjustesV4 = { aplicar, cargar };
+})();
 </script>
 
 <script>

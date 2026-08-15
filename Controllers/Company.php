@@ -1119,6 +1119,9 @@ try {
         */
         case 'venta_campos_visibles':
 
+            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+            header('Pragma: no-cache');
+
             responderCompanyJson([
                 'success' => true,
                 'configuracion' => $company->obtenerCamposVentaVisibles()
@@ -1156,6 +1159,9 @@ try {
             $guardado = $company->guardarCamposVentaVisibles(
                 $configuracion
             );
+
+            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+            header('Pragma: no-cache');
 
             responderCompanyJson([
                 'success' => $guardado,

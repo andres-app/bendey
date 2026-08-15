@@ -613,10 +613,6 @@ class Company
             'forma_pago' => 1,
             'celular' => 1,
             'fecha_emision' => 0,
-            'guia_remision' => 0,
-            'tipo_moneda' => 0,
-            'tipo_cambio_sunat' => 0,
-            'igv_sunat' => 0,
             'tipo_operacion_sunat' => 1,
             'descuento' => 1,
             'envio_comprobante' => 1
@@ -703,12 +699,58 @@ class Company
             throw new RuntimeException('No se pudo serializar la configuración de Nueva Venta.');
         }
 
-        return (bool)$this->conexion->setData(
+        $actualizado = (bool)$this->conexion->setData(
             "UPDATE {$this->tableName}
              SET venta_campos_visibles = ?
              WHERE id_negocio = ?",
             [$json, $idNegocio]
         );
+
+        if (!$actualizado) {
+            return false;
+        }
+
+        /*
+         * Verificación real de persistencia. No basta con que UPDATE no
+         * arroje error: releemos la misma fila y exigimos que el JSON sea
+         * exactamente equivalente a lo solicitado.
+         */
+        $registroVerificacion = $this->conexion->getData(
+            "SELECT venta_campos_visibles
+             FROM {$this->tableName}
+             WHERE id_negocio = ?
+             LIMIT 1",
+            [$idNegocio]
+        );
+
+        if (!is_array($registroVerificacion)) {
+            return false;
+        }
+
+        $jsonVerificacion = trim(
+            (string)($registroVerificacion['venta_campos_visibles'] ?? '')
+        );
+
+        $configuracionVerificada = json_decode(
+            $jsonVerificacion,
+            true
+        );
+
+        if (!is_array($configuracionVerificada)) {
+            return false;
+        }
+
+        foreach ($normalizada as $clave => $valor) {
+            if (!array_key_exists($clave, $configuracionVerificada)) {
+                return false;
+            }
+
+            if ((int)(bool)$configuracionVerificada[$clave] !== (int)$valor) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 
