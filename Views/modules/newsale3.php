@@ -759,6 +759,121 @@ if ($_SESSION['ventas'] == 1) {
     </div>
 
 
+
+    <!-- =====================================================
+         EDITAR PRODUCTO DEL PEDIDO
+         El nombre y el precio se modifican solo para esta venta.
+         La cantidad se mantiene en los botones + y - del producto.
+    ====================================================== -->
+    <div
+        class="modal fade"
+        id="modalEditarProductoPedido"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="modalEditarProductoPedidoTitulo"
+        aria-hidden="true"
+        data-backdrop="static"
+        data-keyboard="false">
+
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content tw-border-0 tw-rounded-2xl tw-shadow-2xl tw-overflow-hidden">
+                <div class="modal-header tw-border-b tw-border-slate-100 tw-bg-white tw-px-5 tw-py-4">
+                    <div class="tw-min-w-0">
+                        <h5
+                            class="modal-title tw-text-slate-900 tw-font-medium"
+                            id="modalEditarProductoPedidoTitulo">
+                            Editar producto
+                        </h5>
+                        <small class="tw-block tw-mt-1 tw-text-slate-500">
+                            Cambios exclusivos para esta venta
+                        </small>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="close tw-text-slate-400 hover:tw-text-slate-700"
+                        data-dismiss="modal"
+                        aria-label="Cerrar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body tw-bg-slate-50 tw-p-5">
+                    <input type="hidden" id="editarPedidoIndice">
+
+                    <div class="tw-space-y-4">
+                        <div>
+                            <label
+                                for="editarPedidoNombreInput"
+                                class="tw-block tw-mb-2 tw-text-sm tw-font-medium tw-text-slate-700">
+                                Nombre del producto
+                            </label>
+
+                            <input
+                                type="text"
+                                id="editarPedidoNombreInput"
+                                maxlength="180"
+                                autocomplete="off"
+                                class="form-control tw-h-11 tw-rounded-xl tw-border-slate-200 focus:tw-border-tique-500 focus:tw-ring-4 focus:tw-ring-green-100"
+                                placeholder="Nombre del producto">
+                        </div>
+
+                        <div>
+                            <label
+                                for="editarPedidoPrecio"
+                                class="tw-block tw-mb-2 tw-text-sm tw-font-medium tw-text-slate-700">
+                                Precio unitario
+                            </label>
+
+                            <div class="tw-relative editar-pedido-precio-wrap">
+                                <span
+                                    id="editarPedidoMoneda"
+                                    class="editar-pedido-moneda tw-absolute tw-inset-y-0 tw-left-0 tw-flex tw-items-center tw-text-sm tw-text-slate-500">
+                                    S/.
+                                </span>
+
+                                <input
+                                    type="text"
+                                    id="editarPedidoPrecio"
+                                    inputmode="decimal"
+                                    autocomplete="off"
+                                    class="form-control editar-pedido-precio-input tw-h-11 tw-rounded-xl tw-border-slate-200 focus:tw-border-tique-500 focus:tw-ring-4 focus:tw-ring-green-100"
+                                    placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tw-mt-4 tw-rounded-xl tw-border tw-border-green-100 tw-bg-green-50 tw-p-3">
+                        <div class="tw-flex tw-gap-2">
+                            <i class="bi bi-tags tw-mt-0.5 tw-text-tique-700" aria-hidden="true"></i>
+                            <p class="tw-m-0 tw-text-xs tw-leading-5 tw-text-slate-600">
+                                El nombre y el precio se aplican solo al pedido actual. Si cambias el precio, el producto se destacará como <strong>Oferta</strong> dentro de la venta.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer tw-border-t tw-border-slate-100 tw-bg-white tw-px-5 tw-py-4">
+                    <button
+                        type="button"
+                        class="tw-inline-flex tw-h-10 tw-items-center tw-justify-center tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-px-4 tw-text-sm tw-font-normal tw-text-slate-600 tw-transition hover:tw-bg-slate-50"
+                        data-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btnGuardarEdicionProductoPedido"
+                        class="tw-inline-flex tw-h-10 tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border tw-border-tique-500 tw-bg-tique-500 tw-px-4 tw-text-sm tw-font-normal tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 focus:tw-ring-4 focus:tw-ring-green-100">
+                        <i class="bi bi-check2" aria-hidden="true"></i>
+                        Guardar cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <style>
         /* =========================================================
            AJUSTES Y GRID INTELIGENTE DE NUEVA VENTA
@@ -3837,6 +3952,223 @@ if ($_SESSION['ventas'] == 1) {
                 margin-top: 3px;
                 font-size: 10px;
                 line-height: 1.22;
+            }
+        }
+
+
+        /* =========================================================
+           TARJETAS Y ACCIONES DEL PEDIDO
+           Tailwind aporta utilidades; estas reglas son fallback para
+           conservar el acabado si el CDN tarda en inicializar.
+        ========================================================== */
+        #detallesCards .venta-pedido-item {
+            border: 1px solid #edf1ee !important;
+            border-radius: 16px !important;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .06) !important;
+        }
+
+        #detallesCards .venta-pedido-item .card-body {
+            gap: 14px;
+        }
+
+        #detallesCards .venta-producto-nombre {
+            color: #26332c;
+            font-weight: 500;
+            line-height: 1.28;
+        }
+
+        #detallesCards .venta-producto-precio {
+            color: #26332c;
+            font-weight: 500;
+        }
+
+        #detallesCards .venta-precio-original {
+            display: none;
+            margin-right: 5px;
+            color: #94a3b8;
+            text-decoration: line-through;
+            font-size: .72rem;
+        }
+
+        #detallesCards .venta-oferta-badge {
+            display: none;
+            align-items: center;
+            gap: 4px;
+            margin-left: 7px;
+            padding: 2px 7px;
+            border: 1px solid #bfe0c4;
+            border-radius: 999px;
+            background: #effaf1;
+            color: #2f7d32;
+            font-size: .62rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        #detallesCards .venta-pedido-item.es-oferta {
+            border-color: #bfe0c4 !important;
+            box-shadow: 0 8px 24px rgba(82, 184, 72, .10) !important;
+        }
+
+        #detallesCards .venta-pedido-item.es-oferta .venta-precio-original,
+        #detallesCards .venta-pedido-item.es-oferta .venta-oferta-badge {
+            display: inline-flex;
+        }
+
+        #detallesCards .venta-pedido-item.es-oferta .precio-venta-label {
+            color: #2f7d32;
+            font-weight: 600;
+        }
+
+        #detallesCards .venta-producto-total {
+            color: #1f2c24;
+            font-weight: 500;
+        }
+
+        #detallesCards .venta-item-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 38px);
+            gap: 8px;
+            flex: 0 0 auto;
+        }
+
+        #detallesCards .venta-item-btn {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            border-radius: 11px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .95rem;
+            line-height: 1;
+            transition:
+                transform .15s ease,
+                box-shadow .15s ease,
+                border-color .15s ease,
+                background-color .15s ease,
+                color .15s ease;
+        }
+
+        #detallesCards .venta-item-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(15, 23, 42, .09);
+        }
+
+        #detallesCards .venta-item-btn--plus {
+            color: #357f31;
+            border-color: #cce8cf;
+            background: #f2fbf3;
+        }
+
+        #detallesCards .venta-item-btn--minus {
+            color: #526158;
+            border-color: #e2e8f0;
+            background: #f8fafc;
+        }
+
+        #detallesCards .venta-item-btn--edit {
+            color: #357f31;
+            border-color: #bfe0c4;
+            background: #ffffff;
+        }
+
+        #detallesCards .venta-item-btn--delete {
+            color: #c2414b;
+            border-color: #f5cbd0;
+            background: #fff7f7;
+        }
+
+        #modalEditarProductoPedido .modal-dialog {
+            max-width: 520px;
+        }
+
+        #modalEditarProductoPedido .modal-content {
+            border: 0;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, .2);
+        }
+
+        #modalEditarProductoPedido .form-control {
+            min-height: 44px;
+            border-radius: 12px;
+            border-color: #dbe5df;
+            box-shadow: none;
+        }
+
+        #modalEditarProductoPedido .form-control:focus {
+            border-color: var(--tique-primary, #52b848) !important;
+            box-shadow: 0 0 0 3px rgba(82, 184, 72, .12) !important;
+        }
+
+        /*
+         * Evita el contorno negro nativo del navegador al hacer clic
+         * en los botones de esta vista. Conservamos una señal de foco
+         * discreta y corporativa para navegación por teclado.
+         */
+        .venta-pos-main-content button:focus,
+        .venta-pos-main-content button:active,
+        #modalEditarProductoPedido button:focus,
+        #modalEditarProductoPedido button:active {
+            outline: none !important;
+        }
+
+        .venta-pos-main-content button:focus-visible,
+        #modalEditarProductoPedido button:focus-visible {
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(82, 184, 72, .14) !important;
+        }
+
+        #detallesCards .venta-item-btn:focus,
+        #detallesCards .venta-item-btn:active,
+        #detallesCards .venta-item-btn:focus-visible {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Precio: prefijo monetario separado del valor digitado. */
+        #modalEditarProductoPedido .editar-pedido-precio-wrap {
+            position: relative;
+        }
+
+        #modalEditarProductoPedido .editar-pedido-moneda {
+            position: absolute;
+            left: 14px;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            pointer-events: none;
+            color: #64748b;
+            z-index: 2;
+        }
+
+        #modalEditarProductoPedido .editar-pedido-precio-input {
+            padding-left: 62px !important;
+        }
+
+        @media (max-width: 575.98px) {
+            #detallesCards .venta-pedido-item .card-body {
+                padding: 12px !important;
+            }
+
+            #detallesCards .venta-item-actions {
+                grid-template-columns: repeat(2, 36px);
+                gap: 7px;
+            }
+
+            #detallesCards .venta-item-btn {
+                width: 36px;
+                height: 36px;
+                border-radius: 10px;
+            }
+
+            #modalEditarProductoPedido .modal-dialog {
+                margin: 12px;
             }
         }
 

@@ -4007,48 +4007,57 @@ function agregarDetalle(
         return;
     }
 
+    const stockDisponible = Math.max(
+        Number.parseInt(stock, 10) || 0,
+        0
+    );
 
-    // Si ya existe, solo suma cantidad
+    /*
+     * Si el producto ya está en el pedido, aumentamos la cantidad
+     * trabajando sobre su propia fila. Así no dependemos de la posición
+     * del array DOM y evitamos errores cuando antes se eliminó otra fila.
+     */
     let existe = false;
 
-    $("input[name='idarticulo[]']").each(function (index) {
+    $("#detallesCards input[name='idarticulo[]']").each(function () {
+        if (Number.parseInt($(this).val(), 10) !== Number.parseInt(idarticulo, 10)) {
+            return;
+        }
 
-        if (parseInt($(this).val()) === parseInt(idarticulo)) {
+        const $fila = $(this).closest('.filas');
+        const $cantidadInput = $fila.find("input[name='cantidad[]']");
+        const cantidadActual = Number.parseInt(
+            $cantidadInput.val(),
+            10
+        ) || 0;
 
-            let cantidadInput = $("input[name='cantidad[]']").eq(index);
-            let cantidadLabel = $("#cantidadLabel" + index);
-            let precioVenta = parseFloat($("input[name='precio_venta[]']").eq(index).val());
+        const stockFila = Number.parseInt(
+            $fila.attr('data-stock-max'),
+            10
+        ) || stockDisponible;
 
-            let nuevaCantidad = parseInt(cantidadInput.val()) + 1;
+        const nuevaCantidad = cantidadActual + 1;
 
-            // 🚫 Validar stock
-            if (nuevaCantidad > stock) {
-                Swal.fire(
-                    "Stock insuficiente",
-                    "No hay más unidades disponibles.",
-                    "warning"
-                );
-                existe = true;
-                return false;
-            }
-
-            // ✅ Actualizar cantidad
-            cantidadInput.val(nuevaCantidad);
-            cantidadLabel.text(nuevaCantidad);
-
-            // ✅ Recalcular subtotal
-            let nuevoSubtotal = nuevaCantidad * precioVenta;
-            $("#subtotal" + index).text(nuevoSubtotal.toFixed(2));
-
-            // 🔄 Totales generales
-            calcularTotales();
-            actualizarMensajePedido();
+        if (nuevaCantidad > stockFila) {
+            Swal.fire(
+                "Stock insuficiente",
+                "No hay más unidades disponibles.",
+                "warning"
+            );
 
             existe = true;
-            return false; // salir del each
+            return false;
         }
-    });
 
+        $cantidadInput.val(nuevaCantidad);
+        $fila.find('.cantidad-label').text(nuevaCantidad);
+
+        calcularTotales();
+        actualizarMensajePedido();
+
+        existe = true;
+        return false;
+    });
 
     if (existe) {
         $('#modalProductos').modal('hide');
@@ -4080,9 +4089,12 @@ function agregarDetalle(
 
     codigo_producto_sunat = String(codigo_producto_sunat || '');
 
+    const precioVentaNumero = Number(precio_venta) || 0;
+    const precioCompraNumero = Number(precio_compra) || 0;
+
     let subtotal = calcularImporteBrutoTributario(
         cantidad,
-        precio_venta,
+        precioVentaNumero,
         codigo_afectacion_igv,
         porcentaje_igv
     );
@@ -4092,77 +4104,136 @@ function agregarDetalle(
         porcentaje_igv
     );
 
+    const indiceFila = cont;
+    const articuloSeguro = escaparHtmlProducto(
+        String(articulo || 'Producto')
+    );
+    const codigoSeguro = escaparHtmlProducto(
+        String(codigo || '')
+    );
+
     let card = `
-        <div class="card border-0 shadow-sm mb-3 bg-white filas" id="fila${cont}">
-            <div class="card-body d-flex justify-content-between align-items-start p-3">
+        <div
+            class="card border-0 shadow-sm mb-3 bg-white filas venta-pedido-item tw-bg-white tw-border tw-border-slate-100 tw-rounded-2xl tw-shadow-sm"
+            id="fila${indiceFila}"
+            data-indice="${indiceFila}"
+            data-stock-max="${stockDisponible}"
+            data-precio-original="${precioVentaNumero.toFixed(2)}">
+
+            <div class="card-body d-flex justify-content-between align-items-start p-3 tw-gap-4">
 
                 <!-- INPUTS OCULTOS -->
-                <input type="hidden" name="idingreso[]" value="${idingreso}">
-                <input type="hidden" name="idarticulo[]" value="${idarticulo}">
-                <input type="hidden" name="precio_compra[]" value="${precio_compra}">
+                <input type="hidden" name="idingreso[]" value="${Number(idingreso) || 0}">
+                <input type="hidden" name="idarticulo[]" value="${Number(idarticulo) || 0}">
+                <input type="hidden" name="precio_compra[]" value="${precioCompraNumero}">
                 <input type="hidden" name="descuento[]" value="${descuento}">
-                <input type="hidden" name="codigo_afectacion_igv[]" value="${codigo_afectacion_igv}">
-                <input type="hidden" name="porcentaje_igv[]" value="${porcentaje_igv}">
-                <input type="hidden" name="unidad_medida_sunat[]" value="${unidad_medida_sunat}">
-                <input type="hidden" name="codigo_producto_sunat[]" value="${codigo_producto_sunat}">
+                <input type="hidden" name="codigo_afectacion_igv[]" value="${escaparHtmlProducto(codigo_afectacion_igv)}">
+                <input type="hidden" name="porcentaje_igv[]" value="${Number(porcentaje_igv) || 0}">
+                <input type="hidden" name="unidad_medida_sunat[]" value="${escaparHtmlProducto(unidad_medida_sunat)}">
+                <input type="hidden" name="codigo_producto_sunat[]" value="${escaparHtmlProducto(codigo_producto_sunat)}">
 
                 <!-- INFO PRODUCTO -->
-                <div>
-                    <div class="fw-bold fs-6 mb-1 text-dark">${articulo}</div>
+                <div class="tw-min-w-0 tw-flex-1">
+                    <div class="venta-producto-nombre tw-text-base tw-text-slate-800 tw-mb-1">
+                        ${articuloSeguro}
+                    </div>
+
                     <div class="text-muted small">Almacén: Principal</div>
-                    <div class="text-muted small">SKU: ${codigo}</div>
+                    <div class="text-muted small">SKU: ${codigoSeguro}</div>
+
                     <span class="venta-product-tax-badge ${claseAfectacionIgv(codigo_afectacion_igv)}">
                         <i class="fas fa-receipt"></i>
-                        ${etiquetaTributaria}
+                        ${escaparHtmlProducto(etiquetaTributaria)}
                     </span>
 
-                    <div class="text-muted small">
-                        Precio Unitario:
-                        <span class="fw-semibold">${simboloMonedaVenta()} ${Number(precio_venta).toFixed(2)}</span>
+                    <div class="text-muted small tw-mt-2">
+                        Precio unitario:
+                        <span
+                            class="venta-precio-original precio-original-label"
+                            id="precioOriginalLabel${indiceFila}">
+                            ${simboloMonedaVenta()} ${precioVentaNumero.toFixed(2)}
+                        </span>
+                        <span
+                            class="venta-producto-precio precio-venta-label"
+                            id="precioVentaLabel${indiceFila}">
+                            ${simboloMonedaVenta()} ${precioVentaNumero.toFixed(2)}
+                        </span>
+                        <span
+                            class="venta-oferta-badge"
+                            id="ofertaBadge${indiceFila}">
+                            <i class="bi bi-tag-fill" aria-hidden="true"></i>
+                            Oferta
+                        </span>
 
-                        <!-- valor real oculto para backend -->
-                        <input type="hidden" name="precio_venta[]" value="${precio_venta}">
+                        <input
+                            type="hidden"
+                            name="precio_venta[]"
+                            id="precioVentaInput${indiceFila}"
+                            value="${precioVentaNumero}">
                     </div>
+
                     <div class="text-muted small">
                         Cantidad:
-                        <span class="fw-semibold cantidad-label" id="cantidadLabel${cont}">
+                        <span
+                            class="fw-semibold cantidad-label"
+                            id="cantidadLabel${indiceFila}">
                             ${cantidad}
                         </span>
 
-                        <input type="hidden"
+                        <input
+                            type="hidden"
                             name="cantidad[]"
-                            id="cantidadInput${cont}"
+                            id="cantidadInput${indiceFila}"
                             value="${cantidad}">
                     </div>
-                    <div class="fw-bold mt-2 text-dark">
+
+                    <div class="venta-producto-total tw-mt-2 tw-text-slate-800">
                         Total: ${simboloMonedaVenta()}
-                        <span name="subtotal" id="subtotal${cont}">
+                        <span name="subtotal" id="subtotal${indiceFila}">
                             ${subtotal.toFixed(2)}
                         </span>
                     </div>
                 </div>
 
-                <!-- BOTONES -->
-                <div class="d-flex flex-column justify-content-between align-items-end ms-auto"
-                    style="min-width:48px;">
+                <!-- ACCIONES TAILWIND -->
+                <div
+                    class="venta-item-actions tw-grid tw-grid-cols-2 tw-gap-2 tw-ml-auto"
+                    aria-label="Acciones del producto">
 
-                    <div class="d-flex flex-column align-items-center gap-1">
-                        <button type="button"
-                            class="btn btn-outline-success btn-sm px-2 py-1 mb-1"
-                            onclick="incrementarCantidad(${cont}, ${stock})">
-                            <i class="bi bi-plus"></i>
-                        </button>
+                    <button
+                        type="button"
+                        class="venta-item-btn venta-item-btn--plus tw-inline-flex tw-items-center tw-justify-center tw-w-10 tw-h-10 tw-rounded-xl tw-border tw-border-green-200 tw-bg-green-50 tw-text-green-700 tw-transition hover:tw-bg-green-100 hover:tw-shadow-sm"
+                        onclick="incrementarCantidad(${indiceFila}, ${stockDisponible})"
+                        title="Aumentar cantidad"
+                        aria-label="Aumentar cantidad">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    </button>
 
-                        <button type="button"
-                            class="btn btn-outline-secondary btn-sm px-2 py-1"
-                            onclick="decrementarCantidad(${cont})">
-                            <i class="bi bi-dash"></i>
-                        </button>
-                    </div>
+                    <button
+                        type="button"
+                        class="venta-item-btn venta-item-btn--minus tw-inline-flex tw-items-center tw-justify-center tw-w-10 tw-h-10 tw-rounded-xl tw-border tw-border-slate-200 tw-bg-slate-50 tw-text-slate-600 tw-transition hover:tw-bg-slate-100 hover:tw-shadow-sm"
+                        onclick="decrementarCantidad(${indiceFila})"
+                        title="Disminuir cantidad"
+                        aria-label="Disminuir cantidad">
+                        <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                    </button>
 
-                    <button type="button" class="btn btn-outline-danger btn-sm px-2 py-1 mt-3"
-                        onclick="eliminarDetalle(${cont})">
-                        <i class="bi bi-trash"></i>
+                    <button
+                        type="button"
+                        class="venta-item-btn venta-item-btn--edit tw-inline-flex tw-items-center tw-justify-center tw-w-10 tw-h-10 tw-rounded-xl tw-border tw-border-green-200 tw-bg-white tw-text-green-700 tw-transition hover:tw-bg-green-50 hover:tw-shadow-sm"
+                        onclick="editarProductoPedido(${indiceFila})"
+                        title="Editar producto"
+                        aria-label="Editar producto">
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="venta-item-btn venta-item-btn--delete tw-inline-flex tw-items-center tw-justify-center tw-w-10 tw-h-10 tw-rounded-xl tw-border tw-border-red-200 tw-bg-red-50 tw-text-red-600 tw-transition hover:tw-bg-red-100 hover:tw-shadow-sm"
+                        onclick="eliminarDetalle(${indiceFila})"
+                        title="Quitar producto"
+                        aria-label="Quitar producto">
+                        <i class="bi bi-trash3" aria-hidden="true"></i>
                     </button>
                 </div>
 
@@ -4180,9 +4251,7 @@ function agregarDetalle(
 
     calcularTotales();
 
-
     $('#modalProductos').modal('hide');
-
 }
 
 // ===============================
@@ -4946,46 +5015,280 @@ function buscarProductoPorCodigo(codigo, opciones = {}) {
 }
 
 function incrementarCantidad(indice, stock) {
-    let cantidadInput = document.getElementById('cantidadInput' + indice);
-    let cantidadLabel = document.getElementById('cantidadLabel' + indice);
-    let precioInput = document.querySelectorAll("input[name='precio_venta[]']")[indice];
-    let subtotalSpan = document.getElementById('subtotal' + indice);
+    const $fila = $("#fila" + indice);
 
-    let cantidad = parseInt(cantidadInput.value) + 1;
-
-    if (cantidad > stock) {
-        Swal.fire("Stock insuficiente", "No hay más unidades disponibles.", "warning");
+    if (!$fila.length) {
         return;
     }
 
-    cantidadInput.value = cantidad;
-    cantidadLabel.textContent = cantidad;
+    const $cantidadInput = $fila.find("input[name='cantidad[]']");
+    const cantidadActual = Number.parseInt(
+        $cantidadInput.val(),
+        10
+    ) || 0;
 
-    let subtotal = cantidad * parseFloat(precioInput.value);
-    subtotalSpan.textContent = subtotal.toFixed(2);
+    const stockMaximo = Number.parseInt(
+        $fila.attr('data-stock-max'),
+        10
+    ) || Number.parseInt(stock, 10) || 0;
+
+    const nuevaCantidad = cantidadActual + 1;
+
+    if (stockMaximo > 0 && nuevaCantidad > stockMaximo) {
+        Swal.fire(
+            "Stock insuficiente",
+            "No hay más unidades disponibles.",
+            "warning"
+        );
+        return;
+    }
+
+    $cantidadInput.val(nuevaCantidad);
+    $fila.find('.cantidad-label').text(nuevaCantidad);
 
     calcularTotales();
+    actualizarMensajePedido();
 }
 
 
 function decrementarCantidad(indice) {
-    let cantidadInput = document.getElementById('cantidadInput' + indice);
-    let cantidadLabel = document.getElementById('cantidadLabel' + indice);
-    let precioInput = document.querySelectorAll("input[name='precio_venta[]']")[indice];
-    let subtotalSpan = document.getElementById('subtotal' + indice);
+    const $fila = $("#fila" + indice);
 
-    let cantidad = parseInt(cantidadInput.value) - 1;
-    if (cantidad < 1) return;
+    if (!$fila.length) {
+        return;
+    }
 
-    cantidadInput.value = cantidad;
-    cantidadLabel.textContent = cantidad;
+    const $cantidadInput = $fila.find("input[name='cantidad[]']");
+    const cantidadActual = Number.parseInt(
+        $cantidadInput.val(),
+        10
+    ) || 0;
 
-    let subtotal = cantidad * parseFloat(precioInput.value);
-    subtotalSpan.textContent = subtotal.toFixed(2);
+    const nuevaCantidad = cantidadActual - 1;
+
+    if (nuevaCantidad < 1) {
+        return;
+    }
+
+    $cantidadInput.val(nuevaCantidad);
+    $fila.find('.cantidad-label').text(nuevaCantidad);
 
     calcularTotales();
+    actualizarMensajePedido();
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| EDICIÓN RÁPIDA DEL PRODUCTO EN EL PEDIDO
+| El nombre y el precio cambian solamente dentro de la venta actual.
+|--------------------------------------------------------------------------
+*/
+function editarProductoPedido(indice) {
+    const $fila = $("#fila" + indice);
+
+    if (!$fila.length) {
+        Swal.fire(
+            'Producto no disponible',
+            'No se encontró el producto dentro del pedido actual.',
+            'warning'
+        );
+        return;
+    }
+
+    const precio = Number.parseFloat(
+        $fila.find("input[name='precio_venta[]']").val()
+    ) || 0;
+
+    const nombre = String(
+        $fila.find('.venta-producto-nombre').text()
+        || 'Producto'
+    ).trim();
+
+    $('#editarPedidoIndice').val(indice);
+    $('#editarPedidoNombreInput').val(nombre);
+    $('#editarPedidoPrecio').val(precio.toFixed(2));
+    $('#editarPedidoMoneda').text(simboloMonedaVenta());
+
+    $('#modalEditarProductoPedido').modal('show');
+
+    window.setTimeout(function () {
+        $('#editarPedidoNombreInput')
+            .trigger('focus')
+            .select();
+    }, 180);
+}
+
+
+function aplicarEdicionProductoPedido(
+    indice,
+    nombreProducto,
+    precioVenta
+) {
+    const $fila = $("#fila" + indice);
+
+    if (!$fila.length) {
+        return false;
+    }
+
+    const nombreFinal = String(
+        nombreProducto || ''
+    ).trim();
+
+    const precioFinal = Number.parseFloat(
+        precioVenta
+    );
+
+    if (
+        nombreFinal === ''
+        || !Number.isFinite(precioFinal)
+        || precioFinal <= 0
+    ) {
+        return false;
+    }
+
+    $fila
+        .find('.venta-producto-nombre')
+        .text(nombreFinal);
+
+    $fila
+        .find("input[name='precio_venta[]']")
+        .val(precioFinal.toFixed(2));
+
+    $fila
+        .find('.precio-venta-label')
+        .text(
+            simboloMonedaVenta()
+            + ' '
+            + precioFinal.toFixed(2)
+        );
+
+    const precioOriginal = Number.parseFloat(
+        $fila.attr('data-precio-original')
+    ) || 0;
+
+    $fila
+        .find('.precio-original-label')
+        .text(
+            simboloMonedaVenta()
+            + ' '
+            + precioOriginal.toFixed(2)
+        );
+
+    const precioFueModificado = (
+        precioOriginal > 0
+        && Math.abs(precioFinal - precioOriginal) > 0.000001
+    );
+
+    $fila.toggleClass(
+        'es-oferta',
+        precioFueModificado
+    );
+
+    calcularTotales();
+    actualizarMensajePedido();
+
+    return true;
+}
+
+
+function guardarEdicionProductoPedido() {
+    const indice = Number.parseInt(
+        $('#editarPedidoIndice').val(),
+        10
+    );
+
+    const $fila = $("#fila" + indice);
+
+    if (!$fila.length) {
+        $('#modalEditarProductoPedido').modal('hide');
+
+        Swal.fire(
+            'Producto no disponible',
+            'El producto ya no se encuentra en el pedido.',
+            'warning'
+        );
+        return;
+    }
+
+    const nombreProducto = String(
+        $('#editarPedidoNombreInput').val() || ''
+    ).trim();
+
+    const precioTexto = String(
+        $('#editarPedidoPrecio').val() || ''
+    )
+        .replace(',', '.')
+        .trim();
+
+    const precioVenta = Number.parseFloat(
+        precioTexto
+    );
+
+    if (nombreProducto === '') {
+        Swal.fire(
+            'Nombre requerido',
+            'Ingrese el nombre que desea mostrar para este producto.',
+            'warning'
+        );
+        return;
+    }
+
+    if (!Number.isFinite(precioVenta) || precioVenta <= 0) {
+        Swal.fire(
+            'Precio inválido',
+            'Ingrese un precio de venta mayor que cero.',
+            'warning'
+        );
+        return;
+    }
+
+    if (!aplicarEdicionProductoPedido(
+        indice,
+        nombreProducto,
+        precioVenta
+    )) {
+        Swal.fire(
+            'No se pudo guardar',
+            'Revise el nombre y el precio del producto.',
+            'error'
+        );
+        return;
+    }
+
+    $('#modalEditarProductoPedido').modal('hide');
+
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 1300,
+        timerProgressBar: true
+    });
+
+    Toast.fire({
+        icon: 'success',
+        title: 'Producto actualizado en esta venta'
+    });
+}
+
+
+$(document).on(
+    'click',
+    '#btnGuardarEdicionProductoPedido',
+    guardarEdicionProductoPedido
+);
+
+$(document).on(
+    'keydown',
+    '#editarPedidoNombreInput, #editarPedidoPrecio',
+    function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            guardarEdicionProductoPedido();
+        }
+    }
+);
 
 
 function modificarSubtotales() {
