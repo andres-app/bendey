@@ -512,9 +512,24 @@ if ($_SESSION['ventas'] == 1) {
                                         </small>
                                     </div>
 
-                                    <div class="venta-pedido-total-cabecera">
-                                        <span>Total</span>
-                                        <strong id="totalPedidoHeader">S/ 0.00</strong>
+                                    <div class="venta-pedido-acciones-cabecera" aria-label="Acciones rápidas del pedido">
+                                        <button
+                                            type="button"
+                                            class="btn btn-success shadow-sm venta-pedido-accion-btn"
+                                            id="btnActivarEscaner"
+                                            title="Escanear con cámara"
+                                            aria-label="Escanear código con cámara">
+                                            <i class="bi bi-qr-code-scan" aria-hidden="true"></i>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-success shadow-sm venta-pedido-accion-btn"
+                                            id="btnAbrirModal"
+                                            title="Agregar producto"
+                                            aria-label="Agregar producto">
+                                            <i class="bi bi-plus" aria-hidden="true"></i>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -631,71 +646,6 @@ if ($_SESSION['ventas'] == 1) {
 
                                 </div>
 
-                                <div
-                                    class="d-flex justify-content-end align-items-end p-4 venta-pedido-footer"
-                                    style="pointer-events:none;">
-
-                                    <div
-                                        style="
-                                            pointer-events:auto;
-                                            display:flex;
-                                            gap:24px;
-                                        ">
-
-                                        <button
-                                            type="button"
-                                            class="
-                                                btn
-                                                btn-success
-                                                shadow
-                                                d-flex
-                                                align-items-center
-                                                justify-content-center
-                                            "
-                                            style="
-                                                width:72px;
-                                                height:52px;
-                                                border-radius:18px;
-                                            "
-                                            id="btnActivarEscaner"
-                                            title="Activar lector de código de barras">
-
-                                            <i
-                                                class="bi bi-qr-code-scan"
-                                                style="font-size:2rem;">
-                                            </i>
-
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            class="
-                                                btn
-                                                btn-success
-                                                shadow
-                                                d-flex
-                                                align-items-center
-                                                justify-content-center
-                                            "
-                                            id="btnAbrirModal"
-                                            style="
-                                                width:72px;
-                                                height:52px;
-                                                border-radius:18px;
-                                            "
-                                            title="Agregar producto">
-
-                                            <i
-                                                class="bi bi-plus"
-                                                style="font-size:2rem;">
-                                            </i>
-
-                                        </button>
-
-                                    </div>
-
-                                </div>
-
                             </div>
 
                         </div>
@@ -744,6 +694,69 @@ if ($_SESSION['ventas'] == 1) {
         autocomplete="off"
         tabindex="-1"
         aria-hidden="true">
+
+    <!-- =====================================================
+         ESCÁNER POR CÁMARA
+         El resultado entra al mismo flujo del lector físico.
+    ====================================================== -->
+    <div
+        class="modal fade"
+        id="modalEscanerCamara"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="modalEscanerCamaraTitulo"
+        aria-hidden="true"
+        data-backdrop="static"
+        data-keyboard="false">
+
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content venta-camara-modal-content">
+                <div class="modal-header venta-camara-modal-header">
+                    <div>
+                        <h5 class="modal-title" id="modalEscanerCamaraTitulo">Escanear código</h5>
+                        <small class="venta-camara-subtitulo">QR, Code 128, EAN, UPC, Data Matrix y más</small>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="close venta-camara-close"
+                        data-dismiss="modal"
+                        aria-label="Cerrar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body venta-camara-modal-body">
+                    <div id="ventaCamaraReader" class="venta-camara-reader"></div>
+
+                    <div class="venta-camara-guia" aria-hidden="true">
+                        <span></span>
+                    </div>
+
+                    <div
+                        id="ventaCamaraEstado"
+                        class="venta-camara-estado"
+                        role="status"
+                        aria-live="polite">
+                        Preparando cámara...
+                    </div>
+                </div>
+
+                <div class="modal-footer venta-camara-modal-footer">
+                    <small class="venta-camara-ayuda">
+                        Centra el código dentro del recuadro. La lectura se procesa automáticamente.
+                    </small>
+
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary venta-camara-cancelar"
+                        data-dismiss="modal">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 
     <style>
@@ -3152,6 +3165,180 @@ if ($_SESSION['ventas'] == 1) {
             background: #cbd7d0;
         }
 
+        .venta-pedido-acciones-cabecera {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .venta-pedido-accion-btn {
+            width: 58px;
+            height: 46px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+        }
+
+        .venta-pedido-accion-btn i {
+            font-size: 1.65rem;
+            line-height: 1;
+        }
+
+        .venta-camara-modal-content {
+            overflow: hidden;
+            border: 0;
+            border-radius: 20px;
+            box-shadow: 0 22px 70px rgba(15, 23, 42, .28);
+        }
+
+        .venta-camara-modal-header {
+            align-items: flex-start;
+            border-bottom: 1px solid #e8eee9;
+            background: #fff;
+        }
+
+        .venta-camara-modal-header .modal-title {
+            margin: 0;
+            font-size: 1.08rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .venta-camara-subtitulo {
+            display: block;
+            margin-top: 3px;
+            color: #7a867f;
+            font-size: .82rem;
+        }
+
+        .venta-camara-close {
+            margin: -.15rem -.2rem 0 auto !important;
+            padding: .25rem .5rem !important;
+        }
+
+        .venta-camara-modal-body {
+            position: relative;
+            padding: 16px;
+            background: #0f1720;
+        }
+
+        .venta-camara-reader {
+            position: relative;
+            min-height: 360px;
+            overflow: hidden;
+            border-radius: 16px;
+            background: #05090d;
+        }
+
+        .venta-camara-reader video,
+        .venta-camara-reader canvas {
+            width: 100% !important;
+            max-width: 100% !important;
+            border-radius: 16px;
+        }
+
+        .venta-camara-reader > div {
+            border: 0 !important;
+        }
+
+        .venta-camara-guia {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: min(78%, 460px);
+            height: min(42%, 220px);
+            transform: translate(-50%, -56%);
+            border: 2px solid rgba(255, 255, 255, .9);
+            border-radius: 18px;
+            pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, .16);
+        }
+
+        .venta-camara-guia span {
+            position: absolute;
+            left: 8%;
+            right: 8%;
+            top: 50%;
+            height: 2px;
+            transform: translateY(-50%);
+            background: #52b848;
+            box-shadow: 0 0 12px rgba(82, 184, 72, .95);
+        }
+
+        .venta-camara-estado {
+            position: absolute;
+            left: 50%;
+            bottom: 27px;
+            transform: translateX(-50%);
+            max-width: calc(100% - 48px);
+            padding: 8px 12px;
+            border-radius: 999px;
+            color: #f8fafc;
+            background: rgba(15, 23, 32, .78);
+            backdrop-filter: blur(8px);
+            font-size: .82rem;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .venta-camara-modal-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-top: 1px solid #e8eee9;
+            background: #fff;
+        }
+
+        .venta-camara-ayuda {
+            color: #6b7280;
+            font-size: .8rem;
+        }
+
+        .venta-camara-cancelar {
+            min-width: 92px;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 767.98px) {
+            .venta-pedido-accion-btn {
+                width: 54px;
+                height: 44px;
+                border-radius: 13px;
+            }
+
+            .venta-camara-modal-content {
+                border-radius: 18px;
+            }
+
+            .venta-camara-modal-body {
+                padding: 10px;
+            }
+
+            .venta-camara-reader {
+                min-height: min(62vh, 520px);
+                border-radius: 14px;
+            }
+
+            .venta-camara-guia {
+                width: 84%;
+                height: 34%;
+            }
+
+            .venta-camara-modal-footer {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .venta-camara-cancelar {
+                width: 100%;
+            }
+        }
+
         .scanner-feedback {
             position: fixed;
             top: 18px;
@@ -4536,6 +4723,11 @@ require 'footer.php';
 ?>
 
 <script src="Views/modules/scripts/generaldata.js"></script>
+<script
+    src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer">
+</script>
 <?php
 $rutaNewsaleJs = __DIR__ . '/scripts/newsale3.js';
 

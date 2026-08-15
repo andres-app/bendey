@@ -54,6 +54,13 @@ const ESTADO_ESCANER = {
     temporizador: null
 };
 
+const ESTADO_CAMARA = {
+    instancia: null,
+    iniciando: false,
+    activa: false,
+    procesando: false
+};
+
 const CLIENTE_GENERICO = Object.freeze({
     tipoDocumento: 'DNI',
     numeroDocumento: '99999999',
@@ -4390,13 +4397,250 @@ function inicializarEscanerProductos() {
     }, true);
 }
 
+function actualizarEstadoCamara(mensaje) {
+    const estado = document.getElementById('ventaCamaraEstado');
+
+    if (estado) {
+        estado.textContent = String(mensaje || '');
+    }
+}
+
+function mensajeErrorCamara(error) {
+    const texto = String(
+        error && (error.message || error.name)
+            ? (error.message || error.name)
+            : error || ''
+    ).toLowerCase();
+
+    if (texto.includes('notallowed') || texto.includes('permission')) {
+        return 'Permiso de cámara denegado. Habilítalo en el navegador y vuelve a intentar.';
+    }
+
+    if (texto.includes('notfound') || texto.includes('devicesnotfound')) {
+        return 'No se encontró una cámara disponible en este dispositivo.';
+    }
+
+    if (texto.includes('notreadable') || texto.includes('trackstart')) {
+        return 'La cámara está siendo usada por otra aplicación o no puede iniciarse.';
+    }
+
+    if (texto.includes('overconstrained')) {
+        return 'No se pudo iniciar la cámara preferida. Intenta nuevamente.';
+    }
+
+    return 'No se pudo iniciar la cámara. Revisa los permisos del navegador.';
+}
+
+function crearInstanciaEscanerCamara() {
+    if (ESTADO_CAMARA.instancia) {
+        return ESTADO_CAMARA.instancia;
+    }
+
+    if (typeof window.Html5Qrcode !== 'function') {
+        return null;
+    }
+
+    const formatos = [];
+
+    if (window.Html5QrcodeSupportedFormats) {
+        [
+            'QR_CODE',
+            'CODE_128',
+            'CODE_39',
+            'CODE_93',
+            'EAN_13',
+            'EAN_8',
+            'UPC_A',
+            'UPC_E',
+            'ITF',
+            'DATA_MATRIX',
+            'PDF_417',
+            'AZTEC'
+        ].forEach(function (nombreFormato) {
+            const valor = window.Html5QrcodeSupportedFormats[nombreFormato];
+
+            if (typeof valor !== 'undefined') {
+                formatos.push(valor);
+            }
+        });
+    }
+
+    const opciones = formatos.length > 0
+        ? { formatsToSupport: formatos }
+        : undefined;
+
+    ESTADO_CAMARA.instancia = new window.Html5Qrcode(
+        'ventaCamaraReader',
+        opciones
+    );
+
+    return ESTADO_CAMARA.instancia;
+}
+
+async function detenerEscanerCamara() {
+    const instancia = ESTADO_CAMARA.instancia;
+
+    ESTADO_CAMARA.activa = false;
+    ESTADO_CAMARA.iniciando = false;
+
+    if (!instancia) {
+        return;
+    }
+
+    try {
+        await instancia.stop();
+    } catch (error) {
+        /* Si ya estaba detenido, no interrumpimos el cierre del modal. */
+    }
+
+    try {
+        instancia.clear();
+    } catch (error) {
+        /* El contenedor se limpiará al crear una nueva instancia. */
+    }
+
+    if (ESTADO_CAMARA.instancia === instancia) {
+        ESTADO_CAMARA.instancia = null;
+    }
+}
+
+async function procesarLecturaCamara(textoDecodificado) {
+    const codigo = String(textoDecodificado || '').trim();
+
+    if (ESTADO_CAMARA.procesando || codigo.length < 2) {
+        return;
+    }
+
+    ESTADO_CAMARA.procesando = true;
+    actualizarEstadoCamara('Código detectado. Procesando...');
+
+    if (navigator.vibrate) {
+        navigator.vibrate(60);
+    }
+
+    await detenerEscanerCamara();
+
+    $('#modalEscanerCamara').modal('hide');
+
+    window.setTimeout(function () {
+        procesarCodigoEscaneado(codigo, 'camara');
+        ESTADO_CAMARA.procesando = false;
+    }, 120);
+}
+
+async function iniciarEscanerCamara() {
+    if (ESTADO_CAMARA.iniciando || ESTADO_CAMARA.activa) {
+        return;
+    }
+
+    if (!window.isSecureContext) {
+        actualizarEstadoCamara('La cámara requiere HTTPS para funcionar.');
+        return;
+    }
+
+    if (
+        !navigator.mediaDevices
+        || typeof navigator.mediaDevices.getUserMedia !== 'function'
+    ) {
+        actualizarEstadoCamara('Este navegador no permite acceso a la cámara.');
+        return;
+    }
+
+    const instancia = crearInstanciaEscanerCamara();
+
+    if (!instancia) {
+        actualizarEstadoCamara('No se pudo cargar el lector de cámara.');
+        return;
+    }
+
+    ESTADO_CAMARA.iniciando = true;
+    ESTADO_CAMARA.procesando = false;
+    actualizarEstadoCamara('Solicitando acceso a la cámara...');
+
+    const configuracion = {
+        fps: 12,
+        disableFlip: false
+    };
+
+    const alDetectar = function (textoDecodificado) {
+        procesarLecturaCamara(textoDecodificado);
+    };
+
+    const alNoDetectar = function () {
+        /* Fallos por frame son normales mientras se apunta al código. */
+    };
+
+    try {
+        await instancia.start(
+            { facingMode: 'environment' },
+            configuracion,
+            alDetectar,
+            alNoDetectar
+        );
+
+        ESTADO_CAMARA.activa = true;
+        ESTADO_CAMARA.iniciando = false;
+        actualizarEstadoCamara('Cámara activa · apunta al código');
+        return;
+    } catch (primerError) {
+        try {
+            const camaras = await window.Html5Qrcode.getCameras();
+
+            if (!Array.isArray(camaras) || camaras.length === 0) {
+                throw primerError;
+            }
+
+            await instancia.start(
+                camaras[0].id,
+                configuracion,
+                alDetectar,
+                alNoDetectar
+            );
+
+            ESTADO_CAMARA.activa = true;
+            ESTADO_CAMARA.iniciando = false;
+            actualizarEstadoCamara('Cámara activa · apunta al código');
+            return;
+        } catch (segundoError) {
+            ESTADO_CAMARA.activa = false;
+            ESTADO_CAMARA.iniciando = false;
+            actualizarEstadoCamara(
+                mensajeErrorCamara(segundoError || primerError)
+            );
+        }
+    }
+}
+
+function abrirEscanerCamara() {
+    limpiarCapturaEscaner();
+    actualizarEstadoCamara('Preparando cámara...');
+    $('#modalEscanerCamara').modal('show');
+}
+
+$(document).on('click', '#btnActivarEscaner', function () {
+    abrirEscanerCamara();
+});
+
 $(document).on(
     'click',
-    '#btnActivarEscaner, #btnEscanearDesdeModal, #btnEscanearModalFooter',
+    '#btnEscanearDesdeModal, #btnEscanearModalFooter',
     function () {
         activarEscanerProductos(this.id);
     }
 );
+
+$(document).on('shown.bs.modal', '#modalEscanerCamara', function () {
+    iniciarEscanerCamara();
+});
+
+$(document).on('hidden.bs.modal', '#modalEscanerCamara', function () {
+    detenerEscanerCamara();
+    ESTADO_CAMARA.procesando = false;
+});
+
+window.addEventListener('beforeunload', function () {
+    detenerEscanerCamara();
+});
 
 function normalizarRespuestaProductoEscaneado(respuesta) {
     if (!respuesta || typeof respuesta !== 'object') {
