@@ -28,6 +28,19 @@ class Category
 		return $this->conexion->setData($sql, $arrData);
 	}
 
+	public function editarNombre($idcategoria, $nombre)
+	{
+		$sql = "UPDATE $this->tableName SET nombre=? WHERE idcategoria=?";
+		$arrData = array($nombre, $idcategoria);
+		return $this->conexion->setData($sql, $arrData);
+	}
+
+	public function estadisticas()
+	{
+		$sql = "SELECT COUNT(*) AS total, SUM(CASE WHEN condicion = 1 THEN 1 ELSE 0 END) AS activas, SUM(CASE WHEN condicion = 0 THEN 1 ELSE 0 END) AS inactivas FROM $this->tableName";
+		return $this->conexion->getData($sql);
+	}
+
 	public function desactivar($idcategoria)
 	{
 		$sql = "UPDATE $this->tableName SET condicion='0' WHERE idcategoria=?";
