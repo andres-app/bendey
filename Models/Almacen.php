@@ -59,6 +59,16 @@ class Almacen
         return $this->conexion->getDataAll($sql);
     }
 
+    public function estadisticas()
+    {
+        $sql = "SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN estado = 1 THEN 1 ELSE 0 END) AS activos,
+                    SUM(CASE WHEN estado = 0 THEN 1 ELSE 0 END) AS inactivos
+                FROM $this->tableName";
+        return $this->conexion->getData($sql);
+    }
+
     // Método para listar almacenes activos en un <select>
     public function select()
     {

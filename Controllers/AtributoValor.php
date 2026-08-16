@@ -103,29 +103,20 @@ switch ($op) {
             $estado = (int)$reg['estado'];
             $valorHtml = htmlspecialchars((string)$reg['valor'], ENT_QUOTES, 'UTF-8');
 
-            $botonEditar = '<button type="button" class="btn btn-warning btn-sm" '
-                . 'onclick="editarValor(' . $idRegistro . ')" title="Editar">'
-                . '<i class="fas fa-pencil-alt"></i>'
-                . '</button>';
+            $celdaValor = '<span class="attribute-value-name"><i class="fas fa-font"></i><span>' . $valorHtml . '</span></span>';
+            $estadoHtml = $estado === 1
+                ? '<span class="attribute-status attribute-status--active">Activo</span>'
+                : '<span class="attribute-status attribute-status--inactive">Inactivo</span>';
 
-            if ($estado === 1) {
-                $estadoHtml = '<span class="badge badge-success">Activo</span>';
-                $botonEstado = '<button type="button" class="btn btn-danger btn-sm" '
-                    . 'onclick="desactivarValor(' . $idRegistro . ')" title="Desactivar">'
-                    . '<i class="fas fa-times"></i>'
-                    . '</button>';
-            } else {
-                $estadoHtml = '<span class="badge badge-danger">Inactivo</span>';
-                $botonEstado = '<button type="button" class="btn btn-primary btn-sm" '
-                    . 'onclick="activarValor(' . $idRegistro . ')" title="Activar">'
-                    . '<i class="fas fa-check"></i>'
-                    . '</button>';
-            }
+            $botonEditar = '<button type="button" class="attribute-value-action is-edit" onclick="editarValor(' . $idRegistro . ')" title="Editar" aria-label="Editar valor"><i class="fas fa-pencil-alt"></i></button>';
+            $botonEstado = $estado === 1
+                ? '<button type="button" class="attribute-value-action is-danger" onclick="desactivarValor(' . $idRegistro . ')" title="Desactivar" aria-label="Desactivar valor"><i class="fas fa-times"></i></button>'
+                : '<button type="button" class="attribute-value-action is-success" onclick="activarValor(' . $idRegistro . ')" title="Activar" aria-label="Activar valor"><i class="fas fa-check"></i></button>';
 
             $data[] = [
-                $valorHtml,
+                $celdaValor,
                 $estadoHtml,
-                $botonEditar . ' ' . $botonEstado,
+                $botonEditar . $botonEstado,
             ];
         }
 
