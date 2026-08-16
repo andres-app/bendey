@@ -1,3 +1,1 @@
-Nombre;Codigo;Stock;PrecioCompra;PrecioVenta;IdCategoria;IdSubcategoria;IdAlmacen;IdMedida
-Polo Piolino;PPY-123;1000;12;30;27;2;1;1
-JABONo;jb-1234;100;10;3;28;1;2;1
+﻿Producto,SKU,Stock,PrecioCompra,PrecioVenta,Categoria,Subcategoria,Almacen,UnidadMedida

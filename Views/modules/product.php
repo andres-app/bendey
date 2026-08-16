@@ -331,16 +331,175 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
 
     .tp-import-panel {
         display: none;
-        margin-bottom: 13px;
-        padding: 15px;
-        border: 1px solid #dce7e1;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #fbfffd, #f5faf7);
+        position: relative;
+        margin: 0 0 18px;
+        border: 1px solid #e2e8f0;
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, .08);
+        overflow: hidden;
     }
     .tp-import-panel.is-open { display: block; }
-    .tp-import-panel h5 { margin: 0 0 3px; font-size: .86rem; font-weight: 750; }
-    .tp-import-panel p { margin: 0; color: #7d8892; font-size: .7rem; }
-    .tp-import-form { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .tp-import-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px 14px;
+        border-bottom: 1px solid #edf1f4;
+        background: linear-gradient(135deg, #ffffff 0%, #f1fcf7 100%);
+    }
+    .tp-import-title { display:flex; align-items:flex-start; gap:12px; min-width:0; }
+    .tp-import-title-icon {
+        display:grid; place-items:center; flex:0 0 42px; width:42px; height:42px;
+        border-radius:14px; color:#008d5b; background:#e9fbf3; font-size:1rem;
+    }
+    .tp-import-panel h5 { margin: 1px 0 4px; color:#17212b; font-size:1rem; font-weight:760; letter-spacing:-.015em; }
+    .tp-import-panel p { margin: 0; color:#728091; font-size:.73rem; line-height:1.45; }
+    .tp-import-close {
+        display:grid; place-items:center; width:36px; height:36px; border:0; border-radius:12px;
+        color:#64748b; background:#fff; box-shadow:0 1px 2px rgba(15,23,42,.06); cursor:pointer;
+    }
+    .tp-import-close:hover { color:#00754d; background:#effaf5; transform:translateY(-1px); }
+    .tp-import-close:active { transform:scale(.96); }
+    .tp-import-close:focus, .tp-import-close:focus-visible {
+        outline:none !important; color:#00754d; background:#effaf5;
+        box-shadow:0 0 0 4px rgba(0,164,106,.11) !important;
+    }
+    .tp-import-toolbar {
+        display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+        padding:12px 20px; border-bottom:1px solid #edf1f4; background:#fff;
+    }
+    .tp-import-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .tp-import-action {
+        display:inline-flex; align-items:center; gap:8px; min-height:42px; padding:0 13px 0 8px;
+        border:1px solid #e2e8f0; border-radius:13px; background:#fff; color:#475569;
+        font-size:.72rem; font-weight:650; cursor:pointer; text-decoration:none !important;
+        box-shadow:0 4px 12px rgba(15,23,42,.035);
+        transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease, color .16s ease;
+        -webkit-tap-highlight-color:transparent;
+    }
+    .tp-import-action > i {
+        display:inline-grid; place-items:center; width:28px; height:28px; flex:0 0 28px;
+        border-radius:9px; color:#64748b; background:#f1f5f9; font-size:.72rem;
+        transition:transform .16s ease, color .16s ease, background-color .16s ease;
+    }
+    .tp-import-action:hover {
+        transform:translateY(-2px); border-color:#b8e3d1; color:#00754d; background:#fbfffd;
+        box-shadow:0 9px 20px rgba(15,23,42,.065);
+    }
+    .tp-import-action:hover > i { transform:scale(1.05); color:#00754d; background:#e8f9f1; }
+    .tp-import-action:active { transform:translateY(0) scale(.985); box-shadow:0 3px 9px rgba(15,23,42,.045); }
+    .tp-import-action:focus,
+    .tp-import-action:focus-visible {
+        outline:none !important; border-color:#75d3ad !important;
+        box-shadow:0 0 0 4px rgba(0,164,106,.11), 0 8px 18px rgba(15,23,42,.05) !important;
+    }
+    .tp-import-action.is-primary {
+        border-color:#00a46a; background:#00a46a; color:#fff;
+        box-shadow:0 9px 20px rgba(0,164,106,.18);
+    }
+    .tp-import-action.is-primary > i { color:#fff; background:rgba(255,255,255,.16); }
+    .tp-import-action.is-primary:hover { border-color:#008d5b; background:#008d5b; color:#fff; box-shadow:0 12px 24px rgba(0,164,106,.23); }
+    .tp-import-action.is-primary:hover > i { color:#fff; background:rgba(255,255,255,.2); }
+    .tp-import-file { display:none; }
+    .tp-import-kpis { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+    .tp-import-kpi {
+        display:inline-flex; align-items:center; gap:6px; min-height:30px; padding:0 9px;
+        border:1px solid #e4e9ed; border-radius:999px; background:#fff; color:#64748b; font-size:.67rem;
+    }
+    .tp-import-kpi strong { color:#17212b; font-size:.75rem; }
+    .tp-import-kpi.is-valid { background:#effbf5; border-color:#d6f1e4; color:#00754d; }
+    .tp-import-kpi.is-error { background:#fff5f5; border-color:#ffe0e0; color:#c23946; }
+    .tp-sheet-help {
+        display:flex; align-items:center; gap:8px; padding:9px 20px; background:#f8fafc;
+        color:#64748b; font-size:.68rem; border-bottom:1px solid #edf1f4;
+    }
+    .tp-sheet-help i { color:#00a46a; }
+    .tp-sheet-wrap { overflow:auto; max-height:54vh; background:#fff; }
+    .tp-sheet { width:100%; min-width:1120px; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+    .tp-sheet th {
+        position:sticky; top:0; z-index:6; height:42px; padding:0 9px; border-right:1px solid #e7ecef; border-bottom:1px solid #dfe6ea;
+        background:#f7f9fa; color:#536174; font-size:.66rem; font-weight:750; text-align:left; letter-spacing:.015em;
+    }
+    .tp-sheet th:first-child { left:0; z-index:7; width:54px; text-align:center; }
+    .tp-sheet td { height:43px; padding:0; border-right:1px solid #edf1f4; border-bottom:1px solid #edf1f4; background:#fff; vertical-align:middle; }
+    .tp-sheet td:first-child { position:sticky; left:0; z-index:3; width:54px; background:#f9fbfb; }
+    .tp-sheet-rownum { display:flex; align-items:center; justify-content:center; gap:5px; color:#94a3b8; font-size:.66rem; }
+    .tp-sheet-rownum .tp-row-state { width:7px; height:7px; border-radius:999px; background:#cbd5e1; }
+    .tp-sheet tr.is-valid .tp-row-state { background:#00a46a; box-shadow:0 0 0 3px rgba(0,164,106,.09); }
+    .tp-sheet tr.has-error .tp-row-state { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.08); }
+    .tp-sheet-cell, .tp-sheet-select {
+        width:100%; height:42px; margin:0; padding:0 9px; border:0; outline:0; border-radius:0;
+        background:transparent; color:#17212b; font-size:.72rem; box-shadow:none !important;
+    }
+    .tp-sheet-cell:focus, .tp-sheet-select:focus { background:#f3fcf8; box-shadow:inset 0 0 0 2px rgba(0,164,106,.42) !important; }
+    .tp-sheet-cell.is-number { text-align:right; font-variant-numeric:tabular-nums; }
+    .tp-sheet-select { appearance:auto; cursor:pointer; padding-right:4px; }
+    .tp-sheet tr.has-error .tp-sheet-cell[data-invalid='1'], .tp-sheet tr.has-error .tp-sheet-select[data-invalid='1'] {
+        background:#fff7f7; box-shadow:inset 0 -2px 0 #ef4444 !important;
+    }
+    .tp-sheet-row-actions { display:flex; align-items:center; justify-content:center; }
+    .tp-sheet-remove { width:28px; height:28px; border:0; border-radius:9px; color:#94a3b8; background:transparent; cursor:pointer; }
+    .tp-sheet-remove:hover { color:#dc3545; background:#fff1f2; }
+    .tp-import-foot {
+        display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+        padding:13px 20px 16px; border-top:1px solid #edf1f4; background:#fff;
+    }
+    .tp-import-status { color:#728091; font-size:.7rem; }
+    .tp-import-status strong { color:#17212b; }
+    .tp-import-submit {
+        display:inline-flex; align-items:center; gap:8px; min-height:40px; padding:0 16px; border:0; border-radius:12px;
+        color:#fff; background:#00a46a; font-size:.76rem; font-weight:720; cursor:pointer; box-shadow:0 10px 24px rgba(0,164,106,.18);
+    }
+    .tp-import-submit:disabled { cursor:not-allowed; opacity:.45; box-shadow:none; }
+    .tp-import-submit:not(:disabled):hover { background:#008d5b; transform:translateY(-1px); }
+    .tp-import-empty { padding:34px 20px; text-align:center; color:#94a3b8; font-size:.75rem; }
+    .tp-import-empty i { display:block; margin-bottom:8px; color:#cbd5e1; font-size:1.6rem; }
+
+    /* Focus visual TiquePOS: elimina el contorno negro nativo sin perder accesibilidad. */
+    .tp-products-page button,
+    .tp-products-page a,
+    .tp-products-page label[for],
+    .tp-products-page input,
+    .tp-products-page select {
+        -webkit-tap-highlight-color: transparent;
+    }
+    .tp-products-page button:focus,
+    .tp-products-page button:focus-visible,
+    .tp-products-page a:focus,
+    .tp-products-page a:focus-visible,
+    .tp-products-page label[for]:focus,
+    .tp-products-page label[for]:focus-visible {
+        outline: none !important;
+    }
+    .tp-import-submit:focus,
+    .tp-import-submit:focus-visible {
+        outline:none !important;
+        box-shadow:0 0 0 4px rgba(0,164,106,.13), 0 10px 24px rgba(0,164,106,.18) !important;
+    }
+    .tp-sheet-remove:focus,
+    .tp-sheet-remove:focus-visible {
+        outline:none !important;
+        color:#dc3545; background:#fff1f2;
+        box-shadow:0 0 0 3px rgba(220,53,69,.09) !important;
+    }
+    .tp-products-page .btn:focus,
+    .tp-products-page .btn.focus,
+    .tp-products-page .btn:active:focus,
+    .tp-products-page .btn.active:focus {
+        outline:none !important;
+        box-shadow:0 0 0 4px rgba(0,164,106,.10) !important;
+    }
+    @media (max-width: 767px) {
+        .tp-import-head, .tp-import-toolbar, .tp-import-foot { padding-left:13px; padding-right:13px; }
+        .tp-import-head { align-items:center; }
+        .tp-import-title-icon { width:38px; height:38px; flex-basis:38px; }
+        .tp-import-toolbar { align-items:flex-start; }
+        .tp-import-actions, .tp-import-kpis { width:100%; }
+        .tp-import-action { flex:1 1 auto; justify-content:center; }
+        .tp-sheet-help { padding-left:13px; padding-right:13px; }
+    }
 
     .tp-product-form-head {
         display: flex; align-items: center; justify-content: space-between; gap: 15px;
@@ -866,8 +1025,11 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                     <i class="fas fa-file-pdf mr-2"></i> Exportar PDF
                                 </button>
                                 <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="Assets/plantillas/plantilla_productos.csv" download>
-                                    <i class="fas fa-download mr-2"></i> Descargar plantilla
+                                <a class="dropdown-item" href="Controllers/Product.php?op=descargarPlantillaExcel" download="plantilla_productos.xlsx">
+                                    <i class="fas fa-file-excel mr-2"></i> Descargar plantilla Excel
+                                </a>
+                                <a class="dropdown-item" href="Controllers/Product.php?op=descargarPlantillaCsv" download="plantilla_productos.csv">
+                                    <i class="fas fa-file-csv mr-2"></i> Descargar plantilla CSV
                                 </a>
                             </div>
                         </div>
@@ -917,21 +1079,60 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                 </div>
             </div>
 
-            <div id="plantillaSection" class="tp-import-panel">
-                <div class="row align-items-center">
-                    <div class="col-lg-5 mb-3 mb-lg-0">
-                        <h5>Importación masiva</h5>
-                        <p>Carga un archivo CSV o Excel utilizando la plantilla oficial del sistema.</p>
+            <div id="plantillaSection" class="tp-import-panel tw-border tw-border-slate-200 tw-bg-white tw-shadow-xl" aria-hidden="true">
+                <div class="tp-import-head tw-bg-gradient-to-r tw-from-white tw-to-tique-50">
+                    <div class="tp-import-title">
+                        <span class="tp-import-title-icon"><i class="fas fa-table"></i></span>
+                        <div>
+                            <h5>Importar Productos</h5>
+                            <p>Registra productos en masa directamente desde esta hoja o carga un archivo Excel/CSV. Categorías, almacenes y unidades se muestran con nombres legibles.</p>
+                        </div>
                     </div>
-                    <div class="col-lg-7">
-                        <form id="formSubidaMasiva" enctype="multipart/form-data" class="tp-import-form">
-                            <input type="file" class="form-control-file" id="archivo_productos" name="archivo_productos" accept=".xlsx,.csv" required>
-                            <button type="submit" class="btn btn-success btn-sm">
-                                <i class="fas fa-upload mr-1"></i> Cargar productos
-                            </button>
-                            <button type="button" class="btn btn-light btn-sm" onclick="togglePlantilla()">Cerrar</button>
-                        </form>
+                    <button type="button" class="tp-import-close tw-transition-all tw-duration-200 focus:tw-outline-none" onclick="togglePlantilla(false)" title="Cerrar"><i class="fas fa-times"></i></button>
+                </div>
+
+                <div class="tp-import-toolbar tw-bg-white">
+                    <div class="tp-import-actions">
+                        <button type="button" class="tp-import-action is-primary tw-select-none tw-border-tique-500 tw-bg-tique-500 tw-text-white tw-shadow-md tw-transition-all tw-duration-200 hover:tw-bg-tique-600 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-500/10" id="btnAgregarFilaMasiva"><i class="fas fa-plus"></i> Agregar fila</button>
+                        <label class="tp-import-action mb-0 tw-select-none tw-border-slate-200 tw-bg-white tw-text-slate-600 tw-shadow-sm tw-transition-all tw-duration-200 hover:tw-border-tique-200 hover:tw-bg-tique-50 hover:tw-text-tique-700" for="archivo_productos"><i class="fas fa-file-upload"></i> Subir Excel/CSV</label>
+                        <input class="tp-import-file" type="file" id="archivo_productos" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                        <a class="tp-import-action tw-select-none tw-border-slate-200 tw-bg-white tw-text-slate-600 tw-shadow-sm tw-transition-all tw-duration-200 hover:tw-border-tique-200 hover:tw-bg-tique-50 hover:tw-text-tique-700 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-500/10" href="Controllers/Product.php?op=descargarPlantillaExcel" download="plantilla_productos.xlsx"><i class="fas fa-file-excel"></i> Plantilla Excel</a>
+                        <a class="tp-import-action tw-select-none tw-border-slate-200 tw-bg-white tw-text-slate-600 tw-shadow-sm tw-transition-all tw-duration-200 hover:tw-border-tique-200 hover:tw-bg-tique-50 hover:tw-text-tique-700 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-500/10" href="Controllers/Product.php?op=descargarPlantillaCsv" download="plantilla_productos.csv"><i class="fas fa-file-csv"></i> Plantilla CSV</a>
+                        <button type="button" class="tp-import-action tw-select-none tw-border-slate-200 tw-bg-white tw-text-slate-600 tw-shadow-sm tw-transition-all tw-duration-200 hover:tw-border-tique-200 hover:tw-bg-tique-50 hover:tw-text-tique-700 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-500/10" id="btnLimpiarMasivo"><i class="fas fa-eraser"></i> Limpiar</button>
                     </div>
+                    <div class="tp-import-kpis">
+                        <span class="tp-import-kpi"><strong id="masivoTotal">0</strong> filas</span>
+                        <span class="tp-import-kpi is-valid"><strong id="masivoValidas">0</strong> válidas</span>
+                        <span class="tp-import-kpi is-error"><strong id="masivoErrores">0</strong> con error</span>
+                    </div>
+                </div>
+
+                <div class="tp-sheet-help">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Puedes pegar varias columnas y filas de una sola vez. Categoría, subcategoría, almacén y unidad muestran <strong>ID + nombre</strong>, pero el sistema guarda únicamente el ID.</span>
+                </div>
+
+                <div class="tp-sheet-wrap" id="masivoSheetWrap">
+                    <table class="tp-sheet" id="tablaMasivaProductos">
+                        <colgroup>
+                            <col style="width:54px"><col style="width:210px"><col style="width:130px"><col style="width:82px">
+                            <col style="width:108px"><col style="width:108px"><col style="width:180px"><col style="width:190px">
+                            <col style="width:170px"><col style="width:165px"><col style="width:52px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>#</th><th>Producto *</th><th>SKU *</th><th>Stock</th><th>P. compra</th><th>P. venta *</th>
+                                <th>Categoría *</th><th>Subcategoría</th><th>Almacén *</th><th>Unidad *</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoMasivoProductos"></tbody>
+                    </table>
+                    <div class="tp-import-empty" id="masivoEmpty" style="display:none;"><i class="fas fa-border-all"></i>Agrega una fila o pega directamente desde Excel sobre la primera celda.</div>
+                </div>
+
+                <div class="tp-import-foot">
+                    <div class="tp-import-status" id="masivoEstado">Carga los catálogos para comenzar.</div>
+                    <button type="button" class="tp-import-submit tw-select-none tw-bg-tique-500 tw-text-white tw-shadow-lg tw-transition-all tw-duration-200 hover:tw-bg-tique-600 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-500/10" id="btnImportarMasivo" disabled><i class="fas fa-cloud-upload-alt"></i> Importar productos válidos</button>
                 </div>
             </div>
 

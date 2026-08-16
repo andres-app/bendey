@@ -296,7 +296,23 @@ class Product
 		$fila = 1;
 
 		if (($handle = fopen($rutaArchivo, "r")) !== FALSE) {
-			while (($data = fgetcsv($handle, 1000, ";")) !== FALSE) {
+			$primeraLinea = fgets($handle);
+			rewind($handle);
+			$delimitadores = [',', ';', "\t"];
+			$delimitador = ',';
+			$mejorConteo = 0;
+			foreach ($delimitadores as $candidato) {
+				$conteo = count(str_getcsv((string)$primeraLinea, $candidato));
+				if ($conteo > $mejorConteo) {
+					$mejorConteo = $conteo;
+					$delimitador = $candidato;
+				}
+			}
+
+			while (($data = fgetcsv($handle, 0, $delimitador)) !== FALSE) {
+				if ($fila === 1 && isset($data[0])) {
+					$data[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$data[0]);
+				}
 				if ($fila == 1) {
 					$fila++;
 					continue;
@@ -318,7 +334,7 @@ class Product
 
 				// Validar existencia de código duplicado
 				$productoExistente = $this->verificarCodigo($codigo);
-				if (!empty($productoExistente) && isset($productoExistente[0]['codigo'])) {
+				if (!empty($productoExistente) && isset($productoExistente['codigo'])) {
 					$mensajes_error[] = "🔁 Fila $fila: Ya existe un producto con el código '$codigo'. No se registró.";
 					$fila++;
 					continue;
@@ -385,6 +401,116 @@ class Product
 			'exitosos' => $mensajes_exito,
 			'errores' => $mensajes_error
 		];
+	}
+
+
+	/**
+	 * Inserción segura para importaciones masivas.
+	 * A diferencia de insertar(), nunca imprime ni finaliza el proceso si una fila falla.
+	 */
+	public function insertarImportacionSegura(
+		$idcategoria,
+		$idsubcategoria,
+		$idmedida,
+		$idalmacen,
+		$codigo,
+		$nombre,
+		$stock,
+		$precio_compra,
+		$precio_venta,
+		$descripcion = '',
+		$imagen = 'default.png',
+		$codigo_afectacion_igv = '10',
+		$porcentaje_igv = 18.00,
+		$unidad_medida_sunat = 'NIU',
+		$codigo_producto_sunat = null
+	) {
+		$transaccionIniciada = false;
+		try {
+			$this->conexion->beginTransaction();
+			$transaccionIniciada = true;
+
+			$sql = "INSERT INTO $this->tableName
+			(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, codigo_afectacion_igv, porcentaje_igv, unidad_medida_sunat, codigo_producto_sunat, condicion)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+
+			$idarticulo = (int)$this->conexion->setDataReturnId($sql, [
+				$idcategoria,
+				$idsubcategoria,
+				$idmedida,
+				$idalmacen,
+				$codigo,
+				$nombre,
+				$stock,
+				$precio_compra,
+				$precio_venta,
+				$descripcion,
+				$imagen,
+				$codigo_afectacion_igv,
+				$porcentaje_igv,
+				$unidad_medida_sunat,
+				$codigo_producto_sunat
+			]);
+
+			if ($idarticulo <= 0) {
+				throw new RuntimeException('No se generó el ID del producto.');
+			}
+
+			$stock = max(0, (int)$stock);
+			$precio_compra = max(0, (float)$precio_compra);
+			$precio_venta = max(0, (float)$precio_venta);
+
+			if ($stock > 0 && $precio_venta > 0) {
+				$idusuario = (int)($_SESSION['idusuario'] ?? 1);
+				$idproveedor = 1;
+				$num = str_pad((string)random_int(1, 9999999), 7, '0', STR_PAD_LEFT);
+				$total_compra = $precio_compra * $stock;
+
+				$sqlIngreso = "INSERT INTO ingreso
+				(idproveedor, idusuario, tipo_comprobante, serie_comprobante, num_comprobante, fecha_hora, impuesto, total_compra, estado)
+				VALUES (?, ?, 'Stock Inicial', 'INI', ?, NOW(), 0, ?, 'Aceptado')";
+				$idIngreso = (int)$this->conexion->setDataReturnId($sqlIngreso, [$idproveedor, $idusuario, $num, $total_compra]);
+
+				$sqlDetalle = "INSERT INTO detalle_ingreso
+				(idarticulo, idingreso, cantidad, stock_venta, precio_compra, precio_venta, estado, stock_estado)
+				VALUES (?, ?, ?, ?, ?, ?, 1, 1)";
+				$this->conexion->setData($sqlDetalle, [$idarticulo, $idIngreso, $stock, $stock, $precio_compra, $precio_venta]);
+
+				$detalle = 'Stock Inicial INI-' . $num;
+				$total = $stock * $precio_compra;
+				$sqlKardex = "INSERT INTO kardex
+				(iddetalle, idarticulo, fecha, detalle,
+				 cantidadi, costoui, totali,
+				 cantidads, costous, totals,
+				 cantidadex, costouex, totalex, tipo, estado)
+				VALUES (?, ?, NOW(), ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, 'Ingreso', 'Activo')";
+				$this->conexion->setData($sqlKardex, [
+					$idIngreso,
+					$idarticulo,
+					$detalle,
+					$stock,
+					$precio_compra,
+					$total,
+					$stock,
+					$precio_compra,
+					$total
+				]);
+			}
+
+			$this->conexion->commit();
+			$transaccionIniciada = false;
+			return ['success' => true, 'idarticulo' => $idarticulo, 'error' => null];
+		} catch (Throwable $error) {
+			if ($transaccionIniciada) {
+				try {
+					$this->conexion->rollBack();
+				} catch (Throwable $rollbackError) {
+					error_log('[ROLLBACK IMPORTACION PRODUCTO] ' . $rollbackError->getMessage());
+				}
+			}
+			error_log('[IMPORTACION PRODUCTO] ' . $error->getMessage());
+			return ['success' => false, 'idarticulo' => 0, 'error' => $error->getMessage()];
+		}
 	}
 
 	public function insertarVariacion($idarticulo, $combinacion, $sku, $stock, $precio_compra, $precio_venta)

@@ -8,6 +8,10 @@ var limiteGridProductos = 24;
 var filtroDataTableRegistrado = false;
 var filtroRapidoProducto = "todos";
 var productoDetalleActual = null;
+var catalogosMasivosProducto = { categorias: [], subcategorias: [], almacenes: [], medidas: [] };
+var catalogosMasivosCargados = false;
+var cargandoCatalogosMasivos = null;
+var secuenciaFilaMasiva = 0;
 var configuracionTributariaProducto = {
   afectacion: "10",
   porcentaje: 18,
@@ -67,6 +71,60 @@ function registrarEventosInterfazProductos() {
       $("#imagenmuestra").attr("src", evento.target.result).show();
     };
     lector.readAsDataURL(archivo);
+  });
+
+  $("#btnAgregarFilaMasiva").on("click", function () {
+    asegurarCatalogosMasivos().then(function () { agregarFilaMasivaProducto(); });
+  });
+
+  $("#btnLimpiarMasivo").on("click", function () {
+    limpiarHojaMasivaProducto(true);
+  });
+
+  $("#archivo_productos").on("change", function () {
+    if (this.files && this.files[0]) previsualizarArchivoMasivoProducto(this.files[0]);
+    this.value = "";
+  });
+
+  $("#btnImportarMasivo").on("click", function () {
+    importarFilasMasivasProducto();
+  });
+
+  $(document).on("input change", "#cuerpoMasivoProductos .tp-sheet-cell, #cuerpoMasivoProductos .tp-sheet-select", function () {
+    const $fila = $(this).closest("tr");
+    if ($(this).data("field") === "categoria") {
+      actualizarSubcategoriasFilaMasiva($fila, String($(this).val() || ""), "");
+    }
+    validarHojaMasivaProducto();
+  });
+
+  $(document).on("click", ".tp-sheet-remove", function () {
+    $(this).closest("tr").remove();
+    renumerarFilasMasivasProducto();
+    validarHojaMasivaProducto();
+  });
+
+  $(document).on("paste", "#cuerpoMasivoProductos .tp-sheet-cell", function (evento) {
+    const original = evento.originalEvent;
+    const texto = original && original.clipboardData ? original.clipboardData.getData("text") : "";
+    if (!texto || (!texto.includes("\t") && !texto.includes("\n") && !texto.includes("\r"))) return;
+    evento.preventDefault();
+    const $fila = $(this).closest("tr");
+    const inicio = camposMasivosProducto().indexOf(String($(this).data("field") || ""));
+    pegarMatrizMasivaProducto(parsearTextoPegadoProducto(texto), $fila, Math.max(0, inicio));
+  });
+
+  $(document).on("keydown", "#cuerpoMasivoProductos .tp-sheet-cell, #cuerpoMasivoProductos .tp-sheet-select", function (evento) {
+    if (evento.key !== "Enter") return;
+    evento.preventDefault();
+    const $fila = $(this).closest("tr");
+    const campo = String($(this).data("field") || "");
+    let $siguiente = $fila.next("tr");
+    if (!$siguiente.length) {
+      $siguiente = agregarFilaMasivaProducto();
+    }
+    const $destino = $siguiente.find(`[data-field="${campo}"]`);
+    if ($destino.length) $destino.trigger("focus");
   });
 
   $(document).on("keydown", function (evento) {
@@ -1228,56 +1286,448 @@ function resetSubcategoriaUI(msg = "Seleccione subcategoría") {
 
 
 
-$("#formSubidaMasiva").on("submit", function (e) {
-  e.preventDefault();
-  var formData = new FormData(this);
+function togglePlantilla(forzar) {
+  const $panel = $("#plantillaSection");
+  const abrir = typeof forzar === "boolean" ? forzar : !$panel.hasClass("is-open");
 
-  $.ajax({
-    url: "Controllers/Product.php?op=subirMasivo",
-    type: "POST",
-    data: formData,
-    contentType: false,
-    processData: false,
-    beforeSend: () => Swal.fire({ title: "Subiendo productos...", didOpen: () => Swal.showLoading() }),
-    success: function (response) {
-      Swal.close();
-      try {
-        var data = JSON.parse(response);
-        let htmlSuccess = "", htmlError = "";
+  // mostrarform(true) puede haber aplicado display:none inline; lo limpiamos para que la clase controle la vista.
+  $panel.removeAttr("style").toggleClass("is-open", abrir).attr("aria-hidden", abrir ? "false" : "true");
 
-        if (Array.isArray(data.exitosos)) {
-          htmlSuccess = "<ul>" + data.exitosos.map(msg => `<li style='color:green'>${msg}</li>`).join("") + "</ul>";
-        }
+  if (!abrir) return;
 
-        if (Array.isArray(data.errores)) {
-          htmlError = "<ul>" + data.errores.map(msg => `<li style='color:red'>${msg}</li>`).join("") + "</ul>";
-        }
+  asegurarCatalogosMasivos().then(function () {
+    if (!$("#cuerpoMasivoProductos tr").length) {
+      for (let i = 0; i < 5; i++) agregarFilaMasivaProducto({}, false);
+      validarHojaMasivaProducto();
+    }
 
-        Swal.fire({
-          title: "Resultado de la carga",
-          html: htmlSuccess + htmlError,
-          icon: data.errores.length > 0 ? "warning" : "success",
-          width: 600
-        });
-
-        if (tabla) tabla.ajax.reload();
-
-      } catch (e) {
-        Swal.fire("Error", "Respuesta inesperada: " + response, "error");
-      }
-    },
-    error: () => Swal.fire("Error", "No se pudo conectar con el servidor.", "error")
-  });
-});
-
-function togglePlantilla() {
-  $("#plantillaSection").toggleClass("is-open");
-
-  if ($("#plantillaSection").hasClass("is-open")) {
     window.setTimeout(function () {
-      $("#plantillaSection")[0].scrollIntoView({ behavior: "smooth", block: "nearest" });
+      if ($panel[0]) $panel[0].scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
+  });
+}
+
+function camposMasivosProducto() {
+  return ["nombre", "codigo", "stock", "precio_compra", "precio_venta", "categoria", "subcategoria", "almacen", "medida"];
+}
+
+function escaparHtmlMasivoProducto(valor) {
+  return String(valor == null ? "" : valor)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function normalizarMasivoProducto(valor) {
+  return String(valor == null ? "" : valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function asegurarCatalogosMasivos() {
+  if (catalogosMasivosCargados) return $.Deferred().resolve(catalogosMasivosProducto).promise();
+  if (cargandoCatalogosMasivos) return cargandoCatalogosMasivos;
+
+  $("#masivoEstado").html('<span class="spinner-border spinner-border-sm mr-1"></span> Cargando categorías, almacenes y unidades...');
+
+  cargandoCatalogosMasivos = $.ajax({
+    url: "Controllers/Product.php?op=datosImportacion",
+    type: "GET",
+    dataType: "json",
+    cache: false
+  }).done(function (respuesta) {
+    if (!respuesta || respuesta.success !== true || !respuesta.datos) {
+      throw new Error((respuesta && respuesta.mensaje) || "No se pudieron cargar los catálogos.");
+    }
+    catalogosMasivosProducto = {
+      categorias: Array.isArray(respuesta.datos.categorias) ? respuesta.datos.categorias : [],
+      subcategorias: Array.isArray(respuesta.datos.subcategorias) ? respuesta.datos.subcategorias : [],
+      almacenes: Array.isArray(respuesta.datos.almacenes) ? respuesta.datos.almacenes : [],
+      medidas: Array.isArray(respuesta.datos.medidas) ? respuesta.datos.medidas : []
+    };
+    catalogosMasivosCargados = true;
+    $("#masivoEstado").html('<i class="fas fa-check-circle text-success mr-1"></i> Catálogos listos. Puedes digitar o pegar desde Excel.');
+  }).fail(function (xhr) {
+    const mensaje = xhr.responseJSON && xhr.responseJSON.mensaje ? xhr.responseJSON.mensaje : "No se pudieron cargar los catálogos para la importación.";
+    $("#masivoEstado").text(mensaje);
+    Swal.fire("No se pudo iniciar la carga masiva", mensaje, "error");
+  }).always(function () {
+    cargandoCatalogosMasivos = null;
+  });
+
+  return cargandoCatalogosMasivos;
+}
+
+function opcionesCatalogoMasivo(items, tipo, seleccion) {
+  const valor = String(seleccion == null ? "" : seleccion);
+  let html = '<option value="">Seleccionar...</option>';
+
+  items.forEach(function (item) {
+    const id = tipo === "categoria" ? item.idcategoria
+      : tipo === "subcategoria" ? item.idsubcategoria
+      : tipo === "almacen" ? item.idalmacen
+      : item.idmedida;
+    let etiqueta = `${id} - ${item.nombre || ""}`;
+    if (tipo === "medida" && item.codigo) etiqueta += ` (${item.codigo})`;
+    if (tipo === "subcategoria" && item.categoria) etiqueta += ` · ${item.categoria}`;
+    html += `<option value="${escaparHtmlMasivoProducto(id)}"${String(id) === valor ? " selected" : ""}>${escaparHtmlMasivoProducto(etiqueta)}</option>`;
+  });
+
+  return html;
+}
+
+function resolverCatalogoMasivo(valor, items, tipo) {
+  const texto = String(valor == null ? "" : valor).trim();
+  if (!texto) return "";
+
+  const coincidenciaId = texto.match(/^\s*(\d+)\s*(?:-|$)/);
+  if (coincidenciaId) {
+    const id = coincidenciaId[1];
+    const existe = items.some(function (item) {
+      const itemId = tipo === "categoria" ? item.idcategoria : tipo === "subcategoria" ? item.idsubcategoria : tipo === "almacen" ? item.idalmacen : item.idmedida;
+      return String(itemId) === String(id);
+    });
+    if (existe) return String(id);
   }
+
+  const objetivo = normalizarMasivoProducto(texto);
+  const encontrado = items.find(function (item) {
+    const id = tipo === "categoria" ? item.idcategoria : tipo === "subcategoria" ? item.idsubcategoria : tipo === "almacen" ? item.idalmacen : item.idmedida;
+    const candidatos = [String(item.nombre || ""), `${id} - ${item.nombre || ""}`];
+    if (tipo === "medida") candidatos.push(String(item.codigo || ""), `${item.nombre || ""} (${item.codigo || ""})`);
+    if (tipo === "subcategoria" && item.categoria) candidatos.push(`${item.nombre || ""} · ${item.categoria}`);
+    return candidatos.some(function (c) { return normalizarMasivoProducto(c) === objetivo; });
+  });
+
+  if (!encontrado) return "";
+  return String(tipo === "categoria" ? encontrado.idcategoria : tipo === "subcategoria" ? encontrado.idsubcategoria : tipo === "almacen" ? encontrado.idalmacen : encontrado.idmedida);
+}
+
+function agregarFilaMasivaProducto(datos, validar = true) {
+  datos = datos || {};
+  const idFila = ++secuenciaFilaMasiva;
+  const categoria = resolverCatalogoMasivo(datos.categoria ?? datos.idcategoria ?? "", catalogosMasivosProducto.categorias, "categoria");
+  const almacen = resolverCatalogoMasivo(datos.almacen ?? datos.idalmacen ?? "", catalogosMasivosProducto.almacenes, "almacen");
+  const medida = resolverCatalogoMasivo(datos.medida ?? datos.idmedida ?? "", catalogosMasivosProducto.medidas, "medida");
+
+  const $fila = $(
+    `<tr data-row-id="${idFila}">
+      <td><div class="tp-sheet-rownum"><span class="tp-row-state"></span><span class="tp-row-number">1</span></div></td>
+      <td><input class="tp-sheet-cell" data-field="nombre" maxlength="200" autocomplete="off" placeholder="Producto"></td>
+      <td><input class="tp-sheet-cell" data-field="codigo" maxlength="50" autocomplete="off" placeholder="SKU"></td>
+      <td><input class="tp-sheet-cell is-number" data-field="stock" inputmode="numeric" autocomplete="off" value="0"></td>
+      <td><input class="tp-sheet-cell is-number" data-field="precio_compra" inputmode="decimal" autocomplete="off" value="0.00"></td>
+      <td><input class="tp-sheet-cell is-number" data-field="precio_venta" inputmode="decimal" autocomplete="off" value="0.00"></td>
+      <td><select class="tp-sheet-select" data-field="categoria">${opcionesCatalogoMasivo(catalogosMasivosProducto.categorias, "categoria", categoria)}</select></td>
+      <td><select class="tp-sheet-select" data-field="subcategoria"><option value="">Sin subcategoría</option></select></td>
+      <td><select class="tp-sheet-select" data-field="almacen">${opcionesCatalogoMasivo(catalogosMasivosProducto.almacenes, "almacen", almacen)}</select></td>
+      <td><select class="tp-sheet-select" data-field="medida">${opcionesCatalogoMasivo(catalogosMasivosProducto.medidas, "medida", medida)}</select></td>
+      <td><div class="tp-sheet-row-actions"><button type="button" class="tp-sheet-remove" title="Eliminar fila"><i class="fas fa-times"></i></button></div></td>
+    </tr>`
+  );
+
+  $("#cuerpoMasivoProductos").append($fila);
+  $fila.find('[data-field="nombre"]').val(datos.nombre ?? datos.producto ?? "");
+  $fila.find('[data-field="codigo"]').val(datos.codigo ?? datos.sku ?? "");
+  $fila.find('[data-field="stock"]').val(datos.stock === undefined || datos.stock === "" ? "0" : datos.stock);
+  $fila.find('[data-field="precio_compra"]').val(datos.precio_compra ?? datos.preciocompra ?? "0.00");
+  $fila.find('[data-field="precio_venta"]').val(datos.precio_venta ?? datos.precioventa ?? "0.00");
+
+  const subValor = resolverCatalogoMasivo(datos.subcategoria ?? datos.idsubcategoria ?? "", catalogosMasivosProducto.subcategorias, "subcategoria");
+  actualizarSubcategoriasFilaMasiva($fila, categoria, subValor);
+  renumerarFilasMasivasProducto();
+  $("#masivoEmpty").hide();
+  if (validar) validarHojaMasivaProducto();
+  return $fila;
+}
+
+function actualizarSubcategoriasFilaMasiva($fila, idCategoria, idSeleccionado) {
+  const categoria = String(idCategoria || "");
+  const filtradas = catalogosMasivosProducto.subcategorias.filter(function (item) {
+    return !categoria || String(item.idcategoria) === categoria;
+  });
+  const $select = $fila.find('[data-field="subcategoria"]');
+  $select.html('<option value="">Sin subcategoría</option>' + opcionesCatalogoMasivo(filtradas, "subcategoria", idSeleccionado).replace('<option value="">Seleccionar...</option>', ''));
+  if (idSeleccionado) $select.val(String(idSeleccionado));
+}
+
+function renumerarFilasMasivasProducto() {
+  $("#cuerpoMasivoProductos tr").each(function (indice) {
+    $(this).find(".tp-row-number").text(indice + 1);
+  });
+  $("#masivoEmpty").toggle($("#cuerpoMasivoProductos tr").length === 0);
+}
+
+function datosFilaMasivaProducto($fila) {
+  const datos = { fila_cliente: String($fila.data("row-id") || "") };
+  camposMasivosProducto().forEach(function (campo) {
+    datos[campo] = String($fila.find(`[data-field="${campo}"]`).val() ?? "").trim();
+  });
+  return datos;
+}
+
+function filaMasivaVaciaProducto(datos) {
+  return !String(datos.nombre || "").trim()
+    && !String(datos.codigo || "").trim()
+    && (!String(datos.stock || "").trim() || Number(datos.stock) === 0)
+    && (!String(datos.precio_compra || "").trim() || Number(datos.precio_compra) === 0)
+    && (!String(datos.precio_venta || "").trim() || Number(datos.precio_venta) === 0)
+    && !String(datos.categoria || "").trim()
+    && !String(datos.subcategoria || "").trim()
+    && !String(datos.almacen || "").trim()
+    && !String(datos.medida || "").trim();
+}
+
+function validarHojaMasivaProducto() {
+  const filas = [];
+  const skus = {};
+  let errores = 0;
+  let validas = 0;
+
+  $("#cuerpoMasivoProductos tr").each(function () {
+    const $fila = $(this);
+    const datos = datosFilaMasivaProducto($fila);
+    $fila.removeClass("is-valid has-error").removeAttr("title");
+    $fila.find("[data-invalid]").removeAttr("data-invalid");
+
+    if (filaMasivaVaciaProducto(datos)) return;
+
+    const mensajes = [];
+    function marcar(campo, mensaje) {
+      mensajes.push(mensaje);
+      $fila.find(`[data-field="${campo}"]`).attr("data-invalid", "1");
+    }
+
+    if (!datos.nombre) marcar("nombre", "Falta el nombre");
+    if (!datos.codigo) marcar("codigo", "Falta el SKU");
+    if (!datos.categoria) marcar("categoria", "Selecciona una categoría");
+    if (!datos.almacen) marcar("almacen", "Selecciona un almacén");
+    if (!datos.medida) marcar("medida", "Selecciona una unidad");
+
+    if (datos.stock === "" || !/^\d+$/.test(datos.stock) || Number(datos.stock) < 0) marcar("stock", "Stock inválido");
+    if (datos.precio_compra === "" || !Number.isFinite(Number(datos.precio_compra)) || Number(datos.precio_compra) < 0) marcar("precio_compra", "Precio de compra inválido");
+    if (datos.precio_venta === "" || !Number.isFinite(Number(datos.precio_venta)) || Number(datos.precio_venta) <= 0) marcar("precio_venta", "El precio de venta debe ser mayor a 0");
+
+    if (datos.subcategoria) {
+      const sub = catalogosMasivosProducto.subcategorias.find(function (item) { return String(item.idsubcategoria) === datos.subcategoria; });
+      if (!sub || String(sub.idcategoria) !== datos.categoria) marcar("subcategoria", "La subcategoría no pertenece a la categoría");
+    }
+
+    const skuKey = normalizarMasivoProducto(datos.codigo);
+    if (skuKey) {
+      if (skus[skuKey]) {
+        marcar("codigo", "SKU repetido dentro de la hoja");
+        skus[skuKey].find('[data-field="codigo"]').attr("data-invalid", "1").closest("tr").removeClass("is-valid").addClass("has-error");
+      } else {
+        skus[skuKey] = $fila;
+      }
+    }
+
+    datos._errores = mensajes;
+    filas.push(datos);
+
+    if (mensajes.length) {
+      errores++;
+      $fila.addClass("has-error").attr("title", mensajes.join(" · "));
+    } else {
+      validas++;
+      $fila.addClass("is-valid");
+    }
+  });
+
+  // Segunda pasada para reflejar duplicados marcados en una fila anterior.
+  $("#cuerpoMasivoProductos tr.has-error").each(function () {
+    const id = String($(this).data("row-id") || "");
+    const item = filas.find(function (fila) { return fila.fila_cliente === id; });
+    if (item && (!item._errores || !item._errores.length)) {
+      item._errores = ["SKU repetido dentro de la hoja"];
+      validas = Math.max(0, validas - 1);
+      errores++;
+    }
+  });
+
+  $("#masivoTotal").text(filas.length);
+  $("#masivoValidas").text(validas);
+  $("#masivoErrores").text(errores);
+  $("#btnImportarMasivo").prop("disabled", validas === 0).html(`<i class="fas fa-cloud-upload-alt"></i> Importar ${validas} producto${validas === 1 ? "" : "s"} válido${validas === 1 ? "" : "s"}`);
+
+  if (!filas.length) {
+    $("#masivoEstado").text("Agrega una fila o pega información desde Excel.");
+  } else if (errores) {
+    $("#masivoEstado").html(`<strong>${validas}</strong> listas para importar · <span class="text-danger"><strong>${errores}</strong> requieren corrección</span>`);
+  } else {
+    $("#masivoEstado").html(`<span class="text-success"><i class="fas fa-check-circle mr-1"></i><strong>${validas}</strong> productos listos para importar</span>`);
+  }
+
+  return filas;
+}
+
+function limpiarHojaMasivaProducto(confirmar) {
+  const ejecutar = function () {
+    $("#cuerpoMasivoProductos").empty();
+    for (let i = 0; i < 5; i++) agregarFilaMasivaProducto({}, false);
+    validarHojaMasivaProducto();
+  };
+
+  if (!confirmar || !$("#cuerpoMasivoProductos tr.is-valid, #cuerpoMasivoProductos tr.has-error").length) {
+    ejecutar();
+    return;
+  }
+
+  Swal.fire({
+    title: "¿Limpiar la hoja?",
+    text: "Se eliminarán los datos digitados o pegados que todavía no se han importado.",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Sí, limpiar",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#00a46a"
+  }).then(function (r) { if (r.isConfirmed) ejecutar(); });
+}
+
+function parsearTextoPegadoProducto(texto) {
+  const limpio = String(texto || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trimEnd();
+  if (!limpio) return [];
+  return limpio.split("\n").map(function (linea) { return linea.split("\t"); });
+}
+
+function pegarMatrizMasivaProducto(matriz, $filaInicio, columnaInicio) {
+  if (!Array.isArray(matriz) || !matriz.length) return;
+  const campos = camposMasivosProducto();
+  let $fila = $filaInicio && $filaInicio.length ? $filaInicio : $("#cuerpoMasivoProductos tr").last();
+  if (!$fila.length) $fila = agregarFilaMasivaProducto({}, false);
+
+  matriz.forEach(function (columnas, indiceFila) {
+    if (indiceFila > 0) {
+      let $siguiente = $fila.next("tr");
+      if (!$siguiente.length) $siguiente = agregarFilaMasivaProducto({}, false);
+      $fila = $siguiente;
+    }
+
+    columnas.forEach(function (valor, offset) {
+      const campo = campos[columnaInicio + offset];
+      if (!campo) return;
+      const $control = $fila.find(`[data-field="${campo}"]`);
+      if (!$control.length) return;
+
+      if (["categoria", "subcategoria", "almacen", "medida"].includes(campo)) {
+        const items = campo === "categoria" ? catalogosMasivosProducto.categorias : campo === "subcategoria" ? catalogosMasivosProducto.subcategorias : campo === "almacen" ? catalogosMasivosProducto.almacenes : catalogosMasivosProducto.medidas;
+        const id = resolverCatalogoMasivo(valor, items, campo);
+        if (campo === "categoria") {
+          $control.val(id);
+          actualizarSubcategoriasFilaMasiva($fila, id, "");
+        } else if (campo === "subcategoria") {
+          actualizarSubcategoriasFilaMasiva($fila, String($fila.find('[data-field="categoria"]').val() || ""), id);
+        } else {
+          $control.val(id);
+        }
+      } else {
+        $control.val(String(valor == null ? "" : valor).trim());
+      }
+    });
+  });
+
+  renumerarFilasMasivasProducto();
+  validarHojaMasivaProducto();
+}
+
+function previsualizarArchivoMasivoProducto(archivo) {
+  if (!archivo) return;
+  asegurarCatalogosMasivos().then(function () {
+    const formData = new FormData();
+    formData.append("archivo_productos", archivo);
+
+    $.ajax({
+      url: "Controllers/Product.php?op=previsualizarMasivo",
+      type: "POST",
+      data: formData,
+      contentType: false,
+      processData: false,
+      dataType: "json",
+      beforeSend: function () { $("#masivoEstado").html('<span class="spinner-border spinner-border-sm mr-1"></span> Leyendo archivo...'); }
+    }).done(function (respuesta) {
+      if (!respuesta || respuesta.success !== true) {
+        Swal.fire("Archivo no válido", (respuesta && respuesta.mensaje) || "No se pudo leer el archivo.", "error");
+        return;
+      }
+
+      const filas = Array.isArray(respuesta.filas) ? respuesta.filas : [];
+      $("#cuerpoMasivoProductos").empty();
+      filas.forEach(function (fila) { agregarFilaMasivaProducto(fila, false); });
+      if (!filas.length) for (let i = 0; i < 5; i++) agregarFilaMasivaProducto({}, false);
+      validarHojaMasivaProducto();
+      Swal.fire({ icon: "success", title: "Archivo cargado", text: `${filas.length} fila${filas.length === 1 ? "" : "s"} preparada${filas.length === 1 ? "" : "s"} para revisión.`, timer: 1500, showConfirmButton: false });
+    }).fail(function (xhr) {
+      const mensaje = xhr.responseJSON && xhr.responseJSON.mensaje ? xhr.responseJSON.mensaje : "No se pudo procesar el archivo.";
+      Swal.fire("Error", mensaje, "error");
+    });
+  });
+}
+
+function importarFilasMasivasProducto() {
+  const filas = validarHojaMasivaProducto().filter(function (fila) { return !fila._errores || fila._errores.length === 0; });
+  if (!filas.length) {
+    Swal.fire("Sin filas válidas", "Corrige los campos marcados antes de importar.", "warning");
+    return;
+  }
+
+  Swal.fire({
+    title: `Importar ${filas.length} producto${filas.length === 1 ? "" : "s"}`,
+    text: "Se registrarán los productos válidos y su stock inicial en el sistema.",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Importar ahora",
+    cancelButtonText: "Revisar",
+    confirmButtonColor: "#00a46a"
+  }).then(function (confirmacion) {
+    if (!confirmacion.isConfirmed) return;
+
+    $.ajax({
+      url: "Controllers/Product.php?op=importarMasivoJson",
+      type: "POST",
+      dataType: "json",
+      data: { filas: JSON.stringify(filas) },
+      beforeSend: function () {
+        $("#btnImportarMasivo").prop("disabled", true).html('<span class="spinner-border spinner-border-sm"></span> Importando...');
+      }
+    }).done(function (respuesta) {
+      const exitos = Array.isArray(respuesta.exitosos) ? respuesta.exitosos : [];
+      const erroresServidor = Array.isArray(respuesta.errores) ? respuesta.errores : [];
+      const idsExitosos = Array.isArray(respuesta.filas_exitosas) ? respuesta.filas_exitosas.map(String) : [];
+
+      idsExitosos.forEach(function (id) {
+        $(`#cuerpoMasivoProductos tr[data-row-id="${id}"]`).remove();
+      });
+
+      renumerarFilasMasivasProducto();
+      validarHojaMasivaProducto();
+      if (tabla) tabla.ajax.reload(null, false);
+
+      let html = `<div style="text-align:left"><div style="margin-bottom:8px"><strong style="color:#008d5b">${exitos.length}</strong> producto${exitos.length === 1 ? "" : "s"} registrado${exitos.length === 1 ? "" : "s"}.</div>`;
+      if (erroresServidor.length) {
+        html += `<div style="color:#b4232f;margin-bottom:5px"><strong>${erroresServidor.length} no se pudieron importar:</strong></div><ul style="max-height:180px;overflow:auto;padding-left:18px;font-size:12px">${erroresServidor.map(function (e) { return `<li>${escaparHtmlMasivoProducto(e)}</li>`; }).join("")}</ul>`;
+      }
+      html += "</div>";
+
+      Swal.fire({
+        title: erroresServidor.length ? "Importación completada con observaciones" : "Importación completada",
+        html: html,
+        icon: erroresServidor.length ? "warning" : "success",
+        confirmButtonColor: "#00a46a",
+        width: 650
+      });
+    }).fail(function (xhr) {
+      const mensaje = xhr.responseJSON && xhr.responseJSON.mensaje ? xhr.responseJSON.mensaje : "No se pudo completar la importación.";
+      Swal.fire("Error", mensaje, "error");
+    }).always(function () {
+      validarHojaMasivaProducto();
+    });
+  });
 }
 
 function cargarAtributosDinamicos() {
