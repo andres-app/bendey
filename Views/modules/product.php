@@ -12,10 +12,40 @@ require 'sidebar.php';
 
 if ((int)($_SESSION['almacen'] ?? 0) === 1) {
 ?>
+<!-- Tailwind aislado para Productos. Preflight desactivado para no interferir con Bootstrap/Stisla. -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        prefix: 'tw-',
+        corePlugins: { preflight: false },
+        theme: {
+            extend: {
+                colors: {
+                    tique: {
+                        50: '#ecfdf6',
+                        100: '#d7f7e9',
+                        200: '#adebd2',
+                        300: '#72d9b3',
+                        400: '#31c18e',
+                        500: '#00a46a',
+                        600: '#008d5b',
+                        700: '#00754d',
+                        800: '#00603f',
+                        900: '#004f35'
+                    }
+                },
+                boxShadow: {
+                    'product-command': '0 18px 48px rgba(15, 23, 42, .075)',
+                    'product-filter': '0 10px 24px rgba(15, 23, 42, .08)'
+                }
+            }
+        }
+    };
+</script>
 <style>
     :root {
-        --tp-product-green: #009b54;
-        --tp-product-green-dark: #007a43;
+        --tp-product-green: #00a46a;
+        --tp-product-green-dark: #00754d;
         --tp-product-ink: #17212b;
         --tp-product-muted: #75808e;
         --tp-product-line: #e7ebef;
@@ -473,50 +503,418 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
         .tp-products-grid { grid-template-columns: 1fr; }
         .tp-grid-image { height: 170px; }
     }
+
+
+    /* Panel superior dinámico de Productos */
+    .tp-products-command {
+        position: relative;
+        overflow: visible;
+        isolation: isolate;
+        margin-bottom: 16px;
+        border: 1px solid #e5eaf0;
+        border-radius: 20px;
+        background:
+            radial-gradient(circle at 94% 8%, rgba(0, 164, 106, .09), transparent 28%),
+            linear-gradient(135deg, #ffffff 0%, #fbfefd 58%, #f6fcf9 100%);
+        box-shadow: 0 18px 48px rgba(15, 23, 42, .065);
+    }
+
+    .tp-products-command::after {
+        content: '';
+        position: absolute;
+        width: 150px;
+        height: 150px;
+        right: 10px;
+        bottom: 10px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(0, 164, 106, .045) 0%, rgba(0, 164, 106, 0) 72%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .tp-products-command .tp-products-hero {
+        position: relative;
+        z-index: 30;
+        margin: 0;
+        padding: 20px 20px 13px;
+    }
+
+    .tp-products-title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .tp-products-title-icon {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #caeedf;
+        border-radius: 13px;
+        color: #00754d;
+        background: #ecfdf6;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.7);
+    }
+
+    .tp-products-title-icon i { font-size: .95rem; }
+
+    .tp-products-command .tp-products-hero h1 {
+        margin-bottom: 3px;
+        font-size: 1.38rem;
+        font-weight: 760;
+        color: #17212b;
+    }
+
+    .tp-products-command .tp-products-actions {
+        position: relative;
+        z-index: 40;
+    }
+
+    .tp-products-command .tp-products-actions .dropdown {
+        position: relative;
+        z-index: 50;
+    }
+
+    .tp-products-command .tp-products-actions .dropdown-menu {
+        z-index: 1080 !important;
+        min-width: 220px;
+        margin-top: 8px;
+        padding: 7px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        border-radius: 13px;
+        background: #fff;
+        box-shadow: 0 18px 42px rgba(15, 23, 42, .16);
+    }
+
+    .tp-products-command .tp-products-actions .dropdown-item {
+        display: flex;
+        align-items: center;
+        min-height: 38px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        color: #475569;
+        font-size: .76rem;
+        transition: background-color .15s ease, color .15s ease;
+    }
+
+    .tp-products-command .tp-products-actions .dropdown-item:hover,
+    .tp-products-command .tp-products-actions .dropdown-item:focus {
+        color: #00754d;
+        background: #effaf5;
+    }
+
+    .tp-products-command .tp-products-actions .dropdown-item i {
+        width: 21px;
+        margin-right: 7px !important;
+        color: #64748b;
+        text-align: center;
+    }
+
+    .tp-products-command .tp-products-actions .dropdown-item:hover i,
+    .tp-products-command .tp-products-actions .dropdown-item:focus i {
+        color: #00a46a;
+    }
+
+    .tp-products-command .tp-products-actions .dropdown-divider {
+        margin: 6px 4px;
+        border-top-color: #edf1f4;
+    }
+
+    .tp-products-command .tp-btn-primary,
+    .tp-products-command .tp-btn-secondary {
+        min-height: 42px;
+        border-radius: 12px;
+        font-weight: 650;
+        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease;
+    }
+
+    .tp-products-command .tp-btn-primary {
+        border-color: #00a46a;
+        background: #00a46a;
+        box-shadow: 0 10px 22px rgba(0, 164, 106, .20);
+    }
+
+    .tp-products-command .tp-btn-primary:hover {
+        transform: translateY(-1px);
+        background: #008d5b;
+        border-color: #008d5b;
+        box-shadow: 0 13px 26px rgba(0, 164, 106, .26);
+    }
+
+    .tp-products-command .tp-btn-secondary:hover {
+        transform: translateY(-1px);
+        border-color: #c9d2dc;
+        background: #f8fafc;
+        color: #334155;
+    }
+
+    .tp-products-command button:focus,
+    .tp-products-command button:active,
+    .tp-products-command button:focus-visible {
+        outline: none !important;
+        box-shadow: none;
+    }
+
+    .tp-products-command .tp-btn-primary:focus-visible {
+        box-shadow: 0 0 0 4px rgba(0, 164, 106, .13) !important;
+    }
+
+    .tp-product-summary.tp-product-summary-dynamic {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin: 0;
+        padding: 0 20px 20px;
+    }
+
+    .tp-quick-filter {
+        position: relative;
+        width: 100%;
+        min-width: 0;
+        min-height: 72px;
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 11px 12px;
+        border: 1px solid #e4e9ee;
+        border-radius: 15px;
+        color: #475569;
+        background: rgba(255,255,255,.92);
+        text-align: left;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(15,23,42,.035);
+        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease;
+    }
+
+    .tp-quick-filter:hover {
+        transform: translateY(-2px);
+        border-color: #cbd5df;
+        background: #fff;
+        box-shadow: 0 11px 24px rgba(15,23,42,.075);
+    }
+
+    .tp-quick-filter:focus-visible {
+        border-color: #00a46a;
+        box-shadow: 0 0 0 4px rgba(0,164,106,.10) !important;
+    }
+
+    .tp-quick-filter.is-active {
+        border-color: rgba(0,164,106,.56);
+        background: linear-gradient(135deg, #f0fcf6 0%, #ffffff 100%);
+        box-shadow: 0 10px 26px rgba(0,164,106,.11), inset 0 0 0 1px rgba(0,164,106,.06);
+    }
+
+    .tp-quick-icon {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        color: #00754d;
+        background: #eafaf3;
+        font-size: .85rem;
+        transition: transform .16s ease;
+    }
+
+    .tp-quick-filter:hover .tp-quick-icon { transform: scale(1.04); }
+    .tp-quick-filter[data-product-filter="bajo"] .tp-quick-icon { color: #a16207; background: #fff8df; }
+    .tp-quick-filter[data-product-filter="sin_stock"] .tp-quick-icon { color: #be3345; background: #fff0f2; }
+    .tp-quick-filter[data-product-filter="variantes"] .tp-quick-icon { color: #5264b8; background: #f0f2ff; }
+
+    .tp-quick-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .tp-quick-label {
+        overflow: hidden;
+        color: #64748b;
+        font-size: .66rem;
+        font-weight: 650;
+        line-height: 1.1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tp-quick-value {
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        line-height: 1;
+    }
+
+    .tp-quick-value strong {
+        color: #17212b;
+        font-size: 1.02rem;
+        font-weight: 780;
+        letter-spacing: -.02em;
+    }
+
+    .tp-quick-value small {
+        overflow: hidden;
+        color: #8692a0;
+        font-size: .63rem;
+        font-weight: 520;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tp-quick-check {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        color: transparent;
+        background: transparent;
+        font-size: .52rem;
+        transition: color .16s ease, background-color .16s ease;
+    }
+
+    .tp-quick-filter.is-active .tp-quick-check {
+        color: #fff;
+        background: #00a46a;
+    }
+
+    .tp-quick-filter.is-active .tp-quick-label { color: #00754d; }
+
+    .tp-quick-filter.is-loading .tp-quick-value strong {
+        opacity: .4;
+    }
+
+    .tp-quick-filter.pulse-count .tp-quick-value strong {
+        animation: tpProductCountPulse .28s ease;
+    }
+
+    @keyframes tpProductCountPulse {
+        0% { transform: scale(.92); opacity: .5; }
+        65% { transform: scale(1.08); opacity: 1; }
+        100% { transform: scale(1); }
+    }
+
+    @media (max-width: 991.98px) {
+        .tp-product-summary.tp-product-summary-dynamic { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    @media (max-width: 767.98px) {
+        .tp-products-command .tp-products-hero { padding: 16px 14px 12px; }
+        .tp-products-title-row { align-items: flex-start; }
+        .tp-products-title-icon { width: 38px; height: 38px; flex-basis: 38px; border-radius: 11px; }
+        .tp-products-command .tp-products-actions { width: 100%; }
+        .tp-products-command .tp-products-actions .dropdown { flex: 1; }
+        .tp-products-command .tp-products-actions .tp-btn-secondary { width: 100%; }
+        .tp-product-summary.tp-product-summary-dynamic {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            overflow: visible;
+            gap: 8px;
+            padding: 0 14px 14px;
+        }
+        .tp-quick-filter { min-height: 68px; padding: 10px; }
+        .tp-quick-value strong { font-size: .96rem; }
+    }
+
+    @media (max-width: 420px) {
+        .tp-product-summary.tp-product-summary-dynamic { grid-template-columns: 1fr 1fr; }
+        .tp-quick-icon { width: 34px; height: 34px; flex-basis: 34px; }
+        .tp-quick-label { font-size: .61rem; }
+        .tp-quick-value small { display: none; }
+    }
 </style>
 
 <div class="main-content tp-products-page">
     <section class="section">
         <div class="section-body">
-            <div class="tp-products-hero">
-                <div>
-                    <h1>Productos</h1>
-                    <p>Administra precios, existencias, categorías y configuración tributaria.</p>
-                </div>
-
-                <div class="tp-products-actions">
-                    <div class="dropdown">
-                        <button class="tp-btn-secondary dropdown-toggle" type="button" data-toggle="dropdown">
-                            <i class="fas fa-ellipsis-h"></i> Más acciones
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-right">
-                            <button class="dropdown-item" type="button" onclick="togglePlantilla()">
-                                <i class="fas fa-file-import mr-2"></i> Importar productos
-                            </button>
-                            <button class="dropdown-item" type="button" onclick="exportarProductos('excel')">
-                                <i class="fas fa-file-excel mr-2"></i> Exportar Excel
-                            </button>
-                            <button class="dropdown-item" type="button" onclick="exportarProductos('pdf')">
-                                <i class="fas fa-file-pdf mr-2"></i> Exportar PDF
-                            </button>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item" href="Assets/plantillas/plantilla_productos.csv" download>
-                                <i class="fas fa-download mr-2"></i> Descargar plantilla
-                            </a>
+            <div class="tp-products-command tw-border tw-border-slate-200/80 tw-bg-white tw-shadow-product-command">
+                <div class="tp-products-hero">
+                    <div class="tp-products-title-row">
+                        <span class="tp-products-title-icon" aria-hidden="true">
+                            <i class="fas fa-boxes"></i>
+                        </span>
+                        <div>
+                            <h1>Productos</h1>
+                            <p>Administra precios, existencias, categorías y configuración tributaria.</p>
                         </div>
                     </div>
 
-                    <button class="tp-btn-primary" onclick="mostrarform(true)" id="btnagregar" type="button">
-                        <i class="fas fa-plus"></i> Nuevo producto
+                    <div class="tp-products-actions">
+                        <div class="dropdown">
+                            <button class="tp-btn-secondary dropdown-toggle tw-border-slate-200 tw-bg-white tw-text-slate-600 tw-shadow-sm hover:tw-bg-slate-50" type="button" data-toggle="dropdown">
+                                <i class="fas fa-ellipsis-h"></i> Más acciones
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-right">
+                                <button class="dropdown-item" type="button" onclick="togglePlantilla()">
+                                    <i class="fas fa-file-import mr-2"></i> Importar productos
+                                </button>
+                                <button class="dropdown-item" type="button" onclick="exportarProductos('excel')">
+                                    <i class="fas fa-file-excel mr-2"></i> Exportar Excel
+                                </button>
+                                <button class="dropdown-item" type="button" onclick="exportarProductos('pdf')">
+                                    <i class="fas fa-file-pdf mr-2"></i> Exportar PDF
+                                </button>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="Assets/plantillas/plantilla_productos.csv" download>
+                                    <i class="fas fa-download mr-2"></i> Descargar plantilla
+                                </a>
+                            </div>
+                        </div>
+
+                        <button class="tp-btn-primary tw-bg-tique-500 tw-border-tique-500 tw-shadow-lg tw-shadow-tique-500/20 hover:tw-bg-tique-600" onclick="mostrarform(true)" id="btnagregar" type="button">
+                            <i class="fas fa-plus"></i> Nuevo producto
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tp-product-summary tp-product-summary-dynamic" id="resumenProductos" aria-label="Filtros rápidos de productos">
+                    <button type="button" class="tp-quick-filter is-active tw-group" data-product-filter="todos" aria-pressed="true" title="Mostrar todos los productos">
+                        <span class="tp-quick-icon"><i class="fas fa-boxes"></i></span>
+                        <span class="tp-quick-copy">
+                            <span class="tp-quick-label">Todos</span>
+                            <span class="tp-quick-value"><strong id="kpiTotalProductos">0</strong><small>productos</small></span>
+                        </span>
+                        <span class="tp-quick-check"><i class="fas fa-check"></i></span>
+                    </button>
+
+                    <button type="button" class="tp-quick-filter tw-group" data-product-filter="bajo" aria-pressed="false" title="Filtrar productos con stock bajo">
+                        <span class="tp-quick-icon"><i class="fas fa-exclamation-triangle"></i></span>
+                        <span class="tp-quick-copy">
+                            <span class="tp-quick-label">Stock bajo</span>
+                            <span class="tp-quick-value"><strong id="kpiStockBajo">0</strong><small>productos</small></span>
+                        </span>
+                        <span class="tp-quick-check"><i class="fas fa-check"></i></span>
+                    </button>
+
+                    <button type="button" class="tp-quick-filter tw-group" data-product-filter="sin_stock" aria-pressed="false" title="Filtrar productos sin stock">
+                        <span class="tp-quick-icon"><i class="fas fa-box-open"></i></span>
+                        <span class="tp-quick-copy">
+                            <span class="tp-quick-label">Sin stock</span>
+                            <span class="tp-quick-value"><strong id="kpiSinStock">0</strong><small>productos</small></span>
+                        </span>
+                        <span class="tp-quick-check"><i class="fas fa-check"></i></span>
+                    </button>
+
+                    <button type="button" class="tp-quick-filter tw-group" data-product-filter="variantes" aria-pressed="false" title="Filtrar productos que usan variantes">
+                        <span class="tp-quick-icon"><i class="fas fa-layer-group"></i></span>
+                        <span class="tp-quick-copy">
+                            <span class="tp-quick-label">Con variantes</span>
+                            <span class="tp-quick-value"><strong id="kpiVariaciones">0</strong><small>productos</small></span>
+                        </span>
+                        <span class="tp-quick-check"><i class="fas fa-check"></i></span>
                     </button>
                 </div>
-            </div>
-
-            <div class="tp-product-summary" id="resumenProductos">
-                <span class="tp-summary-chip"><span class="tp-summary-dot"></span><strong id="kpiTotalProductos">0</strong> productos</span>
-                <span class="tp-summary-chip"><span class="tp-summary-dot warning"></span><strong id="kpiStockBajo">0</strong> stock bajo</span>
-                <span class="tp-summary-chip"><span class="tp-summary-dot danger"></span><strong id="kpiSinStock">0</strong> sin stock</span>
-                <span class="tp-summary-chip"><i class="fas fa-layer-group"></i><strong id="kpiVariaciones">0</strong> con variantes</span>
             </div>
 
             <div id="plantillaSection" class="tp-import-panel">

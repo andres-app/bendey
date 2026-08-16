@@ -6,6 +6,7 @@ var productosCargados = [];
 var vistaProductos = localStorage.getItem("tp_productos_vista") || "tabla";
 var limiteGridProductos = 24;
 var filtroDataTableRegistrado = false;
+var filtroRapidoProducto = "todos";
 var productoDetalleActual = null;
 var configuracionTributariaProducto = {
   afectacion: "10",
@@ -26,11 +27,23 @@ function registrarEventosInterfazProductos() {
     if (tabla) tabla.search(this.value).draw();
   });
 
-  $("#filtroCategoriaProducto, #filtroStockProducto, #filtroTributoProducto, #filtroEstadoProducto")
+  $("#filtroCategoriaProducto, #filtroTributoProducto, #filtroEstadoProducto")
     .on("change", function () {
       limiteGridProductos = 24;
       if (tabla) tabla.draw();
     });
+
+  $("#filtroStockProducto").on("change", function () {
+    const stock = String($(this).val() || "");
+    filtroRapidoProducto = stock === "bajo" || stock === "sin_stock" ? stock : (stock === "" ? "todos" : "ninguno");
+    limiteGridProductos = 24;
+    actualizarEstadoFiltrosRapidosProducto();
+    if (tabla) tabla.draw();
+  });
+
+  $(document).on("click", "[data-product-filter]", function () {
+    aplicarFiltroRapidoProducto(String($(this).data("product-filter") || "todos"));
+  });
 
   $("#btnVistaTabla").on("click", function () {
     cambiarVistaProductos("tabla");
@@ -278,6 +291,7 @@ function registrarFiltroProductosDataTable() {
     if (stockFiltro === "sin_stock" && stock > 0) return false;
     if (stockFiltro === "bajo" && !(stock > 0 && stock <= 10)) return false;
     if (stockFiltro === "normal" && stock <= 10) return false;
+    if (filtroRapidoProducto === "variantes" && Number(producto.tiene_variaciones) !== 1) return false;
 
     return true;
   });
@@ -488,17 +502,100 @@ function actualizarKpisProductos(datos) {
   const bajo = datos.filter(function (item) { const stock = Number(item.stock || 0); return stock > 0 && stock <= 10; }).length;
   const sinStock = datos.filter(function (item) { return Number(item.stock || 0) <= 0; }).length;
   const variantes = datos.filter(function (item) { return Number(item.tiene_variaciones) === 1; }).length;
-  $("#kpiTotalProductos").text(total);
-  $("#kpiStockBajo").text(bajo);
-  $("#kpiSinStock").text(sinStock);
-  $("#kpiVariaciones").text(variantes);
+
+  animarKpiProducto("#kpiTotalProductos", total);
+  animarKpiProducto("#kpiStockBajo", bajo);
+  animarKpiProducto("#kpiSinStock", sinStock);
+  animarKpiProducto("#kpiVariaciones", variantes);
+  actualizarEstadoFiltrosRapidosProducto();
+}
+
+function animarKpiProducto(selector, valor) {
+  const $elemento = $(selector);
+  if (!$elemento.length) return;
+
+  const destino = Math.max(0, Number(valor || 0));
+  const inicio = Math.max(0, Number($elemento.text().replace(/[^0-9.-]/g, "")) || 0);
+  const duracion = 260;
+  const comienzo = performance.now();
+  const $tarjeta = $elemento.closest(".tp-quick-filter");
+
+  $tarjeta.removeClass("pulse-count");
+
+  function paso(ahora) {
+    const progreso = Math.min(1, (ahora - comienzo) / duracion);
+    const suavizado = 1 - Math.pow(1 - progreso, 3);
+    $elemento.text(Math.round(inicio + (destino - inicio) * suavizado));
+    if (progreso < 1) {
+      requestAnimationFrame(paso);
+    } else {
+      $elemento.text(destino);
+      $tarjeta.addClass("pulse-count");
+      setTimeout(function () { $tarjeta.removeClass("pulse-count"); }, 320);
+    }
+  }
+
+  requestAnimationFrame(paso);
+}
+
+function aplicarFiltroRapidoProducto(filtro) {
+  const permitidos = ["todos", "bajo", "sin_stock", "variantes"];
+  let nuevoFiltro = permitidos.includes(filtro) ? filtro : "todos";
+
+  if (nuevoFiltro === filtroRapidoProducto && nuevoFiltro !== "todos") {
+    nuevoFiltro = "todos";
+  }
+
+  filtroRapidoProducto = nuevoFiltro;
+  limiteGridProductos = 24;
+
+  if (nuevoFiltro === "bajo") {
+    $("#filtroStockProducto").val("bajo");
+  } else if (nuevoFiltro === "sin_stock") {
+    $("#filtroStockProducto").val("sin_stock");
+  } else {
+    $("#filtroStockProducto").val("");
+  }
+
+  actualizarEstadoFiltrosRapidosProducto();
+  if (tabla) tabla.draw();
+}
+
+function actualizarEstadoFiltrosRapidosProducto() {
+  const stock = String($("#filtroStockProducto").val() || "");
+  let activo = filtroRapidoProducto;
+
+  if (activo !== "variantes") {
+    if (stock === "bajo") activo = "bajo";
+    else if (stock === "sin_stock") activo = "sin_stock";
+    else if (stock === "") activo = "todos";
+    else activo = "ninguno";
+  }
+
+  $("[data-product-filter]").each(function () {
+    const seleccionado = String($(this).data("product-filter")) === activo;
+    $(this)
+      .toggleClass("is-active", seleccionado)
+      .attr("aria-pressed", seleccionado ? "true" : "false");
+  });
+}
+
+function obtenerEtiquetaFiltroRapidoProducto() {
+  if (filtroRapidoProducto === "variantes") return "Con variantes";
+  const stock = String($("#filtroStockProducto").val() || "");
+  if (stock === "bajo") return "Stock bajo";
+  if (stock === "sin_stock") return "Sin stock";
+  if (stock === "normal") return "Stock normal";
+  return "";
 }
 
 function actualizarResultadoProductos() {
   if (!tabla) return;
   const visibles = tabla.rows({ search: "applied" }).count();
   const total = tabla.rows().count();
-  $("#productosResultado").text(visibles === total ? total + " productos" : visibles + " de " + total + " productos");
+  const etiqueta = obtenerEtiquetaFiltroRapidoProducto();
+  const base = visibles === total ? total + " productos" : visibles + " de " + total + " productos";
+  $("#productosResultado").text(etiqueta ? base + " · " + etiqueta : base);
 }
 
 function cambiarVistaProductos(vista) {
