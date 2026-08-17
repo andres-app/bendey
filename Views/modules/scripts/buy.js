@@ -973,12 +973,642 @@ function guardaryeditar(evento) {
 
 let filtroFechaComprasRegistrado = false;
 
+const ESTADO_SELECTOR_FECHA_COMPRA = {
+    vista: null,
+    objetivo: null
+};
+
 function formatearFechaInputCompra(fecha) {
     const anio = fecha.getFullYear();
     const mes = String(fecha.getMonth() + 1).padStart(2, '0');
     const dia = String(fecha.getDate()).padStart(2, '0');
 
     return `${anio}-${mes}-${dia}`;
+}
+
+function fechaISOCompraValida(valor) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(
+        String(valor || '').trim()
+    );
+}
+
+function fechaISOCompraADateLocal(valor) {
+    if (!fechaISOCompraValida(valor)) {
+        return null;
+    }
+
+    const partes = String(valor)
+        .split('-')
+        .map(Number);
+
+    const fecha = new Date(
+        partes[0],
+        partes[1] - 1,
+        partes[2]
+    );
+
+    if (
+        fecha.getFullYear() !== partes[0]
+        || fecha.getMonth() !== partes[1] - 1
+        || fecha.getDate() !== partes[2]
+    ) {
+        return null;
+    }
+
+    return fecha;
+}
+
+function formatearFechaSelectorCompra(
+    valor,
+    modo = 'corto'
+) {
+    const fecha = fechaISOCompraADateLocal(valor);
+
+    if (!fecha) {
+        return '';
+    }
+
+    const opciones = modo === 'largo'
+        ? {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }
+        : {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        };
+
+    return new Intl.DateTimeFormat(
+        'es-PE',
+        opciones
+    )
+        .format(fecha)
+        .replace(/\./g, '');
+}
+
+function obtenerHoyCompraISO() {
+    return formatearFechaInputCompra(new Date());
+}
+
+function sincronizarFechasFiltroCompraVisual() {
+    const configuraciones = [
+        {
+            input: '#compraFechaDesde',
+            texto: '#compraFechaDesdeTexto'
+        },
+        {
+            input: '#compraFechaHasta',
+            texto: '#compraFechaHastaTexto'
+        }
+    ];
+
+    configuraciones.forEach(function (configuracion) {
+        const valor = String(
+            $(configuracion.input).val() || ''
+        ).trim();
+
+        const $texto = $(configuracion.texto);
+
+        if (!$texto.length) {
+            return;
+        }
+
+        if (!fechaISOCompraValida(valor)) {
+            $texto
+                .text('Seleccionar fecha')
+                .addClass('is-empty');
+
+            return;
+        }
+
+        $texto
+            .text(
+                formatearFechaSelectorCompra(
+                    valor,
+                    'corto'
+                )
+            )
+            .removeClass('is-empty');
+    });
+
+    if (
+        ESTADO_SELECTOR_FECHA_COMPRA.objetivo
+        && $('#modalCompraFecha').hasClass('show')
+    ) {
+        const valorActivo = String(
+            $(ESTADO_SELECTOR_FECHA_COMPRA.objetivo)
+                .val()
+            || ''
+        ).trim();
+
+        $('#compraFechaSeleccionResumen').text(
+            fechaISOCompraValida(valorActivo)
+                ? formatearFechaSelectorCompra(
+                    valorActivo,
+                    'largo'
+                )
+                : 'Sin fecha seleccionada'
+        );
+    }
+}
+
+function renderizarCalendarioFiltroCompra() {
+    const contenedor =
+        document.getElementById(
+            'compraFechaDias'
+        );
+
+    if (
+        !contenedor
+        || !ESTADO_SELECTOR_FECHA_COMPRA.objetivo
+    ) {
+        return;
+    }
+
+    const hoyISO = obtenerHoyCompraISO();
+    const fechaMaxima =
+        fechaISOCompraADateLocal(hoyISO)
+        || new Date();
+
+    const valorSeleccionado = String(
+        $(ESTADO_SELECTOR_FECHA_COMPRA.objetivo)
+            .val()
+        || ''
+    ).trim();
+
+    const fechaSeleccionada =
+        fechaISOCompraADateLocal(
+            valorSeleccionado
+        )
+        || fechaMaxima;
+
+    if (
+        !(
+            ESTADO_SELECTOR_FECHA_COMPRA.vista
+            instanceof Date
+        )
+    ) {
+        ESTADO_SELECTOR_FECHA_COMPRA.vista =
+            new Date(
+                fechaSeleccionada.getFullYear(),
+                fechaSeleccionada.getMonth(),
+                1
+            );
+    }
+
+    const limiteMes = new Date(
+        fechaMaxima.getFullYear(),
+        fechaMaxima.getMonth(),
+        1
+    );
+
+    if (
+        ESTADO_SELECTOR_FECHA_COMPRA.vista
+        > limiteMes
+    ) {
+        ESTADO_SELECTOR_FECHA_COMPRA.vista =
+            new Date(limiteMes);
+    }
+
+    const anio =
+        ESTADO_SELECTOR_FECHA_COMPRA.vista
+            .getFullYear();
+
+    const mes =
+        ESTADO_SELECTOR_FECHA_COMPRA.vista
+            .getMonth();
+
+    const primerDia =
+        new Date(anio, mes, 1);
+
+    const ultimoDiaMes =
+        new Date(anio, mes + 1, 0)
+            .getDate();
+
+    const desplazamiento =
+        (primerDia.getDay() + 6) % 7;
+
+    $('#compraFechaMesTitulo').text(
+        new Intl.DateTimeFormat(
+            'es-PE',
+            {
+                month: 'long',
+                year: 'numeric'
+            }
+        ).format(primerDia)
+    );
+
+    const fragmento =
+        document.createDocumentFragment();
+
+    for (
+        let celda = 0;
+        celda < 42;
+        celda += 1
+    ) {
+        const numeroDia =
+            celda - desplazamiento + 1;
+
+        if (
+            numeroDia < 1
+            || numeroDia > ultimoDiaMes
+        ) {
+            const vacio =
+                document.createElement('span');
+
+            vacio.className =
+                'compra-calendario-dia is-empty';
+
+            vacio.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+
+            fragmento.appendChild(vacio);
+            continue;
+        }
+
+        const fechaCelda =
+            new Date(
+                anio,
+                mes,
+                numeroDia
+            );
+
+        const fechaISO =
+            formatearFechaInputCompra(
+                fechaCelda
+            );
+
+        const esFutura =
+            fechaCelda > fechaMaxima;
+
+        const esSeleccionada =
+            fechaISO === valorSeleccionado;
+
+        const esHoy =
+            fechaISO === hoyISO;
+
+        const boton =
+            document.createElement('button');
+
+        boton.type = 'button';
+        boton.className =
+            'compra-calendario-dia';
+
+        boton.textContent =
+            String(numeroDia);
+
+        boton.dataset.fecha =
+            fechaISO;
+
+        boton.setAttribute(
+            'role',
+            'gridcell'
+        );
+
+        boton.setAttribute(
+            'aria-label',
+            formatearFechaSelectorCompra(
+                fechaISO,
+                'largo'
+            )
+        );
+
+        if (esSeleccionada) {
+            boton.classList.add(
+                'is-selected'
+            );
+
+            boton.setAttribute(
+                'aria-selected',
+                'true'
+            );
+        }
+
+        if (esHoy) {
+            boton.classList.add(
+                'is-today'
+            );
+        }
+
+        if (esFutura) {
+            boton.classList.add(
+                'is-disabled'
+            );
+
+            boton.disabled = true;
+
+            boton.setAttribute(
+                'aria-disabled',
+                'true'
+            );
+        }
+
+        fragmento.appendChild(boton);
+    }
+
+    contenedor.replaceChildren(fragmento);
+
+    const siguiente =
+        document.getElementById(
+            'btnCompraFechaSiguiente'
+        );
+
+    if (siguiente) {
+        const mesSiguiente =
+            new Date(
+                anio,
+                mes + 1,
+                1
+            );
+
+        const deshabilitar =
+            mesSiguiente > limiteMes;
+
+        siguiente.disabled =
+            deshabilitar;
+
+        siguiente.setAttribute(
+            'aria-disabled',
+            deshabilitar
+                ? 'true'
+                : 'false'
+        );
+    }
+
+    $('#compraFechaSeleccionResumen').text(
+        fechaISOCompraValida(
+            valorSeleccionado
+        )
+            ? formatearFechaSelectorCompra(
+                valorSeleccionado,
+                'largo'
+            )
+            : 'Sin fecha seleccionada'
+    );
+}
+
+function abrirSelectorFechaCompra(objetivo) {
+    if (
+        objetivo !== '#compraFechaDesde'
+        && objetivo !== '#compraFechaHasta'
+    ) {
+        return;
+    }
+
+    ESTADO_SELECTOR_FECHA_COMPRA.objetivo =
+        objetivo;
+
+    const esDesde =
+        objetivo === '#compraFechaDesde';
+
+    const valor = String(
+        $(objetivo).val() || ''
+    ).trim();
+
+    const fecha =
+        fechaISOCompraADateLocal(valor)
+        || fechaISOCompraADateLocal(
+            obtenerHoyCompraISO()
+        )
+        || new Date();
+
+    ESTADO_SELECTOR_FECHA_COMPRA.vista =
+        new Date(
+            fecha.getFullYear(),
+            fecha.getMonth(),
+            1
+        );
+
+    $('#compraFechaModalTitulo').text(
+        esDesde
+            ? 'Fecha desde'
+            : 'Fecha hasta'
+    );
+
+    $('#compraFechaModalAyuda').text(
+        esDesde
+            ? 'Selecciona desde qué día deseas consultar las compras'
+            : 'Selecciona hasta qué día deseas consultar las compras'
+    );
+
+    renderizarCalendarioFiltroCompra();
+
+    $('#modalCompraFecha').modal('show');
+}
+
+function seleccionarFechaFiltroCompra(
+    fecha
+) {
+    if (
+        !fechaISOCompraValida(fecha)
+        || !ESTADO_SELECTOR_FECHA_COMPRA.objetivo
+    ) {
+        return;
+    }
+
+    const objetivo =
+        ESTADO_SELECTOR_FECHA_COMPRA.objetivo;
+
+    const $objetivo =
+        $(objetivo);
+
+    const esDesde =
+        objetivo === '#compraFechaDesde';
+
+    if (esDesde) {
+        const hasta = String(
+            $('#compraFechaHasta').val()
+            || ''
+        ).trim();
+
+        if (
+            fechaISOCompraValida(hasta)
+            && fecha > hasta
+        ) {
+            $('#compraFechaHasta')
+                .val(fecha);
+        }
+    } else {
+        const desde = String(
+            $('#compraFechaDesde').val()
+            || ''
+        ).trim();
+
+        if (
+            fechaISOCompraValida(desde)
+            && fecha < desde
+        ) {
+            $('#compraFechaDesde')
+                .val(fecha);
+        }
+    }
+
+    $objetivo
+        .val(fecha)
+        .trigger('change');
+
+    sincronizarFechasFiltroCompraVisual();
+
+    $('#modalCompraFecha').modal('hide');
+}
+
+function inicializarSelectorFechasCompra() {
+    if (
+        !$('#btnCompraFechaDesde').length
+        || !$('#btnCompraFechaHasta').length
+        || !$('#modalCompraFecha').length
+    ) {
+        return;
+    }
+
+    sincronizarFechasFiltroCompraVisual();
+
+    $(document)
+        .off(
+            'click.compraFechaDesde',
+            '#btnCompraFechaDesde'
+        )
+        .on(
+            'click.compraFechaDesde',
+            '#btnCompraFechaDesde',
+            function () {
+                abrirSelectorFechaCompra(
+                    '#compraFechaDesde'
+                );
+            }
+        )
+        .off(
+            'click.compraFechaHasta',
+            '#btnCompraFechaHasta'
+        )
+        .on(
+            'click.compraFechaHasta',
+            '#btnCompraFechaHasta',
+            function () {
+                abrirSelectorFechaCompra(
+                    '#compraFechaHasta'
+                );
+            }
+        )
+        .off(
+            'change.compraFechaVisual',
+            '#compraFechaDesde, #compraFechaHasta'
+        )
+        .on(
+            'change.compraFechaVisual',
+            '#compraFechaDesde, #compraFechaHasta',
+            function () {
+                sincronizarFechasFiltroCompraVisual();
+            }
+        )
+        .off(
+            'click.compraFechaDia',
+            '#compraFechaDias [data-fecha]'
+        )
+        .on(
+            'click.compraFechaDia',
+            '#compraFechaDias [data-fecha]',
+            function () {
+                if (this.disabled) {
+                    return;
+                }
+
+                seleccionarFechaFiltroCompra(
+                    String(
+                        this.dataset.fecha
+                        || ''
+                    ).trim()
+                );
+            }
+        )
+        .off(
+            'click.compraFechaAnterior',
+            '#btnCompraFechaAnterior'
+        )
+        .on(
+            'click.compraFechaAnterior',
+            '#btnCompraFechaAnterior',
+            function () {
+                const vista =
+                    ESTADO_SELECTOR_FECHA_COMPRA.vista;
+
+                if (!(vista instanceof Date)) {
+                    return;
+                }
+
+                ESTADO_SELECTOR_FECHA_COMPRA.vista =
+                    new Date(
+                        vista.getFullYear(),
+                        vista.getMonth() - 1,
+                        1
+                    );
+
+                renderizarCalendarioFiltroCompra();
+            }
+        )
+        .off(
+            'click.compraFechaSiguiente',
+            '#btnCompraFechaSiguiente'
+        )
+        .on(
+            'click.compraFechaSiguiente',
+            '#btnCompraFechaSiguiente',
+            function () {
+                const vista =
+                    ESTADO_SELECTOR_FECHA_COMPRA.vista;
+
+                if (
+                    this.disabled
+                    || !(vista instanceof Date)
+                ) {
+                    return;
+                }
+
+                ESTADO_SELECTOR_FECHA_COMPRA.vista =
+                    new Date(
+                        vista.getFullYear(),
+                        vista.getMonth() + 1,
+                        1
+                    );
+
+                renderizarCalendarioFiltroCompra();
+            }
+        )
+        .off(
+            'click.compraFechaHoy',
+            '#btnCompraFechaHoy'
+        )
+        .on(
+            'click.compraFechaHoy',
+            '#btnCompraFechaHoy',
+            function () {
+                seleccionarFechaFiltroCompra(
+                    obtenerHoyCompraISO()
+                );
+            }
+        );
+
+    $('#modalCompraFecha')
+        .off('shown.bs.modal.compraFecha')
+        .on(
+            'shown.bs.modal.compraFecha',
+            function () {
+                const seleccionado =
+                    this.querySelector(
+                        '.compra-calendario-dia.is-selected:not(:disabled)'
+                    );
+
+                if (seleccionado) {
+                    seleccionado.focus({
+                        preventScroll: true
+                    });
+                }
+            }
+        );
 }
 
 function parsearFechaCompra(valor) {
@@ -1253,6 +1883,7 @@ function aplicarPeriodoFiltroCompras(
             : ''
     );
 
+    sincronizarFechasFiltroCompraVisual();
     actualizarResumenFiltroCompras();
 
     if (
@@ -1696,6 +2327,7 @@ function init() {
 
     registrarFiltroFechaCompras();
     registrarEventosFiltroCompras();
+    inicializarSelectorFechasCompra();
 
     /*
      * Al abrir Compras, mostrar únicamente el mes actual.

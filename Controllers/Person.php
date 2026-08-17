@@ -36,24 +36,50 @@ switch ($_GET["op"]) {
 	case 'listarp':
 		$rspta = $person->listarp();
 		$data = array();
+		$escape = static function ($valor) {
+			return htmlspecialchars((string)($valor ?? ''), ENT_QUOTES, 'UTF-8');
+		};
 
 		foreach ($rspta as $reg) {
+			$idpersonaSeguro = (int)($reg['idpersona'] ?? 0);
+			$tipoDocumentoSeguro = $escape($reg['tipo_documento'] ?? '');
+			$numeroDocumentoSeguro = $escape($reg['num_documento'] ?? '');
+			$direccionSegura = $escape($reg['direccion'] ?? '');
+
+			if ($tipoDocumentoSeguro !== '' || $numeroDocumentoSeguro !== '') {
+				$documentoHtml = '<span class="supplier-document-cell">' .
+					($tipoDocumentoSeguro !== '' ? '<span class="supplier-document-type">' . $tipoDocumentoSeguro . '</span>' : '') .
+					($tipoDocumentoSeguro !== '' && $numeroDocumentoSeguro !== '' ? '<span class="supplier-document-separator"> | </span>' : '') .
+					($numeroDocumentoSeguro !== '' ? '<span class="supplier-document-number">' . $numeroDocumentoSeguro . '</span>' : '') .
+				'</span>';
+			} else {
+				$documentoHtml = '<span class="supplier-empty-value">Sin documento</span>';
+			}
+
+			$direccionHtml = $direccionSegura !== ''
+				? '<span class="supplier-address-cell"><i class="fas fa-map-marker-alt" aria-hidden="true"></i><span>' . $direccionSegura . '</span></span>'
+				: '<span class="supplier-empty-value">Sin dirección</span>';
+
 			$data[] = array(
-				"0" => '<button class="btn btn-warning btn-sm" onclick="mostrar(' . $reg['idpersona'] . ')"><i class="fas fa-pencil-alt"></i></button>' . ' ' . '<button class="btn btn-danger btn-sm" onclick="eliminar(' . $reg['idpersona'] . ')"><i class="fas fa-trash-alt"></i></button>',
-				"1" => $reg['nombre'],
-				"2" => $reg['tipo_documento'],
-				"3" => $reg['num_documento'],
-				"4" => $reg['telefono'],
-				"5" => $reg['email']
+				"0" => '<button type="button" class="supplier-table-action supplier-table-action-edit" onclick="mostrar(' . $idpersonaSeguro . ')" title="Editar proveedor" aria-label="Editar proveedor"><i class="fas fa-pencil-alt"></i></button>' .
+					'<button type="button" class="supplier-table-action supplier-table-action-delete" onclick="eliminar(' . $idpersonaSeguro . ')" title="Eliminar proveedor" aria-label="Eliminar proveedor"><i class="fas fa-trash-alt"></i></button>',
+				"1" => $escape($reg['nombre'] ?? ''),
+				"2" => $documentoHtml,
+				"3" => $direccionHtml,
+				"4" => $escape($reg['telefono'] ?? ''),
+				"5" => $escape($reg['email'] ?? '')
 			);
 		}
+
 		$results = array(
-			"sEcho" => 1,//info para datatables
-			"iTotalRecords" => count($data),//enviamos el total de registros al datatable
-			"iTotalDisplayRecords" => count($data),//enviamos el total de registros a visualizar
+			"sEcho" => 1,
+			"iTotalRecords" => count($data),
+			"iTotalDisplayRecords" => count($data),
 			"aaData" => $data
 		);
-		echo json_encode($results);
+
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode($results, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 		break;
 
 	case 'listarc':
