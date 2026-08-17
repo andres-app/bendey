@@ -1,142 +1,51 @@
 <?php
-
 ob_start();
-
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-if (!isset($_SESSION['nombre'])) {
-    header('Location: login');
-    exit;
-}
-
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (!isset($_SESSION['nombre'])) { header('Location: login'); exit; }
 require 'header.php';
 require 'sidebar.php';
 ?>
-
 <style>
-    .contabilidad-proximamente-page .card {
-        border: 0;
-        border-radius: 18px;
-        box-shadow: 0 12px 35px rgba(15, 23, 42, .07);
-    }
-
-    .contabilidad-proximamente-page .card-header {
-        min-height: 78px;
-        padding: 18px 22px;
-        border-bottom: 1px solid #edf1ef;
-        background: #fff;
-    }
-
-    .contabilidad-proximamente-page .card-header h4 {
-        margin: 0 0 4px;
-        color: #253129;
-        font-size: 1.08rem;
-        font-weight: 700;
-    }
-
-    .contabilidad-proximamente-page .card-header p {
-        margin: 0;
-        color: #7d8981;
-        font-size: .8rem;
-    }
-
-    .contabilidad-coming-soon {
-        min-height: 390px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 36px 20px;
-        text-align: center;
-    }
-
-    .contabilidad-coming-soon-inner {
-        width: 100%;
-        max-width: 520px;
-    }
-
-    .contabilidad-coming-soon-icon {
-        width: 82px;
-        height: 82px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 18px;
-        border-radius: 24px;
-        color: #00a46a;
-        background: #eef0ff;
-        font-size: 2rem;
-    }
-
-    .contabilidad-coming-soon h3 {
-        margin-bottom: 8px;
-        color: #26332b;
-        font-size: 1.35rem;
-        font-weight: 700;
-    }
-
-    .contabilidad-coming-soon p {
-        max-width: 430px;
-        margin: 0 auto;
-        color: #7b8780;
-        font-size: .88rem;
-        line-height: 1.6;
-    }
-
-    .contabilidad-coming-soon-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-top: 18px;
-        padding: 7px 12px;
-        border: 1px solid #dde3ff;
-        border-radius: 999px;
-        color: #5b68cf;
-        background: #f8f8ff;
-        font-size: .75rem;
-        font-weight: 600;
-    }
+.conta-purchases-page{--cp-brand:#00a46a;--cp-brand-dark:#008b59;--cp-blue:#5365d6;--cp-ink:#17211b;--cp-muted:#748078;--cp-line:#e4e9e6;--cp-soft:#f6f8f7}.conta-purchases-page .section-body{display:grid;gap:18px}.cp-card{border:1px solid var(--cp-line);border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.055)}.cp-filter-card{padding:18px 20px}.cp-filter-grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:14px 16px}.cp-field label{display:flex;align-items:center;gap:7px;margin:0 0 6px;color:#35443b;font-size:11px;font-weight:600}.cp-field label i{color:#5869d8}.cp-control,.cp-date-trigger{width:100%;height:39px;border:1px solid #d8dfdb;border-radius:12px;background:#fff;color:#26332c;font-size:11px;outline:0}.cp-control{padding:0 34px 0 12px}.cp-control:focus,.cp-date-trigger:focus-visible{border-color:#77d5b2;box-shadow:0 0 0 4px rgba(0,164,106,.08)}.cp-date-wrap{position:relative}.cp-date-trigger{display:flex;align-items:center;padding:0;text-align:left;overflow:hidden}.cp-date-trigger .cal{width:38px;height:100%;display:grid;place-items:center;border-right:1px solid #e4e9e6;color:#31463b}.cp-date-trigger strong{padding:0 11px;font-weight:500}.cp-date-pop{position:absolute;z-index:60;top:45px;left:0;width:min(430px,92vw);padding:14px;border:1px solid #dce4df;border-radius:16px;background:#fff;box-shadow:0 20px 55px rgba(15,23,42,.16)}.cp-date-pop[hidden]{display:none}.cp-date-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cp-date-inputs span{display:grid;gap:5px;color:#69776f;font-size:10px}.cp-date-inputs input{height:38px;border:1px solid #dce4df;border-radius:10px;padding:0 9px;font-size:11px}.cp-date-actions{display:flex;justify-content:space-between;gap:8px;margin-top:11px}.cp-mini-btn{height:34px;border:1px solid #dfe5e1;border-radius:9px;background:#fff;padding:0 11px;font-size:10px}.cp-mini-btn.primary{border-color:var(--cp-brand);background:var(--cp-brand);color:#fff}.cp-filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding-top:2px}.cp-action{height:39px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:999px;padding:0 16px;color:#fff;font-size:10px;font-weight:700;box-shadow:0 7px 16px rgba(15,23,42,.12);transition:.16s}.cp-action:hover{transform:translateY(-1px);color:#fff}.cp-action.report{background:var(--cp-blue)}.cp-action.sunat{background:#52be65}.cp-action.sunat .plus{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.92);color:#44af57;font-size:10px}.cp-table-card{padding:0;overflow:hidden}.cp-table-head{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:16px 17px 10px}.cp-title h4{margin:0;color:var(--cp-ink);font-size:14px;font-weight:500}.cp-title p{margin:4px 0 0;color:var(--cp-muted);font-size:10px}.cp-summary{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}.cp-pill{padding:5px 8px;border-radius:999px;background:#f1f5f3;color:#5c6b63;font-size:9px}.cp-pill.warn{background:#fff6e5;color:#a56500}.cp-table-scroll{padding:12px 17px 4px;overflow:hidden}.cp-table-scroll .dataTables_wrapper{width:100%}.cp-table-scroll .dataTables_scroll{border:1px solid #e6ebe8;border-radius:12px 12px 0 0;overflow:hidden}.cp-table-scroll table.dataTable{margin:0!important;border-collapse:collapse!important;font-size:9px}.cp-table-scroll table.dataTable thead th{white-space:nowrap;border-color:#dfe5e1!important;color:#354139;background:#fff;padding:9px 8px!important;vertical-align:middle}.cp-table-scroll .cp-number-row th{padding:4px 8px!important;border-bottom:0!important;background:#fbfcfb!important;color:#7d8881!important;font-size:7px!important;text-align:center}.cp-table-scroll .cp-group-row th{background:#fafbfa!important;font-size:8px!important;text-align:center;text-transform:uppercase;letter-spacing:.02em}.cp-table-scroll .cp-column-row th{font-size:8px!important;text-align:center}.cp-table-scroll tbody td{white-space:nowrap;padding:9px 8px!important;border-color:#edf0ee!important;color:#4c5851}.cp-table-scroll tbody td.cp-money{text-align:right;font-variant-numeric:tabular-nums}.cp-state{display:inline-flex;min-width:24px;justify-content:center;padding:3px 6px;border-radius:999px;background:#eaf8f2;color:#08784f;font-weight:700}.cp-state.s0{background:#eef2f6;color:#687683}.cp-state.s6{background:#eef3ff;color:#465ba4}.cp-state.s7{background:#fff0e7;color:#b45d16}.cp-row-warning td{background:#fffaf1!important}.cp-empty-note{padding:0 17px 14px;color:#7b8780;font-size:9px}.cp-table-scroll .dataTables_info{padding:14px 0 14px!important;color:#718078!important;font-size:10px!important}.cp-table-scroll .dataTables_paginate{padding:9px 0 12px!important;font-size:10px!important}.cp-table-scroll .dataTables_paginate .paginate_button{min-width:34px!important;height:34px!important;display:inline-grid!important;place-items:center!important;padding:0 9px!important;margin-left:4px!important;border:1px solid #e2e7e4!important;border-radius:4px!important;background:#fff!important;color:#56645c!important}.cp-table-scroll .dataTables_paginate .paginate_button.current{border-color:var(--cp-brand)!important;background:var(--cp-brand)!important;color:#fff!important}.cp-table-scroll .dataTables_paginate .paginate_button:hover{border-color:#cfd8d3!important;background:#f7f9f8!important;color:#334139!important}.cp-table-scroll .dataTables_paginate .paginate_button.current:hover{background:var(--cp-brand-dark)!important;color:#fff!important}.cp-loading{position:absolute;inset:0;z-index:80;display:grid;place-items:center;background:rgba(255,255,255,.68);backdrop-filter:blur(2px)}.cp-loading[hidden]{display:none}.cp-loading-box{display:flex;align-items:center;gap:10px;padding:12px 16px;border:1px solid #e3e9e5;border-radius:13px;background:#fff;box-shadow:0 12px 35px rgba(15,23,42,.1);font-size:11px}.cp-spinner{width:17px;height:17px;border:2px solid #d7eee5;border-top-color:var(--cp-brand);border-radius:50%;animation:cpSpin .7s linear infinite}@keyframes cpSpin{to{transform:rotate(360deg)}}.cp-table-card{position:relative}
+@media(max-width:992px){.cp-filter-grid{grid-template-columns:1fr 1fr}.cp-filter-actions{grid-column:1/-1}.cp-table-head{align-items:flex-start;flex-direction:column}.cp-summary{justify-content:flex-start}}@media(max-width:640px){.cp-filter-card{padding:14px}.cp-filter-grid{grid-template-columns:1fr}.cp-filter-actions{justify-content:stretch;display:grid;grid-template-columns:1fr 1fr}.cp-action{padding:0 10px}.cp-table-scroll{padding-left:8px;padding-right:8px}.cp-table-head{padding-left:10px;padding-right:10px}}
 </style>
-
-<div class="main-content contabilidad-proximamente-page">
-    <section class="section">
-        <div class="section-body">
-            <div class="card">
-                <div class="card-header">
-                    <div>
-                        <h4>Libro Electrónico de Compras</h4>
-                        <p>Módulo de Contabilidad</p>
-                    </div>
-                </div>
-
-                <div class="card-body">
-                    <div class="contabilidad-coming-soon">
-                        <div class="contabilidad-coming-soon-inner">
-                            <span class="contabilidad-coming-soon-icon">
-                                <i class="fas fa-book-open"></i>
-                            </span>
-
-                            <h3>Funcionalidad próximamente</h3>
-
-                            <p>
-                                Esta sección ya está habilitada para navegación.
-                                La funcionalidad contable se incorporará en una siguiente etapa.
-                            </p>
-
-                            <span class="contabilidad-coming-soon-badge">
-                                <i class="fas fa-tools"></i>
-                                En desarrollo
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<div class="main-content conta-purchases-page">
+<section class="section">
+<div class="section-body">
+    <div class="cp-card cp-filter-card">
+        <div class="cp-filter-grid">
+            <div class="cp-field"><label><i class="fas fa-search"></i> Buscar Por:</label><select id="cpBuscarPor" class="cp-control"><option value="emision">Fecha de Emisión</option><option value="registro">Fecha de Registro</option></select></div>
+            <div class="cp-field"><label><i class="fas fa-calendar-alt"></i> Fecha Documentos:</label><div class="cp-date-wrap"><button type="button" class="cp-date-trigger" id="cpDateTrigger"><span class="cal"><i class="far fa-calendar-alt"></i></span><strong id="cpDateLabel">Seleccionar rango</strong></button><div class="cp-date-pop" id="cpDatePop" hidden><div class="cp-date-inputs"><span>Desde<input type="date" id="cpFechaInicio"></span><span>Hasta<input type="date" id="cpFechaFin"></span></div><div class="cp-date-actions"><button type="button" class="cp-mini-btn" id="cpCurrentMonth">Mes actual</button><button type="button" class="cp-mini-btn primary" id="cpApplyDates">Aplicar</button></div></div></div></div>
+            <div class="cp-field"><label><i class="fas fa-table"></i> Tipo de Comprobante:</label><select id="cpTipoDocumento" class="cp-control"><option value="TODOS">Todos</option><option value="01">Factura</option><option value="03">Boleta</option><option value="12">Ticket</option><option value="14">Recibo</option><option value="00">Otro</option></select></div>
+            <div class="cp-field"><label><i class="fas fa-building"></i> Selecciona la Sucursal <span style="color:#dc2626">*</span></label><select id="cpSucursal" class="cp-control"><option value="0">Todas</option></select></div>
+            <div class="cp-field"><label><i class="fas fa-calendar-alt"></i> Periodo:</label><select id="cpPeriodo" class="cp-control"></select></div>
+            <div></div>
+            <div class="cp-filter-actions"><button type="button" class="cp-action report" id="btnCpGenerate"><i class="fas fa-search"></i> GENERAR REPORTE</button><button type="button" class="cp-action sunat" id="btnCpTxt"><span class="plus"><i class="fas fa-plus"></i></span> GENERAR TXT - SUNAT</button></div>
         </div>
-    </section>
-</div>
+    </div>
 
+    <div class="cp-card cp-table-card">
+        <div class="cp-table-head"><div class="cp-title"><h4 id="cpBookTitle">Libro Elect. Compras / Régimen: Régimen Especial</h4><p id="cpBookMeta">Genera el reporte para visualizar las compras registradas.</p></div><div class="cp-summary"><span class="cp-pill" id="cpPillCount">0 registros</span><span class="cp-pill" id="cpPillTotal">S/. 0.00</span><span class="cp-pill" id="cpPillIgv">IGV S/. 0.00</span><span class="cp-pill warn" id="cpPillWarnings" hidden>0 por revisar</span></div></div>
+        <div class="cp-table-scroll">
+            <table id="cpTable" class="table table-bordered table-hover nowrap" style="width:100%">
+                <thead>
+                    <tr class="cp-number-row"><?php for($i=1;$i<=41;$i++): ?><th><?= $i ?></th><?php endfor; ?></tr>
+                    <tr class="cp-group-row"><th colspan="3">Identificación</th><th colspan="7">Datos del comprobante</th><th colspan="3">Información proveedor</th><th colspan="10">Importes de la operación</th><th colspan="2">Moneda</th><th colspan="5">Documento modificado</th><th colspan="5">Otros</th><th colspan="5">Validaciones</th><th>Estado</th></tr>
+                    <tr class="cp-column-row">
+                        <th>PERIODO</th><th>COD.UNIC.</th><th>REGIMEN</th><th>F.EMISIÓN</th><th>F.VENCIMIENTO</th><th>TIPO DOC</th><th>SERIE</th><th>DUA/DSI</th><th>NÚMERO</th><th>O.D.N.C.F.</th><th>T.DOC.</th><th>NÚMERO</th><th>RAZÓN SOCIAL</th><th>OP.GRAVADA</th><th>IGV</th><th>OP.GRAV.MIXTA</th><th>IGV MIXTO</th><th>OP.S/CRED.</th><th>IGV S/CRED.</th><th>OP.NO GRAV.</th><th>ISC</th><th>OTROS TRIB.</th><th>TOTAL</th><th>MONEDA</th><th>T.C.</th><th>F.COMP.MODIF.</th><th>T.DOC.MODIF.</th><th>SERIE MODIF.</th><th>COD.ADUANA</th><th>N.COMP.MODIF.</th><th>F.DETRACC.</th><th>N.DETRACC.</th><th>RETENCIÓN</th><th>CLASIF.B/S</th><th>ID.CONTRATO</th><th>ERR.T.C.</th><th>ERR.NO HAB.</th><th>ERR.EXON.</th><th>ERR.DNI</th><th>MEDIO PAGO</th><th>ESTADO</th>
+                    </tr>
+                </thead><tbody></tbody>
+            </table>
+        </div>
+        <div class="cp-empty-note">El TXT SUNAT se genera con la estructura PLE 8.1 a partir de las compras registradas. Los campos no disponibles en el módulo de Compras permanecen vacíos cuando son opcionales.</div>
+        <div class="cp-loading" id="cpLoading" hidden><div class="cp-loading-box"><span class="cp-spinner"></span> Procesando Libro Electrónico de Compras...</div></div>
+    </div>
+</div>
+</section>
+</div>
 <?php
 require 'footer.php';
-ob_end_flush();
+$rutaJs=__DIR__.'/scripts/contabilidad_libro_compras.js';$versionJs=is_file($rutaJs)?filemtime($rutaJs):time();
 ?>
+<script src="Views/modules/scripts/contabilidad_libro_compras.js?v=<?= (int)$versionJs ?>"></script>
+<?php ob_end_flush(); ?>
