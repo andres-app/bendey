@@ -41,7 +41,7 @@ function init() {
 }
 
 $(document).on("click", "#btnagregar", function () {
-  window.location.href = "newsale3";
+  window.location.href = "pos";
 });
 
 /*

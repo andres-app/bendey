@@ -3387,6 +3387,172 @@ switch ($op) {
         break;
 
     // =========================================================
+    // BOOTSTRAP DEL POS INDEPENDIENTE
+    // =========================================================
+    case 'bootstrapPos':
+
+        if ($idusuario <= 0) {
+            http_response_code(401);
+            responderJson([
+                'success' => false,
+                'mensaje' => 'La sesión ha expirado.'
+            ]);
+        }
+
+        try {
+            require_once __DIR__ . '/../Models/Product.php';
+            require_once __DIR__ . '/../Models/Voucher.php';
+            require_once __DIR__ . '/../Models/Company.php';
+
+            $product = new Product();
+            $voucherPos = new Voucher();
+            $companyPos = new Company();
+
+            $formasPago = $sell->getConexion()->getDataAll(
+                "SELECT
+                    idforma_pago,
+                    nombre,
+                    es_efectivo,
+                    es_combinado,
+                    condicion
+                 FROM forma_pago
+                 WHERE activo = 1
+                   AND condicion = 1
+                 ORDER BY
+                    es_combinado ASC,
+                    es_efectivo DESC,
+                    nombre ASC"
+            );
+
+            $empresa = $companyPos->mostrarActivoSeguro();
+            $tributaria = $sell->obtenerConfiguracionTributariaEfectiva(
+                (int)($_SESSION['idsucursal_activa'] ?? 0) ?: null
+            );
+
+            $comprobantes = [];
+            foreach ($voucherPos->select() as $comprobante) {
+                $comprobantes[] = [
+                    'id' => (int)($comprobante['id_comp_pago'] ?? 0),
+                    'nombre' => (string)($comprobante['nombre'] ?? ''),
+                    'letra_serie' => (string)($comprobante['letra_serie'] ?? ''),
+                    'serie_comprobante' => (string)($comprobante['serie_comprobante'] ?? ''),
+                    'num_comprobante' => (string)($comprobante['num_comprobante'] ?? '')
+                ];
+            }
+
+            $empresaPublica = [
+                'nombre' => (string)($empresa['nombre'] ?? 'TiquePOS'),
+                'documento' => (string)($empresa['documento'] ?? ''),
+                'direccion' => (string)($empresa['direccion'] ?? ''),
+                'simbolo' => (string)($empresa['simbolo'] ?? 'S/.'),
+                'moneda' => (string)($empresa['moneda'] ?? 'SOLES'),
+                'logo' => (string)($empresa['logo'] ?? ''),
+                'venta_tipo_comprobante_predeterminado' =>
+                    (string)($empresa['venta_tipo_comprobante_predeterminado'] ?? ''),
+                'venta_tipo_pago_predeterminado' =>
+                    (string)($empresa['venta_tipo_pago_predeterminado'] ?? 'Contado'),
+                'venta_idforma_pago_predeterminada' =>
+                    (int)($empresa['venta_idforma_pago_predeterminada'] ?? 0),
+                'venta_modo_envio_predeterminado' =>
+                    (string)($empresa['venta_modo_envio_predeterminado'] ?? 'inmediato')
+            ];
+
+            responderJson([
+                'success' => true,
+                'empresa' => $empresaPublica,
+                'usuario' => [
+                    'id' => $idusuario,
+                    'nombre' => (string)($_SESSION['nombre'] ?? 'Usuario'),
+                    'cargo' => (string)($_SESSION['cargo'] ?? '')
+                ],
+                'caja' => [
+                    'modo' => $modoCajaSesion,
+                    'idsucursal' => (int)($_SESSION['idsucursal_activa'] ?? 0),
+                    'idcaja' => (int)($_SESSION['idcaja_activa'] ?? 0),
+                    'idapertura' => (int)($_SESSION['idapertura_activa'] ?? 0)
+                ],
+                'categorias' => $product->listarCategoriasActivas(),
+                'productos' => $product->listarCatalogoPos(),
+                'comprobantes' => $comprobantes,
+                'formas_pago' => is_array($formasPago) ? $formasPago : [],
+                'tributaria' => $tributaria,
+                'tipos_operacion' => $sell->listarTiposOperacionSunat()
+            ]);
+        } catch (Throwable $errorPos) {
+            responderJson([
+                'success' => false,
+                'mensaje' => $errorPos->getMessage()
+            ]);
+        }
+
+        break;
+
+    // =========================================================
+    // BUSCAR CLIENTES DESDE EL POS
+    // =========================================================
+    case 'buscarClientesPos':
+
+        if ($idusuario <= 0) {
+            http_response_code(401);
+            responderJson([
+                'success' => false,
+                'mensaje' => 'La sesión ha expirado.',
+                'clientes' => []
+            ]);
+        }
+
+        $termino = trim((string)($_GET['q'] ?? $_POST['q'] ?? ''));
+
+        if (mb_strlen($termino, 'UTF-8') < 2) {
+            responderJson([
+                'success' => true,
+                'clientes' => []
+            ]);
+        }
+
+        $terminoBusqueda = '%' . $termino . '%';
+
+        $clientes = $sell->getConexion()->getDataAll(
+            "SELECT
+                idpersona,
+                nombre,
+                tipo_documento,
+                num_documento,
+                direccion,
+                telefono,
+                email
+             FROM persona
+             WHERE tipo_persona = 'Cliente'
+               AND (
+                    nombre LIKE ?
+                    OR num_documento LIKE ?
+                    OR telefono LIKE ?
+               )
+             ORDER BY
+                CASE
+                    WHEN num_documento = ? THEN 0
+                    WHEN nombre = ? THEN 1
+                    ELSE 2
+                END,
+                nombre ASC
+             LIMIT 15",
+            [
+                $terminoBusqueda,
+                $terminoBusqueda,
+                $terminoBusqueda,
+                $termino,
+                $termino
+            ]
+        );
+
+        responderJson([
+            'success' => true,
+            'clientes' => is_array($clientes) ? $clientes : []
+        ]);
+
+        break;
+
+    // =========================================================
     // CATEGORÍAS
     // =========================================================
     case 'listarCategorias':

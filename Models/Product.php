@@ -289,6 +289,56 @@ class Product
 		return $this->conexion->getDataAll($sql, [$idcategoria]);
 	}
 
+	/**
+	 * Catálogo optimizado para el POS independiente.
+	 * Devuelve en una sola consulta los datos visuales, tributarios y de stock
+	 * necesarios para renderizar el catálogo sin realizar una petición por categoría.
+	 */
+	public function listarCatalogoPos()
+	{
+		$sql = "SELECT
+				a.idarticulo,
+				a.idcategoria,
+				a.idsubcategoria,
+				a.idmedida,
+				a.idalmacen,
+				a.codigo,
+				a.nombre,
+				a.descripcion,
+				a.imagen,
+				a.precio_compra,
+				a.precio_venta,
+				a.stock,
+				a.codigo_afectacion_igv,
+				a.porcentaje_igv,
+				a.unidad_medida_sunat,
+				a.codigo_producto_sunat,
+				c.nombre AS categoria,
+				s.nombre AS subcategoria,
+				m.nombre AS medida,
+				al.nombre AS almacen,
+				(
+					SELECT di.iddetalle_ingreso
+					FROM detalle_ingreso di
+					WHERE di.idarticulo = a.idarticulo
+					  AND COALESCE(di.stock_venta, 0) > 0
+					ORDER BY
+						CASE WHEN di.stock_estado = '1' THEN 0 ELSE 1 END,
+						di.iddetalle_ingreso ASC
+					LIMIT 1
+				) AS idingreso
+			FROM articulo a
+			INNER JOIN categoria c ON c.idcategoria = a.idcategoria
+			LEFT JOIN subcategoria s ON s.idsubcategoria = a.idsubcategoria
+			LEFT JOIN medida m ON m.idmedida = a.idmedida
+			LEFT JOIN almacen al ON al.idalmacen = a.idalmacen
+			WHERE a.condicion = 1
+			ORDER BY c.nombre ASC, a.nombre ASC";
+
+		$resultado = $this->conexion->getDataAll($sql);
+		return is_array($resultado) ? $resultado : [];
+	}
+
 	public function cargarMasivoDesdeCSV($rutaArchivo)
 	{
 		$mensajes_exito = [];

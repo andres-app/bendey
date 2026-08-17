@@ -3,7 +3,7 @@
     $url = isset($_GET['url']) ? trim($_GET['url']) : '';
 
     // 👉 detectar si es pantalla POS (Nueva Venta)
-    $esPOS = ($url === 'newsale3');
+    $esPOS = in_array($url, ['newsale3', 'pos'], true);
     ?>
 
 
@@ -260,8 +260,8 @@
                         </a>
 
                         <ul class="dropdown-menu <?= $ventasActive ? 'show' : '' ?>">
-                            <li class="<?= $url == 'newsale3' ? 'active' : '' ?>">
-                                <a class="nav-link" href="newsale3">Nueva venta</a>
+                            <li class="<?= in_array($url, ['newsale3', 'pos'], true) ? 'active' : '' ?>">
+                                <a class="nav-link" href="pos">Nueva venta</a>
                             </li>
                             <li class="<?= $url == 'listsales' ? 'active' : '' ?>">
                                 <a class="nav-link" href="listsales">Ventas</a>

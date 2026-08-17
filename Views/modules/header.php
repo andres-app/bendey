@@ -111,7 +111,7 @@ $urlActual = $_GET['url'] ?? '';
 
 $esVistaPos = in_array(
     $urlActual,
-    ['newsale3', 'editsale'],
+    ['newsale3', 'pos', 'editsale'],
     true
 );
 
@@ -199,7 +199,7 @@ $puedeVerSunatNavbar =
                             </a>
                         </li>
                         <li>
-                            <a href="newsale3" class="nav-link nav-link-lg">
+                            <a href="pos" class="nav-link nav-link-lg">
                                 <i data-feather="shopping-cart"></i>
                             </a>
                         </li>

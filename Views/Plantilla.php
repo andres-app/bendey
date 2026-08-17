@@ -20,6 +20,7 @@ if (isset($_GET["url"])) {
         "newsale",
         "newsale2",
         "newsale3",
+        "pos",
         "listsales",
         "notacredito",
 
