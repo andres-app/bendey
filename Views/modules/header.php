@@ -91,6 +91,46 @@
             display: none !important;
         }
 
+        /* Acceso rápido al POS: se diferencia de la venta normal (newsale3). */
+        .tiquepos-pos-quick {
+            height: 38px !important;
+            min-width: 74px;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            margin: 4px 2px;
+            padding: 0 12px !important;
+            border: 1px solid rgba(255, 255, 255, .28);
+            border-radius: 11px;
+            color: #ffffff !important;
+            background: #00a46a;
+            box-shadow: 0 6px 16px rgba(0, 164, 106, .24);
+            transition: background .16s ease, transform .16s ease, box-shadow .16s ease;
+        }
+
+        .tiquepos-pos-quick:hover,
+        .tiquepos-pos-quick:focus {
+            color: #ffffff !important;
+            background: #008f5c;
+            box-shadow: 0 8px 20px rgba(0, 164, 106, .30);
+            transform: translateY(-1px);
+        }
+
+        .tiquepos-pos-quick svg {
+            width: 17px;
+            height: 17px;
+            flex: 0 0 17px;
+        }
+
+        .tiquepos-pos-quick-label {
+            color: inherit;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: .25px;
+        }
+
         @media (max-width: 575.98px) {
             .sunat-navbar-link {
                 min-width: 42px;
@@ -101,6 +141,19 @@
             .sunat-navbar-counter {
                 top: 6px;
                 right: -1px;
+            }
+
+            .tiquepos-pos-quick {
+                width: 38px;
+                min-width: 38px;
+                height: 38px !important;
+                margin: 3px 1px;
+                padding: 0 !important;
+                border-radius: 10px;
+            }
+
+            .tiquepos-pos-quick-label {
+                display: none;
             }
         }
     </style>
@@ -199,8 +252,22 @@ $puedeVerSunatNavbar =
                             </a>
                         </li>
                         <li>
-                            <a href="pos" class="nav-link nav-link-lg">
+                            <a
+                                href="newsale3"
+                                class="nav-link nav-link-lg"
+                                title="Venta normal"
+                                aria-label="Abrir venta normal">
                                 <i data-feather="shopping-cart"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <a
+                                href="pos"
+                                class="nav-link nav-link-lg tiquepos-pos-quick"
+                                title="Abrir POS rápido"
+                                aria-label="Abrir POS rápido">
+                                <i data-feather="monitor"></i>
+                                <span class="tiquepos-pos-quick-label">POS</span>
                             </a>
                         </li>
                     </ul>
