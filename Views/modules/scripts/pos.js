@@ -55,9 +55,10 @@
             processing: false
         },
         scanner: {
-            stream: null,
-            detector: null,
-            raf: 0,
+            instance: null,
+            active: false,
+            starting: false,
+            processing: false,
             keyboardBuffer: '',
             keyboardLast: 0
         },
@@ -1119,59 +1120,148 @@
         qs('#posMobileBackdrop').hidden = true;
     }
 
+    function scannerErrorMessage(error) {
+        const text = String(error?.name || error?.message || error || '').toLowerCase();
+        if (text.includes('notallowed') || text.includes('permission')) {
+            return 'Permiso de cámara denegado. Habilítalo en Safari y vuelve a intentar.';
+        }
+        if (text.includes('notfound') || text.includes('devicesnotfound')) {
+            return 'No se encontró una cámara disponible en este dispositivo.';
+        }
+        if (text.includes('notreadable') || text.includes('trackstart')) {
+            return 'La cámara está siendo usada por otra aplicación o no puede iniciarse.';
+        }
+        if (text.includes('overconstrained')) {
+            return 'No se pudo iniciar la cámara posterior. Intenta nuevamente.';
+        }
+        return 'No se pudo iniciar la cámara. Revisa los permisos del navegador.';
+    }
+
+    function createHtml5Scanner() {
+        if (state.scanner.instance) return state.scanner.instance;
+        if (typeof window.Html5Qrcode !== 'function') return null;
+
+        const formats = [];
+        if (window.Html5QrcodeSupportedFormats) {
+            [
+                'QR_CODE', 'CODE_128', 'CODE_39', 'CODE_93',
+                'EAN_13', 'EAN_8', 'UPC_A', 'UPC_E', 'ITF',
+                'DATA_MATRIX', 'PDF_417', 'AZTEC'
+            ].forEach(name => {
+                const value = window.Html5QrcodeSupportedFormats[name];
+                if (typeof value !== 'undefined') formats.push(value);
+            });
+        }
+
+        state.scanner.instance = new window.Html5Qrcode(
+            'posScannerReader',
+            formats.length ? { formatsToSupport: formats, verbose: false } : { verbose: false }
+        );
+        return state.scanner.instance;
+    }
+
     async function startCameraScanner() {
         openModal('modalScanner');
         const message = qs('#posScannerMessage');
-        const video = qs('#posScannerVideo');
-        if (!navigator.mediaDevices?.getUserMedia) {
+
+        if (state.scanner.starting || state.scanner.active) return;
+        if (!window.isSecureContext) {
+            message.textContent = 'La cámara requiere una conexión HTTPS.';
+            return;
+        }
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
             message.textContent = 'Este navegador no permite acceder a la cámara.';
             return;
         }
-        if (!('BarcodeDetector' in window)) {
-            message.textContent = 'Tu navegador no soporta el lector nativo. Puedes usar un lector USB/Bluetooth o escribir el código.';
+
+        const scanner = createHtml5Scanner();
+        if (!scanner) {
+            message.textContent = 'No se pudo cargar el lector de cámara.';
             return;
         }
-        try {
-            const supported = await window.BarcodeDetector.getSupportedFormats();
-            const desired = ['qr_code', 'code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_39'];
-            const formats = desired.filter(f => supported.includes(f));
-            state.scanner.detector = new window.BarcodeDetector(formats.length ? { formats } : undefined);
-            state.scanner.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-            video.srcObject = state.scanner.stream;
-            await video.play();
-            message.textContent = 'Centra el código dentro del marco.';
-            scanCameraFrame();
-        } catch (error) {
-            message.textContent = error?.name === 'NotAllowedError' ? 'Permiso de cámara denegado.' : 'No se pudo iniciar la cámara.';
-        }
-    }
 
-    async function scanCameraFrame() {
-        if (!state.scanner.detector || !state.scanner.stream) return;
+        state.scanner.starting = true;
+        state.scanner.processing = false;
+        message.textContent = 'Solicitando acceso a la cámara...';
+
+        const config = {
+            fps: 12,
+            disableFlip: false
+        };
+
+        const onSuccess = async decodedText => {
+            const code = String(decodedText || '').trim();
+            if (state.scanner.processing || code.length < 2) return;
+
+            state.scanner.processing = true;
+            message.textContent = 'Código detectado. Procesando...';
+            if (navigator.vibrate) navigator.vibrate(60);
+
+            await stopCameraScanner();
+            closeModal('modalScanner');
+            window.setTimeout(() => {
+                handleScannedCode(code);
+                state.scanner.processing = false;
+            }, 120);
+        };
+
+        const onFailure = () => {
+            // Es normal que algunos fotogramas no contengan un código legible.
+        };
+
         try {
-            const codes = await state.scanner.detector.detect(qs('#posScannerVideo'));
-            if (codes?.length) {
-                const raw = String(codes[0].rawValue || '').trim();
-                if (raw) {
-                    stopCameraScanner();
-                    closeModal('modalScanner');
-                    handleScannedCode(raw);
-                    return;
-                }
+            await scanner.start(
+                { facingMode: 'environment' },
+                config,
+                onSuccess,
+                onFailure
+            );
+            state.scanner.active = true;
+            state.scanner.starting = false;
+            message.textContent = 'Cámara activa · centra el código dentro del marco.';
+            return;
+        } catch (firstError) {
+            try {
+                const cameras = await window.Html5Qrcode.getCameras();
+                if (!Array.isArray(cameras) || !cameras.length) throw firstError;
+
+                // En iPhone suele funcionar mejor seleccionar explícitamente una cámara.
+                const preferred = cameras.find(camera => /back|rear|environment|trasera/i.test(camera.label || '')) || cameras[cameras.length - 1];
+                await scanner.start(
+                    preferred.id,
+                    config,
+                    onSuccess,
+                    onFailure
+                );
+                state.scanner.active = true;
+                state.scanner.starting = false;
+                message.textContent = 'Cámara activa · centra el código dentro del marco.';
+                return;
+            } catch (secondError) {
+                state.scanner.active = false;
+                state.scanner.starting = false;
+                message.textContent = scannerErrorMessage(secondError || firstError);
             }
-        } catch (error) { /* retry */ }
-        state.scanner.raf = window.requestAnimationFrame(scanCameraFrame);
+        }
     }
 
-    function stopCameraScanner() {
-        if (state.scanner.raf) cancelAnimationFrame(state.scanner.raf);
-        state.scanner.raf = 0;
-        if (state.scanner.stream) {
-            state.scanner.stream.getTracks().forEach(track => track.stop());
-            state.scanner.stream = null;
+    async function stopCameraScanner() {
+        const scanner = state.scanner.instance;
+        state.scanner.active = false;
+        state.scanner.starting = false;
+        if (!scanner) return;
+
+        try {
+            await scanner.stop();
+        } catch (error) {
+            // Si ya estaba detenido, continuamos con la limpieza.
         }
-        const video = qs('#posScannerVideo');
-        if (video) video.srcObject = null;
+        try {
+            scanner.clear();
+        } catch (error) {
+            // El contenedor se limpiará al crear la siguiente instancia.
+        }
+        if (state.scanner.instance === scanner) state.scanner.instance = null;
     }
 
     function handleScannedCode(code) {

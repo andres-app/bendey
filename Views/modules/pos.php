@@ -414,7 +414,7 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
             </button>
         </div>
         <div class="pos-scanner-stage">
-            <video id="posScannerVideo" autoplay muted playsinline></video>
+            <div id="posScannerReader" class="pos-scanner-reader" aria-label="Vista previa de la cámara"></div>
             <div class="pos-scanner-frame"><span></span><span></span><span></span><span></span></div>
             <div class="pos-scanner-message" id="posScannerMessage">Preparando cámara...</div>
         </div>
@@ -460,6 +460,10 @@ window.TIQUEPOS_POS_BOOT = {
     today: <?= json_encode(date('Y-m-d')) ?>
 };
 </script>
+<script
+    src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"></script>
 <script src="Views/modules/scripts/pos.js?v=<?= time() ?>"></script>
 </body>
 </html>
