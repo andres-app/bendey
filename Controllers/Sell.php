@@ -1215,203 +1215,295 @@ switch ($op) {
             }
 
             // =================================================
-            // 11. REGISTRAR PAGOS
+            // 11. CRONOGRAMA DE CRÉDITO / PAGOS AL CONTADO
             // =================================================
-            $pagosRecibidos = $_POST['pagos'] ?? [];
-
-            $esPagoCombinado =
-                (int)($formaPago['es_combinado'] ?? 0) === 1;
-
-            if ($esPagoCombinado) {
-
-                if (
-                    !is_array($pagosRecibidos)
-                    || count($pagosRecibidos) === 0
-                ) {
+            if ($esCredito) {
+                /*
+                |--------------------------------------------------------------
+                | VENTA AL CRÉDITO
+                |--------------------------------------------------------------
+                | Una factura al crédito no representa dinero recibido en caja
+                | al momento de emitirla. Por eso:
+                | 1) se genera el cronograma en venta_cuota;
+                | 2) NO se inserta venta_pago hasta que exista una cobranza real.
+                |
+                | Las cuotas se reparten en centavos para que la suma sea
+                | exactamente igual al total del comprobante.
+                */
+                if (!$fechaPrimeraCuota instanceof DateTimeImmutable) {
                     throw new Exception(
-                        'Debe registrar las formas de pago utilizadas.'
+                        'No se pudo determinar la fecha de la primera cuota.'
                     );
                 }
 
+                $totalCentavos = (int)round(
+                    ((float)$total_venta) * 100
+                );
+
+                if ($totalCentavos <= 0) {
+                    throw new Exception(
+                        'El total de una venta al crédito debe ser mayor que cero.'
+                    );
+                }
+
+                $centavosBase = intdiv(
+                    $totalCentavos,
+                    $numeroCuotas
+                );
+
+                if ($centavosBase <= 0) {
+                    throw new Exception(
+                        'El número de cuotas es demasiado alto para el total de la venta.'
+                    );
+                }
+
+                $centavosAcumulados = 0;
+                $diaObjetivo = (int)$fechaPrimeraCuota->format('d');
+                $mesBase = new DateTimeImmutable(
+                    $fechaPrimeraCuota->format('Y-m-01'),
+                    new DateTimeZone('America/Lima')
+                );
+
+                for ($numeroCuota = 1; $numeroCuota <= $numeroCuotas; $numeroCuota++) {
+                    $esUltima = $numeroCuota === $numeroCuotas;
+
+                    $centavosCuota = $esUltima
+                        ? ($totalCentavos - $centavosAcumulados)
+                        : $centavosBase;
+
+                    $centavosAcumulados += $centavosCuota;
+
+                    $mesCuota = $mesBase->modify(
+                        '+' . ($numeroCuota - 1) . ' month'
+                    );
+
+                    $ultimoDiaMes = (int)$mesCuota->format('t');
+                    $diaCuota = min(
+                        $diaObjetivo,
+                        $ultimoDiaMes
+                    );
+
+                    $fechaVencimientoCuota = $mesCuota->setDate(
+                        (int)$mesCuota->format('Y'),
+                        (int)$mesCuota->format('m'),
+                        $diaCuota
+                    )->format('Y-m-d');
+
+                    $codigoCuota = 'Cuota' . str_pad(
+                        (string)$numeroCuota,
+                        3,
+                        '0',
+                        STR_PAD_LEFT
+                    );
+
+                    $montoCuota = $centavosCuota / 100;
+
+                    $cuotaRegistrada = $conexionVenta->setData(
+                        "INSERT INTO venta_cuota
+                        (
+                            idventa,
+                            numero_cuota,
+                            codigo,
+                            monto,
+                            fecha_vencimiento,
+                            monto_pagado,
+                            fecha_pago,
+                            estado
+                        )
+                        VALUES (?, ?, ?, ?, ?, 0.00, NULL, 'PENDIENTE')",
+                        [
+                            $idventa,
+                            $numeroCuota,
+                            $codigoCuota,
+                            $montoCuota,
+                            $fechaVencimientoCuota
+                        ]
+                    );
+
+                    if (!$cuotaRegistrada) {
+                        throw new Exception(
+                            'No se pudo registrar el cronograma de cuotas de la venta.'
+                        );
+                    }
+                }
+            } else {
                 /*
-     * Agrupa formas repetidas.
-     * Ejemplo: dos filas de efectivo se convierten
-     * en un solo registro.
-     */
-                $pagosAgrupados = [];
+                |--------------------------------------------------------------
+                | VENTA AL CONTADO
+                |--------------------------------------------------------------
+                */
+                $pagosRecibidos = $_POST['pagos'] ?? [];
 
-                foreach ($pagosRecibidos as $pago) {
+                $esPagoCombinado =
+                    (int)($formaPago['es_combinado'] ?? 0) === 1;
 
-                    $idFormaPagoDetalle = filter_var(
-                        $pago['idforma_pago'] ?? null,
-                        FILTER_VALIDATE_INT
-                    );
+                if ($esPagoCombinado) {
 
-                    $montoTexto = str_replace(
-                        ',',
-                        '.',
-                        trim((string)($pago['monto'] ?? '0'))
-                    );
+                    if (
+                        !is_array($pagosRecibidos)
+                        || count($pagosRecibidos) === 0
+                    ) {
+                        throw new Exception(
+                            'Debe registrar las formas de pago utilizadas.'
+                        );
+                    }
 
-                    $monto = round(
-                        (float)$montoTexto,
+                    $pagosAgrupados = [];
+
+                    foreach ($pagosRecibidos as $pago) {
+
+                        $idFormaPagoDetalle = filter_var(
+                            $pago['idforma_pago'] ?? null,
+                            FILTER_VALIDATE_INT
+                        );
+
+                        $montoTexto = str_replace(
+                            ',',
+                            '.',
+                            trim((string)($pago['monto'] ?? '0'))
+                        );
+
+                        $monto = round(
+                            (float)$montoTexto,
+                            2
+                        );
+
+                        if (
+                            (
+                                $idFormaPagoDetalle === false
+                                || $idFormaPagoDetalle <= 0
+                            )
+                            && $monto <= 0
+                        ) {
+                            continue;
+                        }
+
+                        if (
+                            $idFormaPagoDetalle === false
+                            || $idFormaPagoDetalle <= 0
+                        ) {
+                            throw new Exception(
+                                'Debe seleccionar una forma de pago válida.'
+                            );
+                        }
+
+                        if ($monto <= 0) {
+                            throw new Exception(
+                                'El monto de cada forma de pago debe ser mayor que cero.'
+                            );
+                        }
+
+                        $formaPagoDetalle = $conexionVenta->getData(
+                            "SELECT
+                                idforma_pago,
+                                nombre,
+                                es_efectivo
+                             FROM forma_pago
+                             WHERE idforma_pago = ?
+                               AND activo = 1
+                               AND condicion = 1
+                               AND es_combinado = 0
+                             LIMIT 1",
+                            [$idFormaPagoDetalle]
+                        );
+
+                        if (!$formaPagoDetalle) {
+                            throw new Exception(
+                                'Una de las formas de pago seleccionadas no está disponible.'
+                            );
+                        }
+
+                        if (!isset($pagosAgrupados[$idFormaPagoDetalle])) {
+                            $pagosAgrupados[$idFormaPagoDetalle] = [
+                                'idforma_pago' => $idFormaPagoDetalle,
+                                'nombre' => $formaPagoDetalle['nombre'],
+                                'monto' => 0.00
+                            ];
+                        }
+
+                        $pagosAgrupados[$idFormaPagoDetalle]['monto'] =
+                            round(
+                                $pagosAgrupados[$idFormaPagoDetalle]['monto']
+                                    + $monto,
+                                2
+                            );
+                    }
+
+                    if (count($pagosAgrupados) < 2) {
+                        throw new Exception(
+                            'El pago mixto requiere al menos dos formas de pago diferentes.'
+                        );
+                    }
+
+                    $totalPagado = 0.00;
+
+                    foreach ($pagosAgrupados as $pagoAgrupado) {
+                        $totalPagado += $pagoAgrupado['monto'];
+                    }
+
+                    $totalPagado = round(
+                        $totalPagado,
                         2
                     );
 
-                    /*
-         * Ignorar una fila completamente vacía.
-         */
                     if (
-                        (
-                            $idFormaPagoDetalle === false
-                            || $idFormaPagoDetalle <= 0
-                        )
-                        && $monto <= 0
-                    ) {
-                        continue;
-                    }
-
-                    if (
-                        $idFormaPagoDetalle === false
-                        || $idFormaPagoDetalle <= 0
+                        abs($totalPagado - $total_venta) > 0.01
                     ) {
                         throw new Exception(
-                            'Debe seleccionar una forma de pago válida.'
+                            'La suma de los pagos debe ser igual al total de la venta. '
+                                . 'Total de venta: S/ '
+                                . number_format($total_venta, 2)
+                                . '. Total ingresado: S/ '
+                                . number_format($totalPagado, 2)
+                                . '.'
                         );
                     }
 
-                    if ($monto <= 0) {
-                        throw new Exception(
-                            'El monto de cada forma de pago debe ser mayor que cero.'
+                    foreach ($pagosAgrupados as $pagoAgrupado) {
+
+                        $registrado = $conexionVenta->setData(
+                            "INSERT INTO venta_pago
+                            (
+                                idventa,
+                                idforma_pago,
+                                monto
+                            )
+                            VALUES (?, ?, ?)",
+                            [
+                                $idventa,
+                                $pagoAgrupado['idforma_pago'],
+                                $pagoAgrupado['monto']
+                            ]
                         );
+
+                        if (!$registrado) {
+                            throw new Exception(
+                                'No se pudo registrar el detalle de los pagos.'
+                            );
+                        }
                     }
-
-                    /*
-         * Validación obligatoria en servidor.
-         * No se confía solamente en el select del navegador.
-         */
-                    $formaPagoDetalle = $conexionVenta->getData(
-                        "SELECT
-                idforma_pago,
-                nombre,
-                es_efectivo
-             FROM forma_pago
-             WHERE idforma_pago = ?
-               AND activo = 1
-               AND condicion = 1
-               AND es_combinado = 0
-             LIMIT 1",
-                        [$idFormaPagoDetalle]
-                    );
-
-                    if (!$formaPagoDetalle) {
-                        throw new Exception(
-                            'Una de las formas de pago seleccionadas no está disponible.'
-                        );
-                    }
-
-                    if (!isset($pagosAgrupados[$idFormaPagoDetalle])) {
-                        $pagosAgrupados[$idFormaPagoDetalle] = [
-                            'idforma_pago' => $idFormaPagoDetalle,
-                            'nombre' => $formaPagoDetalle['nombre'],
-                            'monto' => 0.00
-                        ];
-                    }
-
-                    $pagosAgrupados[$idFormaPagoDetalle]['monto'] =
-                        round(
-                            $pagosAgrupados[$idFormaPagoDetalle]['monto']
-                                + $monto,
-                            2
-                        );
-                }
-
-                /*
-     * Para que realmente sea mixto deben existir
-     * al menos dos medios de pago distintos.
-     */
-                if (count($pagosAgrupados) < 2) {
-                    throw new Exception(
-                        'El pago mixto requiere al menos dos formas de pago diferentes.'
-                    );
-                }
-
-                $totalPagado = 0.00;
-
-                foreach ($pagosAgrupados as $pagoAgrupado) {
-                    $totalPagado += $pagoAgrupado['monto'];
-                }
-
-                $totalPagado = round(
-                    $totalPagado,
-                    2
-                );
-
-                /*
-     * La suma debe coincidir exactamente con la venta.
-     * Se admite una diferencia máxima de un céntimo
-     * por redondeo.
-     */
-                if (
-                    abs($totalPagado - $total_venta) > 0.01
-                ) {
-                    throw new Exception(
-                        'La suma de los pagos debe ser igual al total de la venta. '
-                            . 'Total de venta: S/ '
-                            . number_format($total_venta, 2)
-                            . '. Total ingresado: S/ '
-                            . number_format($totalPagado, 2)
-                            . '.'
-                    );
-                }
-
-                foreach ($pagosAgrupados as $pagoAgrupado) {
+                } else {
 
                     $registrado = $conexionVenta->setData(
                         "INSERT INTO venta_pago
-                (
-                    idventa,
-                    idforma_pago,
-                    monto
-                )
-             VALUES (?, ?, ?)",
+                        (
+                            idventa,
+                            idforma_pago,
+                            monto
+                        )
+                        VALUES (?, ?, ?)",
                         [
                             $idventa,
-                            $pagoAgrupado['idforma_pago'],
-                            $pagoAgrupado['monto']
+                            $idforma_pago,
+                            $total_venta
                         ]
                     );
 
                     if (!$registrado) {
                         throw new Exception(
-                            'No se pudo registrar el detalle de los pagos.'
+                            'No se pudo registrar el pago de la venta.'
                         );
                     }
-                }
-            } else {
-
-                /*
-     * Pago normal: se registra la forma principal.
-     */
-                $registrado = $conexionVenta->setData(
-                    "INSERT INTO venta_pago
-            (
-                idventa,
-                idforma_pago,
-                monto
-            )
-         VALUES (?, ?, ?)",
-                    [
-                        $idventa,
-                        $idforma_pago,
-                        $total_venta
-                    ]
-                );
-
-                if (!$registrado) {
-                    throw new Exception(
-                        'No se pudo registrar el pago de la venta.'
-                    );
                 }
             }
 

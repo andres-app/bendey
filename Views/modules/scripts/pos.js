@@ -861,6 +861,12 @@
         const voucher = currentVoucher();
         const invoice = normalize(voucher?.nombre).includes('factura');
         const clientLabel = sale.customer?.generic ? 'Cliente varios' : (sale.customer?.nombre || 'Cliente');
+
+        // Si el usuario cambió el comprobante mientras existía un checkout a crédito,
+        // regresamos a contado. El botón Crédito permanece clicable para poder explicar
+        // claramente por qué una boleta no puede emitirse con cronograma SUNAT.
+        if (!invoice && state.checkout.type === 'Crédito') state.checkout.type = 'Contado';
+
         qs('#checkoutDocumentCaption').textContent = `${voucher?.nombre || 'Comprobante'} · ${clientLabel}`;
         qs('#checkoutTotal').textContent = fmt(t.total);
         qs('#checkoutSubtotal').textContent = fmt(t.subtotal);
@@ -874,14 +880,35 @@
                 <span class="name"><strong>${escapeHtml(item.displayName || item.name)}</strong><small>${Number(item.qty)} × ${fmt(item.unitPrice)}</small></span>
                 <strong>${fmt(Number(item.qty) * Number(item.unitPrice))}</strong>
             </div>`).join('');
+
         qsa('[data-payment-type]').forEach(btn => {
+            btn.disabled = false;
             btn.classList.toggle('active', btn.dataset.paymentType === state.checkout.type);
-            btn.disabled = btn.dataset.paymentType === 'Crédito' && !invoice;
         });
-        if (!invoice && state.checkout.type === 'Crédito') state.checkout.type = 'Contado';
-        qs('#checkoutCreditFields').hidden = state.checkout.type !== 'Crédito';
-        qs('#checkoutPaymentTypeWrap').title = invoice ? '' : 'El crédito está disponible únicamente para factura electrónica.';
-        renderPaymentRows();
+
+        const credit = state.checkout.type === 'Crédito';
+        qs('#checkoutCreditFields').hidden = !credit;
+        qs('#checkoutPaymentRows').hidden = credit;
+        qs('#btnAddPayment').hidden = credit;
+        qs('#checkoutPaymentTypeWrap').title = invoice ? '' : 'Para crédito selecciona Factura Electrónica y un cliente con RUC.';
+
+        if (credit) {
+            updateCreditSummary();
+        } else {
+            renderPaymentRows();
+        }
+    }
+
+    function updateCreditSummary() {
+        const total = totals().total;
+        const installments = Math.min(36, Math.max(1, Number(qs('#checkoutInstallments')?.value || 1)));
+        const amount = installments > 0 ? money2(total / installments) : total;
+        const currency = currencySymbol();
+        if (qs('#checkoutCreditCurrency')) qs('#checkoutCreditCurrency').textContent = currency;
+        if (qs('#checkoutInstallmentAmount')) qs('#checkoutInstallmentAmount').value = amount.toFixed(2);
+        qs('#checkoutPaymentsCount').textContent = String(installments);
+        qs('#checkoutChange').textContent = fmt(0);
+        qs('#checkoutPaymentHelper').textContent = `Venta al crédito en ${installments} cuota${installments === 1 ? '' : 's'}. El cronograma se registrará automáticamente y no se marcará ningún pago como cobrado.`;
     }
 
     function renderPaymentRows() {
@@ -941,13 +968,29 @@
         const sale = activeSale();
         const voucher = currentVoucher();
         const t = totals(sale);
+        const invoice = normalize(voucher?.nombre).includes('factura');
+
         if (!sale.cart.length || t.total <= 0) throw new Error('El pedido no contiene productos válidos.');
-        if (normalize(voucher?.nombre).includes('factura')) {
+        if (invoice) {
             const c = sale.customer || genericCustomer();
             if (c.generic || c.tipo_documento !== 'RUC' || !/^\d{11}$/.test(String(c.num_documento || ''))) {
                 throw new Error('La factura requiere un cliente con RUC válido.');
             }
         }
+
+        if (state.checkout.type === 'Crédito') {
+            if (!invoice) throw new Error('La venta al crédito está disponible únicamente para Factura Electrónica.');
+            const installments = Number(qs('#checkoutInstallments').value || 0);
+            const due = String(qs('#checkoutFirstDue').value || '');
+            if (installments < 1 || installments > 36) throw new Error('El número de cuotas debe estar entre 1 y 36.');
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error('Selecciona la fecha del primer pago.');
+            const dueDate = new Date(`${due}T00:00:00`);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (Number.isNaN(dueDate.getTime()) || dueDate <= today) throw new Error('La primera cuota debe vencer después de hoy.');
+            return { sale, voucher, totals: t, selected: [] };
+        }
+
         if (!state.checkout.rows.length) throw new Error('Selecciona una forma de pago.');
         const paid = money2(state.checkout.rows.reduce((sum, row) => sum + Number(row.amount || 0), 0));
         const selected = state.checkout.rows.map(row => state.payments.find(p => Number(p.idforma_pago) === Number(row.methodId)));
@@ -963,13 +1006,6 @@
             const ids = new Set(state.checkout.rows.map(r => Number(r.methodId)));
             if (ids.size < 2) throw new Error('El pago mixto requiere al menos dos formas de pago diferentes.');
             if (Math.abs(paid - t.total) > .01) throw new Error('La suma de los pagos mixtos debe ser igual al total de la venta.');
-        }
-        if (state.checkout.type === 'Crédito') {
-            if (!normalize(voucher?.nombre).includes('factura')) throw new Error('El crédito solo está disponible para factura electrónica.');
-            const installments = Number(qs('#checkoutInstallments').value || 0);
-            const due = String(qs('#checkoutFirstDue').value || '');
-            if (installments < 1 || installments > 36) throw new Error('El número de cuotas debe estar entre 1 y 36.');
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error('Selecciona la fecha de la primera cuota.');
         }
         return { sale, voucher, totals: t, selected };
     }
@@ -1021,7 +1057,11 @@
             form.append('precio_venta[]', money2(item.unitPrice).toFixed(2));
             form.append('descuento[]', '0');
         });
-        if (state.checkout.rows.length === 1) {
+        if (state.checkout.type === 'Crédito') {
+            // El backend conserva una forma de pago principal por compatibilidad con
+            // la tabla venta, pero una venta a crédito NO registra venta_pago al emitir.
+            form.append('idforma_pago', String(defaultPaymentId()));
+        } else if (state.checkout.rows.length === 1) {
             form.append('idforma_pago', String(Number(state.checkout.rows[0].methodId)));
         } else {
             const mixed = state.payments.find(p => Number(p.es_combinado) === 1);
@@ -1512,10 +1552,16 @@
         });
         qs('#btnAddPayment').addEventListener('click', addPaymentRow);
         qsa('[data-payment-type]').forEach(btn => btn.addEventListener('click', () => {
-            if (btn.disabled) return;
-            state.checkout.type = btn.dataset.paymentType;
+            const nextType = btn.dataset.paymentType;
+            if (nextType === 'Crédito' && !normalize(currentVoucher()?.nombre).includes('factura')) {
+                toast('Para una venta al crédito selecciona Factura Electrónica y un cliente con RUC. La Boleta no admite cronograma de cuotas SUNAT.', 'warning', 'Crédito requiere factura');
+                return;
+            }
+            state.checkout.type = nextType;
             renderCheckout();
         }));
+        qs('#checkoutInstallments').addEventListener('input', updateCreditSummary);
+        qs('#checkoutInstallments').addEventListener('change', updateCreditSummary);
         qs('#btnProcesarVenta').addEventListener('click', processSale);
 
         qsa('[data-close-modal]').forEach(el => el.addEventListener('click', () => closeModal(el.dataset.closeModal)));

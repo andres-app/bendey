@@ -355,10 +355,17 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                 <div class="pos-credit-fields" id="checkoutCreditFields" hidden>
                     <label class="pos-form-field">
                         <span>Número de cuotas</span>
-                        <input id="checkoutInstallments" type="number" min="1" max="36" value="1">
+                        <input id="checkoutInstallments" type="number" inputmode="numeric" min="1" max="36" value="1">
                     </label>
                     <label class="pos-form-field">
-                        <span>Primera cuota</span>
+                        <span>Monto por cuota</span>
+                        <div class="pos-prefix-input pos-readonly-money">
+                            <span id="checkoutCreditCurrency">S/.</span>
+                            <input id="checkoutInstallmentAmount" type="text" value="0.00" readonly tabindex="-1">
+                        </div>
+                    </label>
+                    <label class="pos-form-field">
+                        <span>Fecha del primer pago</span>
                         <input id="checkoutFirstDue" type="date">
                     </label>
                 </div>
