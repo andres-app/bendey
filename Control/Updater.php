@@ -596,30 +596,50 @@ class TiquePOSUpdater
         }
 
         /*
-         * Fallback por convención de nombres: foo.sql + foo_DOWN.sql.
-         * Solo se inspeccionan migraciones que realmente llegaron en el
-         * paquete incremental, nunca archivos existentes en el cliente.
+         * Convención oficial compartida con Control Center:
+         *
+         *   database/migrations/foo.sql
+         *   database/rollbacks/foo.sql
+         *
+         * Se conserva compatibilidad con paquetes antiguos que hayan usado
+         * database/migrations/foo_DOWN.sql.
          */
         $migrationDir = $stage . '/database/migrations';
+
         if (is_dir($migrationDir)) {
             $candidates = glob($migrationDir . '/*.sql') ?: array();
             sort($candidates, SORT_STRING);
 
             foreach ($candidates as $file) {
                 $name = basename($file);
+
                 if (preg_match('/_DOWN\.sql$/i', $name)) {
                     continue;
                 }
 
                 $up = 'database/migrations/' . $name;
-                $downName = preg_replace(
+
+                $officialDown =
+                    'database/rollbacks/' . $name;
+
+                $legacyDownName = preg_replace(
                     '/\.sql$/i',
                     '_DOWN.sql',
                     $name
                 );
-                $down = 'database/migrations/' . $downName;
 
-                if (!is_file($stage . '/' . $down)) {
+                $legacyDown =
+                    'database/migrations/' . $legacyDownName;
+
+                $down = '';
+
+                if (is_file($stage . '/' . $officialDown)) {
+                    $down = $officialDown;
+                } elseif (is_file($stage . '/' . $legacyDown)) {
+                    $down = $legacyDown;
+                }
+
+                if ($down === '') {
                     continue;
                 }
 
@@ -724,7 +744,17 @@ class TiquePOSUpdater
                 );
             }
 
-            if (!preg_match('#^database/migrations/[^/]+_DOWN\.sql$#i', $down)) {
+            $downEsOficial = (bool)preg_match(
+                '#^database/rollbacks/[^/]+\.sql$#i',
+                $down
+            );
+
+            $downEsLegacy = (bool)preg_match(
+                '#^database/migrations/[^/]+_DOWN\.sql$#i',
+                $down
+            );
+
+            if (!$downEsOficial && !$downEsLegacy) {
                 throw new RuntimeException(
                     'Ruta DOWN no permitida: ' . $down
                 );

@@ -7,9 +7,9 @@
     "database/migrations/20260821_phase4_nc_trazabilidad_devoluciones.sql"
   ],
   "rollback_migrations": {
-    "database/migrations/20260821_phase2_trazabilidad_compras.sql": "database/migrations/20260821_phase2_trazabilidad_compras_DOWN.sql",
-    "database/migrations/20260821_phase4_nc_trazabilidad_devoluciones.sql": "database/migrations/20260821_phase4_nc_trazabilidad_devoluciones_DOWN.sql"
+    "database/migrations/20260821_phase2_trazabilidad_compras.sql": "database/rollbacks/20260821_phase2_trazabilidad_compras.sql",
+    "database/migrations/20260821_phase4_nc_trazabilidad_devoluciones.sql": "database/rollbacks/20260821_phase4_nc_trazabilidad_devoluciones.sql"
   },
   "delete": [],
-  "note": "Control Center debe conservar/mezclar migrations y rollback_migrations al generar tiquepos-release.json."
+  "note": "Control Center debe conservar migrations y rollback_migrations al generar tiquepos-release.json."
 }
