@@ -1,0 +1,31 @@
+TIQUEPOS · BASE LIMPIA PARA NUEVAS INSTALACIONES
+
+Este paquete NO contiene datos comerciales de sunat.felicitygirls.shop.
+
+La instalación usa database/base.sql, que conserva únicamente:
+- estructura completa de tablas,
+- tipos de pago,
+- formas de pago genéricas,
+- cuentas financieras genéricas,
+- unidades de medida,
+- permisos,
+- motivos de nota de crédito,
+- categorías genéricas de compras,
+- catálogos SUNAT.
+
+NO se incluyen:
+- clientes/proveedores,
+- productos/categorías de Felicity,
+- ventas/compras,
+- cobranzas,
+- kardex,
+- cajas abiertas/cerradas,
+- usuarios,
+- RUC/datos de Felicity,
+- correlativos usados,
+- XML/CDR,
+- credenciales APISUNAT,
+- logos ni archivos subidos por Felicity.
+
+El instalador /install/ crea los datos particulares del nuevo cliente: empresa, sucursal principal,
+almacén principal, caja principal y primer administrador.

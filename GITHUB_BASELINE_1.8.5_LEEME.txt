@@ -1,0 +1,75 @@
+TIQUEPOS - BASELINE GITHUB 1.8.5
+================================
+
+OBJETIVO
+-------
+Este paquete NO es un instalador ni un release para clientes.
+Es un parche para dejar el repositorio GitHub alineado con la infraestructura
+actual de TiquePOS Control sin subir credenciales ni datos propios de clientes.
+
+ANTES DE HACER PUSH
+-------------------
+1) Copia este contenido sobre tu copia de trabajo del repositorio bendey.
+2) NO copies Config/local.php desde app.tiquepos.com.
+3) Ejecuta desde la raíz del repositorio:
+
+   git rm -r --cached --ignore-unmatch storage/apisunat
+   git rm -r --cached --ignore-unmatch Assets/img/company
+   git rm -r --cached --ignore-unmatch Assets/img/products
+   git rm -r --cached --ignore-unmatch Assets/img/users
+   git rm --cached --ignore-unmatch Reports/error_log
+
+   # Si tienes QR versionados:
+   git ls-files 'Assets/qr_*.png' | xargs -r git rm --cached --ignore-unmatch
+
+4) Comprueba que Config/local.php NO esté versionado:
+
+   git rm --cached --ignore-unmatch Config/local.php
+
+5) Verifica cambios:
+
+   git status
+
+6) Commit y push:
+
+   git add .
+   git commit -m "TiquePOS 1.8.5: baseline Control, instalador y configuración segura"
+   git push origin master
+
+MUY IMPORTANTE - SECRETOS YA EXPUESTOS
+---------------------------------------
+El repositorio público tenía credenciales escritas en Config/config.php y
+Config/turnstile.php. Reemplazar esos archivos evita futuras exposiciones, pero
+NO invalida lo que quedó en el historial Git.
+
+Por eso debes ROTAR:
+- contraseña MySQL de la instalación expuesta;
+- Secret Key de Cloudflare Turnstile expuesta;
+- cualquier otra clave privada que haya sido publicada previamente.
+
+Después de rotarlas, actualiza solo Config/local.php en el hosting. Ese archivo
+queda ignorado por Git y no se distribuye en releases.
+
+ARCHIVOS QUE ESTE PARCHE AGREGA/ACTUALIZA
+-----------------------------------------
+- Control/* (agente, updater, licencia, sync)
+- VERSION
+- database/base.sql
+- install/*
+- Config/config.php seguro
+- Config/turnstile.php seguro
+- Config/local.php.example
+- integración de licencia amigable
+- footer con versión dinámica
+- Turnstile moderno
+- .gitignore
+
+NO INCLUYE
+----------
+- Config/local.php
+- credenciales MySQL
+- secretos Turnstile
+- Client Secret de Control
+- datos de clientes
+- XML/CDR
+- imágenes cargadas por empresas

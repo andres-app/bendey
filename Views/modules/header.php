@@ -43,6 +43,9 @@
     <!-- ✅ SweetAlert2 (CDN está bien) -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- Estado global de licencia TiquePOS -->
+    <script src="Assets/js/license-state.js?v=<?= (int)@filemtime('Assets/js/license-state.js') ?>"></script>
+
     <!-- ✅ Select2 de Stisla -->
     <script src="Assets/bundles/select2/dist/js/select2.full.min.js"></script>
 

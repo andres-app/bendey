@@ -1,0 +1,7 @@
+Options -Indexes
+<FilesMatch "^(?!sync\.php$).*\.php$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "\.(json|log|zip|pem)$">
+  Require all denied
+</FilesMatch>

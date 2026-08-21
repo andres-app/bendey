@@ -1,0 +1,29 @@
+# TiquePOS - configuración privada por instalación
+Config/local.php
+.env
+
+# Datos/runtime locales: nunca versionar datos de clientes
+storage/*
+!storage/.gitkeep
+
+# Conservar carpeta protegida de APISUNAT
+!storage/apisunat/
+storage/apisunat/*
+!storage/apisunat/.htaccess
+
+# Archivos cargados por cada empresa
+Assets/img/company/*
+Assets/img/products/*
+Assets/img/users/*
+Assets/qr_*.png
+
+# Logs y temporales
+Reports/error_log
+*.log
+*.tmp
+*.bak
+
+# Backups y paquetes locales
+*.sql.gz
+*.backup
+attach_backup_*/

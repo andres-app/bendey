@@ -627,7 +627,13 @@
   </div>
 
   <div class="footer-right">
-    v. 1.8
+    <?php
+      $versionPath = dirname(__DIR__, 2) . '/VERSION';
+      $appVersion = is_file($versionPath)
+        ? trim((string) file_get_contents($versionPath))
+        : '—';
+      echo 'v. ' . htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8');
+    ?>
   </div>
 
 </footer>

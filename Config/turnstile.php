@@ -1,35 +1,42 @@
 <?php
 
-/**
- * Configuración de Cloudflare Turnstile.
- *
- * La site_key puede mostrarse en el navegador.
- * La secret_key debe permanecer únicamente en el servidor.
- *
- * También puedes definir las variables de entorno:
- * TURNSTILE_SITE_KEY y TURNSTILE_SECRET_KEY.
+declare(strict_types=1);
+
+/*
+ * Cloudflare Turnstile.
+ * Site Key: pública.
+ * Secret Key: solo servidor.
+ * Los valores se escriben en Config/local.php durante /install/.
  */
+$local = __DIR__ . '/local.php';
+if (is_file($local)) {
+    require_once $local;
+}
 
-$siteKeyEntorno = getenv('TURNSTILE_SITE_KEY');
-$secretKeyEntorno = getenv('TURNSTILE_SECRET_KEY');
+$siteEnv = getenv('TURNSTILE_SITE_KEY');
+$secretEnv = getenv('TURNSTILE_SECRET_KEY');
 
-return array(
-    'site_key' => $siteKeyEntorno !== false && trim($siteKeyEntorno) !== ''
-        ? trim($siteKeyEntorno)
-        : '0x4AAAAAAEDDWo04epRHtqZQ',
+$siteKey = $siteEnv !== false && trim((string)$siteEnv) !== ''
+    ? trim((string)$siteEnv)
+    : (defined('TURNSTILE_SITE_KEY') ? trim((string)TURNSTILE_SITE_KEY) : '');
 
-    'secret_key' => $secretKeyEntorno !== false && trim($secretKeyEntorno) !== ''
-        ? trim($secretKeyEntorno)
-        : '0x4AAAAAAEDDWmug1vU8vO3QYMBk6dGj12E',
+$secretKey = $secretEnv !== false && trim((string)$secretEnv) !== ''
+    ? trim((string)$secretEnv)
+    : (defined('TURNSTILE_SECRET_KEY') ? trim((string)TURNSTILE_SECRET_KEY) : '');
 
-    // Debe coincidir con la opción "action" usada en login.js.
+$allowed = [];
+if (defined('TURNSTILE_ALLOWED_HOSTNAMES')) {
+    $raw = TURNSTILE_ALLOWED_HOSTNAMES;
+    if (is_array($raw)) {
+        $allowed = $raw;
+    } else {
+        $allowed = preg_split('/\s*,\s*/', trim((string)$raw), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    }
+}
+
+return [
+    'site_key' => $siteKey,
+    'secret_key' => $secretKey,
     'expected_action' => 'login',
-
-    /*
-     * Recomendado en producción. Ejemplo:
-     * 'allowed_hostnames' => array('tudominio.com', 'www.tudominio.com'),
-     *
-     * Déjalo vacío mientras pruebas en localhost o en varios dominios.
-     */
-    'allowed_hostnames' => array()
-);
+    'allowed_hostnames' => array_values(array_unique(array_map(static fn($v) => strtolower(trim((string)$v)), $allowed))),
+];

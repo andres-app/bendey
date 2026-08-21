@@ -471,6 +471,7 @@ window.TIQUEPOS_POS_BOOT = {
     src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"
     crossorigin="anonymous"
     referrerpolicy="no-referrer"></script>
+<script src="Assets/js/license-state.js?v=<?= (int)@filemtime('Assets/js/license-state.js') ?>"></script>
 <script src="Views/modules/scripts/pos.js?v=<?= time() ?>"></script>
 </body>
 </html>

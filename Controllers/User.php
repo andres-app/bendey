@@ -69,10 +69,10 @@ function validarTurnstile($token)
 {
     $token = trim((string)$token);
 
-    if ($token === '') {
+    if ($token === '' || strlen($token) > 2048) {
         return array(
             'ok' => false,
-            'mensaje' => 'Completa la verificación de seguridad.'
+            'mensaje' => 'Completa nuevamente la verificación de seguridad.'
         );
     }
 
@@ -112,6 +112,15 @@ function validarTurnstile($token)
             )
         )
     );
+
+    if (empty($hostsPermitidos)) {
+        error_log('[TURNSTILE] No hay hostnames permitidos configurados.');
+
+        return array(
+            'ok' => false,
+            'mensaje' => 'La verificación de seguridad no está configurada para este dominio.'
+        );
+    }
 
     if (
         $claveSecreta === ''
@@ -243,17 +252,15 @@ function validarTurnstile($token)
         );
     }
 
-    if (!empty($hostsPermitidos)) {
-        $hostname = strtolower(trim((string)($resultado['hostname'] ?? '')));
+    $hostname = strtolower(trim((string)($resultado['hostname'] ?? '')));
 
-        if ($hostname === '' || !in_array($hostname, $hostsPermitidos, true)) {
-            error_log('[TURNSTILE] Hostname no permitido: ' . $hostname);
+    if ($hostname === '' || !in_array($hostname, $hostsPermitidos, true)) {
+        error_log('[TURNSTILE] Hostname no permitido: ' . $hostname);
 
-            return array(
-                'ok' => false,
-                'mensaje' => 'La verificación de seguridad no corresponde a este sitio.'
-            );
-        }
+        return array(
+            'ok' => false,
+            'mensaje' => 'La verificación de seguridad no corresponde a este sitio.'
+        );
     }
 
     return array(

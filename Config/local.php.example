@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Normalmente este archivo lo crea /install/ automáticamente.
+ * Este ejemplo no contiene credenciales reales.
+ */
+define('HOST', 'localhost');
+define('DB_USER', 'USUARIO_DB');
+define('DB_PASS', 'PASSWORD_DB');
+define('DB_NAME', 'BASE_DATOS');
+define('PORT', 3306);
+define('CHARSET', 'utf8mb4');
+define('API_KEY', '');
+
+define('APP_DOMAIN', 'cliente.ejemplo.com');
+
+define('TURNSTILE_SITE_KEY', 'SITE_KEY');
+define('TURNSTILE_SECRET_KEY', 'SECRET_KEY');
+define('TURNSTILE_ALLOWED_HOSTNAMES', 'cliente.ejemplo.com');
+
+define('CONTROL_ENABLED', true);
+define('CONTROL_URL', 'https://admin.tiquepos.com');
+define('CONTROL_DOMAIN', 'cliente.ejemplo.com');
+define('CONTROL_CLIENT_KEY', 'CLIENT_KEY');
+define('CONTROL_CLIENT_SECRET', 'CLIENT_SECRET');
+define('CONTROL_ENFORCE_LICENSE', true);
+define('CONTROL_BOOTSTRAP_GRACE_HOURS', 24);
+define('CONTROL_HTTP_TIMEOUT', 45);
+define('CONTROL_CRON_TOKEN', 'TOKEN_ALEATORIO');

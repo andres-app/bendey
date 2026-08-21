@@ -186,24 +186,7 @@ $versionLoginJs = is_file($rutaLoginJs)
 
                                             <div
                                                 id="turnstile-login"
-                                                class="cf-turnstile"
-                                                data-sitekey="<?php
-                                                    echo htmlspecialchars(
-                                                        $turnstileSiteKey,
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    );
-                                                ?>"
-                                                data-action="login"
-                                                data-theme="light"
-                                                data-language="es"
-                                                data-size="flexible"
-                                                data-retry="auto"
-                                                data-refresh-expired="auto"
-                                                data-callback="tiqueposTurnstileOk"
-                                                data-error-callback="tiqueposTurnstileError"
-                                                data-expired-callback="tiqueposTurnstileExpired"
-                                                data-timeout-callback="tiqueposTurnstileTimeout"
+                                                aria-label="Verificación de seguridad Cloudflare Turnstile"
                                             ></div>
 
                                         <?php endif; ?>
@@ -313,9 +296,9 @@ $versionLoginJs = is_file($rutaLoginJs)
     <?php if ($turnstileConfigurado): ?>
 
         <script
-            src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-            async
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
             defer
+            onload="window.tiqueposTurnstileRender && window.tiqueposTurnstileRender();"
             onerror="
                 window.tiqueposTurnstileScriptError
                 && window.tiqueposTurnstileScriptError();

@@ -3,6 +3,7 @@
   "use strict";
 
   let turnstileToken = "";
+  let turnstileWidgetId = null;
   let procesandoLogin = false;
   let redirigiendo = false;
 
@@ -55,9 +56,13 @@
   function reiniciarTurnstile(mensaje) {
     turnstileToken = "";
 
-    if (window.turnstile && typeof window.turnstile.reset === "function") {
+    if (
+      window.turnstile
+      && typeof window.turnstile.reset === "function"
+      && turnstileWidgetId !== null
+    ) {
       try {
-        window.turnstile.reset();
+        window.turnstile.reset(turnstileWidgetId);
       } catch (error) {
         console.error("No se pudo reiniciar Turnstile:", error);
       }
@@ -87,7 +92,7 @@
     let mensaje = "No se pudo completar la verificación de seguridad.";
 
     if (codigoTexto.indexOf("110200") === 0) {
-      mensaje = "El dominio sunat.felicitygirls.shop no está autorizado en este widget.";
+      mensaje = "Este dominio no está autorizado en el widget de Cloudflare Turnstile.";
     } else if (
       codigoTexto.indexOf("110100") === 0
       || codigoTexto.indexOf("110110") === 0
@@ -121,6 +126,39 @@
       "No se pudo cargar challenges.cloudflare.com. Revisa bloqueadores, DNS o CSP.",
       "error"
     );
+  };
+
+  window.tiqueposTurnstileRender = function () {
+    const config = window.TIQUEPOS_TURNSTILE || {};
+
+    if (!config.configurado || !config.siteKey) {
+      cambiarEstado("Cloudflare Turnstile no está configurado.", "error");
+      return;
+    }
+
+    if (!window.turnstile || typeof window.turnstile.render !== "function") {
+      cambiarEstado("No se pudo iniciar Cloudflare Turnstile.", "error");
+      return;
+    }
+
+    try {
+      turnstileWidgetId = window.turnstile.render("#turnstile-login", {
+        sitekey: String(config.siteKey),
+        action: "login",
+        theme: "light",
+        language: "es",
+        size: "flexible",
+        retry: "auto",
+        "refresh-expired": "auto",
+        callback: window.tiqueposTurnstileOk,
+        "error-callback": window.tiqueposTurnstileError,
+        "expired-callback": window.tiqueposTurnstileExpired,
+        "timeout-callback": window.tiqueposTurnstileTimeout
+      });
+    } catch (error) {
+      console.error("No se pudo renderizar Turnstile:", error);
+      cambiarEstado("No se pudo iniciar la verificación de seguridad.", "error");
+    }
   };
 
   $form.on("submit", function (e) {
