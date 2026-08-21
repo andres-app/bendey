@@ -21,10 +21,29 @@ require 'sidebar.php';
 |--------------------------------------------------------------------------
 */
 if (!empty($_SESSION['ventas']) && (int)$_SESSION['ventas'] === 1) {
+    $rolCajaSesion = strtoupper(
+        trim((string)($_SESSION['rol_caja'] ?? ''))
+    );
+
+    $puedeMovimientoManualCaja =
+        in_array(
+            $rolCajaSesion,
+            ['ADMINISTRADOR', 'CAJERO'],
+            true
+        )
+        && (int)($_SESSION['puede_operar_caja'] ?? 0) === 1;
+
+    $puedeAuditarCajas =
+        (int)($_SESSION['settings'] ?? 0) === 1;
 ?>
     <!-- Tailwind aislado para Caja Chica. No altera Bootstrap/Stisla. -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+    window.TIQUEPOS_CAJA_PUEDE_MOVIMIENTO_MANUAL =
+        <?= $puedeMovimientoManualCaja ? 'true' : 'false' ?>;
+</script>
+
+<script>
         tailwind.config = {
             prefix: 'tw-',
             corePlugins: {
@@ -660,6 +679,28 @@ if (!empty($_SESSION['ventas']) && (int)$_SESSION['ventas'] === 1) {
                                     <i class="fas fa-file-pdf"></i>
                                     PDF
                                 </button>
+
+                                <?php if ($puedeAuditarCajas) { ?>
+                                <button
+                                    type="button"
+                                    id="btnAuditarCajas"
+                                    class="tw-inline-flex tw-h-11 tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-px-4 tw-text-sm tw-font-medium tw-text-slate-700 tw-transition hover:tw-border-tique-200 hover:tw-bg-tique-50 hover:tw-text-tique-700 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-100"
+                                    onclick="auditarMulticaja()">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <span>Auditar cajas</span>
+                                </button>
+                                <?php } ?>
+
+                                <?php if ($puedeMovimientoManualCaja) { ?>
+                                <button
+                                    type="button"
+                                    id="btnMovimientoManualCaja"
+                                    class="tw-inline-flex tw-h-11 tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border tw-border-tique-200 tw-bg-tique-50 tw-px-4 tw-text-sm tw-font-medium tw-text-tique-700 tw-transition hover:tw-bg-tique-100 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-100 disabled:tw-cursor-not-allowed disabled:tw-opacity-50"
+                                    onclick="abrirMovimientoManualCaja()">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    <span>Movimiento</span>
+                                </button>
+                                <?php } ?>
 
                                 <button
                                     type="button"

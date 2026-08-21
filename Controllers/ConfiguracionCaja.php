@@ -107,21 +107,33 @@ try {
                         $idsucursal
                     );
 
+            $cajasGestion =
+                $configuracionCaja
+                    ->listarCajasGestion(
+                        $idsucursal
+                    );
+
             responderConfiguracionCajaJson([
                 'success' => true,
                 'configuracion' => $configuracion,
                 'cajas' => $cajas,
-                'total_cajas' => count($cajas)
+                'cajas_gestion' => $cajasGestion,
+                'total_cajas' => count($cajas),
+                'aperturas_abiertas' =>
+                    $configuracionCaja
+                        ->contarAperturasAbiertasSucursal(
+                            $idsucursal
+                        )
             ]);
 
             break;
 
         /*
         |--------------------------------------------------------------------------
-        | GUARDAR PREFERENCIA ADMINISTRATIVA
+        | CAMBIAR MODALIDAD DE CAJA
         |--------------------------------------------------------------------------
-        | Solo modifica modo_objetivo e idcaja_unica.
-        | No modifica el campo modo, que seguirá en LEGACY.
+        | Actualiza la modalidad operativa únicamente si no existen
+        | aperturas activas en la sucursal.
         |--------------------------------------------------------------------------
         */
         case 'guardar_preferencia':
@@ -177,7 +189,10 @@ try {
                 );
             }
 
-            if ($idcajaUnica <= 0) {
+            if (
+                $modoObjetivo === 'CAJA_UNICA'
+                && $idcajaUnica <= 0
+            ) {
                 throw new RuntimeException(
                     'Seleccione una caja principal válida.'
                 );
@@ -185,7 +200,7 @@ try {
 
             $resultado =
                 $configuracionCaja
-                    ->guardarPreferencia(
+                    ->cambiarModalidad(
                         $idsucursal,
                         $modoObjetivo,
                         $idcajaUnica
@@ -193,7 +208,7 @@ try {
 
             if (!$resultado) {
                 throw new RuntimeException(
-                    'No se pudo guardar la preferencia de caja.'
+                    'No se pudo actualizar la modalidad de caja.'
                 );
             }
 
@@ -203,12 +218,184 @@ try {
                         $idsucursal
                     );
 
+            if (!is_array($configuracionActualizada)) {
+                throw new RuntimeException(
+                    'La modalidad fue guardada, pero no se pudo recargar su configuración.'
+                );
+            }
+
+            /*
+             * La sesión que realiza el cambio debe abandonar cualquier
+             * contexto de caja anterior inmediatamente.
+             */
+            $_SESSION['idsucursal_activa'] = $idsucursal;
+            $_SESSION['modo_caja'] = $modoObjetivo;
+            $_SESSION['modo_caja_objetivo'] = $modoObjetivo;
+            $_SESSION['idapertura_activa'] = 0;
+
+            if ($modoObjetivo === 'CAJA_UNICA') {
+                $idcajaAplicada = (int)(
+                    $configuracionActualizada['idcaja_unica']
+                    ?? $idcajaUnica
+                );
+
+                $_SESSION['idcaja_activa'] = $idcajaAplicada;
+                $_SESSION['idcaja_preparada'] = $idcajaAplicada;
+            } else {
+                $_SESSION['idcaja_activa'] = 0;
+                $_SESSION['idcaja_preparada'] = 0;
+            }
+
             responderConfiguracionCajaJson([
                 'success' => true,
                 'mensaje' =>
-                    'Preferencia de caja guardada correctamente.',
+                    $modoObjetivo === 'CAJA_UNICA'
+                        ? 'Caja única activada correctamente.'
+                        : 'Multicaja activado correctamente.',
                 'configuracion' =>
-                    $configuracionActualizada
+                    $configuracionActualizada,
+                'aperturas_abiertas' => 0,
+                'requiere_recarga' => true,
+                'aviso_sesiones' =>
+                    'Los demás usuarios que ya estaban conectados deben volver a iniciar sesión antes de operar.'
+            ]);
+
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREAR / EDITAR CAJA FÍSICA
+        |--------------------------------------------------------------------------
+        */
+        case 'guardar_caja':
+
+            if (
+                ($_SERVER['REQUEST_METHOD'] ?? '')
+                !== 'POST'
+            ) {
+                responderConfiguracionCajaJson([
+                    'success' => false,
+                    'mensaje' =>
+                        'La operación requiere una petición POST.'
+                ], 405);
+            }
+
+            $idsucursal = (int)(
+                $_POST['idsucursal']
+                ?? 0
+            );
+
+            $idcaja = (int)(
+                $_POST['idcaja']
+                ?? 0
+            );
+
+            $nombre = trim(
+                (string)(
+                    $_POST['nombre']
+                    ?? ''
+                )
+            );
+
+            $descripcion = trim(
+                (string)(
+                    $_POST['descripcion']
+                    ?? ''
+                )
+            );
+
+            $permiteEfectivo =
+                (int)(
+                    $_POST['permite_efectivo']
+                    ?? 0
+                ) === 1;
+
+            if ($idcaja > 0) {
+                $resultado =
+                    $configuracionCaja
+                        ->editarCaja(
+                            $idsucursal,
+                            $idcaja,
+                            $nombre,
+                            $descripcion,
+                            $permiteEfectivo
+                        );
+
+                responderConfiguracionCajaJson([
+                    'success' => (bool)$resultado,
+                    'mensaje' =>
+                        'Caja actualizada correctamente.'
+                ]);
+            }
+
+            $cajaCreada =
+                $configuracionCaja
+                    ->crearCaja(
+                        $idsucursal,
+                        $nombre,
+                        $descripcion,
+                        $permiteEfectivo
+                    );
+
+            responderConfiguracionCajaJson([
+                'success' => true,
+                'mensaje' =>
+                    'Caja física creada correctamente.',
+                'caja' => $cajaCreada,
+                'aviso' =>
+                    'La nueva caja debe asignarse a los usuarios que podrán operarla desde el módulo Usuarios.'
+            ]);
+
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACTIVAR / DESACTIVAR CAJA FÍSICA
+        |--------------------------------------------------------------------------
+        */
+        case 'cambiar_estado_caja':
+
+            if (
+                ($_SERVER['REQUEST_METHOD'] ?? '')
+                !== 'POST'
+            ) {
+                responderConfiguracionCajaJson([
+                    'success' => false,
+                    'mensaje' =>
+                        'La operación requiere una petición POST.'
+                ], 405);
+            }
+
+            $idsucursal = (int)(
+                $_POST['idsucursal']
+                ?? 0
+            );
+
+            $idcaja = (int)(
+                $_POST['idcaja']
+                ?? 0
+            );
+
+            $activar =
+                (int)(
+                    $_POST['activar']
+                    ?? 0
+                ) === 1;
+
+            $resultado =
+                $configuracionCaja
+                    ->cambiarEstadoCaja(
+                        $idsucursal,
+                        $idcaja,
+                        $activar
+                    );
+
+            responderConfiguracionCajaJson([
+                'success' => (bool)$resultado,
+                'mensaje' =>
+                    $activar
+                        ? 'Caja activada correctamente.'
+                        : 'Caja desactivada correctamente.'
             ]);
 
             break;

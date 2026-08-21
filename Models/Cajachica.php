@@ -3,16 +3,19 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../Config/Conexion.php';
+require_once __DIR__ . '/CajaOperacionGuard.php';
 
 date_default_timezone_set('America/Lima');
 
 class Cajachica
 {
     private Conexion $conexion;
+    private CajaOperacionGuard $cajaGuard;
 
     public function __construct()
     {
         $this->conexion = new Conexion();
+        $this->cajaGuard = new CajaOperacionGuard($this->conexion);
     }
 
     /*
@@ -95,6 +98,12 @@ public function resumen(
                         WHEN mf.origen = 'NOTA_CREDITO'
                         THEN 'DEVOLUCIONES POR NOTA DE CRÉDITO'
 
+                        WHEN mf.origen = 'COMPRA'
+                        THEN 'COMPRAS PAGADAS'
+
+                        WHEN mf.origen = 'AJUSTE'
+                        THEN 'MOVIMIENTOS MANUALES'
+
                         ELSE 'OTROS MOVIMIENTOS'
                     END AS tipo_comprobante,
 
@@ -117,7 +126,9 @@ public function resumen(
                   AND mf.estado = 'ACTIVO'
                   AND mf.origen IN (
                       'COBRANZA',
-                      'NOTA_CREDITO'
+                      'NOTA_CREDITO',
+                      'COMPRA',
+                      'AJUSTE'
                   )
             ";
 
@@ -1910,4 +1921,318 @@ public function calcularTotalesAperturaFisica(
 
         return (int)($resultado['cantidad'] ?? 0) > 0;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MOVIMIENTOS MANUALES DE CAJA
+    |--------------------------------------------------------------------------
+    | Solo afectan EFECTIVO físico y siempre quedan ligados a una apertura.
+    | No se eliminan registros históricos: los errores se corrigen con un
+    | ajuste inverso para conservar trazabilidad.
+    */
+    public function registrarMovimientoManual(
+        array $datos,
+        array $contexto
+    ): array {
+        $clase = strtoupper(
+            trim((string)($datos['clase'] ?? ''))
+        );
+
+        $clasesPermitidas = [
+            'INGRESO',
+            'EGRESO',
+            'RETIRO',
+            'AJUSTE_POSITIVO',
+            'AJUSTE_NEGATIVO'
+        ];
+
+        if (!in_array($clase, $clasesPermitidas, true)) {
+            throw new RuntimeException(
+                'Seleccione un tipo de movimiento válido.'
+            );
+        }
+
+        $monto = round(
+            (float)($datos['monto'] ?? 0),
+            2
+        );
+
+        if ($monto <= 0) {
+            throw new RuntimeException(
+                'El monto debe ser mayor que cero.'
+            );
+        }
+
+        if ($monto > 999999999.99) {
+            throw new RuntimeException(
+                'El monto ingresado supera el límite permitido.'
+            );
+        }
+
+        $conceptoUsuario = trim(
+            preg_replace(
+                '/\s+/u',
+                ' ',
+                (string)($datos['concepto'] ?? '')
+            )
+        );
+
+        if (mb_strlen($conceptoUsuario) < 4) {
+            throw new RuntimeException(
+                'Explique brevemente el motivo del movimiento.'
+            );
+        }
+
+        if (mb_strlen($conceptoUsuario) > 180) {
+            $conceptoUsuario = mb_substr(
+                $conceptoUsuario,
+                0,
+                180
+            );
+        }
+
+        $idusuario = (int)($contexto['idusuario'] ?? 0);
+
+        if ($idusuario <= 0) {
+            throw new RuntimeException(
+                'La sesión del usuario no es válida.'
+            );
+        }
+
+        $this->conexion->beginTransaction();
+
+        try {
+            /*
+             * Caja Chica manual = efectivo físico.
+             * Obtenemos la forma de pago marcada como efectivo y dejamos
+             * que el guard revalide caja, apertura y autorización.
+             */
+            $formaEfectivo = $this->conexion->getData(
+                "SELECT fp.idforma_pago
+                 FROM forma_pago AS fp
+                 INNER JOIN forma_pago_destino AS fpd
+                    ON fpd.idforma_pago = fp.idforma_pago
+                 WHERE fp.es_efectivo = 1
+                   AND fp.es_combinado = 0
+                   AND fp.activo = 1
+                   AND fp.condicion = 1
+                   AND fpd.requiere_caja_abierta = 1
+                 ORDER BY fp.idforma_pago ASC
+                 LIMIT 1
+                 FOR UPDATE"
+            );
+
+            if (!is_array($formaEfectivo)) {
+                throw new RuntimeException(
+                    'No existe una forma de pago en efectivo configurada para Caja Chica.'
+                );
+            }
+
+            $pago = $this->cajaGuard->prepararFormaPago(
+                (int)$formaEfectivo['idforma_pago'],
+                '',
+                $contexto
+            );
+
+            $idapertura = (int)($pago['idapertura'] ?? 0);
+            $idcaja = (int)($pago['idcaja'] ?? 0);
+            $idsucursal = (int)($pago['idsucursal'] ?? 0);
+
+            if ($idapertura <= 0) {
+                throw new RuntimeException(
+                    'Debe existir una apertura activa para registrar el movimiento.'
+                );
+            }
+
+            /*
+             * Un vendedor puede vender/cobrar, pero no retirar ni ajustar
+             * efectivo manualmente. La autorización se revalida en BD.
+             */
+            $rolCaja = '';
+
+            if ($idcaja > 0 && $idsucursal > 0) {
+                $permiso = $this->conexion->getData(
+                    "SELECT
+                        uc.rol,
+                        uc.puede_operar
+                     FROM usuario_caja AS uc
+                     INNER JOIN caja_fisica AS cf
+                        ON cf.idcaja = uc.idcaja
+                     WHERE uc.idusuario = ?
+                       AND uc.idcaja = ?
+                       AND cf.idsucursal = ?
+                       AND uc.activo = 1
+                       AND cf.activo = 1
+                     LIMIT 1
+                     FOR UPDATE",
+                    [
+                        $idusuario,
+                        $idcaja,
+                        $idsucursal
+                    ]
+                );
+
+                if (!is_array($permiso)) {
+                    throw new RuntimeException(
+                        'No tiene autorización para administrar movimientos de esta caja.'
+                    );
+                }
+
+                if ((int)($permiso['puede_operar'] ?? 0) !== 1) {
+                    throw new RuntimeException(
+                        'No tiene permiso para operar esta caja.'
+                    );
+                }
+
+                $rolCaja = strtoupper(
+                    trim((string)($permiso['rol'] ?? ''))
+                );
+            } else {
+                $rolCaja = strtoupper(
+                    trim((string)($contexto['rol_caja'] ?? ''))
+                );
+            }
+
+            if (!in_array(
+                $rolCaja,
+                [
+                    'ADMINISTRADOR',
+                    'CAJERO'
+                ],
+                true
+            )) {
+                throw new RuntimeException(
+                    'Solo un Administrador o Cajero puede registrar movimientos manuales de efectivo.'
+                );
+            }
+
+            $tipoMovimiento = in_array(
+                $clase,
+                [
+                    'EGRESO',
+                    'RETIRO',
+                    'AJUSTE_NEGATIVO'
+                ],
+                true
+            )
+                ? 'EGRESO'
+                : 'INGRESO';
+
+            $etiquetas = [
+                'INGRESO' => 'Ingreso manual',
+                'EGRESO' => 'Egreso manual',
+                'RETIRO' => 'Retiro de efectivo',
+                'AJUSTE_POSITIVO' => 'Ajuste positivo',
+                'AJUSTE_NEGATIVO' => 'Ajuste negativo'
+            ];
+
+            /*
+             * Antes de permitir una salida, comprobamos el efectivo esperado.
+             * Evita registrar retiros mayores al dinero teórico de la caja.
+             */
+            if ($tipoMovimiento === 'EGRESO') {
+                $totales = $this->calcularTotalesAperturaFisica(
+                    $idapertura
+                );
+
+                $efectivoDisponible = round(
+                    (float)($totales['total_sistema'] ?? 0),
+                    2
+                );
+
+                if ($monto > $efectivoDisponible) {
+                    throw new RuntimeException(
+                        'El movimiento supera el efectivo esperado de la caja. '
+                        . 'Disponible: S/ '
+                        . number_format(
+                            max(0, $efectivoDisponible),
+                            2,
+                            '.',
+                            ''
+                        )
+                        . '.'
+                    );
+                }
+            }
+
+            $concepto =
+                $etiquetas[$clase]
+                . ': '
+                . $conceptoUsuario;
+
+            $idmovimiento = (int)$this->conexion->setDataReturnId(
+                "INSERT INTO movimiento_financiero (
+                    fecha_hora,
+                    tipo,
+                    origen,
+                    idreferencia,
+                    idforma_pago,
+                    idcuenta_financiera,
+                    idapertura,
+                    monto,
+                    concepto,
+                    idusuario,
+                    estado
+                 ) VALUES (
+                    NOW(),
+                    ?,
+                    'AJUSTE',
+                    NULL,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    'ACTIVO'
+                 )",
+                [
+                    $tipoMovimiento,
+                    (int)$pago['idforma_pago'],
+                    (int)$pago['idcuenta_financiera'],
+                    $idapertura,
+                    $monto,
+                    $concepto,
+                    $idusuario
+                ]
+            );
+
+            if ($idmovimiento <= 0) {
+                throw new RuntimeException(
+                    'No se pudo registrar el movimiento de caja.'
+                );
+            }
+
+            $totalesActualizados =
+                $this->calcularTotalesAperturaFisica(
+                    $idapertura
+                );
+
+            $this->conexion->commit();
+
+            return [
+                'idmovimiento' => $idmovimiento,
+                'clase' => $clase,
+                'tipo' => $tipoMovimiento,
+                'monto' => $monto,
+                'concepto' => $concepto,
+                'idapertura' => $idapertura,
+                'idcaja' => $idcaja > 0 ? $idcaja : null,
+                'idsucursal' =>
+                    $idsucursal > 0 ? $idsucursal : null,
+                'efectivo_esperado' =>
+                    round(
+                        (float)(
+                            $totalesActualizados['total_sistema']
+                            ?? 0
+                        ),
+                        2
+                    )
+            ];
+        } catch (Throwable $e) {
+            $this->conexion->rollBack();
+            throw $e;
+        }
+    }
+
 }

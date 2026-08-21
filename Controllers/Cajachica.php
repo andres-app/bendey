@@ -102,6 +102,26 @@ if ($idusuarioSesion <= 0) {
     ]);
 }
 
+function contextoOperacionCajaSesion(): array
+{
+    return [
+        'idusuario' =>
+            (int)($_SESSION['idusuario'] ?? 0),
+        'idsucursal' =>
+            (int)($_SESSION['idsucursal_activa'] ?? 0),
+        'idcaja' =>
+            (int)($_SESSION['idcaja_activa'] ?? 0),
+        'idapertura' =>
+            (int)($_SESSION['idapertura_activa'] ?? 0),
+        'modo_caja' =>
+            (string)($_SESSION['modo_caja'] ?? 'LEGACY'),
+        'rol_caja' =>
+            (string)($_SESSION['rol_caja'] ?? ''),
+        'puede_operar_caja' =>
+            (int)($_SESSION['puede_operar_caja'] ?? 0)
+    ];
+}
+
 try {
     switch ($op) {
         /*
@@ -109,6 +129,44 @@ try {
         | RESUMEN
         |--------------------------------------------------------------------------
         */
+        case 'auditoria_multicaja':
+
+            if (
+                (int)($_SESSION['settings'] ?? 0) !== 1
+            ) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                        'No tiene permiso para ejecutar la auditoría de cajas.'
+                ]);
+            }
+
+            if ($idsucursalSesion <= 0) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                        'No existe una sucursal activa para auditar.'
+                ]);
+            }
+
+            require_once __DIR__
+                . '/../Models/CajaAuditoria.php';
+
+            $auditoria =
+                new CajaAuditoria();
+
+            $resultado =
+                $auditoria->ejecutar(
+                    $idsucursalSesion
+                );
+
+            responderCaja([
+                'status' => 'ok',
+                'auditoria' => $resultado
+            ]);
+
+            break;
+
         case 'resumen':
 
             $fechaInicio = trim(
@@ -802,6 +860,80 @@ try {
         | DATOS PARA CIERRE
         |--------------------------------------------------------------------------
         */
+        case 'guardar_movimiento_manual':
+
+            if (
+                ($_SERVER['REQUEST_METHOD'] ?? '')
+                !== 'POST'
+            ) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                        'La operación requiere una petición POST.'
+                ]);
+            }
+
+            $rolSesion = strtoupper(
+                trim(
+                    (string)(
+                        $_SESSION['rol_caja']
+                        ?? ''
+                    )
+                )
+            );
+
+            if (
+                !in_array(
+                    $rolSesion,
+                    [
+                        'ADMINISTRADOR',
+                        'CAJERO'
+                    ],
+                    true
+                )
+                || (int)(
+                    $_SESSION['puede_operar_caja']
+                    ?? 0
+                ) !== 1
+            ) {
+                responderCaja([
+                    'status' => 'error',
+                    'message' =>
+                        'No tiene permiso para registrar movimientos manuales de caja.'
+                ]);
+            }
+
+            $resultado =
+                $caja->registrarMovimientoManual(
+                    [
+                        'clase' =>
+                            (string)(
+                                $_POST['clase']
+                                ?? ''
+                            ),
+                        'monto' =>
+                            (float)(
+                                $_POST['monto']
+                                ?? 0
+                            ),
+                        'concepto' =>
+                            (string)(
+                                $_POST['concepto']
+                                ?? ''
+                            )
+                    ],
+                    contextoOperacionCajaSesion()
+                );
+
+            responderCaja([
+                'status' => 'ok',
+                'message' =>
+                    'Movimiento registrado correctamente.',
+                'movimiento' => $resultado
+            ]);
+
+            break;
+
         case 'datos_cierre':
 
             /*

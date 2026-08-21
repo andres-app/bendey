@@ -14,6 +14,19 @@ let contextoCajaActual = {
 $(document).ready(function () {
   ocultarFormularioApertura();
   ocultarMensajeCaja();
+  prepararAccesoConfiguracionCaja();
+
+  /*
+   * Configuración Empresa es una excepción administrativa:
+   * no necesita consultar ni bloquear por apertura de caja.
+   * El backend de Configuración de caja es quien valida si
+   * existe realmente una apertura ABIERTA antes de cambiar modo.
+   */
+  if (esPaginaConfiguracionCaja()) {
+    $("#modalCajaChica").modal("hide");
+    return;
+  }
+
   cargarContextoCaja();
 
   $(document).on("click", "#btnAbrirCaja", function () {
@@ -98,6 +111,16 @@ function cargarContextoCaja() {
 
 function renderizarContextoCaja() {
   ocultarBloquesContexto();
+
+  /*
+   * Configuración Empresa es una zona administrativa.
+   * Debe poder abrirse con la caja cerrada para evitar un bloqueo circular
+   * al cambiar entre Caja única y Multicaja.
+   */
+  if (esPaginaConfiguracionCaja()) {
+    $("#modalCajaChica").modal("hide");
+    return;
+  }
 
   const cajaActual = contextoCajaActual.cajas.find(function (registro) {
     return Number(registro.idcaja) === Number(
@@ -455,6 +478,68 @@ function configurarCajaSinSeleccionar() {
 }
 
 /* ==========================================================
+   ACCESO ADMINISTRATIVO CON CAJA CERRADA
+========================================================== */
+
+function esPaginaConfiguracionCaja() {
+  const ruta = String(window.location.pathname || "")
+    .replace(/\/+$/, "")
+    .split("/")
+    .pop()
+    .replace(/\.php$/i, "")
+    .toLowerCase();
+
+  return ruta === "generalsetting";
+}
+
+function usuarioPuedeConfigurarCaja() {
+  /*
+   * El enlace generalsetting solo existe en el sidebar cuando
+   * $_SESSION["settings"] === 1. No concedemos permisos desde JS;
+   * únicamente reutilizamos la autorización que ya renderizó PHP.
+   */
+  return $("a.nav-link[href='generalsetting']").length > 0;
+}
+
+function prepararAccesoConfiguracionCaja() {
+  if ($("#accesoConfiguracionCajaDesdeModal").length) {
+    return;
+  }
+
+  const puedeConfigurar = usuarioPuedeConfigurarCaja();
+
+  if (!puedeConfigurar) {
+    return;
+  }
+
+  const $acceso = $(
+    '<div id="accesoConfiguracionCajaDesdeModal" class="mt-3">' +
+      '<div class="text-center small text-muted mb-2">' +
+        '¿Necesitas cambiar la modalidad de caja?' +
+      '</div>' +
+      '<button type="button" ' +
+        'class="btn btn-outline-secondary btn-block" ' +
+        'id="btnIrConfiguracionCaja">' +
+        '<i class="fas fa-cog mr-2"></i>' +
+        'Configurar modalidad de caja' +
+      '</button>' +
+    '</div>'
+  );
+
+  $("#mensajePermisoCaja").after($acceso);
+
+  $(document)
+    .off("click.irConfiguracionCaja", "#btnIrConfiguracionCaja")
+    .on(
+      "click.irConfiguracionCaja",
+      "#btnIrConfiguracionCaja",
+      function () {
+        window.location.href = "generalsetting";
+      }
+    );
+}
+
+/* ==========================================================
    INTERFAZ DEL MODAL
 ========================================================== */
 
@@ -530,6 +615,15 @@ function ocultarBloquesContexto() {
 function mostrarModalCaja() {
   const $modal = $("#modalCajaChica");
 
+  if (esPaginaConfiguracionCaja()) {
+    if ($modal.hasClass("show")) {
+      $modal.modal("hide");
+    }
+    return;
+  }
+
+  prepararAccesoConfiguracionCaja();
+
   if ($modal.hasClass("show")) {
     return;
   }
@@ -545,7 +639,7 @@ function mostrarModalCaja() {
    VERIFICACIÓN DE APERTURA
 ========================================================== */
 
-function verificarAperturaCaja() {
+function verificarAperturaCaja(intento = 0) {
   ocultarFormularioApertura();
   ocultarMensajeCaja();
 
@@ -622,18 +716,27 @@ function verificarAperturaCaja() {
     },
 
     error: function (xhr) {
-      console.error(
-        "Error al verificar apertura:",
+      console.warn(
+        "Error temporal al verificar apertura de caja:",
+        xhr.status,
         xhr.responseText
       );
 
       ocultarFormularioApertura();
 
-      Swal.fire({
-        icon: "error",
-        title: "Error del servidor",
-        text: "No se pudo verificar la apertura de caja.",
-      });
+      // La verificación automática no debe bloquear la pantalla
+      // por un fallo temporal. Reintentamos una sola vez.
+      if (intento < 1) {
+        setTimeout(function () {
+          verificarAperturaCaja(intento + 1);
+        }, 700);
+
+        return;
+      }
+
+      console.warn(
+        "No se pudo verificar la apertura de caja después del reintento."
+      );
     },
   });
 }

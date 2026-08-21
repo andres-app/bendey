@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../Config/Conexion.php';
 require_once __DIR__ . '/Voucher.php';
+require_once __DIR__ . '/CajaOperacionGuard.php';
 
 /**
  * Gestión local de notas de crédito.
@@ -14,6 +15,7 @@ require_once __DIR__ . '/Voucher.php';
 class CreditNote
 {
     private Conexion $conexion;
+    private CajaOperacionGuard $cajaGuard;
 
 
     public function __construct(?Conexion $conexion = null)
@@ -21,6 +23,9 @@ class CreditNote
         $this->conexion = $conexion instanceof Conexion
             ? $conexion
             : new Conexion();
+
+        $this->cajaGuard =
+            new CajaOperacionGuard($this->conexion);
     }
 
     public function getConexion(): Conexion
@@ -502,11 +507,16 @@ class CreditNote
                         idnota_credito,
                         idforma_pago,
                         idcuenta_financiera,
+                        idapertura,
+                        numero_operacion,
                         monto
-                    ) VALUES (?, ?, NULL, ?)",
+                    ) VALUES (?, ?, ?, ?, ?, ?)",
                     [
                         $idnota,
                         $pago['idforma_pago'],
+                        $pago['idcuenta_financiera'],
+                        $pago['idapertura'],
+                        $pago['numero_operacion'],
                         $pago['monto']
                     ]
                 );
@@ -662,20 +672,31 @@ class CreditNote
                 );
             }
 
+            $resultadoFinanzas = [
+                'aplicados' => 0,
+                'pendientes' => 0,
+                'total' => 0
+            ];
+
             if (
                 (int)$nota['genera_devolucion_dinero'] === 1
                 && (int)$nota['finanzas_aplicadas'] !== 1
             ) {
-                $this->aplicarFinanzas($nota);
+                $resultadoFinanzas =
+                    $this->aplicarFinanzas($nota);
 
-                $this->conexion->setData(
-                    "UPDATE nota_credito
-                     SET
-                        finanzas_aplicadas = 1,
-                        fecha_aplicacion_finanzas = NOW()
-                     WHERE idnota_credito = ?",
-                    [$idnotaCredito]
-                );
+                if (
+                    (int)$resultadoFinanzas['pendientes'] === 0
+                ) {
+                    $this->conexion->setData(
+                        "UPDATE nota_credito
+                         SET
+                            finanzas_aplicadas = 1,
+                            fecha_aplicacion_finanzas = NOW()
+                         WHERE idnota_credito = ?",
+                        [$idnotaCredito]
+                    );
+                }
             }
 
             $this->conexion->commit();
@@ -688,8 +709,14 @@ class CreditNote
                 'cuotas_aplicadas' =>
                     (int)$nota['afecta_cuentas_cobrar'] === 1,
                 'finanzas_aplicadas' =>
-                    (int)$nota['genera_devolucion_dinero'] === 1,
-                'mensaje' => 'Los efectos de la nota fueron aplicados correctamente.'
+                    (int)$nota['genera_devolucion_dinero'] !== 1
+                    || (int)$resultadoFinanzas['pendientes'] === 0,
+                'finanzas_pendientes' =>
+                    (int)$resultadoFinanzas['pendientes'],
+                'mensaje' =>
+                    (int)$resultadoFinanzas['pendientes'] > 0
+                        ? 'Stock y cuotas aplicados. La devolución financiera quedó pendiente porque la apertura seleccionada ya no está disponible.'
+                        : 'Los efectos de la nota fueron aplicados correctamente.'
             ];
         } catch (Throwable $e) {
             if ($transaccionActiva) {
@@ -778,10 +805,16 @@ class CreditNote
             "SELECT
                 ncp.*,
                 fp.nombre AS forma_pago,
-                fp.es_efectivo
+                fp.es_efectivo,
+                COALESCE(fpd.requiere_caja_abierta, 0)
+                    AS requiere_caja_abierta,
+                COALESCE(fpd.requiere_operacion, 0)
+                    AS requiere_operacion
              FROM nota_credito_pago ncp
              INNER JOIN forma_pago fp
                 ON fp.idforma_pago = ncp.idforma_pago
+             LEFT JOIN forma_pago_destino fpd
+                ON fpd.idforma_pago = fp.idforma_pago
              WHERE ncp.idnota_credito = ?
              ORDER BY ncp.idnota_credito_pago ASC",
             [$idnotaCredito]
@@ -854,6 +887,8 @@ class CreditNote
 
                 nc.sustento,
                 nc.total_nota,
+                nc.genera_devolucion_dinero,
+                nc.finanzas_aplicadas,
                 nc.estado AS estado_local,
 
                 CASE
@@ -1003,14 +1038,21 @@ class CreditNote
     {
         $resultado = $this->conexion->getDataAll(
             "SELECT
-                idforma_pago,
-                nombre,
-                es_efectivo
-             FROM forma_pago
-             WHERE activo = 1
-               AND condicion = 1
-               AND es_combinado = 0
-             ORDER BY idforma_pago ASC"
+                fp.idforma_pago,
+                fp.nombre,
+                fp.es_efectivo,
+                COALESCE(fpd.requiere_caja_abierta, 0)
+                    AS requiere_caja_abierta,
+                COALESCE(fpd.requiere_operacion, 0)
+                    AS requiere_operacion,
+                fpd.idcuenta_financiera
+             FROM forma_pago AS fp
+             LEFT JOIN forma_pago_destino AS fpd
+                ON fpd.idforma_pago = fp.idforma_pago
+             WHERE fp.activo = 1
+               AND fp.condicion = 1
+               AND fp.es_combinado = 0
+             ORDER BY fp.idforma_pago ASC"
         );
 
         return is_array($resultado) ? $resultado : [];
@@ -1661,7 +1703,9 @@ class CreditNote
             return [];
         }
 
-        $agrupados = [];
+        $normalizados = [];
+        $formasUsadas = [];
+        $suma = 0.00;
 
         foreach ($pagosEntrada as $pago) {
             if (!is_array($pago)) {
@@ -1670,57 +1714,92 @@ class CreditNote
 
             $idforma = (int)($pago['idforma_pago'] ?? 0);
             $monto = round((float)($pago['monto'] ?? 0), 2);
+            $numeroOperacion = trim(
+                (string)($pago['numero_operacion'] ?? '')
+            );
 
             if ($idforma <= 0 || $monto <= 0) {
                 continue;
             }
 
-            if (!isset($agrupados[$idforma])) {
-                $forma = $this->conexion->getData(
-                    "SELECT
-                        idforma_pago,
-                        nombre,
-                        es_efectivo
-                     FROM forma_pago
-                     WHERE idforma_pago = ?
-                       AND activo = 1
-                       AND condicion = 1
-                       AND es_combinado = 0
-                     LIMIT 1",
-                    [$idforma]
+            if (isset($formasUsadas[$idforma])) {
+                throw new RuntimeException(
+                    'No repita una misma forma de devolución. '
+                    . 'Use una sola fila por cada medio de pago.'
                 );
-
-                if (!is_array($forma)) {
-                    throw new RuntimeException(
-                        'Una forma de devolución no se encuentra disponible.'
-                    );
-                }
-
-                $agrupados[$idforma] = [
-                    'idforma_pago' => $idforma,
-                    'nombre' => (string)$forma['nombre'],
-                    'es_efectivo' => (int)$forma['es_efectivo'],
-                    'monto' => 0.00
-                ];
             }
 
-            $agrupados[$idforma]['monto'] = round(
-                $agrupados[$idforma]['monto'] + $monto,
-                2
-            );
+            $preparado =
+                $this->cajaGuard->prepararFormaPago(
+                    $idforma,
+                    $numeroOperacion,
+                    [
+                        'idusuario' => $idusuario,
+                        'idsucursal' => (int)(
+                            $sesion['idsucursal_activa']
+                            ?? 0
+                        ),
+                        'idcaja' => (int)(
+                            $sesion['idcaja_activa']
+                            ?? 0
+                        ),
+                        'idapertura' => (int)(
+                            $sesion['idapertura_activa']
+                            ?? 0
+                        ),
+                        'modo_caja' => (string)(
+                            $sesion['modo_caja']
+                            ?? 'LEGACY'
+                        )
+                    ]
+                );
+
+            if (
+                (int)$preparado['requiere_caja_abierta'] === 1
+                && (int)($sesion['puede_cobrar'] ?? 0) !== 1
+            ) {
+                throw new RuntimeException(
+                    'No tiene permiso para realizar devoluciones en efectivo.'
+                );
+            }
+
+            $normalizados[] = [
+                'idforma_pago' => $idforma,
+                'nombre' => (string)$preparado['forma_pago'],
+                'es_efectivo' =>
+                    (int)$preparado['es_efectivo'],
+                'requiere_caja_abierta' =>
+                    (int)$preparado['requiere_caja_abierta'],
+                'requiere_operacion' =>
+                    (int)$preparado['requiere_operacion'],
+                'idcuenta_financiera' =>
+                    (int)$preparado['idcuenta_financiera'],
+                'idapertura' =>
+                    (int)($preparado['idapertura'] ?? 0) > 0
+                        ? (int)$preparado['idapertura']
+                        : null,
+                'idcaja' =>
+                    (int)($preparado['idcaja'] ?? 0) > 0
+                        ? (int)$preparado['idcaja']
+                        : null,
+                'idsucursal' =>
+                    (int)($preparado['idsucursal'] ?? 0) > 0
+                        ? (int)$preparado['idsucursal']
+                        : null,
+                'numero_operacion' =>
+                    $preparado['numero_operacion'],
+                'monto' => $monto
+            ];
+
+            $formasUsadas[$idforma] = true;
+            $suma += $monto;
         }
 
-        if (count($agrupados) === 0) {
+        if (count($normalizados) === 0) {
             throw new RuntimeException(
                 'Seleccione cómo se devolverá el importe de S/ '
                 . number_format($montoDevolver, 2) . '.'
             );
-        }
-
-        $suma = 0.00;
-
-        foreach ($agrupados as $pago) {
-            $suma += (float)$pago['monto'];
         }
 
         $suma = round($suma, 2);
@@ -1734,7 +1813,7 @@ class CreditNote
             );
         }
 
-        return array_values($agrupados);
+        return $normalizados;
     }
 
     private function resolverContextoCaja(
@@ -1743,78 +1822,46 @@ class CreditNote
         int $idusuario,
         array $pagos
     ): array {
-        $modoCaja = strtoupper(
-            trim((string)($sesion['modo_caja'] ?? 'LEGACY'))
+        $idsucursal = (int)(
+            $sesion['idsucursal_activa']
+            ?? $venta['idsucursal']
+            ?? 0
         );
 
-        $idsucursal = (int)($sesion['idsucursal_activa'] ?? 0);
-        $idcaja = (int)($sesion['idcaja_activa'] ?? 0);
-        $idapertura = (int)($sesion['idapertura_activa'] ?? 0);
-
-        if ($idsucursal <= 0) {
-            $idsucursal = (int)($venta['idsucursal'] ?? 0);
-        }
-
-        if ($modoCaja === 'LEGACY' && $idapertura <= 0) {
-            $apertura = $this->conexion->getData(
-                "SELECT idapertura
-                 FROM caja_apertura
-                 WHERE idusuario = ?
-                   AND estado = 'ABIERTA'
-                 ORDER BY idapertura DESC
-                 LIMIT 1",
-                [$idusuario]
-            );
-
-            if (is_array($apertura)) {
-                $idapertura = (int)$apertura['idapertura'];
-            }
-        }
-
-        $usaEfectivo = false;
-
+        /*
+         * La nota queda vinculada a una apertura únicamente cuando
+         * realmente existe una devolución que afectará efectivo.
+         * Medios bancarios/Yape/Plin no deben aparentar salida física
+         * de una caja.
+         */
         foreach ($pagos as $pago) {
-            if ((int)$pago['es_efectivo'] === 1) {
-                $usaEfectivo = true;
-                break;
-            }
-        }
-
-        if ($usaEfectivo && $idapertura <= 0) {
-            throw new RuntimeException(
-                'Debe existir una caja abierta para registrar una devolución en efectivo.'
-            );
-        }
-
-        if ($idapertura > 0) {
-            $aperturaValida = $this->conexion->getData(
-                "SELECT idapertura, idsucursal, idcaja
-                 FROM caja_apertura
-                 WHERE idapertura = ?
-                   AND estado = 'ABIERTA'
-                 LIMIT 1",
-                [$idapertura]
-            );
-
-            if (!is_array($aperturaValida)) {
-                throw new RuntimeException(
-                    'La apertura de caja de la sesión ya no se encuentra activa.'
-                );
-            }
-
-            if ($idsucursal <= 0) {
-                $idsucursal = (int)($aperturaValida['idsucursal'] ?? 0);
-            }
-
-            if ($idcaja <= 0) {
-                $idcaja = (int)($aperturaValida['idcaja'] ?? 0);
+            if (
+                (int)($pago['requiere_caja_abierta'] ?? 0) === 1
+            ) {
+                return [
+                    'idsucursal' =>
+                        (int)($pago['idsucursal'] ?? 0) > 0
+                            ? (int)$pago['idsucursal']
+                            : ($idsucursal > 0 ? $idsucursal : null),
+                    'idcaja' =>
+                        (int)($pago['idcaja'] ?? 0) > 0
+                            ? (int)$pago['idcaja']
+                            : null,
+                    'idapertura' =>
+                        (int)($pago['idapertura'] ?? 0) > 0
+                            ? (int)$pago['idapertura']
+                            : null
+                ];
             }
         }
 
         return [
-            'idsucursal' => $idsucursal > 0 ? $idsucursal : null,
-            'idcaja' => $idcaja > 0 ? $idcaja : null,
-            'idapertura' => $idapertura > 0 ? $idapertura : null
+            'idsucursal' =>
+                $idsucursal > 0
+                    ? $idsucursal
+                    : null,
+            'idcaja' => null,
+            'idapertura' => null
         ];
     }
 
@@ -2084,36 +2131,345 @@ class CreditNote
         }
     }
 
-    private function aplicarFinanzas(array $nota): void
+    private function aplicarFinanzas(array $nota): array
     {
         $pagos = $this->conexion->getDataAll(
             "SELECT
                 ncp.*,
-                fp.nombre AS forma_pago
+                fp.nombre AS forma_pago,
+                fp.es_efectivo,
+                COALESCE(fpd.requiere_caja_abierta, 0)
+                    AS requiere_caja_abierta,
+                COALESCE(fpd.requiere_operacion, 0)
+                    AS requiere_operacion
              FROM nota_credito_pago ncp
              INNER JOIN forma_pago fp
                 ON fp.idforma_pago = ncp.idforma_pago
+             LEFT JOIN forma_pago_destino fpd
+                ON fpd.idforma_pago = fp.idforma_pago
              WHERE ncp.idnota_credito = ?
              ORDER BY ncp.idnota_credito_pago ASC
              FOR UPDATE",
             [(int)$nota['idnota_credito']]
         );
 
+        $aplicados = 0;
+        $pendientes = 0;
+
         foreach (is_array($pagos) ? $pagos : [] as $pago) {
             if ((int)($pago['idmovimiento'] ?? 0) > 0) {
+                $aplicados++;
                 continue;
             }
 
-            $concepto = 'Devolución por nota de crédito '
-                . $nota['serie_comprobante']
-                . '-'
-                . $nota['num_comprobante']
-                . ' / '
-                . $nota['serie_documento_modificado']
-                . '-'
-                . $nota['numero_documento_modificado'];
+            $requiereCaja =
+                (int)($pago['requiere_caja_abierta'] ?? 0) === 1;
 
-            $idmovimiento = $this->conexion->setDataReturnId(
+            $idaperturaPago =
+                (int)($pago['idapertura'] ?? 0);
+
+            if ($requiereCaja) {
+                /*
+                 * Nunca insertamos un egreso dentro de una apertura ya
+                 * cerrada. Si SUNAT aceptó después del cierre, la
+                 * devolución queda pendiente para una apertura actual.
+                 */
+                if ($idaperturaPago <= 0) {
+                    $pendientes++;
+                    continue;
+                }
+
+                $apertura = $this->conexion->getData(
+                    "SELECT idapertura, estado
+                     FROM caja_apertura
+                     WHERE idapertura = ?
+                     LIMIT 1
+                     FOR UPDATE",
+                    [$idaperturaPago]
+                );
+
+                if (
+                    !is_array($apertura)
+                    || strtoupper(
+                        (string)($apertura['estado'] ?? '')
+                    ) !== 'ABIERTA'
+                ) {
+                    $pendientes++;
+                    continue;
+                }
+            }
+
+            $this->crearMovimientoDevolucion(
+                $nota,
+                $pago,
+                (int)($pago['idcuenta_financiera'] ?? 0),
+                $requiereCaja && $idaperturaPago > 0
+                    ? $idaperturaPago
+                    : null,
+                (int)$nota['idusuario']
+            );
+
+            $aplicados++;
+        }
+
+        return [
+            'aplicados' => $aplicados,
+            'pendientes' => $pendientes,
+            'total' => count(is_array($pagos) ? $pagos : [])
+        ];
+    }
+
+    public function procesarFinanzasPendientes(
+        int $idnotaCredito,
+        array $sesion
+    ): array {
+        if ($idnotaCredito <= 0) {
+            throw new InvalidArgumentException(
+                'La nota de crédito no es válida.'
+            );
+        }
+
+        $idusuario = (int)($sesion['idusuario'] ?? 0);
+
+        if ($idusuario <= 0) {
+            throw new RuntimeException(
+                'La sesión del usuario no es válida.'
+            );
+        }
+
+        if ((int)($sesion['puede_cobrar'] ?? 0) !== 1) {
+            throw new RuntimeException(
+                'No tiene permiso para procesar devoluciones financieras.'
+            );
+        }
+
+        $this->conexion->beginTransaction();
+
+        try {
+            $nota = $this->conexion->getData(
+                "SELECT
+                    nc.*,
+                    ncs.estado_sunat
+                 FROM nota_credito nc
+                 INNER JOIN nota_credito_sunat ncs
+                    ON ncs.idnota_credito = nc.idnota_credito
+                 WHERE nc.idnota_credito = ?
+                 LIMIT 1
+                 FOR UPDATE",
+                [$idnotaCredito]
+            );
+
+            if (!is_array($nota)) {
+                throw new RuntimeException(
+                    'No se encontró la nota de crédito.'
+                );
+            }
+
+            if (
+                strtoupper((string)$nota['estado_sunat'])
+                !== 'ACEPTADO'
+            ) {
+                throw new RuntimeException(
+                    'La devolución financiera solo puede procesarse '
+                    . 'cuando SUNAT haya aceptado la nota.'
+                );
+            }
+
+            if ((string)$nota['estado'] === 'ANULADA') {
+                throw new RuntimeException(
+                    'La nota de crédito se encuentra anulada.'
+                );
+            }
+
+            if (
+                (int)$nota['genera_devolucion_dinero'] !== 1
+            ) {
+                $this->conexion->commit();
+
+                return [
+                    'success' => true,
+                    'pendientes' => 0,
+                    'mensaje' =>
+                        'La nota no requiere una devolución de dinero.'
+                ];
+            }
+
+            $pagos = $this->conexion->getDataAll(
+                "SELECT
+                    ncp.*,
+                    fp.nombre AS forma_pago,
+                    COALESCE(fpd.requiere_caja_abierta, 0)
+                        AS requiere_caja_abierta
+                 FROM nota_credito_pago ncp
+                 INNER JOIN forma_pago fp
+                    ON fp.idforma_pago = ncp.idforma_pago
+                 LEFT JOIN forma_pago_destino fpd
+                    ON fpd.idforma_pago = fp.idforma_pago
+                 WHERE ncp.idnota_credito = ?
+                 ORDER BY ncp.idnota_credito_pago ASC
+                 FOR UPDATE",
+                [$idnotaCredito]
+            );
+
+            $procesados = 0;
+            $ultimaCaja = null;
+
+            foreach (is_array($pagos) ? $pagos : [] as $pago) {
+                if ((int)($pago['idmovimiento'] ?? 0) > 0) {
+                    continue;
+                }
+
+                $preparado =
+                    $this->cajaGuard->prepararFormaPago(
+                        (int)$pago['idforma_pago'],
+                        (string)($pago['numero_operacion'] ?? ''),
+                        [
+                            'idusuario' => $idusuario,
+                            'idsucursal' => (int)(
+                                $sesion['idsucursal_activa']
+                                ?? 0
+                            ),
+                            'idcaja' => (int)(
+                                $sesion['idcaja_activa']
+                                ?? 0
+                            ),
+                            'idapertura' => (int)(
+                                $sesion['idapertura_activa']
+                                ?? 0
+                            ),
+                            'modo_caja' => (string)(
+                                $sesion['modo_caja']
+                                ?? 'LEGACY'
+                            )
+                        ]
+                    );
+
+                $idaperturaActual =
+                    (int)($preparado['idapertura'] ?? 0) > 0
+                        ? (int)$preparado['idapertura']
+                        : null;
+
+                $idcuentaActual =
+                    (int)$preparado['idcuenta_financiera'];
+
+                $this->crearMovimientoDevolucion(
+                    $nota,
+                    $pago,
+                    $idcuentaActual,
+                    $idaperturaActual,
+                    $idusuario
+                );
+
+                $this->conexion->setData(
+                    "UPDATE nota_credito_pago
+                     SET
+                        idcuenta_financiera = ?,
+                        idapertura = ?,
+                        numero_operacion = ?
+                     WHERE idnota_credito_pago = ?",
+                    [
+                        $idcuentaActual,
+                        $idaperturaActual,
+                        $preparado['numero_operacion'],
+                        (int)$pago['idnota_credito_pago']
+                    ]
+                );
+
+                if ($idaperturaActual !== null) {
+                    $ultimaCaja = [
+                        'idsucursal' =>
+                            (int)($preparado['idsucursal'] ?? 0),
+                        'idcaja' =>
+                            (int)($preparado['idcaja'] ?? 0),
+                        'idapertura' => $idaperturaActual
+                    ];
+                }
+
+                $procesados++;
+            }
+
+            $pendientes = (int)$this->conexion->getValue(
+                "SELECT COUNT(*)
+                 FROM nota_credito_pago
+                 WHERE idnota_credito = ?
+                   AND idmovimiento IS NULL",
+                [$idnotaCredito]
+            );
+
+            if ($pendientes === 0) {
+                $this->conexion->setData(
+                    "UPDATE nota_credito
+                     SET
+                        finanzas_aplicadas = 1,
+                        fecha_aplicacion_finanzas =
+                            COALESCE(fecha_aplicacion_finanzas, NOW())
+                     WHERE idnota_credito = ?",
+                    [$idnotaCredito]
+                );
+            }
+
+            if (is_array($ultimaCaja)) {
+                $this->conexion->setData(
+                    "UPDATE nota_credito
+                     SET
+                        idsucursal = ?,
+                        idcaja = ?,
+                        idapertura = ?
+                     WHERE idnota_credito = ?",
+                    [
+                        $ultimaCaja['idsucursal'] > 0
+                            ? $ultimaCaja['idsucursal']
+                            : null,
+                        $ultimaCaja['idcaja'] > 0
+                            ? $ultimaCaja['idcaja']
+                            : null,
+                        $ultimaCaja['idapertura'],
+                        $idnotaCredito
+                    ]
+                );
+            }
+
+            $this->conexion->commit();
+
+            return [
+                'success' => true,
+                'procesados' => $procesados,
+                'pendientes' => $pendientes,
+                'mensaje' =>
+                    $pendientes === 0
+                        ? 'Devolución financiera procesada correctamente.'
+                        : 'Todavía existen devoluciones pendientes.'
+            ];
+        } catch (Throwable $e) {
+            $this->conexion->rollBack();
+            throw $e;
+        }
+    }
+
+    private function crearMovimientoDevolucion(
+        array $nota,
+        array $pago,
+        int $idcuentaFinanciera,
+        ?int $idapertura,
+        int $idusuario
+    ): int {
+        if ($idcuentaFinanciera <= 0) {
+            throw new RuntimeException(
+                'La forma de devolución no tiene una cuenta financiera válida.'
+            );
+        }
+
+        $concepto = 'Devolución por nota de crédito '
+            . $nota['serie_comprobante']
+            . '-'
+            . $nota['num_comprobante']
+            . ' / '
+            . $nota['serie_documento_modificado']
+            . '-'
+            . $nota['numero_documento_modificado'];
+
+        $idmovimiento =
+            (int)$this->conexion->setDataReturnId(
                 "INSERT INTO movimiento_financiero (
                     fecha_hora,
                     tipo,
@@ -2135,34 +2491,36 @@ class CreditNote
                 [
                     (int)$nota['idnota_credito'],
                     (int)$pago['idforma_pago'],
-                    $pago['idcuenta_financiera'] !== null
-                        ? (int)$pago['idcuenta_financiera']
-                        : null,
-                    $nota['idapertura'] !== null
-                        ? (int)$nota['idapertura']
-                        : null,
+                    $idcuentaFinanciera,
+                    $idapertura,
                     round((float)$pago['monto'], 2),
-                    mb_substr($concepto, 0, 255, 'UTF-8'),
-                    (int)$nota['idusuario']
+                    mb_substr(
+                        $concepto,
+                        0,
+                        255,
+                        'UTF-8'
+                    ),
+                    $idusuario
                 ]
             );
 
-            if (!$idmovimiento) {
-                throw new RuntimeException(
-                    'No se pudo registrar el egreso de la devolución.'
-                );
-            }
-
-            $this->conexion->setData(
-                "UPDATE nota_credito_pago
-                 SET idmovimiento = ?
-                 WHERE idnota_credito_pago = ?",
-                [
-                    $idmovimiento,
-                    (int)$pago['idnota_credito_pago']
-                ]
+        if ($idmovimiento <= 0) {
+            throw new RuntimeException(
+                'No se pudo registrar el egreso de la devolución.'
             );
         }
+
+        $this->conexion->setData(
+            "UPDATE nota_credito_pago
+             SET idmovimiento = ?
+             WHERE idnota_credito_pago = ?",
+            [
+                $idmovimiento,
+                (int)$pago['idnota_credito_pago']
+            ]
+        );
+
+        return $idmovimiento;
     }
 
     private function normalizarCondicionPago(string $valor): string

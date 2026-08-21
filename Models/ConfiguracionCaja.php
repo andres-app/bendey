@@ -165,6 +165,489 @@ class ConfiguracionCaja
 
     /*
     |--------------------------------------------------------------------------
+    | LISTAR TODAS LAS CAJAS PARA ADMINISTRACIÓN
+    |--------------------------------------------------------------------------
+    */
+    public function listarCajasGestion(
+        int $idsucursal
+    ): array {
+        if ($idsucursal <= 0) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    cf.idcaja,
+                    cf.idsucursal,
+                    cf.codigo,
+                    cf.nombre,
+                    cf.descripcion,
+                    cf.permite_efectivo,
+                    cf.activo,
+
+                    CASE
+                        WHEN cc.idcaja_unica = cf.idcaja THEN 1
+                        ELSE 0
+                    END AS es_principal,
+
+                    ca.idapertura AS idapertura_abierta,
+                    ca.monto_apertura,
+                    ca.created_at AS fecha_apertura,
+
+                    COUNT(
+                        DISTINCT CASE
+                            WHEN uc.activo = 1 THEN uc.idusuario
+                            ELSE NULL
+                        END
+                    ) AS usuarios_asignados
+
+                FROM caja_fisica AS cf
+
+                LEFT JOIN configuracion_caja AS cc
+                    ON cc.idsucursal = cf.idsucursal
+
+                LEFT JOIN caja_apertura AS ca
+                    ON ca.idcaja = cf.idcaja
+                   AND ca.estado = 'ABIERTA'
+
+                LEFT JOIN usuario_caja AS uc
+                    ON uc.idcaja = cf.idcaja
+                   AND uc.activo = 1
+
+                WHERE cf.idsucursal = ?
+
+                GROUP BY
+                    cf.idcaja,
+                    cf.idsucursal,
+                    cf.codigo,
+                    cf.nombre,
+                    cf.descripcion,
+                    cf.permite_efectivo,
+                    cf.activo,
+                    cc.idcaja_unica,
+                    ca.idapertura,
+                    ca.monto_apertura,
+                    ca.created_at
+
+                ORDER BY cf.idcaja ASC";
+
+        $resultado = $this->conexion->getDataAll(
+            $sql,
+            [$idsucursal]
+        );
+
+        return is_array($resultado)
+            ? $resultado
+            : [];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREAR CAJA FÍSICA
+    |--------------------------------------------------------------------------
+    */
+    public function crearCaja(
+        int $idsucursal,
+        string $nombre,
+        string $descripcion,
+        bool $permiteEfectivo = true
+    ): array {
+        if ($idsucursal <= 0) {
+            throw new RuntimeException(
+                'La sucursal seleccionada no es válida.'
+            );
+        }
+
+        $nombre = trim($nombre);
+        $descripcion = trim($descripcion);
+
+        if ($nombre === '') {
+            throw new RuntimeException(
+                'Ingrese un nombre para la caja.'
+            );
+        }
+
+        if (mb_strlen($nombre) > 100) {
+            throw new RuntimeException(
+                'El nombre de la caja no puede superar los 100 caracteres.'
+            );
+        }
+
+        if (mb_strlen($descripcion) > 255) {
+            throw new RuntimeException(
+                'La descripción no puede superar los 255 caracteres.'
+            );
+        }
+
+        $transaccionActiva = false;
+
+        try {
+            $this->conexion->beginTransaction();
+            $transaccionActiva = true;
+
+            $sucursal = $this->conexion->getData(
+                "SELECT idsucursal
+                 FROM sucursal
+                 WHERE idsucursal = ?
+                   AND activo = 1
+                 LIMIT 1
+                 FOR UPDATE",
+                [$idsucursal]
+            );
+
+            if (!is_array($sucursal)) {
+                throw new RuntimeException(
+                    'La sucursal no existe o se encuentra inactiva.'
+                );
+            }
+
+            $cajasExistentes = $this->conexion->getDataAll(
+                "SELECT idcaja, codigo, nombre
+                 FROM caja_fisica
+                 WHERE idsucursal = ?
+                 ORDER BY idcaja ASC
+                 FOR UPDATE",
+                [$idsucursal]
+            );
+
+            $nombreNormalizado = mb_strtoupper($nombre, 'UTF-8');
+            $maximo = 0;
+
+            foreach ($cajasExistentes as $caja) {
+                if (
+                    mb_strtoupper(
+                        trim((string)($caja['nombre'] ?? '')),
+                        'UTF-8'
+                    ) === $nombreNormalizado
+                ) {
+                    throw new RuntimeException(
+                        'Ya existe una caja con ese nombre en la sucursal.'
+                    );
+                }
+
+                $codigoActual = strtoupper(
+                    trim((string)($caja['codigo'] ?? ''))
+                );
+
+                if (preg_match('/^CAJ(\\d+)$/', $codigoActual, $coincidencia)) {
+                    $maximo = max(
+                        $maximo,
+                        (int)$coincidencia[1]
+                    );
+                }
+            }
+
+            $numero = $maximo + 1;
+            $codigo = 'CAJ' . str_pad(
+                (string)$numero,
+                max(3, strlen((string)$numero)),
+                '0',
+                STR_PAD_LEFT
+            );
+
+            $idcaja = (int)$this->conexion->setDataReturnId(
+                "INSERT INTO caja_fisica (
+                    idsucursal,
+                    codigo,
+                    nombre,
+                    descripcion,
+                    permite_efectivo,
+                    activo
+                 ) VALUES (?, ?, ?, ?, ?, 1)",
+                [
+                    $idsucursal,
+                    $codigo,
+                    $nombre,
+                    $descripcion !== '' ? $descripcion : null,
+                    $permiteEfectivo ? 1 : 0
+                ]
+            );
+
+            if ($idcaja <= 0) {
+                throw new RuntimeException(
+                    'No se pudo crear la caja física.'
+                );
+            }
+
+            $this->conexion->commit();
+            $transaccionActiva = false;
+
+            return [
+                'idcaja' => $idcaja,
+                'codigo' => $codigo,
+                'nombre' => $nombre
+            ];
+        } catch (Throwable $e) {
+            if ($transaccionActiva) {
+                try {
+                    $this->conexion->rollBack();
+                } catch (Throwable $rollbackError) {
+                    error_log(
+                        '[CAJA FISICA CREAR ROLLBACK] '
+                        . $rollbackError->getMessage()
+                    );
+                }
+            }
+
+            throw $e;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | EDITAR CAJA FÍSICA
+    |--------------------------------------------------------------------------
+    */
+    public function editarCaja(
+        int $idsucursal,
+        int $idcaja,
+        string $nombre,
+        string $descripcion,
+        bool $permiteEfectivo = true
+    ): bool {
+        if ($idsucursal <= 0 || $idcaja <= 0) {
+            throw new RuntimeException(
+                'La caja seleccionada no es válida.'
+            );
+        }
+
+        $nombre = trim($nombre);
+        $descripcion = trim($descripcion);
+
+        if ($nombre === '') {
+            throw new RuntimeException(
+                'Ingrese un nombre para la caja.'
+            );
+        }
+
+        if (mb_strlen($nombre) > 100) {
+            throw new RuntimeException(
+                'El nombre de la caja no puede superar los 100 caracteres.'
+            );
+        }
+
+        if (mb_strlen($descripcion) > 255) {
+            throw new RuntimeException(
+                'La descripción no puede superar los 255 caracteres.'
+            );
+        }
+
+        $transaccionActiva = false;
+
+        try {
+            $this->conexion->beginTransaction();
+            $transaccionActiva = true;
+
+            $caja = $this->conexion->getData(
+                "SELECT idcaja, codigo, nombre, activo
+                 FROM caja_fisica
+                 WHERE idcaja = ?
+                   AND idsucursal = ?
+                 LIMIT 1
+                 FOR UPDATE",
+                [$idcaja, $idsucursal]
+            );
+
+            if (!is_array($caja)) {
+                throw new RuntimeException(
+                    'La caja no pertenece a la sucursal.'
+                );
+            }
+
+            $apertura = $this->conexion->getData(
+                "SELECT idapertura
+                 FROM caja_apertura
+                 WHERE idcaja = ?
+                   AND estado = 'ABIERTA'
+                 LIMIT 1
+                 FOR UPDATE",
+                [$idcaja]
+            );
+
+            if (is_array($apertura)) {
+                throw new RuntimeException(
+                    'Cierre la caja antes de modificar su configuración.'
+                );
+            }
+
+            $duplicada = $this->conexion->getData(
+                "SELECT idcaja
+                 FROM caja_fisica
+                 WHERE idsucursal = ?
+                   AND idcaja <> ?
+                   AND UPPER(TRIM(nombre)) = UPPER(TRIM(?))
+                 LIMIT 1",
+                [$idsucursal, $idcaja, $nombre]
+            );
+
+            if (is_array($duplicada)) {
+                throw new RuntimeException(
+                    'Ya existe otra caja con ese nombre en la sucursal.'
+                );
+            }
+
+            $resultado = (bool)$this->conexion->setData(
+                "UPDATE caja_fisica
+                 SET
+                    nombre = ?,
+                    descripcion = ?,
+                    permite_efectivo = ?
+                 WHERE idcaja = ?
+                   AND idsucursal = ?",
+                [
+                    $nombre,
+                    $descripcion !== '' ? $descripcion : null,
+                    $permiteEfectivo ? 1 : 0,
+                    $idcaja,
+                    $idsucursal
+                ]
+            );
+
+            $this->conexion->commit();
+            $transaccionActiva = false;
+
+            return $resultado;
+        } catch (Throwable $e) {
+            if ($transaccionActiva) {
+                try {
+                    $this->conexion->rollBack();
+                } catch (Throwable $rollbackError) {
+                    error_log(
+                        '[CAJA FISICA EDITAR ROLLBACK] '
+                        . $rollbackError->getMessage()
+                    );
+                }
+            }
+
+            throw $e;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ACTIVAR / DESACTIVAR CAJA FÍSICA
+    |--------------------------------------------------------------------------
+    */
+    public function cambiarEstadoCaja(
+        int $idsucursal,
+        int $idcaja,
+        bool $activar
+    ): bool {
+        if ($idsucursal <= 0 || $idcaja <= 0) {
+            throw new RuntimeException(
+                'La caja seleccionada no es válida.'
+            );
+        }
+
+        $transaccionActiva = false;
+
+        try {
+            $this->conexion->beginTransaction();
+            $transaccionActiva = true;
+
+            $caja = $this->conexion->getData(
+                "SELECT idcaja, codigo, nombre, activo
+                 FROM caja_fisica
+                 WHERE idcaja = ?
+                   AND idsucursal = ?
+                 LIMIT 1
+                 FOR UPDATE",
+                [$idcaja, $idsucursal]
+            );
+
+            if (!is_array($caja)) {
+                throw new RuntimeException(
+                    'La caja no pertenece a la sucursal.'
+                );
+            }
+
+            $estadoActual = (int)($caja['activo'] ?? 0) === 1;
+
+            if ($estadoActual === $activar) {
+                $this->conexion->commit();
+                $transaccionActiva = false;
+                return true;
+            }
+
+            if (!$activar) {
+                $apertura = $this->conexion->getData(
+                    "SELECT idapertura
+                     FROM caja_apertura
+                     WHERE idcaja = ?
+                       AND estado = 'ABIERTA'
+                     LIMIT 1
+                     FOR UPDATE",
+                    [$idcaja]
+                );
+
+                if (is_array($apertura)) {
+                    throw new RuntimeException(
+                        'No se puede desactivar una caja que se encuentra abierta.'
+                    );
+                }
+
+                $configuracion = $this->conexion->getData(
+                    "SELECT modo, idcaja_unica
+                     FROM configuracion_caja
+                     WHERE idsucursal = ?
+                     LIMIT 1
+                     FOR UPDATE",
+                    [$idsucursal]
+                );
+
+                if (
+                    is_array($configuracion)
+                    && (int)($configuracion['idcaja_unica'] ?? 0) === $idcaja
+                ) {
+                    throw new RuntimeException(
+                        'Esta caja está definida como caja principal. Seleccione otra caja principal antes de desactivarla.'
+                    );
+                }
+
+                if (
+                    is_array($configuracion)
+                    && strtoupper((string)($configuracion['modo'] ?? '')) === 'MULTICAJA'
+                    && $this->contarCajasActivas($idsucursal) <= 2
+                ) {
+                    throw new RuntimeException(
+                        'Multicaja requiere por lo menos dos cajas físicas activas. Cambie primero a Caja única o active otra caja.'
+                    );
+                }
+            }
+
+            $resultado = (bool)$this->conexion->setData(
+                "UPDATE caja_fisica
+                 SET activo = ?
+                 WHERE idcaja = ?
+                   AND idsucursal = ?",
+                [
+                    $activar ? 1 : 0,
+                    $idcaja,
+                    $idsucursal
+                ]
+            );
+
+            $this->conexion->commit();
+            $transaccionActiva = false;
+
+            return $resultado;
+        } catch (Throwable $e) {
+            if ($transaccionActiva) {
+                try {
+                    $this->conexion->rollBack();
+                } catch (Throwable $rollbackError) {
+                    error_log(
+                        '[CAJA FISICA ESTADO ROLLBACK] '
+                        . $rollbackError->getMessage()
+                    );
+                }
+            }
+
+            throw $e;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | CONTAR CAJAS ACTIVAS
     |--------------------------------------------------------------------------
     */
@@ -223,14 +706,54 @@ class ConfiguracionCaja
 
     /*
     |--------------------------------------------------------------------------
-    | GUARDAR MODALIDAD OBJETIVO
+    | CONTAR APERTURAS ABIERTAS DE LA SUCURSAL
     |--------------------------------------------------------------------------
-    | Guarda la elección administrativa, pero no modifica el modo real.
-    | El campo modo seguirá siendo LEGACY.
+    | Incluye aperturas físicas asociadas a la sucursal y aperturas LEGACY
+    | sin sucursal/caja identificable, para impedir cambios inseguros.
     */
-    public function guardarPreferencia(
+    public function contarAperturasAbiertasSucursal(
+        int $idsucursal
+    ): int {
+        if ($idsucursal <= 0) {
+            return 0;
+        }
+
+        $resultado = $this->conexion->getData(
+            "SELECT COUNT(DISTINCT ca.idapertura) AS total
+             FROM caja_apertura AS ca
+             LEFT JOIN caja_fisica AS cf
+                ON cf.idcaja = ca.idcaja
+             WHERE ca.estado = 'ABIERTA'
+               AND (
+                    ca.idsucursal = ?
+                    OR cf.idsucursal = ?
+                    OR (
+                        ca.idsucursal IS NULL
+                        AND ca.idcaja IS NULL
+                    )
+               )",
+            [
+                $idsucursal,
+                $idsucursal
+            ]
+        );
+
+        return is_array($resultado)
+            ? (int)($resultado['total'] ?? 0)
+            : 0;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CAMBIAR MODALIDAD OPERATIVA
+    |--------------------------------------------------------------------------
+    | El cambio es real: actualiza configuracion_caja.modo.
+    | Nunca se permite cambiar de modalidad ni de caja única mientras exista
+    | una apertura activa que pudiera quedar asociada al contexto anterior.
+    */
+    public function cambiarModalidad(
         int $idsucursal,
-        string $modoObjetivo,
+        string $modo,
         int $idcajaUnica
     ): bool {
         if ($idsucursal <= 0) {
@@ -239,18 +762,16 @@ class ConfiguracionCaja
             );
         }
 
-        $modoObjetivo = strtoupper(
-            trim($modoObjetivo)
+        $modo = strtoupper(
+            trim($modo)
         );
 
-        $modosPermitidos = [
-            'CAJA_UNICA',
-            'MULTICAJA'
-        ];
-
         if (!in_array(
-            $modoObjetivo,
-            $modosPermitidos,
+            $modo,
+            [
+                'CAJA_UNICA',
+                'MULTICAJA'
+            ],
             true
         )) {
             throw new RuntimeException(
@@ -259,60 +780,200 @@ class ConfiguracionCaja
         }
 
         if (
-            !$this->cajaActivaPerteneceSucursal(
-                $idcajaUnica,
-                $idsucursal
-            )
+            $modo === 'MULTICAJA'
+            && $this->contarCajasActivas($idsucursal) < 2
         ) {
             throw new RuntimeException(
-                'La caja seleccionada no pertenece a la sucursal o está inactiva.'
+                'Multicaja requiere por lo menos dos cajas físicas activas.'
             );
         }
 
-        $configuracionActual =
-            $this->conexion->getData(
-                "SELECT
-                    idsucursal,
-                    modo
-                 FROM configuracion_caja
-                 WHERE idsucursal = ?
-                 LIMIT 1",
-                [$idsucursal]
-            );
+        $transaccionActiva = false;
 
-        if (!is_array($configuracionActual)) {
-            throw new RuntimeException(
-                'No existe una configuración de caja para la sucursal.'
-            );
-        }
+        try {
+            $this->conexion->beginTransaction();
+            $transaccionActiva = true;
 
-        $modoReal = strtoupper(
-            trim(
-                (string)(
-                    $configuracionActual['modo']
-                    ?? ''
+            /*
+             * Bloqueamos la configuración para que dos cambios simultáneos
+             * no puedan dejar la sucursal en estados distintos.
+             */
+            $configuracionActual =
+                $this->conexion->getData(
+                    "SELECT
+                        idsucursal,
+                        modo,
+                        modo_objetivo,
+                        idcaja_unica
+                     FROM configuracion_caja
+                     WHERE idsucursal = ?
+                     LIMIT 1
+                     FOR UPDATE",
+                    [$idsucursal]
+                );
+
+            if (!is_array($configuracionActual)) {
+                throw new RuntimeException(
+                    'No existe una configuración de caja para la sucursal.'
+                );
+            }
+
+            $modoActual = strtoupper(
+                trim(
+                    (string)(
+                        $configuracionActual['modo']
+                        ?? 'LEGACY'
+                    )
                 )
-            )
-        );
-
-        if ($modoReal !== 'LEGACY') {
-            throw new RuntimeException(
-                'La modalidad real ya fue activada y no puede modificarse desde esta etapa.'
             );
-        }
 
-        return (bool)$this->conexion->setData(
-            "UPDATE configuracion_caja
-             SET
-                modo_objetivo = ?,
-                idcaja_unica = ?
-             WHERE idsucursal = ?
-               AND modo = 'LEGACY'",
-            [
-                $modoObjetivo,
-                $idcajaUnica,
-                $idsucursal
-            ]
+            $idcajaActual = (int)(
+                $configuracionActual['idcaja_unica']
+                ?? 0
+            );
+
+            /*
+             * En Multicaja conservamos una caja de referencia para facilitar
+             * un futuro retorno a Caja única. Si el formulario no envía una,
+             * mantenemos la existente.
+             */
+            $idcajaGuardar = $idcajaUnica > 0
+                ? $idcajaUnica
+                : $idcajaActual;
+
+            if (
+                $modo === 'CAJA_UNICA'
+                && $idcajaGuardar <= 0
+            ) {
+                throw new RuntimeException(
+                    'Seleccione una caja principal válida para utilizar Caja única.'
+                );
+            }
+
+            if (
+                $idcajaGuardar > 0
+                && !$this->cajaActivaPerteneceSucursal(
+                    $idcajaGuardar,
+                    $idsucursal
+                )
+            ) {
+                throw new RuntimeException(
+                    'La caja seleccionada no pertenece a la sucursal o está inactiva.'
+                );
+            }
+
+            /*
+             * Guardar sin cambios reales no necesita cerrar una caja abierta.
+             */
+            if (
+                $modoActual === $modo
+                && $idcajaActual === $idcajaGuardar
+            ) {
+                $this->conexion->commit();
+                $transaccionActiva = false;
+                return true;
+            }
+
+            /*
+             * Bloqueamos las aperturas actuales antes del cambio. También se
+             * consideran aperturas LEGACY sin sucursal/caja para no mezclar
+             * efectivo de dos contextos operativos.
+             */
+            $aperturasAbiertas =
+                $this->conexion->getDataAll(
+                    "SELECT DISTINCT ca.idapertura
+                     FROM caja_apertura AS ca
+                     LEFT JOIN caja_fisica AS cf
+                        ON cf.idcaja = ca.idcaja
+                     WHERE ca.estado = 'ABIERTA'
+                       AND (
+                            ca.idsucursal = ?
+                            OR cf.idsucursal = ?
+                            OR (
+                                ca.idsucursal IS NULL
+                                AND ca.idcaja IS NULL
+                            )
+                       )
+                     FOR UPDATE",
+                    [
+                        $idsucursal,
+                        $idsucursal
+                    ]
+                );
+
+            $cantidadAbiertas = is_array($aperturasAbiertas)
+                ? count($aperturasAbiertas)
+                : 0;
+
+            if ($cantidadAbiertas > 0) {
+                throw new RuntimeException(
+                    'No se puede cambiar la modalidad mientras exista '
+                    . $cantidadAbiertas
+                    . (
+                        $cantidadAbiertas === 1
+                            ? ' caja abierta. Cierre la caja primero.'
+                            : ' cajas abiertas. Cierre todas las cajas primero.'
+                    )
+                );
+            }
+
+            $resultado = (bool)$this->conexion->setData(
+                "UPDATE configuracion_caja
+                 SET
+                    modo = ?,
+                    modo_objetivo = ?,
+                    idcaja_unica = ?
+                 WHERE idsucursal = ?",
+                [
+                    $modo,
+                    $modo,
+                    $idcajaGuardar > 0
+                        ? $idcajaGuardar
+                        : null,
+                    $idsucursal
+                ]
+            );
+
+            if (!$resultado) {
+                throw new RuntimeException(
+                    'No se pudo actualizar la modalidad de caja.'
+                );
+            }
+
+            $this->conexion->commit();
+            $transaccionActiva = false;
+
+            return true;
+        } catch (Throwable $e) {
+            if ($transaccionActiva) {
+                try {
+                    $this->conexion->rollBack();
+                } catch (Throwable $rollbackError) {
+                    error_log(
+                        '[CONFIGURACION CAJA ROLLBACK] '
+                        . $rollbackError->getMessage()
+                    );
+                }
+            }
+
+            throw $e;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMPATIBILIDAD CON LLAMADAS EXISTENTES
+    |--------------------------------------------------------------------------
+    */
+    public function guardarPreferencia(
+        int $idsucursal,
+        string $modoObjetivo,
+        int $idcajaUnica
+    ): bool {
+        return $this->cambiarModalidad(
+            $idsucursal,
+            $modoObjetivo,
+            $idcajaUnica
         );
     }
 

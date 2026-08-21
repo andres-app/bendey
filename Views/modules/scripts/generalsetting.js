@@ -3,6 +3,10 @@
 
 let datosEmpresaConfiguracionCache = null;
 let opcionesVentaPredeterminadaCargadas = false;
+let modoCajaRealActual = "LEGACY";
+let aperturasCajaAbiertasActuales = 0;
+let totalCajasActivasActuales = 0;
+let cajasFisicasGestionCache = [];
 
 /*
 |--------------------------------------------------------------------------
@@ -27,6 +31,49 @@ function init() {
         "submit",
         function (e) {
             guardarPreferenciaCaja(e);
+        }
+    );
+
+    $("input[name='modo_caja']").on(
+        "change",
+        function () {
+            actualizarAyudaModalidadCaja();
+        }
+    );
+
+    $(document).on(
+        "click",
+        "#btnNuevaCajaFisica",
+        function () {
+            abrirModalCajaFisica();
+        }
+    );
+
+    $(document).on(
+        "click",
+        "[data-editar-caja]",
+        function () {
+            abrirModalCajaFisica(
+                Number($(this).attr("data-editar-caja") || 0)
+            );
+        }
+    );
+
+    $(document).on(
+        "click",
+        "[data-estado-caja]",
+        function () {
+            cambiarEstadoCajaFisica(
+                Number($(this).attr("data-estado-caja") || 0),
+                Number($(this).attr("data-activar-caja") || 0) === 1
+            );
+        }
+    );
+
+    $("#formCajaFisica").on(
+        "submit",
+        function (e) {
+            guardarCajaFisica(e);
         }
     );
 
@@ -910,22 +957,32 @@ function cargarConfiguracionCaja() {
                     ? data.cajas
                     : [];
 
+            cajasFisicasGestionCache =
+                Array.isArray(data.cajas_gestion)
+                    ? data.cajas_gestion
+                    : [];
+
+            totalCajasActivasActuales = Number(
+                data.total_cajas || 0
+            );
+
             const modoReal = String(
                 configuracion.modo || "LEGACY"
-            );
+            ).toUpperCase();
 
             const modoObjetivo = String(
                 configuracion.modo_objetivo || ""
-            );
+            ).toUpperCase();
 
             const modoSeleccionado =
-                modoObjetivo !== ""
-                    ? modoObjetivo
-                    : (
-                        modoReal !== "LEGACY"
-                            ? modoReal
-                            : ""
-                    );
+                modoReal !== "LEGACY"
+                    ? modoReal
+                    : modoObjetivo;
+
+            modoCajaRealActual = modoReal;
+            aperturasCajaAbiertasActuales = Number(
+                data.aperturas_abiertas || 0
+            );
 
             $("#idsucursalCaja").val(
                 configuracion.idsucursal || ""
@@ -948,7 +1005,7 @@ function cargarConfiguracionCaja() {
             );
 
             $("#totalCajasActivas").text(
-                Number(data.total_cajas || 0)
+                totalCajasActivasActuales
             );
 
             cargarOpcionesCajas(
@@ -966,8 +1023,8 @@ function cargarConfiguracionCaja() {
                 modoSeleccionado === "MULTICAJA"
             );
 
-            const modalidadYaActiva =
-                modoReal !== "LEGACY";
+            const cambioBloqueado =
+                aperturasCajaAbiertasActuales > 0;
 
             $(
                 "#modoCajaUnica, " +
@@ -976,13 +1033,19 @@ function cargarConfiguracionCaja() {
                 "#btnGuardarConfiguracionCaja"
             ).prop(
                 "disabled",
-                modalidadYaActiva
+                cambioBloqueado
             );
 
             actualizarEstadoConfiguracionCaja(
                 modoReal,
                 modoObjetivo
             );
+
+            renderizarCajasFisicasGestion(
+                cajasFisicasGestionCache
+            );
+
+            actualizarAyudaModalidadCaja();
         },
 
         error: function (xhr) {
@@ -1057,6 +1120,334 @@ function cargarOpcionesCajas(
 
 /*
 |--------------------------------------------------------------------------
+| ADMINISTRACIÓN DE CAJAS FÍSICAS
+|--------------------------------------------------------------------------
+*/
+function escaparHtmlConfiguracion(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function renderizarCajasFisicasGestion(cajas) {
+    const $contenedor = $("#listaCajasFisicas");
+
+    if (!$contenedor.length) {
+        return;
+    }
+
+    if (!Array.isArray(cajas) || cajas.length === 0) {
+        $contenedor.html(
+            '<div class="caja-gestion-empty">' +
+                '<i class="fas fa-cash-register"></i>' +
+                '<strong>No hay cajas físicas registradas</strong>' +
+                '<span>Crea la primera caja para comenzar.</span>' +
+            '</div>'
+        );
+        return;
+    }
+
+    const html = cajas.map(function (caja) {
+        const idcaja = Number(caja.idcaja || 0);
+        const activa = Number(caja.activo || 0) === 1;
+        const abierta = Number(caja.idapertura_abierta || 0) > 0;
+        const principal = Number(caja.es_principal || 0) === 1;
+        const usuarios = Number(caja.usuarios_asignados || 0);
+        const efectivo = Number(caja.permite_efectivo || 0) === 1;
+
+        const badges = [
+            '<span class="caja-gestion-badge ' +
+                (activa ? 'is-active' : 'is-inactive') + '">' +
+                (activa ? 'Activa' : 'Inactiva') +
+            '</span>',
+            '<span class="caja-gestion-badge ' +
+                (abierta ? 'is-open' : 'is-closed') + '">' +
+                (abierta ? 'Abierta' : 'Cerrada') +
+            '</span>'
+        ];
+
+        if (principal) {
+            badges.push(
+                '<span class="caja-gestion-badge is-primary">Principal</span>'
+            );
+        }
+
+        return (
+            '<article class="caja-gestion-card">' +
+                '<div class="caja-gestion-card-main">' +
+                    '<div class="caja-gestion-icon">' +
+                        '<i class="fas fa-cash-register"></i>' +
+                    '</div>' +
+                    '<div class="caja-gestion-copy">' +
+                        '<div class="caja-gestion-title-row">' +
+                            '<strong>' + escaparHtmlConfiguracion(caja.nombre || "Caja") + '</strong>' +
+                            '<span class="caja-gestion-code">' + escaparHtmlConfiguracion(caja.codigo || "") + '</span>' +
+                        '</div>' +
+                        '<div class="caja-gestion-badges">' + badges.join("") + '</div>' +
+                        '<p>' + escaparHtmlConfiguracion(caja.descripcion || "Sin descripción") + '</p>' +
+                        '<div class="caja-gestion-meta">' +
+                            '<span><i class="fas fa-users"></i> ' + usuarios + ' usuario' + (usuarios === 1 ? '' : 's') + '</span>' +
+                            '<span><i class="fas fa-money-bill-wave"></i> ' + (efectivo ? 'Acepta efectivo' : 'Sin efectivo') + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="caja-gestion-actions">' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary" data-editar-caja="' + idcaja + '" ' + (abierta ? 'disabled title="Cierre la caja para editarla"' : '') + '>' +
+                        '<i class="fas fa-pen"></i> Editar' +
+                    '</button>' +
+                    '<button type="button" class="btn btn-sm ' + (activa ? 'btn-outline-danger' : 'btn-outline-success') + '" ' +
+                        'data-estado-caja="' + idcaja + '" data-activar-caja="' + (activa ? '0' : '1') + '" ' +
+                        (abierta && activa ? 'disabled title="No se puede desactivar una caja abierta"' : '') + '>' +
+                        '<i class="fas ' + (activa ? 'fa-ban' : 'fa-check') + '"></i> ' + (activa ? 'Desactivar' : 'Activar') +
+                    '</button>' +
+                '</div>' +
+            '</article>'
+        );
+    }).join("");
+
+    $contenedor.html(html);
+}
+
+function abrirModalCajaFisica(idcaja) {
+    const id = Number(idcaja || 0);
+    let caja = null;
+
+    if (id > 0) {
+        caja = cajasFisicasGestionCache.find(function (item) {
+            return Number(item.idcaja || 0) === id;
+        }) || null;
+    }
+
+    $("#idcajaGestion").val(
+        caja ? String(caja.idcaja) : ""
+    );
+
+    $("#nombreCajaGestion").val(
+        caja ? String(caja.nombre || "") : ""
+    );
+
+    $("#descripcionCajaGestion").val(
+        caja ? String(caja.descripcion || "") : ""
+    );
+
+    $("#permiteEfectivoCajaGestion").prop(
+        "checked",
+        caja ? Number(caja.permite_efectivo || 0) === 1 : true
+    );
+
+    $("#tituloModalCajaFisica").text(
+        caja ? "Editar caja física" : "Nueva caja física"
+    );
+
+    $("#codigoCajaGestionPreview").text(
+        caja
+            ? String(caja.codigo || "Código asignado")
+            : "El código se generará automáticamente"
+    );
+
+    $("#modalCajaFisica").modal("show");
+
+    window.setTimeout(function () {
+        $("#nombreCajaGestion").trigger("focus");
+    }, 180);
+}
+
+function guardarCajaFisica(e) {
+    e.preventDefault();
+
+    const idsucursal = Number(
+        $("#idsucursalCaja").val() || 0
+    );
+    const idcaja = Number(
+        $("#idcajaGestion").val() || 0
+    );
+    const nombre = String(
+        $("#nombreCajaGestion").val() || ""
+    ).trim();
+    const descripcion = String(
+        $("#descripcionCajaGestion").val() || ""
+    ).trim();
+    const permiteEfectivo = $("#permiteEfectivoCajaGestion").is(":checked") ? 1 : 0;
+
+    if (idsucursal <= 0) {
+        mostrarAlertaConfiguracion(
+            "Sucursal inválida",
+            "No se pudo identificar la sucursal.",
+            "warning"
+        );
+        return;
+    }
+
+    if (nombre === "") {
+        mostrarAlertaConfiguracion(
+            "Nombre requerido",
+            "Ingrese un nombre para la caja.",
+            "warning"
+        );
+        return;
+    }
+
+    const $boton = $("#btnGuardarCajaFisica");
+    const original = $boton.html();
+
+    $boton
+        .prop("disabled", true)
+        .html(
+            '<span class="spinner-border spinner-border-sm mr-2"></span>' +
+            "Guardando..."
+        );
+
+    $.ajax({
+        url: "Controllers/ConfiguracionCaja.php?op=guardar_caja",
+        type: "POST",
+        dataType: "json",
+        cache: false,
+        data: {
+            idsucursal: idsucursal,
+            idcaja: idcaja,
+            nombre: nombre,
+            descripcion: descripcion,
+            permite_efectivo: permiteEfectivo
+        }
+    })
+        .done(function (data) {
+            if (!data || data.success !== true) {
+                mostrarAlertaConfiguracion(
+                    "No se guardó",
+                    data && data.mensaje
+                        ? data.mensaje
+                        : "No se pudo guardar la caja.",
+                    "warning"
+                );
+                return;
+            }
+
+            $("#modalCajaFisica").modal("hide");
+
+            const aviso = String(data.aviso || "").trim();
+            const mensaje = aviso !== ""
+                ? String(data.mensaje || "Caja guardada.") + " " + aviso
+                : String(data.mensaje || "Caja guardada correctamente.");
+
+            mostrarAlertaConfiguracion(
+                idcaja > 0 ? "Caja actualizada" : "Caja creada",
+                mensaje,
+                "success"
+            );
+
+            cargarConfiguracionCaja();
+        })
+        .fail(function (xhr) {
+            mostrarAlertaConfiguracion(
+                "No se pudo guardar",
+                obtenerMensajeError(
+                    xhr,
+                    "No se pudo guardar la caja física."
+                ),
+                "error"
+            );
+        })
+        .always(function () {
+            $boton
+                .prop("disabled", false)
+                .html(original);
+        });
+}
+
+function cambiarEstadoCajaFisica(idcaja, activar) {
+    const id = Number(idcaja || 0);
+    const idsucursal = Number(
+        $("#idsucursalCaja").val() || 0
+    );
+
+    if (id <= 0 || idsucursal <= 0) {
+        return;
+    }
+
+    const caja = cajasFisicasGestionCache.find(function (item) {
+        return Number(item.idcaja || 0) === id;
+    }) || null;
+
+    const nombre = caja
+        ? String(caja.nombre || caja.codigo || "la caja")
+        : "la caja";
+
+    const ejecutar = function () {
+        $.ajax({
+            url: "Controllers/ConfiguracionCaja.php?op=cambiar_estado_caja",
+            type: "POST",
+            dataType: "json",
+            cache: false,
+            data: {
+                idsucursal: idsucursal,
+                idcaja: id,
+                activar: activar ? 1 : 0
+            }
+        })
+            .done(function (data) {
+                if (!data || data.success !== true) {
+                    mostrarAlertaConfiguracion(
+                        "No se pudo actualizar",
+                        data && data.mensaje
+                            ? data.mensaje
+                            : "No se pudo cambiar el estado de la caja.",
+                        "warning"
+                    );
+                    return;
+                }
+
+                mostrarAlertaConfiguracion(
+                    activar ? "Caja activada" : "Caja desactivada",
+                    data.mensaje || "Estado actualizado.",
+                    "success"
+                );
+
+                cargarConfiguracionCaja();
+            })
+            .fail(function (xhr) {
+                mostrarAlertaConfiguracion(
+                    "No se pudo actualizar",
+                    obtenerMensajeError(
+                        xhr,
+                        "No se pudo cambiar el estado de la caja."
+                    ),
+                    "error"
+                );
+            });
+    };
+
+    if (
+        window.Swal
+        && typeof window.Swal.fire === "function"
+    ) {
+        window.Swal.fire({
+            icon: activar ? "question" : "warning",
+            title: activar ? "¿Activar caja?" : "¿Desactivar caja?",
+            text:
+                (activar ? "Se activará " : "Se desactivará ") +
+                nombre + ".",
+            showCancelButton: true,
+            confirmButtonText: activar ? "Sí, activar" : "Sí, desactivar",
+            cancelButtonText: "Cancelar",
+            reverseButtons: true
+        }).then(function (resultado) {
+            if (resultado.isConfirmed) {
+                ejecutar();
+            }
+        });
+        return;
+    }
+
+    if (window.confirm((activar ? "Activar " : "Desactivar ") + nombre + "?")) {
+        ejecutar();
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
 | ESTADO VISUAL DE CONFIGURACIÓN DE CAJA
 |--------------------------------------------------------------------------
 */
@@ -1091,9 +1482,8 @@ function actualizarEstadoConfiguracionCaja(
         );
 
         $mensaje.text(
-            "Todos los usuarios autorizados utilizan una misma apertura y caja física."
+            "Todos los usuarios autorizados utilizan una misma caja física y una sola apertura."
         );
-
         return;
     }
 
@@ -1109,45 +1499,104 @@ function actualizarEstadoConfiguracionCaja(
         $mensaje.text(
             "Cada caja física administra su propia apertura, cierre y efectivo."
         );
-
         return;
     }
 
     $estado
-        .text("Pendiente de activación")
+        .text("Sin modalidad activa")
         .addClass("badge-warning");
-
-    if (modoObjetivo === "CAJA_UNICA") {
-        $titulo.text(
-            "Caja única seleccionada."
-        );
-
-        $mensaje.text(
-            "La preferencia fue guardada, pero el sistema continúa temporalmente en modo LEGACY hasta completar la adaptación de aperturas, ventas, cobranzas y cierres."
-        );
-
-        return;
-    }
-
-    if (modoObjetivo === "MULTICAJA") {
-        $titulo.text(
-            "Multicaja seleccionada."
-        );
-
-        $mensaje.text(
-            "La preferencia fue guardada, pero el sistema continúa temporalmente en modo LEGACY hasta completar la adaptación de aperturas, ventas, cobranzas y cierres."
-        );
-
-        return;
-    }
 
     $titulo.text(
         "Seleccione una modalidad de caja."
     );
 
     $mensaje.text(
-        "La modalidad elegida quedará guardada como preferencia, pero todavía no será activada."
+        "Elija Caja única o Multicaja y guarde para activar la modalidad."
     );
+}
+
+function actualizarAyudaModalidadCaja() {
+    const $ayuda = $("#estadoCambioModalidadCaja");
+
+    if (!$ayuda.length) {
+        return;
+    }
+
+    if (aperturasCajaAbiertasActuales > 0) {
+        $ayuda
+            .removeClass(
+                "text-muted text-success text-info"
+            )
+            .addClass("text-danger")
+            .html(
+                '<i class="fas fa-lock mr-1"></i>' +
+                "Hay " +
+                aperturasCajaAbiertasActuales +
+                (
+                    aperturasCajaAbiertasActuales === 1
+                        ? " caja abierta. "
+                        : " cajas abiertas. "
+                ) +
+                "Cierra " +
+                (
+                    aperturasCajaAbiertasActuales === 1
+                        ? "la caja"
+                        : "todas las cajas"
+                ) +
+                " antes de cambiar la modalidad."
+            );
+        return;
+    }
+
+    const modoElegido = String(
+        $("input[name='modo_caja']:checked").val() || ""
+    );
+
+    if (
+        modoElegido === "MULTICAJA"
+        && totalCajasActivasActuales < 2
+    ) {
+        $ayuda
+            .removeClass(
+                "text-muted text-success text-info"
+            )
+            .addClass("text-danger")
+            .html(
+                '<i class="fas fa-exclamation-triangle mr-1"></i>' +
+                "Multicaja requiere al menos 2 cajas físicas activas. " +
+                "Actualmente tienes " +
+                totalCajasActivasActuales +
+                ". Crea o activa otra caja antes de guardar."
+            );
+        return;
+    }
+
+    if (
+        modoCajaRealActual !== "LEGACY"
+        && modoElegido !== ""
+        && modoElegido !== modoCajaRealActual
+    ) {
+        $ayuda
+            .removeClass(
+                "text-muted text-danger text-success"
+            )
+            .addClass("text-info")
+            .html(
+                '<i class="fas fa-exchange-alt mr-1"></i>' +
+                "Cambio disponible. Al guardar se limpiará la caja activa de esta sesión."
+            );
+        return;
+    }
+
+    $ayuda
+        .removeClass(
+            "text-danger text-info"
+        )
+        .addClass("text-success")
+        .html(
+            '<i class="fas fa-check-circle mr-1"></i>' +
+            "No hay cajas abiertas. Puedes guardar o cambiar la modalidad."
+        );
 }
 
 /*
@@ -1163,9 +1612,7 @@ function guardarPreferenciaCaja(e) {
     );
 
     const modoObjetivo = String(
-        $(
-            "input[name='modo_caja']:checked"
-        ).val() || ""
+        $("input[name='modo_caja']:checked").val() || ""
     );
 
     const idcajaUnica = Number(
@@ -1178,7 +1625,6 @@ function guardarPreferenciaCaja(e) {
             "No se pudo identificar la sucursal.",
             "warning"
         );
-
         return;
     }
 
@@ -1191,20 +1637,100 @@ function guardarPreferenciaCaja(e) {
             "Debe elegir Caja única o Multicaja.",
             "warning"
         );
-
         return;
     }
 
-    if (idcajaUnica <= 0) {
+    if (
+        modoObjetivo === "MULTICAJA"
+        && totalCajasActivasActuales < 2
+    ) {
+        mostrarAlertaConfiguracion(
+            "Faltan cajas físicas",
+            "Multicaja requiere por lo menos dos cajas activas. Crea o activa otra caja antes de continuar.",
+            "warning"
+        );
+        return;
+    }
+
+    if (
+        modoObjetivo === "CAJA_UNICA"
+        && idcajaUnica <= 0
+    ) {
         mostrarAlertaConfiguracion(
             "Seleccione una caja",
             "Debe seleccionar una caja principal válida.",
             "warning"
         );
+        return;
+    }
+
+    if (aperturasCajaAbiertasActuales > 0) {
+        mostrarAlertaConfiguracion(
+            "Cajas abiertas",
+            "Cierre todas las cajas antes de cambiar la modalidad.",
+            "warning"
+        );
+        return;
+    }
+
+    const cambioReal =
+        modoCajaRealActual !== "LEGACY"
+        && modoObjetivo !== modoCajaRealActual;
+
+    if (
+        cambioReal
+        && window.Swal
+        && typeof window.Swal.fire === "function"
+    ) {
+        const origen =
+            modoCajaRealActual === "CAJA_UNICA"
+                ? "Caja única"
+                : "Multicaja";
+
+        const destino =
+            modoObjetivo === "CAJA_UNICA"
+                ? "Caja única"
+                : "Multicaja";
+
+        window.Swal.fire({
+            icon: "question",
+            title: "¿Cambiar modalidad de caja?",
+            html:
+                "Se cambiará de <strong>" +
+                origen +
+                "</strong> a <strong>" +
+                destino +
+                "</strong>.<br><br>" +
+                "El sistema verificará nuevamente que no exista ninguna caja abierta.",
+            showCancelButton: true,
+            confirmButtonText: "Sí, cambiar modalidad",
+            cancelButtonText: "Cancelar",
+            reverseButtons: true
+        }).then(function (resultado) {
+            if (resultado.isConfirmed) {
+                ejecutarGuardadoModalidadCaja(
+                    idsucursal,
+                    modoObjetivo,
+                    idcajaUnica
+                );
+            }
+        });
 
         return;
     }
 
+    ejecutarGuardadoModalidadCaja(
+        idsucursal,
+        modoObjetivo,
+        idcajaUnica
+    );
+}
+
+function ejecutarGuardadoModalidadCaja(
+    idsucursal,
+    modoObjetivo,
+    idcajaUnica
+) {
     const $boton =
         $("#btnGuardarConfiguracionCaja");
 
@@ -1216,7 +1742,7 @@ function guardarPreferenciaCaja(e) {
         .html(
             '<span class="spinner-border ' +
             'spinner-border-sm mr-2"></span>' +
-            "Guardando..."
+            "Aplicando..."
         );
 
     $.ajax({
@@ -1243,38 +1769,65 @@ function guardarPreferenciaCaja(e) {
                     "No se guardó",
                     data && data.mensaje
                         ? data.mensaje
-                        : "No se pudo guardar la modalidad.",
+                        : "No se pudo actualizar la modalidad.",
                     "warning"
                 );
-
                 return;
             }
 
-            mostrarAlertaConfiguracion(
-                "Modalidad guardada",
+            const mensajeBase =
                 data.mensaje ||
-                "La preferencia fue guardada correctamente.",
-                "success"
-            );
+                "La modalidad fue actualizada correctamente.";
 
-            cargarConfiguracionCaja();
+            const avisoSesiones = String(
+                data.aviso_sesiones || ""
+            ).trim();
+
+            const mensaje =
+                avisoSesiones !== ""
+                    ? mensajeBase + " " + avisoSesiones
+                    : mensajeBase;
+
+            if (
+                window.Swal
+                && typeof window.Swal.fire === "function"
+            ) {
+                window.Swal.fire({
+                    icon: "success",
+                    title: "Modalidad actualizada",
+                    text: mensaje,
+                    confirmButtonText: "Continuar"
+                }).then(function () {
+                    window.location.reload();
+                });
+                return;
+            }
+
+            window.alert(mensaje);
+            window.location.reload();
         },
 
         error: function (xhr) {
             console.error(
-                "Error al guardar modalidad:",
+                "Error al actualizar modalidad:",
                 xhr.status,
                 xhr.responseText
             );
 
             mostrarAlertaConfiguracion(
-                "Error",
+                "No se pudo cambiar",
                 obtenerMensajeError(
                     xhr,
-                    "No se pudo guardar la modalidad de caja."
+                    "No se pudo actualizar la modalidad de caja."
                 ),
                 "error"
             );
+
+            /*
+             * Volvemos a consultar porque otra sesión pudo abrir una caja
+             * entre la carga de la pantalla y el intento de guardado.
+             */
+            cargarConfiguracionCaja();
         },
 
         complete: function () {
@@ -1315,6 +1868,14 @@ function mostrarErrorConfiguracionCaja(
     $("#cajaPrincipalNombre").text("—");
     $("#cajaPrincipalCodigo").text("—");
     $("#totalCajasActivas").text("0");
+
+    modoCajaRealActual = "LEGACY";
+    aperturasCajaAbiertasActuales = 0;
+
+    $("#btnGuardarConfiguracionCaja").prop(
+        "disabled",
+        true
+    );
 }
 
 /*

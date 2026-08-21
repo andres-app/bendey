@@ -135,6 +135,33 @@ try {
             ]);
             break;
 
+        case 'procesar_devolucion':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responderNota([
+                    'status' => false,
+                    'message' =>
+                        'La operación requiere una petición POST.'
+                ], 405);
+            }
+
+            $idnota = (int)(
+                $_POST['idnota_credito']
+                ?? 0
+            );
+
+            $resultado =
+                $notas->procesarFinanzasPendientes(
+                    $idnota,
+                    $_SESSION
+                );
+
+            responderNota([
+                'status' => true,
+                'message' => $resultado['mensaje'],
+                'resultado' => $resultado
+            ]);
+            break;
+
         case 'detalle':
             $idnota = (int)(
                 $_GET['idnota_credito']

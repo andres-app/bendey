@@ -1374,6 +1374,71 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                                         <label class="compra-field-label" for="observacion">Observación</label>
                                         <textarea class="form-control" name="observacion" id="observacion" maxlength="255" rows="2" placeholder="Información adicional de la compra..."></textarea>
                                     </div>
+
+                                    <div class="md:tw-col-span-4">
+                                        <label class="compra-field-label" for="condicion_pago">
+                                            Condición de pago <span class="text-danger">*</span>
+                                        </label>
+                                        <select
+                                            name="condicion_pago"
+                                            id="condicion_pago"
+                                            class="form-control"
+                                            required>
+                                            <option value="CONTADO">Contado · se paga ahora</option>
+                                            <option value="CREDITO">Crédito · queda pendiente</option>
+                                        </select>
+                                        <small class="form-text text-muted">
+                                            Crédito registra la compra sin retirar dinero de ninguna caja.
+                                        </small>
+                                    </div>
+
+                                    <div class="md:tw-col-span-4" id="grupoFormaPagoCompra">
+                                        <label class="compra-field-label" for="idforma_pago">
+                                            Forma de pago <span class="text-danger">*</span>
+                                        </label>
+                                        <select
+                                            name="idforma_pago"
+                                            id="idforma_pago"
+                                            class="form-control">
+                                            <option value="">Cargando formas de pago...</option>
+                                        </select>
+                                        <small
+                                            id="ayudaFormaPagoCompra"
+                                            class="form-text text-muted">
+                                            Efectivo exige una caja seleccionada y una apertura activa.
+                                        </small>
+                                    </div>
+
+                                    <div class="md:tw-col-span-4" id="grupoOperacionCompra">
+                                        <label class="compra-field-label" for="numero_operacion">
+                                            N.º de operación
+                                        </label>
+                                        <input
+                                            class="form-control"
+                                            type="text"
+                                            name="numero_operacion"
+                                            id="numero_operacion"
+                                            maxlength="80"
+                                            placeholder="Ej.: operación Yape, Plin o tarjeta">
+                                        <small
+                                            id="ayudaOperacionCompra"
+                                            class="form-text text-muted">
+                                            Se solicitará cuando la forma de pago lo requiera.
+                                        </small>
+                                    </div>
+
+                                    <div class="md:tw-col-span-12">
+                                        <div
+                                            id="avisoTrazabilidadCompra"
+                                            class="tw-flex tw-items-start tw-gap-2 tw-rounded-xl tw-border tw-border-emerald-100 tw-bg-emerald-50/70 tw-px-3 tw-py-2.5 tw-text-[12px] tw-text-emerald-800">
+                                            <i class="fas fa-shield-alt tw-mt-0.5"></i>
+                                            <span>
+                                                Los pagos en efectivo quedan vinculados a la caja y apertura activa.
+                                                Si la caja está cerrada, el servidor rechazará el pago.
+                                            </span>
+                                        </div>
+                                    </div>
+
                                 </div>
 
                                 <div class="tw-my-6 tw-border-t tw-border-slate-100"></div>

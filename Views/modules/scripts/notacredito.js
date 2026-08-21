@@ -161,8 +161,11 @@ function registrarEventosNota() {
     const filas = $("[data-payment-row]");
 
     if (filas.length <= 1) {
-      $(this).closest("[data-payment-row]").find("select").val("");
-      $(this).closest("[data-payment-row]").find("input").val("0.00");
+      const $fila = $(this).closest("[data-payment-row]");
+      $fila.find(".nc-forma-pago").val("");
+      $fila.find(".nc-monto-pago").val("0.00");
+      $fila.find(".nc-operacion-pago").val("");
+      actualizarFilaPagoDevolucion($fila);
     } else {
       $(this).closest("[data-payment-row]").remove();
     }
@@ -170,10 +173,22 @@ function registrarEventosNota() {
     actualizarTotalPagos();
   });
 
-  $(document).on("change input", ".nc-forma-pago, .nc-monto-pago", function () {
+  $(document).on("change", ".nc-forma-pago", function () {
     ncState.pagosTocados = true;
+    actualizarFilaPagoDevolucion(
+      $(this).closest("[data-payment-row]")
+    );
     actualizarTotalPagos();
   });
+
+  $(document).on(
+    "input",
+    ".nc-monto-pago, .nc-operacion-pago",
+    function () {
+      ncState.pagosTocados = true;
+      actualizarTotalPagos();
+    }
+  );
 
   $(document).on("submit", "#formNotaCredito", function (event) {
     event.preventDefault();
@@ -600,9 +615,86 @@ function agregarFilaPago(idforma = "", monto = 0) {
             <i class="fas fa-times"></i>
           </button>
         </div>
+
+        <div class="col-12 form-group mt-2 mb-0 nc-operacion-wrap" style="display:none;">
+          <label>Referencia / N.º de operación</label>
+          <input
+            type="text"
+            class="form-control nc-operacion-pago"
+            maxlength="80"
+            placeholder="Ej.: operación Yape, Plin, tarjeta o transferencia">
+          <small class="form-text text-muted nc-operacion-ayuda">
+            Obligatorio para esta forma de devolución.
+          </small>
+        </div>
+
+        <div class="col-12 mt-2 nc-trazabilidad-pago"></div>
       </div>
     </div>
   `);
+
+  actualizarFilaPagoDevolucion(
+    $("#ncPagosDevolucion [data-payment-row]").last()
+  );
+}
+
+function obtenerFormaPagoDevolucion(idforma) {
+  const id = Number.parseInt(idforma, 10) || 0;
+
+  return ncState.formasPago.find(function (forma) {
+    return Number.parseInt(forma.idforma_pago, 10) === id;
+  }) || null;
+}
+
+function actualizarFilaPagoDevolucion($fila) {
+  if (!$fila || !$fila.length) {
+    return;
+  }
+
+  const forma = obtenerFormaPagoDevolucion(
+    $fila.find(".nc-forma-pago").val()
+  );
+
+  const requiereOperacion =
+    forma
+    && Number(forma.requiere_operacion || 0) === 1;
+
+  const requiereCaja =
+    forma
+    && Number(forma.requiere_caja_abierta || 0) === 1;
+
+  $fila
+    .find(".nc-operacion-wrap")
+    .toggle(Boolean(requiereOperacion));
+
+  $fila
+    .find(".nc-operacion-pago")
+    .prop("required", Boolean(requiereOperacion));
+
+  const $traza = $fila.find(".nc-trazabilidad-pago");
+
+  if (!forma) {
+    $traza.empty();
+    return;
+  }
+
+  if (requiereCaja) {
+    $traza.html(
+      '<div class="alert alert-light border py-2 mb-0 small">' +
+      '<i class="fas fa-cash-register mr-2 text-success"></i>' +
+      'Efectivo: exige caja seleccionada y apertura activa. ' +
+      'Si SUNAT responde después del cierre, la devolución quedará pendiente sin modificar el arqueo cerrado.' +
+      '</div>'
+    );
+    return;
+  }
+
+  $traza.html(
+    '<div class="alert alert-light border py-2 mb-0 small">' +
+    '<i class="fas fa-university mr-2 text-primary"></i>' +
+    'La devolución se registrará en la cuenta financiera configurada para este medio.' +
+    '</div>'
+  );
 }
 
 function construirOpcionesFormasPago(seleccionado) {
@@ -658,6 +750,7 @@ function distribuirPagosOriginales() {
 
     $(this).find(".nc-forma-pago").val(String(pago.idforma_pago));
     $(this).find(".nc-monto-pago").val(Math.max(monto, 0).toFixed(2));
+    actualizarFilaPagoDevolucion($(this));
   });
 }
 
@@ -723,6 +816,35 @@ function guardarNotaCredito() {
       );
       return;
     }
+
+    const formasRepetidas = new Set();
+
+    for (const pago of pagos) {
+      if (formasRepetidas.has(pago.idforma_pago)) {
+        avisoValidacion(
+          "No repita una misma forma de devolución."
+        );
+        return;
+      }
+
+      formasRepetidas.add(pago.idforma_pago);
+
+      const forma =
+        obtenerFormaPagoDevolucion(pago.idforma_pago);
+
+      if (
+        forma
+        && Number(forma.requiere_operacion || 0) === 1
+        && String(pago.numero_operacion || "").trim() === ""
+      ) {
+        avisoValidacion(
+          "Ingrese el número de operación de " +
+          String(forma.nombre || "la forma seleccionada") +
+          "."
+        );
+        return;
+      }
+    }
   }
 
   Swal.fire({
@@ -732,7 +854,8 @@ function guardarNotaCredito() {
       '<div style="text-align:left">' +
       '<p>Se generará una nota por <strong>' + moneda(ncState.totalNota) + '</strong>.</p>' +
       '<p>El documento original permanecerá registrado y quedará relacionado con esta nota.</p>' +
-      '<p>El stock, la caja y las cuotas se modificarán cuando SUNAT acepte la nota.</p>' +
+      '<p>El stock y las cuotas se aplicarán cuando SUNAT acepte la nota.</p>' +
+      '<p>Una devolución en efectivo solo afectará una apertura que continúe abierta; nunca se modificará una caja ya cerrada.</p>' +
       '</div>',
     showCancelButton: true,
     confirmButtonText: "Sí, generar nota",
@@ -881,7 +1004,13 @@ function obtenerPagosSeleccionados() {
     const monto = redondear(parseFloat($(this).find(".nc-monto-pago").val()) || 0, 2);
 
     if (idforma > 0 && monto > 0) {
-      pagos.push({ idforma_pago: idforma, monto: monto });
+      pagos.push({
+        idforma_pago: idforma,
+        monto: monto,
+        numero_operacion: String(
+          $(this).find(".nc-operacion-pago").val() || ""
+        ).trim(),
+      });
     }
   });
 

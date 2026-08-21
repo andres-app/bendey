@@ -425,6 +425,12 @@ CREATE TABLE `ingreso` (
   `fecha_hora` datetime NOT NULL,
   `impuesto` decimal(4,2) NOT NULL,
   `total_compra` decimal(11,2) NOT NULL,
+  `condicion_pago` enum('NO_DEFINIDO','CONTADO','CREDITO') NOT NULL DEFAULT 'NO_DEFINIDO',
+  `idforma_pago` int(11) DEFAULT NULL,
+  `idcuenta_financiera` int(11) DEFAULT NULL,
+  `idapertura` int(11) DEFAULT NULL,
+  `numero_operacion` varchar(80) DEFAULT NULL,
+  `estado_pago` enum('NO_DEFINIDO','PAGADO','PENDIENTE','ANULADO') NOT NULL DEFAULT 'NO_DEFINIDO',
   `tipo_compra` enum('INVENTARIO','NO_INVENTARIO','MIXTA') NOT NULL DEFAULT 'INVENTARIO',
   `observacion` varchar(255) DEFAULT NULL,
   `estado` varchar(20) NOT NULL,
@@ -479,7 +485,7 @@ CREATE TABLE `movimiento_financiero` (
   `idmovimiento` int(11) NOT NULL,
   `fecha_hora` datetime NOT NULL DEFAULT current_timestamp(),
   `tipo` enum('INGRESO','EGRESO') NOT NULL,
-  `origen` enum('VENTA','COBRANZA','APERTURA','CIERRE','AJUSTE','NOTA_CREDITO','OTRO') NOT NULL,
+  `origen` enum('VENTA','COBRANZA','APERTURA','CIERRE','AJUSTE','NOTA_CREDITO','COMPRA','OTRO') NOT NULL,
   `idreferencia` int(11) DEFAULT NULL,
   `idcobranza_pago` int(11) DEFAULT NULL,
   `idforma_pago` int(11) NOT NULL,
@@ -1235,7 +1241,12 @@ ALTER TABLE `ingreso`
   ADD KEY `fk_ingreso_persona_idx` (`idproveedor`),
   ADD KEY `fk_ingreso_usuario_idx` (`idusuario`),
   ADD KEY `idx_ingreso_sucursal` (`idsucursal`),
-  ADD KEY `idx_ingreso_tipo_compra` (`tipo_compra`);
+  ADD KEY `idx_ingreso_tipo_compra` (`tipo_compra`),
+  ADD KEY `idx_ingreso_condicion_pago` (`condicion_pago`),
+  ADD KEY `idx_ingreso_forma_pago` (`idforma_pago`),
+  ADD KEY `idx_ingreso_cuenta_financiera` (`idcuenta_financiera`),
+  ADD KEY `idx_ingreso_apertura` (`idapertura`),
+  ADD KEY `idx_ingreso_estado_pago` (`estado_pago`);
 
 --
 -- Indices de la tabla `kardex`
@@ -1610,6 +1621,14 @@ ALTER TABLE `forma_pago`
 --
 ALTER TABLE `ingreso`
   MODIFY `idingreso` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Filtros financieros para compras
+--
+ALTER TABLE `ingreso`
+  ADD CONSTRAINT `fk_ingreso_forma_pago` FOREIGN KEY (`idforma_pago`) REFERENCES `forma_pago` (`idforma_pago`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_ingreso_cuenta_financiera` FOREIGN KEY (`idcuenta_financiera`) REFERENCES `cuenta_financiera` (`idcuenta_financiera`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_ingreso_apertura` FOREIGN KEY (`idapertura`) REFERENCES `caja_apertura` (`idapertura`) ON UPDATE CASCADE;
 
 --
 -- AUTO_INCREMENT de la tabla `kardex`

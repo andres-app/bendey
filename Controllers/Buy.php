@@ -88,13 +88,23 @@ try {
             $cabecera = [
                 'idproveedor' => (int)($_POST['idproveedor'] ?? 0),
                 'idusuario' => (int)($_SESSION['idusuario'] ?? 0),
-                'idsucursal' => (int)($_SESSION['idsucursal'] ?? 0),
+                'idsucursal' => (int)(
+                    $_SESSION['idsucursal_activa']
+                    ?? $_SESSION['idsucursal']
+                    ?? 0
+                ),
+                'idcaja' => (int)($_SESSION['idcaja_activa'] ?? 0),
+                'idapertura' => (int)($_SESSION['idapertura_activa'] ?? 0),
+                'modo_caja' => (string)($_SESSION['modo_caja'] ?? 'LEGACY'),
                 'tipo_comprobante' => (string)($_POST['tipo_comprobante'] ?? ''),
                 'serie_comprobante' => (string)($_POST['serie_comprobante'] ?? ''),
                 'num_comprobante' => (string)($_POST['num_comprobante'] ?? ''),
                 'fecha_hora' => (string)($_POST['fecha_hora'] ?? ''),
                 'impuesto' => (float)($_POST['impuesto'] ?? 0),
-                'observacion' => (string)($_POST['observacion'] ?? '')
+                'observacion' => (string)($_POST['observacion'] ?? ''),
+                'condicion_pago' => (string)($_POST['condicion_pago'] ?? 'CREDITO'),
+                'idforma_pago' => (int)($_POST['idforma_pago'] ?? 0),
+                'numero_operacion' => (string)($_POST['numero_operacion'] ?? '')
             ];
 
             $resultado = $buy->insertar($cabecera, $detalles);
@@ -105,7 +115,10 @@ try {
                 [
                     'idingreso' => (int)$resultado['idingreso'],
                     'tipo_compra' => (string)$resultado['tipo_compra'],
-                    'total_compra' => (float)$resultado['total_compra']
+                    'total_compra' => (float)$resultado['total_compra'],
+                    'condicion_pago' => (string)$resultado['condicion_pago'],
+                    'estado_pago' => (string)$resultado['estado_pago'],
+                    'forma_pago' => $resultado['forma_pago']
                 ]
             );
             break;
@@ -118,7 +131,20 @@ try {
             }
 
             $idingreso = (int)($_POST['idingreso'] ?? 0);
-            $resultado = $buy->anular($idingreso);
+            $resultado = $buy->anular(
+                $idingreso,
+                [
+                    'idusuario' => (int)($_SESSION['idusuario'] ?? 0),
+                    'idsucursal' => (int)(
+                        $_SESSION['idsucursal_activa']
+                        ?? $_SESSION['idsucursal']
+                        ?? 0
+                    ),
+                    'idcaja' => (int)($_SESSION['idcaja_activa'] ?? 0),
+                    'idapertura' => (int)($_SESSION['idapertura_activa'] ?? 0),
+                    'modo_caja' => (string)($_SESSION['modo_caja'] ?? 'LEGACY')
+                ]
+            );
 
             responderJson(
                 true,

@@ -391,6 +391,14 @@ switch ($op) {
                 break;
             }
 
+            if (!$user->validarCajasActivasSucursal($idcajas, $idsucursal)) {
+                responderJson(
+                    false,
+                    'Una de las cajas seleccionadas no pertenece a la sucursal o se encuentra inactiva.'
+                );
+                break;
+            }
+
             if (!in_array($rol, array('ADMINISTRADOR', 'CAJERO', 'VENDEDOR'), true)) {
                 responderJson(false, 'El rol seleccionado no es válido.');
                 break;
@@ -846,17 +854,14 @@ switch ($op) {
                 $_SESSION['cajas_asignadas'] = $cajasAsignadas;
 
                 /*
-                 * En MULTICAJA solo se preselecciona automáticamente cuando
-                 * el usuario tiene una única caja permitida. Si tiene varias,
-                 * la pantalla de selección de caja debe decidir cuál usará.
+                 * En MULTICAJA la caja siempre debe ser seleccionada
+                 * expresamente por el usuario al iniciar sesión,
+                 * incluso cuando solo tenga una caja autorizada.
                  */
-                if (
-                    $_SESSION['modo_caja'] === 'MULTICAJA'
-                    && count($cajasAsignadas) === 1
-                    && (int)$cajasAsignadas[0] > 0
-                ) {
-                    $_SESSION['idcaja_preparada'] = (int)$cajasAsignadas[0];
-                    $_SESSION['idcaja_activa'] = (int)$cajasAsignadas[0];
+                if ($_SESSION['modo_caja'] === 'MULTICAJA') {
+                    $_SESSION['idcaja_activa'] = 0;
+                    $_SESSION['idcaja_preparada'] = 0;
+                    $_SESSION['idapertura_activa'] = 0;
                 }
             }
         } catch (Throwable $e) {

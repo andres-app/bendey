@@ -577,137 +577,104 @@ class User
 
     public function listarCajas()
     {
-        /*
-         * Se intenta cargar primero desde la tabla maestra de cajas.
-         * Algunos proyectos la nombran `caja` y otros `cajas`.
-         */
-        $tablasCandidatas = array('caja', 'cajas');
-        $salida = array();
-
-        foreach ($tablasCandidatas as $tablaCaja) {
-            if (!$this->existeTabla($tablaCaja)) {
-                continue;
-            }
-
+        if ($this->existeTabla('caja_fisica')) {
             try {
                 $filas = $this->conexion->getDataAll(
-                    'SELECT * FROM `' . $tablaCaja . '` ORDER BY idcaja ASC'
-                );
-            } catch (Throwable $e) {
-                $filas = array();
-            }
-
-            if (!is_array($filas)) {
-                $filas = array();
-            }
-
-            foreach ($filas as $fila) {
-                $idcaja = (int)($fila['idcaja'] ?? 0);
-
-                if ($idcaja <= 0) {
-                    continue;
-                }
-
-                /*
-                 * No se confunde el estado de apertura con la vigencia
-                 * de la caja. Solo se descartan valores explícitamente
-                 * inactivos.
-                 */
-                $activo = 1;
-
-                if (array_key_exists('activo', $fila)) {
-                    $activo = (int)$fila['activo'];
-                } elseif (array_key_exists('condicion', $fila)) {
-                    $activo = (int)$fila['condicion'];
-                } elseif (array_key_exists('estado', $fila)) {
-                    $estado = strtoupper(trim((string)$fila['estado']));
-
-                    if (in_array(
-                        $estado,
-                        array('0', 'INACTIVA', 'INACTIVO', 'DESACTIVADA', 'DESACTIVADO'),
-                        true
-                    )) {
-                        $activo = 0;
-                    }
-                }
-
-                if ($activo !== 1) {
-                    continue;
-                }
-
-                $codigo = trim((string)($fila['codigo'] ?? ''));
-                $nombre = trim((string)($fila['nombre'] ?? ''));
-                $descripcion = trim((string)($fila['descripcion'] ?? ''));
-
-                if ($codigo !== '' && $nombre !== '') {
-                    $etiqueta = $codigo . ' - ' . $nombre;
-                } elseif ($nombre !== '') {
-                    $etiqueta = $nombre;
-                } elseif ($codigo !== '') {
-                    $etiqueta = $codigo;
-                } elseif ($descripcion !== '') {
-                    $etiqueta = $descripcion;
-                } else {
-                    $etiqueta = 'Caja #' . $idcaja;
-                }
-
-                $idsucursal = (int)(
-                    $fila['idsucursal']
-                    ?? $fila['id_sucursal']
-                    ?? $fila['sucursal_id']
-                    ?? 0
+                    "SELECT
+                        idcaja,
+                        idsucursal,
+                        codigo,
+                        nombre,
+                        descripcion
+                     FROM caja_fisica
+                     WHERE activo = 1
+                     ORDER BY idsucursal ASC, idcaja ASC"
                 );
 
-                $salida[$idcaja] = array(
-                    'idcaja' => $idcaja,
-                    'idsucursal' => $idsucursal,
-                    'etiqueta' => $etiqueta
-                );
-            }
+                $salida = array();
 
-            if (!empty($salida)) {
-                break;
-            }
-        }
-
-        /*
-         * Compatibilidad con instalaciones donde ya existen asignaciones
-         * en usuario_caja, pero todavía no hay una tabla maestra `caja`
-         * utilizable. Así, Caja #1, Caja #2, etc. siguen siendo asignables.
-         */
-        if (empty($salida) && $this->existeTabla('usuario_caja')) {
-            try {
-                $filasAsignadas = $this->conexion->getDataAll(
-                    'SELECT DISTINCT idcaja
-                     FROM usuario_caja
-                     WHERE idcaja IS NOT NULL
-                       AND idcaja > 0
-                     ORDER BY idcaja ASC'
-                );
-            } catch (Throwable $e) {
-                $filasAsignadas = array();
-            }
-
-            if (is_array($filasAsignadas)) {
-                foreach ($filasAsignadas as $fila) {
+                foreach ($filas as $fila) {
                     $idcaja = (int)($fila['idcaja'] ?? 0);
 
                     if ($idcaja <= 0) {
                         continue;
                     }
 
-                    $salida[$idcaja] = array(
+                    $codigo = trim((string)($fila['codigo'] ?? ''));
+                    $nombre = trim((string)($fila['nombre'] ?? ''));
+
+                    $etiqueta = $nombre !== ''
+                        ? $nombre
+                        : ('Caja #' . $idcaja);
+
+                    if ($codigo !== '') {
+                        $etiqueta .= ' (' . $codigo . ')';
+                    }
+
+                    $salida[] = array(
                         'idcaja' => $idcaja,
-                        'idsucursal' => 0,
-                        'etiqueta' => 'Caja #' . $idcaja
+                        'idsucursal' => (int)($fila['idsucursal'] ?? 0),
+                        'etiqueta' => $etiqueta
                     );
                 }
+
+                return $salida;
+            } catch (Throwable $e) {
+                error_log(
+                    '[USUARIOS LISTAR CAJAS FISICAS] '
+                    . $e->getMessage()
+                );
             }
         }
 
-        ksort($salida);
+        return array();
+    }
 
-        return array_values($salida);
+    public function validarCajasActivasSucursal(
+        $idcajas,
+        $idsucursal
+    ) {
+        $idsucursal = (int)$idsucursal;
+        $idcajas = is_array($idcajas)
+            ? $idcajas
+            : array($idcajas);
+
+        $idcajas = array_values(
+            array_unique(
+                array_filter(
+                    array_map('intval', $idcajas),
+                    function ($idcaja) {
+                        return $idcaja > 0;
+                    }
+                )
+            )
+        );
+
+        if ($idsucursal <= 0 || empty($idcajas)) {
+            return false;
+        }
+
+        $marcadores = implode(
+            ',',
+            array_fill(0, count($idcajas), '?')
+        );
+
+        $parametros = array_merge(
+            array($idsucursal),
+            $idcajas
+        );
+
+        $resultado = $this->conexion->getData(
+            "SELECT COUNT(*) AS total
+             FROM caja_fisica
+             WHERE idsucursal = ?
+               AND activo = 1
+               AND idcaja IN (" . $marcadores . ")",
+            $parametros
+        );
+
+        return is_array($resultado)
+            && (int)($resultado['total'] ?? 0) === count($idcajas);
     }
 
     public function listarAlmacenes()

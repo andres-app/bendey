@@ -448,6 +448,100 @@ function crearArchivoReporteVentas(
 
 
 
+function procesarDevolucionNotaCredito(idnota) {
+  const id = Number.parseInt(idnota, 10) || 0;
+
+  if (id <= 0) {
+    return;
+  }
+
+  Swal.fire({
+    icon: "question",
+    title: "Procesar devolución pendiente",
+    html:
+      '<div style="text-align:left">' +
+      '<p>Se registrará ahora la devolución financiera pendiente.</p>' +
+      '<p>Si incluye efectivo, se utilizará <strong>la caja y apertura actualmente activas</strong>.</p>' +
+      '<p>Una apertura cerrada nunca será modificada retroactivamente.</p>' +
+      '</div>',
+    showCancelButton: true,
+    confirmButtonText: "Procesar devolución",
+    cancelButtonText: "Cancelar",
+    reverseButtons: true,
+  }).then(function (resultado) {
+    if (!resultado.isConfirmed) {
+      return;
+    }
+
+    Swal.fire({
+      title: "Procesando...",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: function () {
+        Swal.showLoading();
+      },
+    });
+
+    $.ajax({
+      url: "Controllers/CreditNote.php?op=procesar_devolucion",
+      type: "POST",
+      dataType: "json",
+      cache: false,
+      data: {
+        idnota_credito: id,
+      },
+      success: function (resp) {
+        if (!resp || resp.status !== true) {
+          Swal.fire({
+            icon: "warning",
+            title: "No se procesó",
+            text:
+              (resp && resp.message) ||
+              "No se pudo procesar la devolución.",
+          });
+          return;
+        }
+
+        Swal.fire({
+          icon: "success",
+          title: "Devolución procesada",
+          text:
+            resp.message ||
+            "La devolución financiera quedó registrada.",
+          timer: 1700,
+          showConfirmButton: false,
+        }).then(function () {
+          if (tablaNotasCredito) {
+            tablaNotasCredito.ajax.reload(null, false);
+          }
+        });
+      },
+      error: function (xhr) {
+        let mensaje =
+          "No se pudo procesar la devolución.";
+
+        if (
+          xhr.responseJSON
+          && (
+            xhr.responseJSON.message
+            || xhr.responseJSON.mensaje
+          )
+        ) {
+          mensaje =
+            xhr.responseJSON.message
+            || xhr.responseJSON.mensaje;
+        }
+
+        Swal.fire({
+          icon: "error",
+          title: "Devolución rechazada",
+          text: mensaje,
+        });
+      },
+    });
+  });
+}
+
 /*
 |--------------------------------------------------------------------------
 | LISTADO DE NOTAS DE CRÉDITO

@@ -611,6 +611,179 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
         }
     }
 
+
+    /* ================================================================
+       CONFIGURACIÓN · CAJAS FÍSICAS
+       ================================================================ */
+    .caja-gestion-panel {
+        margin-top: 8px;
+        padding: 18px;
+        border: 1px solid #e6ebf0;
+        border-radius: 16px;
+        background: #fbfcfd;
+    }
+
+    .caja-gestion-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 13px;
+    }
+
+    .caja-gestion-header h6 {
+        margin: 0 0 3px;
+        color: #344054;
+        font-size: .84rem;
+        font-weight: 700;
+    }
+
+    .caja-gestion-header p {
+        margin: 0;
+        color: #98a2b3;
+        font-size: .7rem;
+    }
+
+    .caja-gestion-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .caja-gestion-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 14px;
+        border: 1px solid #e5e9ef;
+        border-radius: 13px;
+        background: #fff;
+    }
+
+    .caja-gestion-card-main {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .caja-gestion-icon {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 11px;
+        background: #ecfdf6;
+        color: #00875a;
+    }
+
+    .caja-gestion-copy { min-width: 0; }
+
+    .caja-gestion-title-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 7px;
+    }
+
+    .caja-gestion-title-row strong {
+        color: #344054;
+        font-size: .8rem;
+    }
+
+    .caja-gestion-code {
+        color: #667085;
+        font-size: .65rem;
+        font-weight: 700;
+        letter-spacing: .03em;
+    }
+
+    .caja-gestion-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 6px;
+    }
+
+    .caja-gestion-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        font-size: .62rem;
+        font-weight: 700;
+    }
+
+    .caja-gestion-badge.is-active { background:#ecfdf6; color:#00754d; }
+    .caja-gestion-badge.is-inactive { background:#f2f4f7; color:#667085; }
+    .caja-gestion-badge.is-open { background:#fff4e5; color:#b54708; }
+    .caja-gestion-badge.is-closed { background:#f2f4f7; color:#667085; }
+    .caja-gestion-badge.is-primary { background:#eef4ff; color:#3538cd; }
+
+    .caja-gestion-copy p {
+        margin: 7px 0 0;
+        color: #7c8798;
+        font-size: .68rem;
+    }
+
+    .caja-gestion-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 7px;
+        color: #667085;
+        font-size: .65rem;
+    }
+
+    .caja-gestion-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        justify-content: flex-end;
+    }
+
+    .caja-gestion-empty {
+        display: flex;
+        min-height: 130px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        color: #98a2b3;
+        text-align: center;
+    }
+
+    .caja-gestion-empty i { font-size: 1.65rem; color:#cbd5e1; }
+    .caja-gestion-empty strong { color:#667085; font-size:.78rem; }
+    .caja-gestion-empty span { font-size:.68rem; }
+
+    #modalCajaFisica .modal-content {
+        border: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, .20);
+    }
+
+    #modalCajaFisica .modal-header {
+        border-bottom: 1px solid #edf0f4;
+        background: #fbfcfd;
+    }
+
+    @media (max-width: 767.98px) {
+        .caja-gestion-header,
+        .caja-gestion-card {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .caja-gestion-actions .btn {
+            flex: 1 1 auto;
+        }
+    }
+
 </style>
 
 <div class="main-content">
@@ -1572,7 +1745,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                         </select>
 
                                         <small class="form-text text-muted">
-                                            Esta será la caja utilizada cuando se active Caja única.
+                                            Esta es la caja utilizada en Caja única y se conserva como referencia cuando trabajas con Multicaja.
                                         </small>
 
                                     </div>
@@ -1593,6 +1766,38 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
 
                                     </div>
 
+                                    <div class="col-12 mb-3">
+                                        <div class="caja-gestion-panel">
+                                            <div class="caja-gestion-header">
+                                                <div>
+                                                    <h6>Cajas físicas</h6>
+                                                    <p>Crea y administra las cajas disponibles en esta sucursal. En Multicaja se requieren al menos dos activas.</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-outline-primary btn-sm"
+                                                    id="btnNuevaCajaFisica">
+                                                    <i class="fas fa-plus mr-1"></i>
+                                                    Nueva caja
+                                                </button>
+                                            </div>
+
+                                            <div
+                                                id="listaCajasFisicas"
+                                                class="caja-gestion-list">
+                                                <div class="caja-gestion-empty">
+                                                    <i class="fas fa-spinner fa-spin"></i>
+                                                    <strong>Cargando cajas...</strong>
+                                                </div>
+                                            </div>
+
+                                            <div class="mt-3 small text-muted">
+                                                <i class="fas fa-user-shield mr-1"></i>
+                                                Después de crear una caja, asigna los usuarios autorizados desde <strong>Usuarios</strong>.
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="form-group col-12 text-right">
 
                                         <button
@@ -1603,9 +1808,10 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                             Guardar modalidad
                                         </button>
 
-                                        <small class="d-block text-muted mt-2">
-                                            La activación estará disponible después de adaptar
-                                            aperturas, ventas, cobranzas y cierres.
+                                        <small
+                                            id="estadoCambioModalidadCaja"
+                                            class="d-block text-muted mt-2">
+                                            Verificando si existen cajas abiertas...
                                         </small>
 
                                     </div>
@@ -1640,6 +1846,76 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
             </div>
         </div>
     </section>
+</div>
+
+<div
+    class="modal fade"
+    id="modalCajaFisica"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="tituloModalCajaFisica"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form id="formCajaFisica" autocomplete="off">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="tituloModalCajaFisica">Nueva caja física</h5>
+                        <small class="text-muted" id="codigoCajaGestionPreview">El código se generará automáticamente</small>
+                    </div>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="idcajaGestion" value="">
+
+                    <div class="form-group">
+                        <label for="nombreCajaGestion">Nombre de la caja</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="nombreCajaGestion"
+                            maxlength="100"
+                            placeholder="Ej.: Caja recepción"
+                            required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="descripcionCajaGestion">Descripción</label>
+                        <textarea
+                            class="form-control"
+                            id="descripcionCajaGestion"
+                            maxlength="255"
+                            rows="3"
+                            placeholder="Ej.: Caja ubicada en el primer piso"></textarea>
+                    </div>
+
+                    <div class="custom-control custom-switch">
+                        <input
+                            type="checkbox"
+                            class="custom-control-input"
+                            id="permiteEfectivoCajaGestion"
+                            checked>
+                        <label
+                            class="custom-control-label"
+                            for="permiteEfectivoCajaGestion">
+                            Esta caja permite operaciones en efectivo
+                        </label>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnGuardarCajaFisica">
+                        <i class="fas fa-save mr-1"></i>
+                        Guardar caja
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <?php

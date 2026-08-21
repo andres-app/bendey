@@ -3,6 +3,8 @@
 let contextoCajaActual = {
   modo: "LEGACY",
   idapertura: 0,
+  estado: "SIN_APERTURA",
+  efectivoEsperado: 0,
 };
 
 let cajaRequestActual = null;
@@ -466,7 +468,13 @@ function cargarCaja(opciones = {}) {
 
       contextoCajaActual = {
         modo: String(resp.modo || "LEGACY").toUpperCase(),
-        idapertura: Number.parseInt(resp.apertura?.idapertura, 10) || 0,
+        idapertura:
+          Number.parseInt(resp.apertura?.idapertura, 10) || 0,
+        estado: String(resp.estado || "SIN_APERTURA").toUpperCase(),
+        efectivoEsperado:
+          (parseFloat(resp.apertura?.monto_apertura) || 0) +
+          (parseFloat(resp.totales?.efectivo) || 0) -
+          (parseFloat(resp.totales?.egresos_efectivo) || 0),
       };
 
       const detalle = Array.isArray(resp.detalle) ? resp.detalle : [];
@@ -862,6 +870,525 @@ function renderTotales(totales, apertura) {
     .removeClass("tw-text-white tw-text-rose-300")
     .addClass(totalCajaFisica < 0 ? "tw-text-rose-300" : "tw-text-white")
     .text(formatearMovimiento(totalCajaFisica));
+}
+
+/*
+|--------------------------------------------------------------------------
+| AUDITORÍA MULTICAJA
+|--------------------------------------------------------------------------
+| Solo lectura. No repara ni modifica registros.
+*/
+function auditarMulticaja() {
+  Swal.fire({
+    title: "Auditando cajas...",
+    text: "Verificando aperturas, ventas, compras, devoluciones y cierres.",
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    didOpen: function () {
+      Swal.showLoading();
+    },
+  });
+
+  $.ajax({
+    url: "Controllers/Cajachica.php?op=auditoria_multicaja",
+    type: "GET",
+    dataType: "json",
+    cache: false,
+    data: {
+      v: Date.now(),
+    },
+    success: function (resp) {
+      if (!resp || resp.status !== "ok" || !resp.auditoria) {
+        Swal.fire({
+          icon: "warning",
+          title: "No se pudo auditar",
+          text:
+            (resp && resp.message) ||
+            "No se obtuvo un resultado válido.",
+          confirmButtonColor: "#00a46a",
+        });
+        return;
+      }
+
+      mostrarResultadoAuditoriaCaja(resp.auditoria);
+    },
+    error: function (xhr) {
+      let mensaje =
+        "No se pudo ejecutar la auditoría.";
+
+      if (
+        xhr.responseJSON
+        && (
+          xhr.responseJSON.message
+          || xhr.responseJSON.mensaje
+        )
+      ) {
+        mensaje =
+          xhr.responseJSON.message
+          || xhr.responseJSON.mensaje;
+      }
+
+      Swal.fire({
+        icon: "error",
+        title: "Error de auditoría",
+        text: mensaje,
+        confirmButtonColor: "#00a46a",
+      });
+    },
+  });
+}
+
+function mostrarResultadoAuditoriaCaja(auditoria) {
+  const resumen = auditoria.resumen || {};
+  const criticos = Number(resumen.criticos || 0);
+  const advertencias = Number(resumen.advertencias || 0);
+  const cajas = Array.isArray(auditoria.cajas)
+    ? auditoria.cajas
+    : [];
+  const hallazgos = Array.isArray(auditoria.hallazgos)
+    ? auditoria.hallazgos
+    : [];
+  const cierres = Array.isArray(auditoria.cierres_recientes)
+    ? auditoria.cierres_recientes
+    : [];
+
+  const estadoGeneral =
+    criticos === 0 && advertencias === 0
+      ? {
+          icono: "check-circle",
+          clase: "tw-border-emerald-200 tw-bg-emerald-50 tw-text-emerald-800",
+          titulo: "Integridad correcta",
+          texto:
+            "No se detectaron cruces ni alteraciones entre cajas.",
+        }
+      : criticos === 0
+        ? {
+            icono: "exclamation-triangle",
+            clase: "tw-border-amber-200 tw-bg-amber-50 tw-text-amber-800",
+            titulo: "Correcto con pendientes",
+            texto:
+              "No hay errores críticos, pero existen operaciones que requieren atención.",
+          }
+        : {
+            icono: "times-circle",
+            clase: "tw-border-red-200 tw-bg-red-50 tw-text-red-800",
+            titulo: "Se detectaron inconsistencias",
+            texto:
+              "No lleves estos cambios a producción hasta corregir los hallazgos críticos.",
+          };
+
+  const htmlCajas = cajas.length
+    ? cajas
+        .map(function (caja) {
+          const abierta =
+            String(caja.estado || "").toUpperCase() === "ABIERTA";
+
+          const badge = abierta
+            ? '<span class="tw-rounded-full tw-bg-emerald-100 tw-px-2 tw-py-1 tw-text-[11px] tw-font-medium tw-text-emerald-700">Abierta</span>'
+            : '<span class="tw-rounded-full tw-bg-slate-100 tw-px-2 tw-py-1 tw-text-[11px] tw-font-medium tw-text-slate-600">Cerrada</span>';
+
+          const efectivo =
+            caja.efectivo_esperado === null
+              ? "—"
+              : "S/ " + formatearMonto(caja.efectivo_esperado);
+
+          return (
+            '<div class="tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-p-3">' +
+              '<div class="tw-flex tw-items-start tw-justify-between tw-gap-3">' +
+                '<div class="tw-min-w-0">' +
+                  '<div class="tw-text-sm tw-font-medium tw-text-slate-900">' +
+                    escaparHtml(caja.codigo || "") +
+                    " · " +
+                    escaparHtml(caja.nombre || "") +
+                  "</div>" +
+                  '<div class="tw-mt-1 tw-text-xs tw-text-slate-500">' +
+                    (abierta
+                      ? "Apertura #" +
+                        Number(caja.idapertura || 0) +
+                        " · " +
+                        escaparHtml(caja.responsable || "Sin responsable")
+                      : "Sin apertura activa") +
+                  "</div>" +
+                "</div>" +
+                badge +
+              "</div>" +
+              '<div class="tw-mt-3 tw-flex tw-items-center tw-justify-between tw-border-t tw-border-slate-100 tw-pt-2">' +
+                '<span class="tw-text-xs tw-text-slate-500">Efectivo esperado</span>' +
+                '<strong class="tw-text-sm tw-text-slate-900">' +
+                  efectivo +
+                "</strong>" +
+              "</div>" +
+            "</div>"
+          );
+        })
+        .join("")
+    : '<div class="tw-text-sm tw-text-slate-500">No existen cajas físicas para mostrar.</div>';
+
+  const htmlHallazgos = hallazgos.length
+    ? hallazgos
+        .map(function (item) {
+          const critico =
+            String(item.nivel || "") === "CRITICO";
+
+          const clase = critico
+            ? "tw-border-red-200 tw-bg-red-50"
+            : "tw-border-amber-200 tw-bg-amber-50";
+
+          const icono = critico
+            ? "fa-times-circle tw-text-red-600"
+            : "fa-exclamation-triangle tw-text-amber-600";
+
+          return (
+            '<div class="tw-rounded-xl tw-border ' +
+            clase +
+            ' tw-p-3">' +
+              '<div class="tw-flex tw-items-start tw-gap-2">' +
+                '<i class="fas ' +
+                  icono +
+                  ' tw-mt-0.5"></i>' +
+                '<div class="tw-min-w-0 tw-flex-1">' +
+                  '<div class="tw-flex tw-items-center tw-justify-between tw-gap-2">' +
+                    '<strong class="tw-text-sm tw-text-slate-900">' +
+                      escaparHtml(item.titulo || "") +
+                    "</strong>" +
+                    '<span class="tw-rounded-full tw-bg-white/80 tw-px-2 tw-py-0.5 tw-text-[11px] tw-font-medium tw-text-slate-700">' +
+                      Number(item.cantidad || 0) +
+                    "</span>" +
+                  "</div>" +
+                  '<div class="tw-mt-1 tw-text-xs tw-leading-5 tw-text-slate-600">' +
+                    escaparHtml(item.detalle || "") +
+                  "</div>" +
+                  '<div class="tw-mt-1 tw-text-[10px] tw-uppercase tw-tracking-wide tw-text-slate-400">' +
+                    escaparHtml(item.codigo || "") +
+                  "</div>" +
+                "</div>" +
+              "</div>" +
+            "</div>"
+          );
+        })
+        .join("")
+    : '<div class="tw-rounded-xl tw-border tw-border-emerald-200 tw-bg-emerald-50 tw-p-3 tw-text-sm tw-text-emerald-800"><i class="fas fa-check mr-2"></i>No hay hallazgos.</div>';
+
+  const cierresConProblema = cierres.filter(function (cierre) {
+    return (
+      cierre.diferencia_integridad !== null
+      && Math.abs(Number(cierre.diferencia_integridad || 0)) > 0.01
+    );
+  });
+
+  const resumenCierres =
+    cierres.length === 0
+      ? "Sin cierres físicos recientes."
+      : cierresConProblema.length === 0
+        ? "Los últimos " +
+          cierres.length +
+          " cierres conservan su total original."
+        : cierresConProblema.length +
+          " cierre(s) cambiaron después de cerrarse.";
+
+  const contenido =
+    '<div class="tw-text-left">' +
+      '<div class="tw-rounded-2xl tw-border tw-p-4 ' +
+        estadoGeneral.clase +
+        '">' +
+        '<div class="tw-flex tw-items-start tw-gap-3">' +
+          '<i class="fas fa-' +
+            estadoGeneral.icono +
+            ' tw-mt-0.5 tw-text-lg"></i>' +
+          "<div>" +
+            '<div class="tw-font-medium">' +
+              estadoGeneral.titulo +
+            "</div>" +
+            '<div class="tw-mt-1 tw-text-xs tw-leading-5">' +
+              estadoGeneral.texto +
+            "</div>" +
+          "</div>" +
+        "</div>" +
+      "</div>" +
+
+      '<div class="tw-mt-4 tw-grid tw-grid-cols-2 tw-gap-2 sm:tw-grid-cols-4">' +
+        tarjetaAuditoria("Modo", auditoria.modo || "—") +
+        tarjetaAuditoria("Cajas", auditoria.total_cajas || 0) +
+        tarjetaAuditoria("Críticos", criticos) +
+        tarjetaAuditoria("Advertencias", advertencias) +
+      "</div>" +
+
+      '<div class="tw-mt-5">' +
+        '<div class="tw-mb-2 tw-text-xs tw-font-semibold tw-uppercase tw-tracking-wide tw-text-slate-500">Estado actual</div>' +
+        '<div class="tw-grid tw-gap-2 sm:tw-grid-cols-2">' +
+          htmlCajas +
+        "</div>" +
+      "</div>" +
+
+      '<div class="tw-mt-5">' +
+        '<div class="tw-mb-2 tw-text-xs tw-font-semibold tw-uppercase tw-tracking-wide tw-text-slate-500">Integridad</div>' +
+        '<div class="tw-space-y-2">' +
+          htmlHallazgos +
+        "</div>" +
+      "</div>" +
+
+      '<div class="tw-mt-5 tw-rounded-xl tw-border tw-border-slate-200 tw-bg-slate-50 tw-p-3">' +
+        '<div class="tw-text-xs tw-font-medium tw-text-slate-700">Cierres recientes</div>' +
+        '<div class="tw-mt-1 tw-text-xs tw-leading-5 tw-text-slate-500">' +
+          escaparHtml(resumenCierres) +
+        "</div>" +
+      "</div>" +
+
+      '<div class="tw-mt-3 tw-text-[11px] tw-leading-5 tw-text-slate-400">' +
+        "Auditoría de solo lectura. No modifica ventas, caja ni base de datos." +
+      "</div>" +
+    "</div>";
+
+  Swal.fire({
+    title: "Auditoría de cajas",
+    html: contenido,
+    width: 860,
+    confirmButtonText: "Cerrar",
+    confirmButtonColor: "#00a46a",
+  });
+}
+
+function tarjetaAuditoria(etiqueta, valor) {
+  return (
+    '<div class="tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-p-3">' +
+      '<div class="tw-text-[11px] tw-uppercase tw-tracking-wide tw-text-slate-400">' +
+        escaparHtml(etiqueta) +
+      "</div>" +
+      '<div class="tw-mt-1 tw-text-sm tw-font-semibold tw-text-slate-900">' +
+        escaparHtml(String(valor)) +
+      "</div>" +
+    "</div>"
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| MOVIMIENTOS MANUALES
+|--------------------------------------------------------------------------
+*/
+function abrirMovimientoManualCaja() {
+  if (window.TIQUEPOS_CAJA_PUEDE_MOVIMIENTO_MANUAL !== true) {
+    Swal.fire({
+      icon: "warning",
+      title: "Sin permiso",
+      text: "Solo un Administrador o Cajero puede registrar movimientos manuales.",
+      confirmButtonColor: "#00a46a",
+    });
+    return;
+  }
+
+  if (
+    contextoCajaActual.estado !== "ABIERTA" ||
+    contextoCajaActual.idapertura <= 0
+  ) {
+    Swal.fire({
+      icon: "warning",
+      title: "Caja cerrada",
+      text: "Debe abrir la caja antes de registrar un movimiento de efectivo.",
+      confirmButtonColor: "#00a46a",
+    });
+    return;
+  }
+
+  Swal.fire({
+    title: "Nuevo movimiento de caja",
+    width: 560,
+    html: `
+      <div class="tw-text-left">
+        <div class="tw-mb-4 tw-rounded-xl tw-border tw-border-emerald-100 tw-bg-emerald-50 tw-p-3 tw-text-xs tw-leading-5 tw-text-emerald-800">
+          <i class="fas fa-shield-alt tw-mr-1"></i>
+          El movimiento quedará ligado a la apertura activa y afectará únicamente el efectivo físico.
+        </div>
+
+        <label class="tw-mb-1.5 tw-block tw-text-xs tw-font-medium tw-text-slate-600">
+          Tipo de movimiento
+        </label>
+        <select id="swalMovimientoCajaClase" class="swal2-input" style="width:100%;margin:0 0 14px 0;">
+          <option value="INGRESO">Ingreso manual</option>
+          <option value="EGRESO">Egreso manual</option>
+          <option value="RETIRO">Retiro de efectivo</option>
+          <option value="AJUSTE_POSITIVO">Ajuste positivo</option>
+          <option value="AJUSTE_NEGATIVO">Ajuste negativo</option>
+        </select>
+
+        <label class="tw-mb-1.5 tw-block tw-text-xs tw-font-medium tw-text-slate-600">
+          Monto
+        </label>
+        <input
+          id="swalMovimientoCajaMonto"
+          class="swal2-input"
+          type="number"
+          min="0.01"
+          step="0.01"
+          inputmode="decimal"
+          placeholder="0.00"
+          style="width:100%;margin:0 0 14px 0;">
+
+        <label class="tw-mb-1.5 tw-block tw-text-xs tw-font-medium tw-text-slate-600">
+          Motivo
+        </label>
+        <textarea
+          id="swalMovimientoCajaConcepto"
+          class="swal2-textarea"
+          maxlength="180"
+          rows="3"
+          placeholder="Ej.: retiro para gastos de movilidad"
+          style="width:100%;margin:0;"></textarea>
+
+        <div class="tw-mt-3 tw-text-xs tw-text-slate-500">
+          Efectivo esperado actual:
+          <strong>S/ ${formatearMonto(
+            Math.max(0, contextoCajaActual.efectivoEsperado)
+          )}</strong>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "Registrar movimiento",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#00a46a",
+    reverseButtons: true,
+    focusConfirm: false,
+    didOpen: function () {
+      const monto = document.getElementById(
+        "swalMovimientoCajaMonto"
+      );
+
+      if (monto) {
+        window.setTimeout(function () {
+          monto.focus();
+        }, 100);
+      }
+    },
+    preConfirm: function () {
+      const clase = String(
+        document.getElementById("swalMovimientoCajaClase")?.value || ""
+      );
+
+      const monto = Number(
+        document.getElementById("swalMovimientoCajaMonto")?.value || 0
+      );
+
+      const concepto = String(
+        document.getElementById("swalMovimientoCajaConcepto")?.value || ""
+      ).trim();
+
+      if (monto <= 0) {
+        Swal.showValidationMessage(
+          "Ingrese un monto mayor que cero."
+        );
+        return false;
+      }
+
+      if (concepto.length < 4) {
+        Swal.showValidationMessage(
+          "Escriba un motivo breve para conservar la trazabilidad."
+        );
+        return false;
+      }
+
+      return {
+        clase: clase,
+        monto: monto,
+        concepto: concepto,
+      };
+    },
+  }).then(function (resultado) {
+    if (!resultado.isConfirmed || !resultado.value) {
+      return;
+    }
+
+    registrarMovimientoManualCaja(resultado.value);
+  });
+}
+
+function registrarMovimientoManualCaja(datos) {
+  Swal.fire({
+    title: "Registrando...",
+    text: "Validando apertura y efectivo disponible.",
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    didOpen: function () {
+      Swal.showLoading();
+    },
+  });
+
+  $.ajax({
+    url: "Controllers/Cajachica.php?op=guardar_movimiento_manual",
+    type: "POST",
+    dataType: "json",
+    cache: false,
+    data: {
+      clase: datos.clase,
+      monto: Number(datos.monto).toFixed(2),
+      concepto: datos.concepto,
+    },
+    success: function (resp) {
+      if (!resp || resp.status !== "ok") {
+        Swal.fire({
+          icon: "warning",
+          title: "No se registró",
+          text:
+            (resp && resp.message) ||
+            "No se pudo registrar el movimiento.",
+          confirmButtonColor: "#00a46a",
+        });
+        return;
+      }
+
+      const movimiento = resp.movimiento || {};
+
+      Swal.fire({
+        icon: "success",
+        title: "Movimiento registrado",
+        html:
+          '<div class="tw-text-sm tw-text-slate-600">' +
+          escaparHtml(movimiento.concepto || "") +
+          '<br><strong class="tw-text-slate-900">S/ ' +
+          formatearMonto(movimiento.monto || 0) +
+          "</strong></div>",
+        timer: 1600,
+        showConfirmButton: false,
+      }).then(function () {
+        cargarCaja({ forzar: true });
+      });
+    },
+    error: function (xhr) {
+      let mensaje =
+        "No se pudo registrar el movimiento.";
+
+      if (
+        xhr.responseJSON &&
+        typeof xhr.responseJSON.message === "string"
+      ) {
+        mensaje = xhr.responseJSON.message;
+      } else {
+        try {
+          const respuesta = JSON.parse(
+            String(xhr.responseText || "")
+          );
+
+          if (
+            respuesta &&
+            typeof respuesta.message === "string"
+          ) {
+            mensaje = respuesta.message;
+          }
+        } catch (error) {
+          // Conserva el mensaje seguro.
+        }
+      }
+
+      Swal.fire({
+        icon: "error",
+        title: "Movimiento rechazado",
+        text: mensaje,
+        confirmButtonColor: "#00a46a",
+      });
+
+      cargarCaja({ forzar: true });
+    },
+  });
 }
 
 /*

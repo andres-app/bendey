@@ -3069,6 +3069,34 @@ switch ($op) {
                 . $idNota
             );
 
+            $accionDevolucionPendiente = '';
+
+            if (
+                $estadoLocal !== 'ANULADA'
+                && $estadoSunat === 'ACEPTADO'
+                && (int)(
+                    $nota['genera_devolucion_dinero']
+                    ?? 0
+                ) === 1
+                && (int)(
+                    $nota['finanzas_aplicadas']
+                    ?? 0
+                ) !== 1
+            ) {
+                $accionDevolucionPendiente = '
+                    <button
+                        type="button"
+                        class="dropdown-item text-warning"
+                        onclick="procesarDevolucionNotaCredito('
+                        . $idNota
+                        . ')">
+                        <i class="fas fa-hand-holding-usd"></i>
+                        <span>Procesar devolución pendiente</span>
+                    </button>
+                    <div class="dropdown-divider"></div>
+                ';
+            }
+
             $data[] = [
                 '0' => htmlspecialchars(
                     (string)(
@@ -3215,6 +3243,9 @@ switch ($op) {
                                 <span>Compartir por WhatsApp</span>
                             </a>
 
+                            '
+                            . $accionDevolucionPendiente
+                            . '
                             <div class="dropdown-divider"></div>
                             <h6 class="dropdown-header">
                                 Comprobante original

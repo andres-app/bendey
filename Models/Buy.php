@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../Config/Conexion.php';
+require_once __DIR__ . '/CajaOperacionGuard.php';
 
 class Buy
 {
@@ -10,10 +11,12 @@ class Buy
     private string $tableNameDetalle = 'detalle_ingreso';
     private string $tableNameKardex = 'kardex';
     private Conexion $conexion;
+    private CajaOperacionGuard $cajaGuard;
 
     public function __construct()
     {
         $this->conexion = new Conexion();
+        $this->cajaGuard = new CajaOperacionGuard($this->conexion);
     }
 
     /**
@@ -39,6 +42,22 @@ class Buy
         $fechaHora = $this->normalizarFecha($cabecera['fecha_hora'] ?? '');
         $impuesto = round((float)($cabecera['impuesto'] ?? 0), 2);
         $observacion = $this->limpiarTexto($cabecera['observacion'] ?? '', 255);
+
+        $condicionPago = strtoupper(
+            trim((string)($cabecera['condicion_pago'] ?? 'CREDITO'))
+        );
+
+        if (!in_array($condicionPago, ['CONTADO', 'CREDITO'], true)) {
+            throw new RuntimeException(
+                'La condición de pago seleccionada no es válida.'
+            );
+        }
+
+        $idformaPago = (int)($cabecera['idforma_pago'] ?? 0);
+        $numeroOperacion = $this->limpiarTexto(
+            $cabecera['numero_operacion'] ?? '',
+            80
+        );
 
         if ($idproveedor <= 0) {
             throw new RuntimeException('Debe seleccionar un proveedor válido.');
@@ -134,11 +153,50 @@ class Buy
                 ? 'MIXTA'
                 : ($tieneInventario ? 'INVENTARIO' : 'NO_INVENTARIO');
 
+            $pago = null;
+
+            if ($condicionPago === 'CONTADO') {
+                $pago = $this->cajaGuard->prepararFormaPago(
+                    $idformaPago,
+                    $numeroOperacion,
+                    [
+                        'idusuario' => $idusuario,
+                        'idsucursal' => (int)($cabecera['idsucursal'] ?? 0),
+                        'idcaja' => (int)($cabecera['idcaja'] ?? 0),
+                        'idapertura' => (int)($cabecera['idapertura'] ?? 0),
+                        'modo_caja' => (string)($cabecera['modo_caja'] ?? 'LEGACY')
+                    ]
+                );
+            }
+
+            $idFormaPagoGuardar = $pago !== null
+                ? (int)$pago['idforma_pago']
+                : null;
+
+            $idCuentaGuardar = $pago !== null
+                ? (int)$pago['idcuenta_financiera']
+                : null;
+
+            $idAperturaGuardar = $pago !== null
+                && (int)($pago['idapertura'] ?? 0) > 0
+                ? (int)$pago['idapertura']
+                : null;
+
+            $numeroOperacionGuardar = $pago !== null
+                ? $pago['numero_operacion']
+                : null;
+
+            $estadoPago = $condicionPago === 'CONTADO'
+                ? 'PAGADO'
+                : 'PENDIENTE';
+
             $sqlIngreso = "INSERT INTO {$this->tableName}
                 (idproveedor, idusuario, idsucursal, tipo_comprobante,
                  serie_comprobante, num_comprobante, fecha_hora, impuesto,
-                 total_compra, tipo_compra, observacion, estado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Aceptado')";
+                 total_compra, condicion_pago, idforma_pago,
+                 idcuenta_financiera, idapertura, numero_operacion,
+                 estado_pago, tipo_compra, observacion, estado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Aceptado')";
 
             $idingreso = (int)$this->conexion->setDataReturnId(
                 $sqlIngreso,
@@ -152,6 +210,12 @@ class Buy
                     $fechaHora,
                     $impuesto,
                     $totalCompra,
+                    $condicionPago,
+                    $idFormaPagoGuardar,
+                    $idCuentaGuardar,
+                    $idAperturaGuardar,
+                    $numeroOperacionGuardar,
+                    $estadoPago,
                     $tipoCompra,
                     $observacion !== '' ? $observacion : null
                 ]
@@ -179,6 +243,57 @@ class Buy
                 }
             }
 
+            if ($condicionPago === 'CONTADO' && $pago !== null) {
+                $concepto = 'Pago de compra #'
+                    . $idingreso
+                    . ' · '
+                    . trim(
+                        $tipoComprobante
+                        . ' '
+                        . $serieComprobante
+                        . '-'
+                        . $numComprobante,
+                        ' -'
+                    );
+
+                $idMovimiento = (int)$this->conexion->setDataReturnId(
+                    "INSERT INTO movimiento_financiero (
+                        fecha_hora,
+                        tipo,
+                        origen,
+                        idreferencia,
+                        idforma_pago,
+                        idcuenta_financiera,
+                        idapertura,
+                        monto,
+                        concepto,
+                        idusuario,
+                        estado
+                    ) VALUES (
+                        NOW(),
+                        'EGRESO',
+                        'COMPRA',
+                        ?, ?, ?, ?, ?, ?, ?,
+                        'ACTIVO'
+                    )",
+                    [
+                        $idingreso,
+                        (int)$pago['idforma_pago'],
+                        (int)$pago['idcuenta_financiera'],
+                        $idAperturaGuardar,
+                        $totalCompra,
+                        $concepto,
+                        $idusuario
+                    ]
+                );
+
+                if ($idMovimiento <= 0) {
+                    throw new RuntimeException(
+                        'No se pudo registrar el movimiento financiero de la compra.'
+                    );
+                }
+            }
+
             $this->conexion->commit();
             $transaccionIniciada = false;
 
@@ -186,7 +301,12 @@ class Buy
                 'success' => true,
                 'idingreso' => $idingreso,
                 'tipo_compra' => $tipoCompra,
-                'total_compra' => $totalCompra
+                'total_compra' => $totalCompra,
+                'condicion_pago' => $condicionPago,
+                'estado_pago' => $estadoPago,
+                'forma_pago' => $pago !== null
+                    ? (string)$pago['forma_pago']
+                    : null
             ];
         } catch (Throwable $error) {
             if ($transaccionIniciada) {
@@ -201,7 +321,7 @@ class Buy
         }
     }
 
-    public function anular(int $idingreso): array
+    public function anular(int $idingreso, array $contextoSesion = []): array
     {
         if ($idingreso <= 0) {
             throw new RuntimeException('La compra indicada no es válida.');
@@ -215,7 +335,8 @@ class Buy
 
             $compra = $this->conexion->getData(
                 "SELECT idingreso, estado, tipo_comprobante,
-                        serie_comprobante, num_comprobante
+                        serie_comprobante, num_comprobante,
+                        condicion_pago, idapertura
                  FROM {$this->tableName}
                  WHERE idingreso = ?
                  LIMIT 1
@@ -229,6 +350,65 @@ class Buy
 
             if ((string)$compra['estado'] === 'Anulado') {
                 throw new RuntimeException('La compra ya se encuentra anulada.');
+            }
+
+            $movimientoCompra = $this->conexion->getData(
+                "SELECT
+                    idmovimiento,
+                    idapertura,
+                    estado
+                 FROM movimiento_financiero
+                 WHERE origen = 'COMPRA'
+                   AND idreferencia = ?
+                   AND estado = 'ACTIVO'
+                 ORDER BY idmovimiento DESC
+                 LIMIT 1
+                 FOR UPDATE",
+                [$idingreso]
+            );
+
+            if (is_array($movimientoCompra)) {
+                $idAperturaMovimiento = (int)(
+                    $movimientoCompra['idapertura']
+                    ?? 0
+                );
+
+                if ($idAperturaMovimiento > 0) {
+                    $apertura = $this->conexion->getData(
+                        "SELECT idapertura, estado
+                         FROM caja_apertura
+                         WHERE idapertura = ?
+                         LIMIT 1
+                         FOR UPDATE",
+                        [$idAperturaMovimiento]
+                    );
+
+                    if (
+                        !is_array($apertura)
+                        || (string)$apertura['estado'] !== 'ABIERTA'
+                    ) {
+                        throw new RuntimeException(
+                            'Esta compra fue pagada en una caja que ya fue cerrada. '
+                            . 'Para conservar la trazabilidad no puede anularse retroactivamente; '
+                            . 'registre una devolución o ajuste financiero.'
+                        );
+                    }
+
+                    $idAperturaSesion = (int)(
+                        $contextoSesion['idapertura']
+                        ?? 0
+                    );
+
+                    if (
+                        $idAperturaSesion <= 0
+                        || $idAperturaSesion !== $idAperturaMovimiento
+                    ) {
+                        throw new RuntimeException(
+                            'La compra fue pagada desde otra apertura de caja. '
+                            . 'Debe operar sobre la misma caja antes de anularla.'
+                        );
+                    }
+                }
             }
 
             $detalles = $this->conexion->getDataAll(
@@ -333,9 +513,23 @@ class Buy
                 [$idingreso]
             );
 
+            if (is_array($movimientoCompra)) {
+                $this->conexion->setData(
+                    "UPDATE movimiento_financiero
+                     SET estado = 'ANULADO'
+                     WHERE idmovimiento = ?",
+                    [(int)$movimientoCompra['idmovimiento']]
+                );
+            }
+
             $this->conexion->setData(
                 "UPDATE {$this->tableName}
-                 SET estado = 'Anulado'
+                 SET estado = 'Anulado',
+                     estado_pago = CASE
+                        WHEN condicion_pago = 'CONTADO'
+                            THEN 'ANULADO'
+                        ELSE estado_pago
+                     END
                  WHERE idingreso = ?",
                 [$idingreso]
             );
@@ -376,6 +570,12 @@ class Buy
                     i.num_comprobante,
                     i.total_compra,
                     i.impuesto,
+                    i.condicion_pago,
+                    i.estado_pago,
+                    i.idforma_pago,
+                    fp.nombre AS forma_pago,
+                    i.numero_operacion,
+                    i.idapertura,
                     i.tipo_compra,
                     i.observacion,
                     i.estado
@@ -386,6 +586,8 @@ class Buy
                     ON i.idusuario = u.idusuario
                 LEFT JOIN sucursal s
                     ON i.idsucursal = s.idsucursal
+                LEFT JOIN forma_pago fp
+                    ON fp.idforma_pago = i.idforma_pago
                 WHERE i.idingreso = ?";
 
         return $this->conexion->getData($sql, [$idingreso]);
@@ -435,6 +637,9 @@ class Buy
                     i.serie_comprobante,
                     i.num_comprobante,
                     i.total_compra,
+                    i.condicion_pago,
+                    i.estado_pago,
+                    fp.nombre AS forma_pago,
                     i.tipo_compra,
                     i.estado
                 FROM {$this->tableName} i
@@ -442,6 +647,8 @@ class Buy
                     ON i.idproveedor = p.idpersona
                 LEFT JOIN usuario u
                     ON i.idusuario = u.idusuario
+                LEFT JOIN forma_pago fp
+                    ON fp.idforma_pago = i.idforma_pago
                 ORDER BY i.idingreso DESC";
 
         return $this->conexion->getDataAll($sql);
@@ -515,6 +722,25 @@ class Buy
                  FROM categoria_compra
                  WHERE estado = 1
                  ORDER BY nombre ASC"
+            ),
+            'formas_pago' => $this->conexion->getDataAll(
+                "SELECT
+                    fp.idforma_pago,
+                    fp.nombre,
+                    fp.es_efectivo,
+                    fp.es_combinado,
+                    fpd.requiere_caja_abierta,
+                    fpd.requiere_operacion,
+                    fpd.idcuenta_financiera
+                 FROM forma_pago AS fp
+                 LEFT JOIN forma_pago_destino AS fpd
+                    ON fpd.idforma_pago = fp.idforma_pago
+                 WHERE fp.activo = 1
+                   AND fp.condicion = 1
+                   AND fp.es_combinado = 0
+                 ORDER BY
+                    CASE WHEN fp.es_efectivo = 1 THEN 0 ELSE 1 END,
+                    fp.nombre ASC"
             )
         ];
     }

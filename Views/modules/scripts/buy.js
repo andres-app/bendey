@@ -8,7 +8,8 @@ let datosFormularioCompra = {
     subcategorias: [],
     medidas: [],
     almacenes: [],
-    categorias_compra: []
+    categorias_compra: [],
+    formas_pago: []
 };
 let datosCompraCargados = false;
 let guardandoCompra = false;
@@ -241,6 +242,9 @@ function cargarDatosCompra(forzar = false) {
                     : [],
                 categorias_compra: Array.isArray(respuesta.datos.categorias_compra)
                     ? respuesta.datos.categorias_compra
+                    : [],
+                formas_pago: Array.isArray(respuesta.datos.formas_pago)
+                    ? respuesta.datos.formas_pago
                     : []
             };
 
@@ -352,6 +356,31 @@ function poblarSelectoresCompra() {
     }
 
     actualizarSubcategoriasCompra();
+
+    const formasPago = Array.isArray(
+        datosFormularioCompra.formas_pago
+    )
+        ? datosFormularioCompra.formas_pago
+        : [];
+
+    $('#idforma_pago').html(
+        opcionesSelectCompra(
+            formasPago,
+            'idforma_pago',
+            function (forma) {
+                return String(forma.nombre || '');
+            },
+            'Seleccione una forma de pago'
+        )
+    );
+
+    if (formasPago.length > 0 && !$('#idforma_pago').val()) {
+        $('#idforma_pago').val(
+            String(formasPago[0].idforma_pago)
+        );
+    }
+
+    actualizarEstadoPagoCompra();
 }
 
 function actualizarSubcategoriasCompra() {
@@ -845,6 +874,116 @@ function calcularTotalesCompra() {
     );
 }
 
+
+function obtenerFormaPagoCompraSeleccionada() {
+    const id = Number($('#idforma_pago').val() || 0);
+
+    if (
+        !datosFormularioCompra
+        || !Array.isArray(datosFormularioCompra.formas_pago)
+        || id <= 0
+    ) {
+        return null;
+    }
+
+    return datosFormularioCompra.formas_pago.find(function (forma) {
+        return Number(forma.idforma_pago) === id;
+    }) || null;
+}
+
+function actualizarEstadoPagoCompra() {
+    const condicion = String(
+        $('#condicion_pago').val() || 'CONTADO'
+    ).toUpperCase();
+
+    const esContado = condicion === 'CONTADO';
+
+    $('#grupoFormaPagoCompra').toggle(esContado);
+    $('#grupoOperacionCompra').toggle(esContado);
+
+    $('#idforma_pago').prop('required', esContado);
+
+    if (!esContado) {
+        $('#numero_operacion')
+            .val('')
+            .prop('required', false);
+
+        $('#avisoTrazabilidadCompra')
+            .removeClass(
+                'tw-border-emerald-100 tw-bg-emerald-50/70 tw-text-emerald-800'
+            )
+            .addClass(
+                'tw-border-slate-200 tw-bg-slate-50 tw-text-slate-600'
+            )
+            .html(
+                '<i class="fas fa-clock tw-mt-0.5"></i>' +
+                '<span>La compra quedará pendiente de pago. ' +
+                'No se generará ningún movimiento de caja.</span>'
+            );
+
+        return;
+    }
+
+    const forma = obtenerFormaPagoCompraSeleccionada();
+
+    const requiereOperacion =
+        forma
+        && Number(forma.requiere_operacion || 0) === 1;
+
+    const requiereCaja =
+        forma
+        && Number(forma.requiere_caja_abierta || 0) === 1;
+
+    $('#numero_operacion').prop(
+        'required',
+        Boolean(requiereOperacion)
+    );
+
+    $('#ayudaOperacionCompra').text(
+        requiereOperacion
+            ? 'Obligatorio para esta forma de pago.'
+            : 'Opcional para esta forma de pago.'
+    );
+
+    if (requiereCaja) {
+        $('#ayudaFormaPagoCompra').text(
+            'Efectivo: se validará caja seleccionada + apertura ABIERTA.'
+        );
+
+        $('#avisoTrazabilidadCompra')
+            .removeClass(
+                'tw-border-slate-200 tw-bg-slate-50 tw-text-slate-600'
+            )
+            .addClass(
+                'tw-border-emerald-100 tw-bg-emerald-50/70 tw-text-emerald-800'
+            )
+            .html(
+                '<i class="fas fa-cash-register tw-mt-0.5"></i>' +
+                '<span>Este pago saldrá de la caja activa y quedará ligado ' +
+                'a su apertura para el arqueo.</span>'
+            );
+
+        return;
+    }
+
+    $('#ayudaFormaPagoCompra').text(
+        'El pago se registrará en su cuenta financiera y no reducirá el efectivo físico.'
+    );
+
+    $('#avisoTrazabilidadCompra')
+        .removeClass(
+            'tw-border-emerald-100 tw-bg-emerald-50/70 tw-text-emerald-800'
+        )
+        .addClass(
+            'tw-border-slate-200 tw-bg-slate-50 tw-text-slate-600'
+        )
+        .html(
+            '<i class="fas fa-university tw-mt-0.5"></i>' +
+            '<span>Este pago afectará la cuenta financiera configurada, ' +
+            'no el efectivo de la caja.</span>'
+        );
+}
+
 function validarCompraAntesDeGuardar() {
     const formulario = document.getElementById('formulario');
 
@@ -862,6 +1001,44 @@ function validarCompraAntesDeGuardar() {
             'Agrega por lo menos un producto, gasto o servicio.'
         );
         return false;
+    }
+
+    const condicionPago = String(
+        $('#condicion_pago').val() || ''
+    ).toUpperCase();
+
+    if (!['CONTADO', 'CREDITO'].includes(condicionPago)) {
+        alertaCompra(
+            'warning',
+            'Condición de pago',
+            'Seleccione Contado o Crédito.'
+        );
+        return false;
+    }
+
+    if (condicionPago === 'CONTADO') {
+        const forma = obtenerFormaPagoCompraSeleccionada();
+
+        if (!forma) {
+            alertaCompra(
+                'warning',
+                'Forma de pago',
+                'Seleccione cómo se pagará la compra.'
+            );
+            return false;
+        }
+
+        if (
+            Number(forma.requiere_operacion || 0) === 1
+            && String($('#numero_operacion').val() || '').trim() === ''
+        ) {
+            alertaCompra(
+                'warning',
+                'Número de operación',
+                'Ingrese el número de operación de la forma de pago seleccionada.'
+            );
+            return false;
+        }
     }
 
     for (let indice = 0; indice < detallesCompra.length; indice += 1) {
@@ -941,7 +1118,9 @@ function guardaryeditar(evento) {
             alertaCompra(
                 'success',
                 'Compra registrada',
-                `Compra #${respuesta.idingreso} registrada como ${respuesta.tipo_compra}.`
+                respuesta.condicion_pago === 'CONTADO'
+                    ? `Compra #${respuesta.idingreso} registrada y pagada por ${respuesta.forma_pago || 'la forma seleccionada'}.`
+                    : `Compra #${respuesta.idingreso} registrada a crédito, pendiente de pago.`
             ).then(function () {
                 mostrarform(false);
 
@@ -2344,6 +2523,10 @@ function init() {
     cargarProductosCompra();
 
     $('#formulario').on('submit', guardaryeditar);
+
+    $('#condicion_pago, #idforma_pago')
+        .on('change', actualizarEstadoPagoCompra);
+
     $('#formProductoNuevo').on('submit', agregarProductoNuevoDesdeFormulario);
     $('#formGastoServicio').on('submit', agregarGastoServicioDesdeFormulario);
 
