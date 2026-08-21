@@ -1,2 +1,0 @@
-TiquePOS GitHub Release Pipeline
-Prueba correcta de construcción desde GitHub.
