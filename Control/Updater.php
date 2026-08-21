@@ -54,6 +54,16 @@ class TiquePOSUpdater
 
         try {
             $manifest = $this->extractSafely($zipPath, $stage);
+            $manifest = $this->enrichManifestWithPackagedMigrations(
+                $manifest,
+                $stage
+            );
+            $this->validateReleaseManifest(
+                $manifest,
+                $stage,
+                $version
+            );
+
             $maintenance = $this->controlDir . '/maintenance.flag';
             $this->ensureDir($this->controlDir);
             if (file_put_contents($maintenance, json_encode(array('version'=>$version,'started_at'=>date('c'))), LOCK_EX) === false) {
@@ -478,9 +488,23 @@ class TiquePOSUpdater
     private function isProtected(string $relative): bool
     {
         $p = ltrim(str_replace('\\','/',$relative),'/');
-        $exact = array('Config/local.php','Config/control_public.pem','Reports/error_log');
+        $exact = array(
+            'Config/local.php',
+            'Config/local.php.example',
+            'Config/control_public.pem',
+            '.env',
+            'dev_verify.php',
+            'database/base.sql',
+            'Reports/error_log'
+        );
         if (in_array($p,$exact,true)) { return true; }
-        $prefixes = array('storage/','Assets/img/company/','Assets/img/products/','Assets/img/users/');
+        $prefixes = array(
+            'storage/',
+            'install/',
+            'Assets/img/company/',
+            'Assets/img/products/',
+            'Assets/img/users/'
+        );
         foreach($prefixes as $prefix){if(strpos($p,$prefix)===0){return true;}}
         if (preg_match('#^Assets/qr_[^/]+\.png$#i',$p)) { return true; }
         return false;
@@ -518,6 +542,194 @@ class TiquePOSUpdater
     private function rollbackFiles(string $backup, array $changes): void
     {
         foreach(array_reverse(array_keys($changes)) as $relative){$target=$this->root.'/'.$relative;if($changes[$relative]==='NEW'){@unlink($target);continue;}$source=$backup.'/'.$relative;if(is_file($source)){$this->ensureDir(dirname($target));@copy($source,$target);}}
+    }
+
+    /**
+     * Completa el manifiesto con pares UP/DOWN incluidos dentro del ZIP.
+     * Esto hace que futuros releases Git incrementales no dependan de que
+     * el generador central recuerde declarar manualmente cada migración.
+     * Las declaraciones explícitas del manifest siempre se conservan.
+     */
+    private function enrichManifestWithPackagedMigrations(
+        array $manifest,
+        string $stage
+    ): array {
+        $migrations = array_values(
+            array_unique(
+                array_map(
+                    'strval',
+                    (array)($manifest['migrations'] ?? array())
+                )
+            )
+        );
+
+        $rollback = (array)(
+            $manifest['rollback_migrations']
+            ?? array()
+        );
+
+        $metaPath = $stage
+            . '/database/migrations/release-migrations.json';
+
+        if (is_file($metaPath)) {
+            $meta = json_decode(
+                (string)file_get_contents($metaPath),
+                true
+            );
+
+            if (is_array($meta)) {
+                foreach ((array)($meta['migrations'] ?? array()) as $up) {
+                    $up = $this->normalizeRelative((string)$up);
+                    if ($up !== '' && !in_array($up, $migrations, true)) {
+                        $migrations[] = $up;
+                    }
+                }
+
+                foreach ((array)($meta['rollback_migrations'] ?? array()) as $up => $down) {
+                    $up = $this->normalizeRelative((string)$up);
+                    $down = $this->normalizeRelative((string)$down);
+                    if ($up !== '' && $down !== '') {
+                        $rollback[$up] = $down;
+                    }
+                }
+            }
+        }
+
+        /*
+         * Fallback por convención de nombres: foo.sql + foo_DOWN.sql.
+         * Solo se inspeccionan migraciones que realmente llegaron en el
+         * paquete incremental, nunca archivos existentes en el cliente.
+         */
+        $migrationDir = $stage . '/database/migrations';
+        if (is_dir($migrationDir)) {
+            $candidates = glob($migrationDir . '/*.sql') ?: array();
+            sort($candidates, SORT_STRING);
+
+            foreach ($candidates as $file) {
+                $name = basename($file);
+                if (preg_match('/_DOWN\.sql$/i', $name)) {
+                    continue;
+                }
+
+                $up = 'database/migrations/' . $name;
+                $downName = preg_replace(
+                    '/\.sql$/i',
+                    '_DOWN.sql',
+                    $name
+                );
+                $down = 'database/migrations/' . $downName;
+
+                if (!is_file($stage . '/' . $down)) {
+                    continue;
+                }
+
+                if (!in_array($up, $migrations, true)) {
+                    $migrations[] = $up;
+                }
+
+                if (empty($rollback[$up])) {
+                    $rollback[$up] = $down;
+                }
+            }
+        }
+
+        $manifest['migrations'] = $migrations;
+        $manifest['rollback_migrations'] = $rollback;
+
+        return $manifest;
+    }
+
+    /**
+     * Rechaza antes de tocar archivos cualquier release con un plan de BD
+     * incompleto. También impide aplicar por error un instalador completo
+     * como si fuera un UPDATE.
+     */
+    private function validateReleaseManifest(
+        array $manifest,
+        string $stage,
+        string $expectedVersion
+    ): void {
+        $scope = strtolower(
+            trim((string)($manifest['package_scope'] ?? 'update'))
+        );
+
+        $allowedScopes = array(
+            'update',
+            'incremental',
+            'delta'
+        );
+
+        if (!in_array($scope, $allowedScopes, true)) {
+            throw new RuntimeException(
+                'El paquete no es un UPDATE incremental válido. Scope: '
+                . ($scope !== '' ? $scope : 'vacío')
+            );
+        }
+
+        $manifestVersion = trim(
+            (string)($manifest['version'] ?? '')
+        );
+
+        if (
+            $manifestVersion !== ''
+            && !hash_equals($expectedVersion, $manifestVersion)
+        ) {
+            throw new RuntimeException(
+                'La versión del manifest no coincide con el deployment.'
+            );
+        }
+
+        $migrations = (array)(
+            $manifest['migrations']
+            ?? array()
+        );
+        $rollback = (array)(
+            $manifest['rollback_migrations']
+            ?? array()
+        );
+
+        foreach ($migrations as $upRaw) {
+            $up = $this->normalizeRelative((string)$upRaw);
+            if ($up === '') {
+                throw new RuntimeException(
+                    'El manifest contiene una migración vacía.'
+                );
+            }
+
+            if (!preg_match('#^database/migrations/[^/]+\.sql$#i', $up)) {
+                throw new RuntimeException(
+                    'Ruta de migración no permitida: ' . $up
+                );
+            }
+
+            if (preg_match('/_DOWN\.sql$/i', $up)) {
+                throw new RuntimeException(
+                    'Una migración DOWN no puede declararse como UP: ' . $up
+                );
+            }
+
+            if (!is_file($stage . '/' . $up)) {
+                throw new RuntimeException(
+                    'Migración declarada pero ausente del release: ' . $up
+                );
+            }
+
+            $down = isset($rollback[$up])
+                ? $this->normalizeRelative((string)$rollback[$up])
+                : '';
+
+            if ($down === '' || !is_file($stage . '/' . $down)) {
+                throw new RuntimeException(
+                    'Toda migración UP debe incluir su DOWN: ' . $up
+                );
+            }
+
+            if (!preg_match('#^database/migrations/[^/]+_DOWN\.sql$#i', $down)) {
+                throw new RuntimeException(
+                    'Ruta DOWN no permitida: ' . $down
+                );
+            }
+        }
     }
 
     private function runMigrations(array $manifest, string $stage, array &$applied): void

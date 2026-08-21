@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "migrations": [
+    "database/migrations/20260821_phase2_trazabilidad_compras.sql",
+    "database/migrations/20260821_phase4_nc_trazabilidad_devoluciones.sql"
+  ],
+  "rollback_migrations": {
+    "database/migrations/20260821_phase2_trazabilidad_compras.sql": "database/migrations/20260821_phase2_trazabilidad_compras_DOWN.sql",
+    "database/migrations/20260821_phase4_nc_trazabilidad_devoluciones.sql": "database/migrations/20260821_phase4_nc_trazabilidad_devoluciones_DOWN.sql"
+  },
+  "rollback_policy": "expand-contract-compatible",
+  "notes": "DOWN conserva cambios aditivos para evitar pérdida de datos; UP es idempotente."
+}
