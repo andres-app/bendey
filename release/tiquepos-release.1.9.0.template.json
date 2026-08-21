@@ -1,5 +1,5 @@
 {
-  "version": "1.9.0",
+  "version": "1.9.1",
   "package_scope": "update",
   "base_version": "1.8.8",
   "migrations": [
