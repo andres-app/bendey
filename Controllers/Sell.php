@@ -3407,7 +3407,7 @@ switch ($op) {
                     'UTF-8'
                 ),
                 '3' => $btnStock,
-                '4' => "<img src='Assets/img/products/" .
+                '4' => "<img src='storage/images/products/" .
                     rawurlencode($reg['imagen'] ?? '') .
                     "' height='40' width='40' alt='Producto'>"
             ];

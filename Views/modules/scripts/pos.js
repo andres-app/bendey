@@ -357,7 +357,7 @@
 
     function productImageUrl(product) {
         const raw = String(product?.imagen || '').trim();
-        const fallback = 'Assets/img/products/default.png';
+        const fallback = 'storage/images/products/default.png';
         if (!raw) return fallback;
 
         if (/^(https?:)?\/\//i.test(raw) || raw.startsWith('/') || raw.startsWith('data:') || raw.startsWith('blob:')) {
@@ -368,7 +368,7 @@
             return raw.split('/').map((part, index) => index < 3 ? part : encodeURIComponent(part)).join('/');
         }
 
-        return 'Assets/img/products/' + raw
+        return 'storage/images/products/' + raw
             .split('/')
             .filter(Boolean)
             .map(part => encodeURIComponent(part))
@@ -390,7 +390,7 @@
                          alt="${escapeHtml(product.nombre || 'Producto')}"
                          loading="lazy"
                          decoding="async"
-                         onerror="this.onerror=null;this.src='Assets/img/products/default.png'">
+                         onerror="this.onerror=null;this.src='storage/images/products/default.png'">
                     <span class="pos-product-stock-badge ${stock === 0 ? 'zero' : stock <= 5 ? 'low' : ''}">${stock === 0 ? 'Sin stock' : `Stock ${stock}`}</span>
                 </div>
                 <div class="pos-product-body">

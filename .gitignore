@@ -11,11 +11,24 @@ storage/*
 storage/apisunat/*
 !storage/apisunat/.htaccess
 
-# Archivos cargados por cada empresa
-Assets/img/company/*
-Assets/img/products/*
-Assets/img/users/*
-Assets/qr_*.png
+# Estructura pública de imágenes cargadas por cada instalación
+!storage/images/
+storage/images/*
+!storage/images/.htaccess
+
+!storage/images/company/
+storage/images/company/*
+!storage/images/company/.gitkeep
+!storage/images/company/default_logo.png
+
+!storage/images/products/
+storage/images/products/*
+!storage/images/products/.gitkeep
+!storage/images/products/default.png
+
+!storage/images/users/
+storage/images/users/*
+!storage/images/users/.gitkeep
 
 # Logs y temporales
 Reports/error_log

@@ -1229,7 +1229,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                 <div class="col-lg-3 col-md-4 mb-3">
                                     <div class="tp-image-uploader">
                                         <div class="tp-image-preview">
-                                            <img src="Assets/img/products/default.png" alt="Vista previa" id="imagenmuestra">
+                                            <img src="storage/images/products/default.png" alt="Vista previa" id="imagenmuestra">
                                         </div>
                                         <strong>Imagen del producto</strong>
                                         <small>JPG o PNG. Se recomienda una imagen cuadrada.</small>

@@ -46,9 +46,9 @@ Con los datos ingresados crea una sola empresa, sucursal principal, almacén pri
 - `Config/local.php`
 - `Config/control_public.pem`
 - `storage/`
-- `Assets/img/products/`
-- `Assets/img/company/`
-- `Assets/img/users/`
+- `storage/images/products/`
+- `storage/images/company/`
+- `storage/images/users/`
 - archivos/documentos generados por la empresa
 
 ## Cloudflare Turnstile

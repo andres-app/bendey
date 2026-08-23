@@ -487,7 +487,7 @@ function renderizarProductosCompra(productos) {
             <div class="producto-compra-item">
                 <div class="producto-compra-thumb">
                     ${imagen
-                        ? `<img src="Assets/img/products/${escaparHtmlCompra(imagen)}" alt="${escaparHtmlCompra(producto.nombre)}">`
+                        ? `<img src="storage/images/products/${escaparHtmlCompra(imagen)}" alt="${escaparHtmlCompra(producto.nombre)}">`
                         : '<i class="fas fa-box text-muted"></i>'}
                 </div>
 

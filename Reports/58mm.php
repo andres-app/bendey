@@ -101,7 +101,11 @@ $cliente = trim((string)($reg['cliente'] ?? '')) ?: 'CLIENTE VARIOS';
 $documentoCliente = trim((string)($reg['num_documento'] ?? ''));
 
 $nombreArchivo = preg_replace('/[^A-Za-z0-9_\-.]/', '_', $tipoComprobante . '_' . $serie . '_' . $numero . '_58mm.pdf');
-$rutaQr = '../Assets/qr_58_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $serie . '_' . $numero) . '.png';
+$directorioQr = __DIR__ . '/../storage/private/qr';
+if (!is_dir($directorioQr)) {
+    @mkdir($directorioQr, 0775, true);
+}
+$rutaQr = $directorioQr . DIRECTORY_SEPARATOR . 'qr_58_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $serie . '_' . $numero) . '.png';
 QRcode::png($numero, $rutaQr, QR_ECLEVEL_L, 3);
 
 $pdf = new FPDF('P', 'mm', [58, 350]);

@@ -7,6 +7,10 @@ if (!is_file(__DIR__ . '/Config/local.php') || !is_file(__DIR__ . '/storage/inst
     exit;
 }
 
+require_once __DIR__ . '/Libraries/MediaStorage.php';
+
+tiquepos_media_migrate_legacy();
+
 require_once 'Controllers/Plantilla.php';
 
 $plantilla = new Plantilla();

@@ -4124,7 +4124,7 @@ function renderProductos(data) {
                             <div class="d-flex align-items-start" style="gap:13px;">
                                 <div class="producto-imagen">
                                     ${imagen
-                    ? `<img src="Assets/img/products/${imagenHtml}" alt="${nombreHtml}">`
+                    ? `<img src="storage/images/products/${imagenHtml}" alt="${nombreHtml}">`
                     : '<i class="bi bi-box-seam text-secondary" style="font-size:1.75rem;"></i>'
                 }
                                 </div>

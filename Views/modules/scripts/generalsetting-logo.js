@@ -435,7 +435,7 @@ function mostrarLogoEmpresaServidor(
     }
 
     const ruta =
-        "Assets/img/company/"
+        "storage/images/company/"
         + encodeURIComponent(
             nombreLogo
         )

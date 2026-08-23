@@ -14,13 +14,10 @@ ANTES DE HACER PUSH
 3) Ejecuta desde la raíz del repositorio:
 
    git rm -r --cached --ignore-unmatch storage/apisunat
-   git rm -r --cached --ignore-unmatch Assets/img/company
-   git rm -r --cached --ignore-unmatch Assets/img/products
-   git rm -r --cached --ignore-unmatch Assets/img/users
+   git rm -r --cached --ignore-unmatch storage/images/company
+   git rm -r --cached --ignore-unmatch storage/images/products
+   git rm -r --cached --ignore-unmatch storage/images/users
    git rm --cached --ignore-unmatch Reports/error_log
-
-   # Si tienes QR versionados:
-   git ls-files 'Assets/qr_*.png' | xargs -r git rm --cached --ignore-unmatch
 
 4) Comprueba que Config/local.php NO esté versionado:
 

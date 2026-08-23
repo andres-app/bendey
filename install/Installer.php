@@ -444,9 +444,10 @@ final class TiquePOSInstaller
             '/storage/apisunat/xml',
             '/storage/apisunat/cdr',
             '/storage/private',
-            '/Assets/img/products',
-            '/Assets/img/company',
-            '/Assets/img/users',
+            '/storage/private/qr',
+            '/storage/images/products',
+            '/storage/images/company',
+            '/storage/images/users',
         ];
         foreach ($dirs as $relative) {
             $dir = $this->root . $relative;

@@ -234,9 +234,16 @@ $nombreQrSeguro = preg_replace(
     $numeroComprobante
 );
 
-$rutaQr = '../Assets/qr_' .
-    $nombreQrSeguro .
-    '.png';
+$directorioQr = __DIR__ . '/../storage/private/qr';
+if (!is_dir($directorioQr)) {
+    @mkdir($directorioQr, 0775, true);
+}
+
+$rutaQr = $directorioQr
+    . DIRECTORY_SEPARATOR
+    . 'qr_'
+    . $nombreQrSeguro
+    . '.png';
 
 $contenidoQr = $numeroComprobante;
 

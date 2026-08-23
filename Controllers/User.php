@@ -5,6 +5,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 require_once __DIR__ . '/../Models/User.php';
+require_once __DIR__ . '/../Libraries/MediaStorage.php';
 
 $user = new User();
 
@@ -326,10 +327,10 @@ function guardarImagenUsuario($imagenActual)
         throw new RuntimeException('Solo se permiten imágenes JPG, PNG o WEBP.');
     }
 
-    $directorio = __DIR__ . '/../Assets/img/users/';
+    $directorio = tiquepos_media_dir('users') . DIRECTORY_SEPARATOR;
 
-    if (!is_dir($directorio) && !mkdir($directorio, 0775, true)) {
-        throw new RuntimeException('No se pudo crear la carpeta de imágenes.');
+    if (!is_dir($directorio) || !is_writable($directorio)) {
+        throw new RuntimeException('No se pudo preparar la carpeta de imágenes de usuarios.');
     }
 
     $nombre = 'user_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4))
@@ -476,6 +477,16 @@ switch ($op) {
                     $puedeOperarCaja
                 );
 
+                if ($respuesta && (int)($_SESSION['idusuario'] ?? 0) === $idusuario) {
+                    $_SESSION['nombre'] = $nombre;
+                    $_SESSION['imagen'] = tiquepos_user_image_filename(
+                        $idusuario,
+                        $imagen
+                    );
+                    $_SESSION['login'] = $login;
+                    $_SESSION['cargo'] = $cargo;
+                }
+
                 responderJson(
                     $respuesta,
                     $respuesta
@@ -512,8 +523,18 @@ switch ($op) {
     case 'mostrar':
         header('Content-Type: application/json; charset=utf-8');
 
+        $idusuarioMostrar = postEntero('idusuario');
+        $datosUsuario = $user->mostrar($idusuarioMostrar);
+
+        if (is_array($datosUsuario) && !empty($datosUsuario)) {
+            $datosUsuario['imagen'] = tiquepos_user_image_filename(
+                $idusuarioMostrar,
+                (string)($datosUsuario['imagen'] ?? '')
+            );
+        }
+
         echo json_encode(
-            $user->mostrar(postEntero('idusuario')),
+            $datosUsuario,
             JSON_UNESCAPED_UNICODE
         );
         break;
@@ -611,11 +632,13 @@ switch ($op) {
 
             $acciones .= '</div>';
 
-            $imagen = basename((string)($reg['imagen'] ?? ''));
-            $avatarPredeterminado = avatarUsuarioPredeterminado();
+            $imagen = tiquepos_user_image_filename(
+                $idusuario,
+                (string)($reg['imagen'] ?? '')
+            );
             $foto = $imagen !== ''
-                ? 'Assets/img/users/' . rawurlencode($imagen)
-                : $avatarPredeterminado;
+                ? tiquepos_media_url('users', $imagen)
+                : avatarUsuarioPredeterminado();
 
             $nombreUsuario =
                 '<div class="d-flex align-items-center">'
@@ -749,7 +772,10 @@ switch ($op) {
 
         $_SESSION['idusuario'] = (int)$respuesta['idusuario'];
         $_SESSION['nombre'] = (string)$respuesta['nombre'];
-        $_SESSION['imagen'] = (string)$respuesta['imagen'];
+        $_SESSION['imagen'] = tiquepos_user_image_filename(
+            (int)$respuesta['idusuario'],
+            (string)($respuesta['imagen'] ?? '')
+        );
         $_SESSION['login'] = (string)$respuesta['login'];
         $_SESSION['cargo'] = (string)$respuesta['cargo'];
 

@@ -506,7 +506,6 @@ class TiquePOSUpdater
             'Assets/img/users/'
         );
         foreach($prefixes as $prefix){if(strpos($p,$prefix)===0){return true;}}
-        if (preg_match('#^Assets/qr_[^/]+\.png$#i',$p)) { return true; }
         return false;
     }
 

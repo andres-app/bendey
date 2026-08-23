@@ -52,8 +52,8 @@ function renderProductos(filtro = 0) {
         .forEach(prod => {
             // Si no hay imagen, usa una imagen por defecto
             const imagen = prod.imagen && prod.imagen.trim() !== ""
-                ? `Assets/img/products/${prod.imagen}`
-                : 'Assets/img/products/default.png'; // <- pon aquí tu imagen default
+                ? `storage/images/products/${prod.imagen}`
+                : 'storage/images/products/default.png'; // <- pon aquí tu imagen default
 
             const div = document.createElement('div');
             div.className = 'col-6 col-md-4 col-lg-3';

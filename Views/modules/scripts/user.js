@@ -591,7 +591,7 @@ function mostrar(idusuario) {
       $("#puede_operar").prop("checked", parseInt(data.puede_operar || 0, 10) === 1);
 
       var imagen = data.imagen
-        ? "Assets/img/users/" + encodeURIComponent(data.imagen)
+        ? "storage/images/users/" + encodeURIComponent(data.imagen)
         : avatarUsuarioPredeterminado;
 
       colocarAvatarSeguro(imagen);

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../Libraries/MediaStorage.php';
+
 ob_start();
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -96,7 +98,7 @@ function notaPdfTipoDocumentoSunat(string $tipo): string
  */
 function notaPdfPrepararLogo(array $empresa): array
 {
-    $directorio = __DIR__ . '/../Assets/img/company/';
+    $directorio = tiquepos_media_dir('company') . DIRECTORY_SEPARATOR;
     $nombre = basename(
         trim((string)($empresa['logo'] ?? ''))
     );

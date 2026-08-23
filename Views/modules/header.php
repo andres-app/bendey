@@ -1,3 +1,17 @@
+<?php
+require_once dirname(__DIR__, 2) . '/Libraries/MediaStorage.php';
+
+$imagenPerfilNavbar = tiquepos_user_image_filename(
+    (int)($_SESSION['idusuario'] ?? 0),
+    (string)($_SESSION['imagen'] ?? '')
+);
+
+$_SESSION['imagen'] = $imagenPerfilNavbar;
+
+$fotoPerfilNavbar = $imagenPerfilNavbar !== ''
+    ? tiquepos_media_url('users', $imagenPerfilNavbar)
+    : tiquepos_user_avatar_data_uri((string)($_SESSION['nombre'] ?? 'Usuario'));
+?>
 <!DOCTYPE html>
 <html lang="es">
 
@@ -349,7 +363,8 @@ $puedeVerSunatNavbar =
 
                     <li class="dropdown">
                         <a href="#" data-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
-                            <img alt="image" src="Assets/img/users/<?php echo $_SESSION['imagen']; ?>"
+                            <img alt="Foto de perfil"
+                                src="<?= htmlspecialchars($fotoPerfilNavbar, ENT_QUOTES, 'UTF-8') ?>"
                                 class="user-img-radious-style">
                         </a>
                         <div class="dropdown-menu dropdown-menu-right pullDown">

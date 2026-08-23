@@ -7,6 +7,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 date_default_timezone_set('America/Lima');
 
 require_once __DIR__ . '/../Models/Product.php';
+require_once __DIR__ . '/../Libraries/MediaStorage.php';
 
 $product = new Product();
 
@@ -1546,9 +1547,15 @@ switch ($_GET['op'] ?? '') {
                 . '.'
                 . $tiposPermitidos[$tipoReal];
 
-            $rutaDestino =
-                '../Assets/img/products/'
+            $directorioImagenes = tiquepos_media_dir('products');
+            $rutaDestino = $directorioImagenes
+                . DIRECTORY_SEPARATOR
                 . $nombreImagenNueva;
+
+            if (!is_dir($directorioImagenes) || !is_writable($directorioImagenes)) {
+                echo 'No se pudo preparar la carpeta de imágenes de productos';
+                break;
+            }
 
             if (!move_uploaded_file($archivoImagen['tmp_name'], $rutaDestino)) {
                 echo 'No se pudo guardar la imagen';
@@ -1561,11 +1568,12 @@ switch ($_GET['op'] ?? '') {
                 $imagenActual !== 'default.png'
                 && $imagenActual !== $imagen
             ) {
-                $rutaAnterior =
-                    '../Assets/img/products/'
-                    . $imagenActual;
+                $rutaAnterior = tiquepos_media_path(
+                    'products',
+                    $imagenActual
+                );
 
-                if (is_file($rutaAnterior)) {
+                if ($rutaAnterior !== '' && is_file($rutaAnterior)) {
                     unlink($rutaAnterior);
                 }
             }
@@ -1678,7 +1686,7 @@ switch ($_GET['op'] ?? '') {
                 '4' => $reg['medida'],
                 '5' => $stockcolor,
                 '6' => !empty($reg['imagen'])
-                    ? "<img src='Assets/img/products/"
+                    ? "<img src='storage/images/products/"
                     . $reg['imagen']
                     . "' height='50px'>"
                     : 'Sin imagen',

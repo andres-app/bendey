@@ -314,7 +314,7 @@ function limpiar() {
   const formulario = $("#formulario")[0];
   if (formulario) formulario.reset();
 
-  $("#imagenmuestra").attr("src", "Assets/img/products/default.png").show();
+  $("#imagenmuestra").attr("src", "storage/images/products/default.png").show();
   $("#imagenactual").val("default.png");
   $("#idarticulo").val("");
   $("#variaciones-lista").empty();
@@ -482,7 +482,7 @@ function construirCeldaProducto(row) {
     : '';
 
   return '<div class="tp-product-cell">' +
-    '<div class="tp-product-thumb"><img src="' + imagen + '" onerror="this.src=\'Assets/img/products/default.png\'" alt=""></div>' +
+    '<div class="tp-product-thumb"><img src="' + imagen + '" onerror="this.src=\'storage/images/products/default.png\'" alt=""></div>' +
     '<div><strong>' + escaparHtmlProducto(row.nombre || "Sin nombre") + '</strong>' +
     '<small>SKU: ' + escaparHtmlProducto(row.codigo || "Sin código") + '</small>' + variantes + '</div></div>';
 }
@@ -696,7 +696,7 @@ function construirTarjetaProducto(row) {
   const stock = Number(row.stock || 0);
   const precio = construirPrecioProductoTexto(row);
   return '<article class="tp-product-grid-card ' + (activo ? '' : 'is-inactive') + '">' +
-    '<div class="tp-grid-image"><img src="' + obtenerRutaImagenProducto(row.imagen) + '" onerror="this.src=\'Assets/img/products/default.png\'" alt=""></div>' +
+    '<div class="tp-grid-image"><img src="' + obtenerRutaImagenProducto(row.imagen) + '" onerror="this.src=\'storage/images/products/default.png\'" alt=""></div>' +
     '<div class="tp-grid-body"><h3 class="tp-grid-name">' + escaparHtmlProducto(row.nombre || "Sin nombre") + '</h3>' +
     '<div class="tp-grid-sku">' + escaparHtmlProducto(row.codigo || "Sin SKU") + ' · ' + escaparHtmlProducto(row.categoria || "Sin categoría") + '</div>' +
     '<div class="tp-grid-meta"><div class="tp-grid-price">' + precio + '</div><div class="tp-grid-stock">' + formatearCantidadProducto(stock) + ' unidades<br>' + (stock <= 0 ? 'Sin stock' : (stock <= 10 ? 'Stock bajo' : 'Disponible')) + '</div></div>' +
@@ -762,7 +762,7 @@ function renderizarDetalleProducto(producto, variaciones) {
   const activo = Number(producto.condicion) === 1;
   const descripcion = String(producto.descripcion || "").trim();
 
-  let html = '<div class="tp-detail-cover"><div class="tp-detail-cover-image"><img src="' + obtenerRutaImagenProducto(producto.imagen) + '" onerror="this.src=\'Assets/img/products/default.png\'" alt=""></div><div><h3>' + escaparHtmlProducto(producto.nombre || "Sin nombre") + '</h3><p>SKU: ' + escaparHtmlProducto(producto.codigo || "Sin código") + '</p><div class="mt-2">' + (activo ? '<span class="tp-state-pill tp-state-active">Activo</span>' : '<span class="tp-state-pill tp-state-inactive">Inactivo</span>') + '</div></div></div>';
+  let html = '<div class="tp-detail-cover"><div class="tp-detail-cover-image"><img src="' + obtenerRutaImagenProducto(producto.imagen) + '" onerror="this.src=\'storage/images/products/default.png\'" alt=""></div><div><h3>' + escaparHtmlProducto(producto.nombre || "Sin nombre") + '</h3><p>SKU: ' + escaparHtmlProducto(producto.codigo || "Sin código") + '</p><div class="mt-2">' + (activo ? '<span class="tp-state-pill tp-state-active">Activo</span>' : '<span class="tp-state-pill tp-state-inactive">Inactivo</span>') + '</div></div></div>';
 
   html += '<div class="tp-detail-grid">' +
     detalleCajaProducto("Precio de venta", construirPrecioProductoTexto(producto)) +
@@ -822,7 +822,7 @@ function verVariacionesProducto(idarticulo) {
 
 function obtenerRutaImagenProducto(imagen) {
   const nombre = String(imagen || "default.png").replace(/^.*[\\/]/, "");
-  return "Assets/img/products/" + encodeURIComponent(nombre || "default.png");
+  return "storage/images/products/" + encodeURIComponent(nombre || "default.png");
 }
 
 function textoAfectacionProducto(producto) {
@@ -1106,7 +1106,7 @@ function mostrar(idarticulo) {
       $("#imagenmuestra")
         .attr(
           "src",
-          "Assets/img/products/" + imagen
+          "storage/images/products/" + imagen
         )
         .show();
 

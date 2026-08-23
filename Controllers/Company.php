@@ -7,6 +7,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 require_once __DIR__ . '/../Models/Company.php';
+require_once __DIR__ . '/../Libraries/MediaStorage.php';
 
 $company = new Company();
 
@@ -167,9 +168,7 @@ function guardarLogoEmpresaSubido(
         );
     }
 
-    $directorio =
-        dirname(__DIR__)
-        . '/Assets/img/company';
+    $directorio = tiquepos_media_dir('company');
 
     if (
         !is_dir($directorio)
@@ -187,7 +186,7 @@ function guardarLogoEmpresaSubido(
 
     if (!is_writable($directorio)) {
         throw new RuntimeException(
-            'Assets/img/company no tiene permisos de escritura.'
+            'storage/images/company no tiene permisos de escritura.'
         );
     }
 
@@ -295,12 +294,12 @@ function eliminarLogoEmpresaFisico(
         return;
     }
 
-    $ruta =
-        dirname(__DIR__)
-        . '/Assets/img/company/'
-        . $nombreLogo;
+    $ruta = tiquepos_media_path(
+        'company',
+        $nombreLogo
+    );
 
-    if (is_file($ruta)) {
+    if ($ruta !== '' && is_file($ruta)) {
         @unlink($ruta);
     }
 }
