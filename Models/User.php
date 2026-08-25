@@ -913,12 +913,14 @@ class User
 
     public function verificar($login, $clave)
     {
+        $login = trim((string)$login);
+
         $sql = "SELECT idusuario,nombre,tipo_documento,num_documento,
                        telefono,email,cargo,imagen,login
                 FROM {$this->tableName}
-                WHERE login=? AND clave=? AND condicion=1
+                WHERE (login=? OR email=?) AND clave=? AND condicion=1
                 LIMIT 1";
 
-        return $this->conexion->getData($sql, array($login, $clave));
+        return $this->conexion->getData($sql, array($login, $login, $clave));
     }
 }

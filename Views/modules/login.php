@@ -131,12 +131,12 @@ $versionLoginJs = is_file($rutaLoginJs)
                                             tabindex="1"
                                             required
                                             autofocus
-                                            placeholder="Usuario"
+                                            placeholder="Usuario o correo electrónico"
                                             autocomplete="username"
                                         >
 
                                         <div class="invalid-feedback">
-                                            Por favor complete su usuario.
+                                            Ingrese su usuario o correo electrónico.
                                         </div>
 
                                     </div>
