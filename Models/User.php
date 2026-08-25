@@ -374,6 +374,174 @@ class User
         return $sw;
     }
 
+    public function buscarParaRecuperacion($login)
+    {
+        $login = trim((string)$login);
+
+        if ($login === '') {
+            return array();
+        }
+
+        $fila = $this->conexion->getData(
+            "SELECT idusuario,nombre,email,login
+             FROM {$this->tableName}
+             WHERE email=? AND condicion=1
+             LIMIT 1",
+            array($login)
+        );
+
+        return is_array($fila) ? $fila : array();
+    }
+
+    public function contarSolicitudesRecuperacionPorIp($ip, $ventanaMinutos)
+    {
+        $ip = trim((string)$ip);
+        $ventanaMinutos = max(1, (int)$ventanaMinutos);
+
+        if ($ip === '') {
+            return 0;
+        }
+
+        try {
+            return (int)$this->conexion->getValue(
+                "SELECT COUNT(*)
+                 FROM usuario_password_otp
+                 WHERE request_ip=?
+                   AND created_at >= DATE_SUB(NOW(), INTERVAL {$ventanaMinutos} MINUTE)",
+                array($ip)
+            );
+        } catch (Throwable $e) {
+            error_log('[PASSWORD RESET] No se pudo contar solicitudes por IP: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    public function invalidarRecuperacionesActivas($idusuario)
+    {
+        return $this->conexion->setData(
+            'UPDATE usuario_password_otp
+             SET used_at=COALESCE(used_at,NOW())
+             WHERE idusuario=? AND used_at IS NULL',
+            array((int)$idusuario)
+        );
+    }
+
+    public function crearSolicitudRecuperacion(
+        $idusuario,
+        $tokenHash,
+        $otpHash,
+        $minutosVigencia,
+        $ip
+    ) {
+        $minutosVigencia = max(1, (int)$minutosVigencia);
+
+        return $this->conexion->setDataReturnId(
+            "INSERT INTO usuario_password_otp
+             (idusuario,token_hash,otp_hash,expires_at,attempts,request_ip,created_at)
+             VALUES (?,?,?,DATE_ADD(NOW(), INTERVAL {$minutosVigencia} MINUTE),0,?,NOW())",
+            array(
+                (int)$idusuario,
+                (string)$tokenHash,
+                (string)$otpHash,
+                trim((string)$ip)
+            )
+        );
+    }
+
+    public function obtenerSolicitudRecuperacion($tokenHash)
+    {
+        $fila = $this->conexion->getData(
+            "SELECT r.idreset,r.idusuario,r.token_hash,r.otp_hash,
+                    r.expires_at,r.attempts,r.verified_at,r.used_at,
+                    (r.expires_at >= NOW()) AS vigente,
+                    u.nombre,u.email,u.login,u.condicion
+             FROM usuario_password_otp r
+             INNER JOIN {$this->tableName} u ON u.idusuario=r.idusuario
+             WHERE r.token_hash=?
+             LIMIT 1",
+            array((string)$tokenHash)
+        );
+
+        return is_array($fila) ? $fila : array();
+    }
+
+    public function incrementarIntentosRecuperacion($idreset)
+    {
+        return $this->conexion->setData(
+            'UPDATE usuario_password_otp
+             SET attempts=attempts+1
+             WHERE idreset=? AND used_at IS NULL',
+            array((int)$idreset)
+        );
+    }
+
+    public function marcarRecuperacionVerificada($idreset)
+    {
+        return $this->conexion->setData(
+            'UPDATE usuario_password_otp
+             SET verified_at=COALESCE(verified_at,NOW())
+             WHERE idreset=? AND used_at IS NULL AND expires_at>=NOW()',
+            array((int)$idreset)
+        );
+    }
+
+    public function invalidarSolicitudRecuperacion($idreset)
+    {
+        return $this->conexion->setData(
+            'UPDATE usuario_password_otp
+             SET used_at=COALESCE(used_at,NOW())
+             WHERE idreset=?',
+            array((int)$idreset)
+        );
+    }
+
+    public function finalizarRecuperacion($idreset, $idusuario, $claveHash)
+    {
+        try {
+            $this->conexion->beginTransaction();
+
+            $solicitud = $this->conexion->getData(
+                'SELECT idreset
+                 FROM usuario_password_otp
+                 WHERE idreset=? AND idusuario=? AND used_at IS NULL
+                   AND verified_at IS NOT NULL AND expires_at>=NOW()
+                 FOR UPDATE',
+                array((int)$idreset, (int)$idusuario)
+            );
+
+            if (empty($solicitud)) {
+                $this->conexion->rollBack();
+                return false;
+            }
+
+            $okUsuario = $this->conexion->setData(
+                "UPDATE {$this->tableName}
+                 SET clave=?
+                 WHERE idusuario=? AND condicion=1",
+                array((string)$claveHash, (int)$idusuario)
+            );
+
+            $okSolicitud = $this->conexion->setData(
+                'UPDATE usuario_password_otp
+                 SET used_at=NOW()
+                 WHERE idreset=? AND idusuario=? AND used_at IS NULL',
+                array((int)$idreset, (int)$idusuario)
+            );
+
+            if (!$okUsuario || !$okSolicitud) {
+                $this->conexion->rollBack();
+                return false;
+            }
+
+            $this->conexion->commit();
+            return true;
+        } catch (Throwable $e) {
+            $this->conexion->rollBack();
+            error_log('[PASSWORD RESET] No se pudo finalizar recuperación: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     public function editar_clave($idusuario, $clave)
     {
         return $this->conexion->setData(

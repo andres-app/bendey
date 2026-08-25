@@ -6,6 +6,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 require_once __DIR__ . '/../Models/User.php';
 require_once __DIR__ . '/../Libraries/MediaStorage.php';
+require_once __DIR__ . '/../Libraries/PasswordResetMailer.php';
 
 $user = new User();
 
@@ -61,6 +62,25 @@ function escapar($valor)
     return htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 }
 
+
+function obtenerConfiguracionRecuperacion()
+{
+    $ruta = __DIR__ . '/../Config/password_reset.php';
+
+    if (!is_file($ruta)) {
+        return array();
+    }
+
+    $config = require $ruta;
+    return is_array($config) ? $config : array();
+}
+
+function tokenRecuperacionValido($token)
+{
+    return is_string($token)
+        && strlen($token) === 64
+        && ctype_xdigit($token);
+}
 
 /**
  * Valida un token de Cloudflare Turnstile contra Siteverify.
@@ -176,9 +196,9 @@ function validarTurnstile($token)
         if ($respuestaHttp === false || $codigoHttp < 200 || $codigoHttp >= 300) {
             error_log(
                 '[TURNSTILE] Error HTTP/cURL. Código: '
-                . $codigoHttp
-                . '. Detalle: '
-                . $errorCurl
+                    . $codigoHttp
+                    . '. Detalle: '
+                    . $errorCurl
             );
 
             return array(
@@ -274,10 +294,10 @@ function validarTurnstile($token)
 function avatarUsuarioPredeterminado()
 {
     $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">'
-         . '<rect width="180" height="180" rx="28" fill="#f1f3f8"/>'
-         . '<circle cx="90" cy="67" r="31" fill="#aeb7c8"/>'
-         . '<path d="M35 157c5-34 27-52 55-52s50 18 55 52" fill="#aeb7c8"/>'
-         . '</svg>';
+        . '<rect width="180" height="180" rx="28" fill="#f1f3f8"/>'
+        . '<circle cx="90" cy="67" r="31" fill="#aeb7c8"/>'
+        . '<path d="M35 157c5-34 27-52 55-52s50 18 55 52" fill="#aeb7c8"/>'
+        . '</svg>';
 
     return 'data:image/svg+xml;charset=UTF-8,' . rawurlencode($svg);
 }
@@ -334,7 +354,7 @@ function guardarImagenUsuario($imagenActual)
     }
 
     $nombre = 'user_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4))
-            . '.' . $extensiones[$mime];
+        . '.' . $extensiones[$mime];
 
     if (!move_uploaded_file($archivo['tmp_name'], $directorio . $nombre)) {
         throw new RuntimeException('No se pudo guardar la imagen del usuario.');
@@ -405,7 +425,7 @@ switch ($op) {
                 break;
             }
 
-            if ($idusuario <= 0 && trim($clave) === '') {
+            if ($idusuario <= 0 && $clave === '') {
                 responderJson(false, 'La contraseña es obligatoria para un usuario nuevo.');
                 break;
             }
@@ -543,7 +563,7 @@ switch ($op) {
         $idusuario = postEntero('idusuarioc');
         $clave = (string)($_POST['clavec'] ?? '');
 
-        if ($idusuario <= 0 || trim($clave) === '') {
+        if ($idusuario <= 0 || $clave === '') {
             responderJson(false, 'Ingresa una contraseña válida.');
             break;
         }
@@ -736,6 +756,357 @@ switch ($op) {
                 . '<span class="permission-check"><i class="fas fa-check"></i></span>'
                 . '<span>' . escapar($reg['nombre']) . '</span>'
                 . '</label>';
+        }
+        break;
+
+    case 'solicitar_otp':
+        try {
+
+            $loginRecuperacion = trim((string)($_POST['login'] ?? ''));
+            $tokenTurnstile = trim((string)($_POST['cf-turnstile-response'] ?? ''));
+
+
+            if ($loginRecuperacion === '') {
+
+                responderJson(
+                    false,
+                    'Ingresa tu correo electrónico.'
+                );
+
+                break;
+            }
+
+
+
+            $validacionTurnstile = validarTurnstile($tokenTurnstile);
+
+
+            if (empty($validacionTurnstile['ok'])) {
+
+                responderJson(
+                    false,
+                    (string)($validacionTurnstile['mensaje'] ?? 'No se pudo validar la seguridad.')
+                );
+
+                break;
+            }
+
+
+
+
+            $configReset = obtenerConfiguracionRecuperacion();
+
+            $minutosVigencia = max(
+                1,
+                (int)($configReset['otp_expiration_minutes'] ?? 10)
+            );
+
+
+            $ventanaSolicitudes = max(
+                1,
+                (int)($configReset['request_window_minutes'] ?? 15)
+            );
+
+
+            $maxSolicitudesIp = max(
+                1,
+                (int)($configReset['max_requests_per_ip'] ?? 5)
+            );
+
+
+            $ipRemota = trim(
+                (string)($_SERVER['REMOTE_ADDR'] ?? '')
+            );
+
+
+
+
+            if (
+                $ipRemota !== ''
+                && $user->contarSolicitudesRecuperacionPorIp(
+                    $ipRemota,
+                    $ventanaSolicitudes
+                ) >= $maxSolicitudesIp
+            ) {
+
+                responderJson(
+                    false,
+                    'Se alcanzó el límite temporal de solicitudes. Intenta nuevamente más tarde.'
+                );
+
+                break;
+            }
+
+
+
+
+            /*
+         * Buscar por correo electrónico
+         */
+            $usuarioReset = $user->buscarParaRecuperacion(
+                $loginRecuperacion
+            );
+
+
+
+            if (empty($usuarioReset)) {
+
+                responderJson(
+                    false,
+                    'No encontramos un usuario activo con ese correo electrónico.'
+                );
+
+                break;
+            }
+
+
+
+
+            $correoReset = trim(
+                (string)($usuarioReset['email'] ?? '')
+            );
+
+
+
+            if (!filter_var($correoReset, FILTER_VALIDATE_EMAIL)) {
+
+                responderJson(
+                    false,
+                    'Este usuario no tiene un correo válido registrado.'
+                );
+
+                break;
+            }
+
+
+
+
+            $tokenReset = bin2hex(
+                random_bytes(32)
+            );
+
+
+            $codigoOtp = (string)random_int(
+                100000,
+                999999
+            );
+
+
+            $tokenHash = hash(
+                'sha256',
+                $tokenReset
+            );
+
+
+            $otpHash = hash_hmac(
+                'sha256',
+                $codigoOtp,
+                $tokenReset
+            );
+
+
+
+
+            $user->invalidarRecuperacionesActivas(
+                (int)$usuarioReset['idusuario']
+            );
+
+
+
+            $idSolicitud = $user->crearSolicitudRecuperacion(
+                (int)$usuarioReset['idusuario'],
+                $tokenHash,
+                $otpHash,
+                $minutosVigencia,
+                $ipRemota
+            );
+
+
+
+            if ((int)$idSolicitud <= 0) {
+
+                responderJson(
+                    false,
+                    'No se pudo generar el código de recuperación.'
+                );
+
+                break;
+            }
+
+
+
+
+
+            $mailer = new PasswordResetMailer(
+                $configReset
+            );
+
+
+
+            $enviado = $mailer->enviarOtp(
+                $correoReset,
+                (string)($usuarioReset['nombre'] ?? ''),
+                $codigoOtp,
+                $minutosVigencia
+            );
+
+
+
+
+            if (!$enviado) {
+
+
+                $user->invalidarSolicitudRecuperacion(
+                    (int)$idSolicitud
+                );
+
+
+
+                responderJson(
+                    false,
+                    'No se pudo enviar el correo OTP. Revisa la configuración SMTP.'
+                );
+
+
+                break;
+            }
+
+
+
+
+            responderJson(
+                true,
+                'Código enviado al correo registrado.',
+                array(
+                    'reset_token' => $tokenReset,
+                    'expires_minutes' => $minutosVigencia
+                )
+            );
+        } catch (Throwable $e) {
+
+
+            error_log(
+                '[PASSWORD RESET SMTP] '
+                    . $e->getMessage()
+            );
+
+
+
+            responderJson(
+                false,
+                '[SMTP ERROR] '
+                    . $e->getMessage()
+            );
+        }
+
+        break;
+
+    case 'verificar_otp':
+        try {
+            $tokenReset = trim((string)($_POST['reset_token'] ?? ''));
+            $codigoOtp = trim((string)($_POST['otp'] ?? ''));
+            $configReset = obtenerConfiguracionRecuperacion();
+            $maxIntentosOtp = max(1, (int)($configReset['max_otp_attempts'] ?? 5));
+
+            if (!tokenRecuperacionValido($tokenReset) || !preg_match('/^\d{6}$/', $codigoOtp)) {
+                responderJson(false, 'Ingresa el código OTP de 6 dígitos.');
+                break;
+            }
+
+            $solicitud = $user->obtenerSolicitudRecuperacion(hash('sha256', $tokenReset));
+
+            if (
+                empty($solicitud)
+                || !empty($solicitud['used_at'])
+                || (int)($solicitud['condicion'] ?? 0) !== 1
+            ) {
+                responderJson(false, 'La solicitud de recuperación ya no es válida.');
+                break;
+            }
+
+            if ((int)($solicitud['vigente'] ?? 0) !== 1) {
+                $user->invalidarSolicitudRecuperacion((int)$solicitud['idreset']);
+                responderJson(false, 'El código OTP venció. Solicita uno nuevo.');
+                break;
+            }
+
+            if (!empty($solicitud['verified_at'])) {
+                responderJson(true, 'Código verificado correctamente.');
+                break;
+            }
+
+            if ((int)$solicitud['attempts'] >= $maxIntentosOtp) {
+                $user->invalidarSolicitudRecuperacion((int)$solicitud['idreset']);
+                responderJson(false, 'Se agotaron los intentos. Solicita un nuevo código OTP.');
+                break;
+            }
+
+            $otpCalculado = hash_hmac('sha256', $codigoOtp, $tokenReset);
+
+            if (!hash_equals((string)$solicitud['otp_hash'], $otpCalculado)) {
+                $user->incrementarIntentosRecuperacion((int)$solicitud['idreset']);
+                responderJson(false, 'El código OTP es incorrecto.');
+                break;
+            }
+
+            if (!$user->marcarRecuperacionVerificada((int)$solicitud['idreset'])) {
+                responderJson(false, 'No se pudo verificar el código OTP.');
+                break;
+            }
+
+            responderJson(true, 'Código verificado correctamente.');
+        } catch (Throwable $e) {
+            error_log('[PASSWORD RESET] Verificación OTP: ' . $e->getMessage());
+            responderJson(false, 'No se pudo verificar el código OTP.');
+        }
+        break;
+
+    case 'restablecer_clave':
+        try {
+            $tokenReset = trim((string)($_POST['reset_token'] ?? ''));
+            $claveNueva = (string)($_POST['clave'] ?? '');
+
+            if (!tokenRecuperacionValido($tokenReset)) {
+                responderJson(false, 'La solicitud de recuperación no es válida.');
+                break;
+            }
+
+            if ($claveNueva === '') {
+                responderJson(false, 'Ingresa la nueva contraseña.');
+                break;
+            }
+
+            $solicitud = $user->obtenerSolicitudRecuperacion(hash('sha256', $tokenReset));
+
+            if (
+                empty($solicitud)
+                || !empty($solicitud['used_at'])
+                || empty($solicitud['verified_at'])
+                || (int)($solicitud['vigente'] ?? 0) !== 1
+                || (int)($solicitud['condicion'] ?? 0) !== 1
+            ) {
+                responderJson(
+                    false,
+                    'La verificación venció o ya fue utilizada. Solicita un nuevo código OTP.'
+                );
+                break;
+            }
+
+            $actualizado = $user->finalizarRecuperacion(
+                (int)$solicitud['idreset'],
+                (int)$solicitud['idusuario'],
+                hash('SHA256', $claveNueva)
+            );
+
+            responderJson(
+                $actualizado,
+                $actualizado
+                    ? 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.'
+                    : 'No se pudo actualizar la contraseña.'
+            );
+        } catch (Throwable $e) {
+            error_log('[PASSWORD RESET] Cambio de clave: ' . $e->getMessage());
+            responderJson(false, 'No se pudo actualizar la contraseña.');
         }
         break;
 

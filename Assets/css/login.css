@@ -228,3 +228,172 @@
         padding: 12px 16px;
       }
     }
+
+/* =========================================
+   Recuperación de contraseña mediante OTP
+   ========================================= */
+.recovery-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(17, 24, 39, 0.48);
+  backdrop-filter: blur(4px);
+}
+
+.recovery-modal.is-open { display: flex; }
+
+.recovery-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+  padding: 30px;
+}
+
+.recovery-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.recovery-close:hover,
+.recovery-close:focus {
+  color: #008e5b;
+  background: #ecfdf5;
+  outline: none;
+}
+
+.recovery-brand-icon {
+  width: 50px;
+  height: 50px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: #ecfdf5;
+  color: #00a46a;
+  font-size: 1.25rem;
+}
+
+.recovery-title {
+  margin: 0 0 10px;
+  text-align: center;
+  color: #111827;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.recovery-description {
+  margin: 0 0 20px;
+  text-align: center;
+  color: #64748b;
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
+.recovery-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.recovery-label-spaced { margin-top: 16px; }
+
+.recovery-input {
+  width: 100%;
+  margin: 0 !important;
+  font-size: 16px !important;
+}
+
+.recovery-otp-input {
+  text-align: center;
+  letter-spacing: 8px;
+  font-size: 1.35rem !important;
+  font-weight: 700;
+}
+
+.recovery-security-note {
+  margin: 12px 0 0;
+  color: #6b7280;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.recovery-primary { margin-top: 18px !important; }
+
+.recovery-secondary {
+  display: block;
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: #00a46a;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.recovery-secondary:hover,
+.recovery-secondary:focus {
+  color: #008e5b;
+  text-decoration: underline;
+  outline: none;
+}
+
+.recovery-message {
+  display: none;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.recovery-message.is-visible { display: block; }
+
+.recovery-message.is-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.recovery-message.is-success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.recovery-step[hidden] { display: none !important; }
+
+body.recovery-open { overflow: hidden !important; }
+
+@media (max-width: 480px) {
+  .recovery-modal { padding: 12px; }
+  .recovery-dialog {
+    max-height: calc(100vh - 24px);
+    padding: 26px 20px 22px;
+    border-radius: 16px;
+  }
+}

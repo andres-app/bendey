@@ -782,7 +782,6 @@ if ((int)($_SESSION['users'] ?? 0) !== 1) {
                             type="password"
                             name="clave"
                             id="clave"
-                            maxlength="64"
                             placeholder="Contraseña"
                             required
                             autocomplete="new-password"
@@ -851,7 +850,6 @@ if ((int)($_SESSION['users'] ?? 0) !== 1) {
                         type="password"
                         name="clavec"
                         id="clavec"
-                        maxlength="64"
                         placeholder="Ingresa la nueva contraseña"
                         required
                         autocomplete="new-password"

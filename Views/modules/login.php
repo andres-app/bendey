@@ -262,6 +262,137 @@ $versionLoginJs = is_file($rutaLoginJs)
         </section>
     </div>
 
+    <!-- Recuperación de contraseña por OTP -->
+    <div
+        id="passwordRecoveryModal"
+        class="recovery-modal"
+        aria-hidden="true"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recoveryTitle"
+    >
+        <div class="recovery-dialog">
+            <button
+                type="button"
+                class="recovery-close"
+                id="recoveryClose"
+                aria-label="Cerrar"
+            >
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+
+            <div class="recovery-brand-icon">
+                <i class="fas fa-key" aria-hidden="true"></i>
+            </div>
+
+            <h3 id="recoveryTitle" class="recovery-title">
+                Recuperar contraseña
+            </h3>
+
+            <div id="recoveryStepRequest" class="recovery-step">
+                <p class="recovery-description">
+                    Ingresa tu correo electrónico registrado. Enviaremos un código OTP.
+                </p>
+
+                <label for="recoveryLogin" class="recovery-label">Correo electrónico</label>
+                <input
+                    type="text"
+                    id="recoveryLogin"
+                    class="form-control recovery-input"
+                    autocomplete="username"
+                    placeholder="correo@ejemplo.com"
+                >
+
+                <p class="recovery-security-note">
+                    Para solicitar el código debes completar la verificación de seguridad del login.
+                </p>
+
+                <button
+                    type="button"
+                    class="btn l-bg-red btn-block recovery-primary"
+                    id="btnRequestOtp"
+                >
+                    Enviar código OTP
+                </button>
+            </div>
+
+            <div id="recoveryStepOtp" class="recovery-step" hidden>
+                <p class="recovery-description">
+                    Revisa el correo registrado e ingresa el código de 6 dígitos.
+                </p>
+
+                <label for="recoveryOtp" class="recovery-label">Código OTP</label>
+                <input
+                    type="text"
+                    id="recoveryOtp"
+                    class="form-control recovery-input recovery-otp-input"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    maxlength="6"
+                    placeholder="000000"
+                >
+
+                <button
+                    type="button"
+                    class="btn l-bg-red btn-block recovery-primary"
+                    id="btnVerifyOtp"
+                >
+                    Verificar código
+                </button>
+
+                <button
+                    type="button"
+                    class="recovery-secondary"
+                    id="btnRestartRecovery"
+                >
+                    Solicitar un código nuevo
+                </button>
+            </div>
+
+            <div id="recoveryStepPassword" class="recovery-step" hidden>
+                <p class="recovery-description">
+                    Define tu nueva contraseña. No se exigen mayúsculas, minúsculas,
+                    números, símbolos ni una longitud mínima.
+                </p>
+
+                <label for="recoveryPassword" class="recovery-label">Nueva contraseña</label>
+                <input
+                    type="password"
+                    id="recoveryPassword"
+                    class="form-control recovery-input"
+                    autocomplete="new-password"
+                    placeholder="Nueva contraseña"
+                >
+
+                <label for="recoveryPasswordConfirm" class="recovery-label recovery-label-spaced">
+                    Repite la contraseña
+                </label>
+                <input
+                    type="password"
+                    id="recoveryPasswordConfirm"
+                    class="form-control recovery-input"
+                    autocomplete="new-password"
+                    placeholder="Repite la contraseña"
+                >
+
+                <button
+                    type="button"
+                    class="btn l-bg-red btn-block recovery-primary"
+                    id="btnResetPassword"
+                >
+                    Cambiar contraseña
+                </button>
+            </div>
+
+            <div
+                id="recoveryMessage"
+                class="recovery-message"
+                role="status"
+                aria-live="polite"
+            ></div>
+        </div>
+    </div>
+
     <!-- JavaScript base -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="Assets/js/app.min.js"></script>

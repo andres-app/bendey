@@ -1,0 +1,23 @@
+TIQUEPOS - RECUPERACIÓN DE CONTRASEÑA CON OTP
+
+Flujo:
+1. En login: ¿Olvidaste tu contraseña?
+2. El usuario ingresa su nombre de acceso.
+3. Debe completar Cloudflare Turnstile.
+4. Se envía OTP de 6 dígitos al email registrado.
+5. OTP vence en 10 minutos y admite hasta 5 intentos.
+6. Tras validar OTP, se permite definir una nueva contraseña.
+7. La contraseña no exige mayúsculas, minúsculas, números, símbolos ni longitud mínima.
+   Solo no puede ser una cadena vacía porque el login requiere una contraseña.
+8. Remitente: no-responder@tiquepos.com
+
+IMPORTANTE PARA CLIENTES EXISTENTES:
+Ejecutar database/actualizacion_recuperacion_clave_otp.sql una sola vez.
+
+CORREO:
+El código usa la función mail() de PHP y fija:
+From: TiquePOS <no-responder@tiquepos.com>
+Envelope sender: no-responder@tiquepos.com
+
+El hosting debe permitir enviar correo con ese remitente y el dominio tiquepos.com debe
+tener configurados SPF/DKIM según el proveedor para una entrega confiable.

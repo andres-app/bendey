@@ -53,7 +53,7 @@
     ).trim();
   }
 
-  function reiniciarTurnstile(mensaje) {
+  function reiniciarTurnstile(mensaje, tipo) {
     turnstileToken = "";
 
     if (
@@ -70,7 +70,7 @@
 
     cambiarEstado(
       mensaje || "Realiza nuevamente la verificación de seguridad.",
-      "error"
+      typeof tipo === "string" ? tipo : "error"
     );
   }
 
@@ -173,7 +173,7 @@
     const token = obtenerToken();
 
     if (!nombre || !clave) {
-      mostrarError("Asegúrate de completar el usuario y la contraseña.");
+      mostrarError("Asegúrate de completar el correo y la contraseña.");
       return;
     }
 
@@ -259,15 +259,339 @@
     );
   });
 
+  let recoveryToken = "";
+  let recoveryBusy = false;
+
+  const $recoveryModal = $("#passwordRecoveryModal");
+  const $recoveryMessage = $("#recoveryMessage");
+  const $stepRequest = $("#recoveryStepRequest");
+  const $stepOtp = $("#recoveryStepOtp");
+  const $stepPassword = $("#recoveryStepPassword");
+
+  function mostrarPasoRecuperacion(paso) {
+    $stepRequest.prop("hidden", paso !== "request");
+    $stepOtp.prop("hidden", paso !== "otp");
+    $stepPassword.prop("hidden", paso !== "password");
+    limpiarMensajeRecuperacion();
+  }
+
+  function mostrarMensajeRecuperacion(mensaje, tipo) {
+    $recoveryMessage
+      .removeClass("is-error is-success")
+      .addClass("is-visible")
+      .addClass(tipo === "success" ? "is-success" : "is-error")
+      .text(mensaje || "");
+  }
+
+  function limpiarMensajeRecuperacion() {
+    $recoveryMessage
+      .removeClass("is-visible is-error is-success")
+      .text("");
+  }
+
+  function abrirRecuperacion() {
+    const usuarioActual = String($("#nombre").val() || "").trim();
+
+    recoveryToken = "";
+    $("#recoveryLogin").val(usuarioActual);
+    $("#recoveryOtp").val("");
+    $("#recoveryPassword").val("");
+    $("#recoveryPasswordConfirm").val("");
+    mostrarPasoRecuperacion("request");
+
+    $recoveryModal.addClass("is-open").attr("aria-hidden", "false");
+    $("body").addClass("recovery-open");
+
+    window.setTimeout(function () {
+      $("#recoveryLogin").trigger("focus");
+    }, 50);
+  }
+
+  function cerrarRecuperacion() {
+    if (recoveryBusy) {
+      return;
+    }
+
+    $recoveryModal.removeClass("is-open").attr("aria-hidden", "true");
+    $("body").removeClass("recovery-open");
+    limpiarMensajeRecuperacion();
+  }
+
+  function establecerBotonRecuperacion($btn, estado, textoNormal, textoProcesando) {
+    recoveryBusy = estado;
+    $btn.prop("disabled", estado);
+
+    if (estado) {
+      $btn.html('<i class="fas fa-spinner fa-spin mr-2"></i>' + textoProcesando);
+    } else {
+      $btn.text(textoNormal);
+    }
+  }
+
+  function solicitarOtp() {
+    if (recoveryBusy) {
+      return;
+    }
+
+    const login = String($("#recoveryLogin").val() || "").trim();
+    const token = obtenerToken();
+    const $btn = $("#btnRequestOtp");
+
+    limpiarMensajeRecuperacion();
+
+    if (!login) {
+      mostrarMensajeRecuperacion("Ingresa tu correo electrónico registrado.", "error");
+      return;
+    }
+
+    if (!token) {
+      mostrarMensajeRecuperacion(
+        "Completa primero la verificación de seguridad que aparece en el login y vuelve a intentarlo.",
+        "error"
+      );
+      return;
+    }
+
+    establecerBotonRecuperacion($btn, true, "Enviar código OTP", "Enviando...");
+
+    $.ajax({
+      url: "Controllers/User.php?op=solicitar_otp",
+      type: "POST",
+      dataType: "json",
+      timeout: 25000,
+      data: {
+        login: login,
+        "cf-turnstile-response": token
+      }
+    })
+      .done(function (respuesta) {
+        if (!respuesta || !respuesta.ok) {
+          mostrarMensajeRecuperacion(
+            (respuesta && respuesta.mensaje) || "No se pudo enviar el código OTP.",
+            "error"
+          );
+          reiniciarTurnstile();
+          return;
+        }
+
+        recoveryToken = String(respuesta.reset_token || "");
+
+        if (!recoveryToken) {
+          mostrarMensajeRecuperacion("No se recibió el token de recuperación.", "error");
+          reiniciarTurnstile();
+          return;
+        }
+
+        mostrarPasoRecuperacion("otp");
+        mostrarMensajeRecuperacion(
+          respuesta.mensaje || "Código enviado al correo registrado.",
+          "success"
+        );
+
+        reiniciarTurnstile("Verificando seguridad para el próximo acceso...", "");
+
+        window.setTimeout(function () {
+          $("#recoveryOtp").trigger("focus");
+        }, 50);
+      })
+      .fail(function (xhr) {
+        let mensaje = "No se pudo conectar con el servidor.";
+
+        if (xhr && xhr.responseJSON && xhr.responseJSON.mensaje) {
+          mensaje = xhr.responseJSON.mensaje;
+        }
+
+        mostrarMensajeRecuperacion(mensaje, "error");
+        reiniciarTurnstile();
+      })
+      .always(function () {
+        establecerBotonRecuperacion($btn, false, "Enviar código OTP", "Enviando...");
+      });
+  }
+
+  function verificarOtpRecuperacion() {
+    if (recoveryBusy) {
+      return;
+    }
+
+    const otp = String($("#recoveryOtp").val() || "").replace(/\D/g, "").slice(0, 6);
+    const $btn = $("#btnVerifyOtp");
+
+    $("#recoveryOtp").val(otp);
+    limpiarMensajeRecuperacion();
+
+    if (!recoveryToken || otp.length !== 6) {
+      mostrarMensajeRecuperacion("Ingresa el código OTP de 6 dígitos.", "error");
+      return;
+    }
+
+    establecerBotonRecuperacion($btn, true, "Verificar código", "Verificando...");
+
+    $.ajax({
+      url: "Controllers/User.php?op=verificar_otp",
+      type: "POST",
+      dataType: "json",
+      timeout: 20000,
+      data: {
+        reset_token: recoveryToken,
+        otp: otp
+      }
+    })
+      .done(function (respuesta) {
+        if (!respuesta || !respuesta.ok) {
+          mostrarMensajeRecuperacion(
+            (respuesta && respuesta.mensaje) || "El código OTP no es válido.",
+            "error"
+          );
+          return;
+        }
+
+        mostrarPasoRecuperacion("password");
+        mostrarMensajeRecuperacion("Código verificado. Define tu nueva contraseña.", "success");
+
+        window.setTimeout(function () {
+          $("#recoveryPassword").trigger("focus");
+        }, 50);
+      })
+      .fail(function (xhr) {
+        mostrarMensajeRecuperacion(
+          (xhr && xhr.responseJSON && xhr.responseJSON.mensaje)
+            || "No se pudo verificar el código OTP.",
+          "error"
+        );
+      })
+      .always(function () {
+        establecerBotonRecuperacion($btn, false, "Verificar código", "Verificando...");
+      });
+  }
+
+  function restablecerClave() {
+    if (recoveryBusy) {
+      return;
+    }
+
+    const clave = String($("#recoveryPassword").val() || "");
+    const confirmar = String($("#recoveryPasswordConfirm").val() || "");
+    const $btn = $("#btnResetPassword");
+
+    limpiarMensajeRecuperacion();
+
+    if (clave === "") {
+      mostrarMensajeRecuperacion("Ingresa la nueva contraseña.", "error");
+      return;
+    }
+
+    if (clave !== confirmar) {
+      mostrarMensajeRecuperacion("Las contraseñas no coinciden.", "error");
+      return;
+    }
+
+    establecerBotonRecuperacion($btn, true, "Cambiar contraseña", "Actualizando...");
+
+    $.ajax({
+      url: "Controllers/User.php?op=restablecer_clave",
+      type: "POST",
+      dataType: "json",
+      timeout: 20000,
+      data: {
+        reset_token: recoveryToken,
+        clave: clave
+      }
+    })
+      .done(function (respuesta) {
+        if (!respuesta || !respuesta.ok) {
+          mostrarMensajeRecuperacion(
+            (respuesta && respuesta.mensaje) || "No se pudo actualizar la contraseña.",
+            "error"
+          );
+          return;
+        }
+
+        $("#clave").val("");
+        $("#nombre").val(String($("#recoveryLogin").val() || "").trim());
+
+        recoveryBusy = false;
+        cerrarRecuperacion();
+
+        swal({
+          title: "Contraseña actualizada",
+          text: respuesta.mensaje || "Ya puedes iniciar sesión con tu nueva contraseña.",
+          icon: "success",
+          button: "Iniciar sesión"
+        }).then(function () {
+          $("#clave").trigger("focus");
+        });
+      })
+      .fail(function (xhr) {
+        mostrarMensajeRecuperacion(
+          (xhr && xhr.responseJSON && xhr.responseJSON.mensaje)
+            || "No se pudo actualizar la contraseña.",
+          "error"
+        );
+      })
+      .always(function () {
+        establecerBotonRecuperacion($btn, false, "Cambiar contraseña", "Actualizando...");
+      });
+  }
+
   $(".forgot-link").on("click", function (e) {
     e.preventDefault();
+    abrirRecuperacion();
+  });
 
-    swal({
-      title: "Funcionalidad no disponible",
-      text: "La recuperación de contraseña aún no está implementada.",
-      icon: "info",
-      button: "OK"
-    });
+  $("#recoveryClose").on("click", cerrarRecuperacion);
+
+  $recoveryModal.on("click", function (e) {
+    if (e.target === this) {
+      cerrarRecuperacion();
+    }
+  });
+
+  $(document).on("keydown", function (e) {
+    if (e.key === "Escape" && $recoveryModal.hasClass("is-open")) {
+      cerrarRecuperacion();
+    }
+  });
+
+  $("#btnRequestOtp").on("click", solicitarOtp);
+  $("#btnVerifyOtp").on("click", verificarOtpRecuperacion);
+  $("#btnResetPassword").on("click", restablecerClave);
+
+  $("#recoveryOtp").on("input", function () {
+    this.value = String(this.value || "").replace(/\D/g, "").slice(0, 6);
+  });
+
+  $("#btnRestartRecovery").on("click", function () {
+    recoveryToken = "";
+    recoveryBusy = false;
+    $("#recoveryOtp").val("");
+    mostrarPasoRecuperacion("request");
+    mostrarMensajeRecuperacion(
+      "Completa nuevamente la verificación de seguridad del login para solicitar otro código.",
+      "success"
+    );
+    reiniciarTurnstile("Verificando seguridad...", "");
+  });
+
+  $("#recoveryLogin").on("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      solicitarOtp();
+    }
+  });
+
+  $("#recoveryOtp").on("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      verificarOtpRecuperacion();
+    }
+  });
+
+  $("#recoveryPassword, #recoveryPasswordConfirm").on("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      restablecerClave();
+    }
   });
 
 })(jQuery, window, document);
