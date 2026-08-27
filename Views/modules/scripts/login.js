@@ -541,12 +541,6 @@
 
   $("#recoveryClose").on("click", cerrarRecuperacion);
 
-  $recoveryModal.on("click", function (e) {
-    if (e.target === this) {
-      cerrarRecuperacion();
-    }
-  });
-
   $(document).on("keydown", function (e) {
     if (e.key === "Escape" && $recoveryModal.hasClass("is-open")) {
       cerrarRecuperacion();
