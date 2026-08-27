@@ -237,7 +237,7 @@ $versionLoginJs = is_file($rutaLoginJs)
                                 <!-- Acciones inferiores -->
                                 <div class="login-actions">
 
-                                    <a href="#" class="login-action-btn">
+                                    <a href="https://tiquepos.com/" class="login-action-btn">
                                         <i class="fa fa-globe icon-web"></i>
                                         <span>Web</span>
                                     </a>
