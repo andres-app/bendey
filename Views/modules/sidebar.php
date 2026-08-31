@@ -490,8 +490,8 @@
                 </li>
 
                 <!-- AYUDA -->
-                <li>
-                    <a class="nav-link" href="#">
+                <li class="<?= $url == 'ayuda' ? 'active' : '' ?>">
+                    <a class="nav-link" href="ayuda">
                         <i data-feather="help-circle"></i>
                         <span>Ayuda</span>
                     </a>

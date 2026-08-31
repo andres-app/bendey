@@ -53,7 +53,8 @@ if (isset($_GET["url"])) {
         "purchaseproduct",
         "kardex",
         "medida",
-        "login"
+        "login",
+        "ayuda"
     ];
 
     if (in_array($url, $rutasPermitidas, true)) {
