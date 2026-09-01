@@ -14,9 +14,17 @@ let tipoComprobanteFiltro = "TODOS";
 */
 function init() {
   registrarFiltroPremiumDataTables();
+  registrarEventosFiltrosPremium();
+
+  /*
+   * Al ingresar a ListSales, mostrar por defecto únicamente
+   * los comprobantes del mes actual: desde el día 1 hasta hoy.
+   * El usuario conserva todos los filtros existentes.
+   */
+  inicializarFiltroMesActual();
+
   listar();
   listarNotasCredito();
-  registrarEventosFiltrosPremium();
 
   const tipoInicial =
     obtenerTipoDocumentoDesdeUrl();
@@ -1238,6 +1246,33 @@ function actualizarParametroDocumentoUrl(
   }
 }
 
+function inicializarFiltroMesActual() {
+  const hoy =
+    new Date();
+
+  const inicioMes =
+    new Date(
+      hoy.getFullYear(),
+      hoy.getMonth(),
+      1
+    );
+
+  $("#filtroPeriodo").val(
+    "mes"
+  );
+
+  $("#filtroFechaDesde").val(
+    formatearFechaInput(
+      inicioMes
+    )
+  );
+
+  $("#filtroFechaHasta").val(
+    formatearFechaInput(
+      hoy
+    )
+  );
+}
 function aplicarPeriodoSeleccionado(
   periodo
 ) {
