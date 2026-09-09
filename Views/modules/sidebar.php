@@ -203,7 +203,7 @@
 
                 <!-- PRODUCTOS -->
                 <?php if (!empty($_SESSION['almacen']) && $_SESSION['almacen'] == 1) {
-                    $productosActive = in_array($url, ['product', 'category', 'atributos', 'almacenes']);
+                    $productosActive = in_array($url, ['product', 'labels', 'category', 'atributos', 'almacenes']);
                 ?>
                     <li class="dropdown <?= $productosActive ? 'active' : '' ?>">
                         <a href="#" class="nav-link has-dropdown">
@@ -214,6 +214,9 @@
                         <ul class="dropdown-menu <?= $productosActive ? 'show' : '' ?>">
                             <li class="<?= $url == 'product' ? 'active' : '' ?>">
                                 <a class="nav-link" href="product">Productos</a>
+                            </li>
+                            <li class="<?= $url == 'labels' ? 'active' : '' ?>">
+                                <a class="nav-link" href="labels">Etiquetas / Códigos de barras</a>
                             </li>
                             <li class="<?= $url == 'category' ? 'active' : '' ?>">
                                 <a class="nav-link" href="category">Categorías</a>

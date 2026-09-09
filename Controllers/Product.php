@@ -154,6 +154,121 @@ function productoPuedeImportarMasivo(): bool
     return isset($_SESSION['nombre']) && (int)($_SESSION['almacen'] ?? 0) === 1;
 }
 
+
+/**
+ * Origen web que se autorizará en el Conector de impresoras TiquePOS.
+ */
+function productoOrigenTiquePos(): string
+{
+    $protoProxy = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0] ?? ''));
+    $esHttps = $protoProxy === 'https'
+        || (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+        || (int)($_SERVER['SERVER_PORT'] ?? 0) === 443;
+
+    $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '' || !preg_match('/^[a-z0-9.\-:\[\]]+$/i', $host)) {
+        $host = 'localhost';
+    }
+
+    return ($esHttps ? 'https://' : 'http://') . $host;
+}
+
+/**
+ * Ruta base del sistema para que el instalador descargue el binario desde
+ * la misma instalación de TiquePOS, incluso cuando vive en una subcarpeta.
+ */
+function productoRutaBaseWeb(): string
+{
+    $script = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '/Controllers/Product.php'));
+    $base = rtrim(str_replace('\\', '/', dirname(dirname($script))), '/');
+    return $base === '.' ? '' : $base;
+}
+
+function descargarInstaladorConectorTiquePos(string $token): void
+{
+    if (!preg_match('/^[a-f0-9]{64}$/i', $token)) {
+        responderProductoJson(false, 'La clave de vinculación del conector no es válida.', null, 400);
+    }
+
+    $origen = productoOrigenTiquePos();
+    $base = productoRutaBaseWeb();
+    $binario = $origen . $base . '/Assets/connectors/TiquePOSPrintConnector.exe';
+    $rutaBinario = __DIR__ . '/../Assets/connectors/TiquePOSPrintConnector.exe';
+    if (!is_file($rutaBinario)) {
+        responderProductoJson(false, 'El binario del Conector TiquePOS no está disponible en esta instalación.', null, 503);
+    }
+    $sha256 = strtolower((string)hash_file('sha256', $rutaBinario));
+
+    // El instalador es un único .CMD personalizado. Descarga el ejecutable
+    // desde el mismo TiquePOS y lo vincula al origen/token de este navegador.
+    $cmd = "@echo off\r\n"
+        . "setlocal EnableExtensions DisableDelayedExpansion\r\n"
+        . "chcp 65001 >nul\r\n"
+        . "title TiquePOS - Conector de impresoras\r\n"
+        . "echo.\r\n"
+        . "echo ============================================================\r\n"
+        . "echo        INSTALADOR - CONECTOR DE IMPRESORAS TIQUEPOS\r\n"
+        . "echo        TIQUEPOS S.A.C. - RUC 20609518597\r\n"
+        . "echo ============================================================\r\n"
+        . "echo.\r\n"
+        . "echo Se instalara el conector de impresion directa para este usuario.\r\n"
+        . "echo No requiere permisos de administrador.\r\n"
+        . "echo.\r\n"
+        . 'set "TP_URL=' . $binario . '"' . "\r\n"
+        . 'set "TP_ORIGIN=' . $origen . '"' . "\r\n"
+        . 'set "TP_TOKEN=' . strtolower($token) . '"' . "\r\n"
+        . 'set "TP_SHA256=' . $sha256 . '"' . "\r\n"
+        . 'set "TP_FILE=%TEMP%\\TiquePOSPrintConnector-%RANDOM%-%RANDOM%.exe"' . "\r\n"
+        . "echo [1/3] Descargando Conector TiquePOS...\r\n"
+        . "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"\$ErrorActionPreference='Stop'; \$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri \$env:TP_URL -OutFile \$env:TP_FILE\"\r\n"
+        . "if errorlevel 1 goto :download_error\r\n"
+        . "if not exist \"%TP_FILE%\" goto :download_error\r\n"
+        . "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"if ((Get-FileHash -Algorithm SHA256 -LiteralPath \$env:TP_FILE).Hash.ToLower() -ne \$env:TP_SHA256) { exit 2 }\"\r\n"
+        . "if errorlevel 1 goto :integrity_error\r\n"
+        . "echo [2/3] Instalando y vinculando este equipo...\r\n"
+        . "start \"\" /wait \"%TP_FILE%\" install --origin \"%TP_ORIGIN%\" --token \"%TP_TOKEN%\"\r\n"
+        . "if errorlevel 1 goto :install_error\r\n"
+        . "echo [3/3] Iniciando servicio local de impresion...\r\n"
+        . "timeout /t 2 /nobreak >nul\r\n"
+        . "del /q \"%TP_FILE%\" >nul 2>&1\r\n"
+        . "echo.\r\n"
+        . "echo Conector TiquePOS instalado correctamente.\r\n"
+        . "echo Regresa a TiquePOS y pulsa DETECTAR IMPRESORAS.\r\n"
+        . "echo.\r\n"
+        . "pause\r\n"
+        . "exit /b 0\r\n"
+        . ":download_error\r\n"
+        . "echo.\r\n"
+        . "echo ERROR: No se pudo descargar el conector desde TiquePOS.\r\n"
+        . "echo Verifica tu conexion y vuelve a ejecutar este instalador.\r\n"
+        . "del /q \"%TP_FILE%\" >nul 2>&1\r\n"
+        . "pause\r\n"
+        . "exit /b 1\r\n"
+        . ":integrity_error\r\n"
+        . "echo.\r\n"
+        . "echo ERROR: La verificacion de integridad SHA-256 del conector fallo.\r\n"
+        . "echo No se instalara un archivo que no coincida con el publicado por TiquePOS.\r\n"
+        . "del /q \"%TP_FILE%\" >nul 2>&1\r\n"
+        . "pause\r\n"
+        . "exit /b 1\r\n"
+        . ":install_error\r\n"
+        . "echo.\r\n"
+        . "echo ERROR: Windows no pudo instalar el Conector TiquePOS.\r\n"
+        . "echo Revisa %%LOCALAPPDATA%%\\TiquePOS\\PrintConnector\\connector.log\r\n"
+        . "del /q \"%TP_FILE%\" >nul 2>&1\r\n"
+        . "pause\r\n"
+        . "exit /b 1\r\n";
+
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="Instalar-Conector-TiquePOS.cmd"');
+    header('Content-Length: ' . strlen($cmd));
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('X-Content-Type-Options: nosniff');
+    echo $cmd;
+    exit;
+}
+
 function normalizarTextoMasivoProducto($valor): string
 {
     $texto = trim((string)$valor);
@@ -2230,6 +2345,57 @@ switch ($_GET['op'] ?? '') {
         $productosGestion = $product->listarGestionProductos();
         echo json_encode(
             is_array($productosGestion) ? $productosGestion : [],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+        break;
+
+    case 'descargar_conector_impresoras':
+        if (!productoPuedeImportarMasivo()) {
+            responderProductoJson(false, 'No tiene permisos para descargar el conector de impresoras.', null, 403);
+        }
+        descargarInstaladorConectorTiquePos(trim((string)($_POST['token'] ?? '')));
+        break;
+
+    case 'buscar_etiquetas':
+    case 'listar_etiquetas':
+        if (!productoPuedeImportarMasivo()) {
+            responderProductoJson(
+                false,
+                'No tiene permisos para acceder al generador de etiquetas.',
+                null,
+                403,
+                ['data' => []]
+            );
+        }
+
+        $terminoEtiquetas = trim((string)($_GET['q'] ?? $_POST['q'] ?? ''));
+        $tipoEtiquetas = trim((string)($_GET['tipo'] ?? $_POST['tipo'] ?? 'todos'));
+        $limiteEtiquetas = (int)($_GET['limit'] ?? $_POST['limit'] ?? 80);
+
+        try {
+            $catalogoEtiquetas = $product->buscarCatalogoEtiquetas(
+                $terminoEtiquetas,
+                $tipoEtiquetas,
+                $limiteEtiquetas
+            );
+        } catch (Throwable $e) {
+            error_log('TiquePOS etiquetas - error de búsqueda: ' . $e->getMessage());
+            responderProductoJson(
+                false,
+                'No se pudo consultar el inventario para etiquetas.',
+                null,
+                500,
+                ['data' => [], 'query' => $terminoEtiquetas]
+            );
+        }
+
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(
+            [
+                'success' => true,
+                'data' => $catalogoEtiquetas,
+                'query' => $terminoEtiquetas
+            ],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
         break;

@@ -1,0 +1,8 @@
+{
+  "product": "TiquePOS Print Connector",
+  "executable": "TiquePOSPrintConnector.exe",
+  "company": "TIQUEPOS S.A.C.",
+  "ruc": "20609518597",
+  "version": "1.0.1",
+  "authenticodePublisherExpected": "TIQUEPOS S.A.C."
+}

@@ -885,6 +885,210 @@ class Product
 		return $this->conexion->getDataAll($sql, [$idarticulo]);
 	}
 
+	/**
+	 * Catálogo listo para el generador de etiquetas.
+	 * Los productos variables se exponen por variante y se oculta el padre para
+	 * evitar imprimir un SKU que no corresponde a una combinación vendible.
+	 */
+	public function listarCatalogoEtiquetas()
+	{
+		return $this->buscarCatalogoEtiquetas('', 'todos', 80);
+	}
+
+	/**
+	 * Búsqueda en vivo para el generador de etiquetas.
+	 *
+	 * Busca directamente en la base de datos para no depender de tener todo el
+	 * catálogo precargado en el navegador. En productos variables permite buscar
+	 * tanto por el SKU de la variante (articulo_variacion.sku) como por el SKU
+	 * padre (articulo.codigo).
+	 */
+	public function buscarCatalogoEtiquetas($termino = '', $tipo = 'todos', $limite = 80)
+	{
+		$termino = trim((string)$termino);
+		$tipo = trim((string)$tipo);
+		$limite = max(1, min(150, (int)$limite));
+
+		/*
+		 * IMPORTANTE:
+		 * No usar UNION entre articulo y articulo_variacion aquí. En instalaciones
+		 * antiguas ambas tablas pueden tener collations distintas (por ejemplo
+		 * utf8mb3_general_ci y utf8mb3_spanish_ci) y MariaDB devuelve un error
+		 * "Illegal mix of collations". El módulo Productos ya usa
+		 * listarGestionProductos(), por lo que partimos de esa consulta probada y
+		 * armamos el catálogo de etiquetas en PHP.
+		 */
+		$productosBase = $this->listarGestionProductos();
+		if (!is_array($productosBase)) {
+			$productosBase = [];
+		}
+
+		$variaciones = $this->conexion->getDataAll(
+			"SELECT
+				idvariacion,
+				idarticulo,
+				sku,
+				stock,
+				precio_venta,
+				combinacion
+			 FROM articulo_variacion
+			 WHERE estado = 1
+			 ORDER BY idarticulo ASC, idvariacion ASC"
+		);
+		if (!is_array($variaciones)) {
+			$variaciones = [];
+		}
+
+		$variacionesPorArticulo = [];
+		foreach ($variaciones as $variacion) {
+			$idArticuloVariacion = (int)($variacion['idarticulo'] ?? 0);
+			if ($idArticuloVariacion <= 0) {
+				continue;
+			}
+			if (!isset($variacionesPorArticulo[$idArticuloVariacion])) {
+				$variacionesPorArticulo[$idArticuloVariacion] = [];
+			}
+			$variacionesPorArticulo[$idArticuloVariacion][] = $variacion;
+		}
+
+		$catalogo = [];
+
+		foreach ($productosBase as $producto) {
+			if ((int)($producto['condicion'] ?? 0) !== 1) {
+				continue;
+			}
+
+			$idarticulo = (int)($producto['idarticulo'] ?? 0);
+			if ($idarticulo <= 0) {
+				continue;
+			}
+
+			$codigoPadre = trim((string)($producto['codigo'] ?? ''));
+			$nombrePadre = trim((string)($producto['nombre'] ?? ''));
+			$categoria = trim((string)($producto['categoria'] ?? ''));
+			$almacen = trim((string)($producto['almacen'] ?? ''));
+			$imagen = trim((string)($producto['imagen'] ?? ''));
+			$variacionesArticulo = $variacionesPorArticulo[$idarticulo] ?? [];
+
+			if (!empty($variacionesArticulo)) {
+				if ($tipo === 'simple') {
+					continue;
+				}
+
+				foreach ($variacionesArticulo as $variacion) {
+					$sku = trim((string)($variacion['sku'] ?? ''));
+					if ($sku === '') {
+						continue;
+					}
+
+					$combinacion = trim((string)($variacion['combinacion'] ?? ''));
+					$precioVariacion = (float)($variacion['precio_venta'] ?? 0);
+					$precioPadre = (float)($producto['precio_venta_min'] ?? $producto['precio_venta'] ?? 0);
+
+					$catalogo[] = [
+						'tipo' => 'variacion',
+						'idregistro' => (int)($variacion['idvariacion'] ?? 0),
+						'idarticulo' => $idarticulo,
+						'codigo' => $sku,
+						'codigo_padre' => $codigoPadre,
+						'nombre' => $nombrePadre . ($combinacion !== '' ? ' - ' . $combinacion : ''),
+						'nombre_padre' => $nombrePadre,
+						'variante' => $combinacion,
+						'stock' => (int)($variacion['stock'] ?? 0),
+						'precio_venta' => $precioVariacion > 0 ? $precioVariacion : $precioPadre,
+						'categoria' => $categoria,
+						'almacen' => $almacen,
+						'imagen' => $imagen
+					];
+				}
+
+				continue;
+			}
+
+			if ($tipo === 'variacion') {
+				continue;
+			}
+
+			if ($codigoPadre === '') {
+				continue;
+			}
+
+			$catalogo[] = [
+				'tipo' => 'simple',
+				'idregistro' => $idarticulo,
+				'idarticulo' => $idarticulo,
+				'codigo' => $codigoPadre,
+				'codigo_padre' => $codigoPadre,
+				'nombre' => $nombrePadre,
+				'nombre_padre' => $nombrePadre,
+				'variante' => '',
+				'stock' => (int)($producto['stock'] ?? 0),
+				'precio_venta' => (float)($producto['precio_venta_min'] ?? $producto['precio_venta'] ?? 0),
+				'categoria' => $categoria,
+				'almacen' => $almacen,
+				'imagen' => $imagen
+			];
+		}
+
+		if ($termino !== '') {
+			$catalogo = array_values(array_filter($catalogo, function ($item) use ($termino) {
+				$campos = [
+					$item['codigo'] ?? '',
+					$item['codigo_padre'] ?? '',
+					$item['nombre'] ?? '',
+					$item['nombre_padre'] ?? '',
+					$item['variante'] ?? '',
+					$item['categoria'] ?? '',
+					$item['almacen'] ?? ''
+				];
+
+				foreach ($campos as $campo) {
+					if (stripos((string)$campo, $termino) !== false) {
+						return true;
+					}
+				}
+
+				return false;
+			}));
+		}
+
+		$puntaje = function ($item) use ($termino) {
+			if ($termino === '') {
+				return 10;
+			}
+
+			$codigo = (string)($item['codigo'] ?? '');
+			$codigoPadreItem = (string)($item['codigo_padre'] ?? '');
+			$nombre = (string)($item['nombre'] ?? '');
+
+			if (strcasecmp($codigo, $termino) === 0) return 0;
+			if (strcasecmp($codigoPadreItem, $termino) === 0) return 1;
+			if (stripos($codigo, $termino) === 0) return 2;
+			if (stripos($codigoPadreItem, $termino) === 0) return 3;
+			if (stripos($nombre, $termino) === 0) return 4;
+			return 10;
+		};
+
+		usort($catalogo, function ($a, $b) use ($puntaje) {
+			$pa = $puntaje($a);
+			$pb = $puntaje($b);
+			if ($pa !== $pb) {
+				return $pa < $pb ? -1 : 1;
+			}
+
+			$nombreA = (string)($a['nombre'] ?? '');
+			$nombreB = (string)($b['nombre'] ?? '');
+			$comparacionNombre = strcasecmp($nombreA, $nombreB);
+			if ($comparacionNombre !== 0) {
+				return $comparacionNombre;
+			}
+
+			return strcasecmp((string)($a['codigo'] ?? ''), (string)($b['codigo'] ?? ''));
+		});
+
+		return array_slice($catalogo, 0, $limite);
+	}
+
 	public function ejecutarSQL($sql, $params = [])
 	{
 		return $this->conexion->setData($sql, $params);

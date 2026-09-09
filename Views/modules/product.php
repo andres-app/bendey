@@ -1019,6 +1019,9 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                 <button class="dropdown-item" type="button" onclick="togglePlantilla()">
                                     <i class="fas fa-file-import mr-2"></i> Importar productos
                                 </button>
+                                <a class="dropdown-item" href="labels">
+                                    <i class="fas fa-barcode mr-2"></i> Etiquetas / códigos de barras
+                                </a>
                                 <button class="dropdown-item" type="button" onclick="exportarProductos('excel')">
                                     <i class="fas fa-file-excel mr-2"></i> Exportar Excel
                                 </button>
