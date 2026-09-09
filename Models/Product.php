@@ -563,6 +563,148 @@ class Product
 		}
 	}
 
+	/**
+	 * Verifica un código tanto en productos padre como en SKU de variaciones.
+	 * Se usa en la importación masiva para evitar colisiones entre ambos tipos.
+	 */
+	public function verificarCodigoGlobal($codigo)
+	{
+		$codigo = trim((string)$codigo);
+		if ($codigo === '') {
+			return false;
+		}
+
+		$producto = $this->conexion->getData(
+			"SELECT idarticulo, codigo FROM articulo WHERE codigo = ? LIMIT 1",
+			[$codigo]
+		);
+
+		if (!empty($producto)) {
+			return [
+				'tipo' => 'producto',
+				'id' => (int)($producto['idarticulo'] ?? 0),
+				'codigo' => (string)($producto['codigo'] ?? $codigo)
+			];
+		}
+
+		$variacion = $this->conexion->getData(
+			"SELECT idvariacion, idarticulo, sku FROM articulo_variacion WHERE sku = ? LIMIT 1",
+			[$codigo]
+		);
+
+		if (!empty($variacion)) {
+			return [
+				'tipo' => 'variacion',
+				'id' => (int)($variacion['idvariacion'] ?? 0),
+				'idarticulo' => (int)($variacion['idarticulo'] ?? 0),
+				'codigo' => (string)($variacion['sku'] ?? $codigo)
+			];
+		}
+
+		return false;
+	}
+
+	/**
+	 * Crea un producto padre junto con todas sus variaciones en una sola
+	 * transacción. Si una variación falla no queda un producto incompleto.
+	 */
+	public function insertarGrupoVariantesImportacionSegura(array $producto, array $variaciones)
+	{
+		$transaccionIniciada = false;
+
+		try {
+			if (!$variaciones) {
+				throw new RuntimeException('El grupo no contiene variaciones para registrar.');
+			}
+
+			$this->conexion->beginTransaction();
+			$transaccionIniciada = true;
+
+			$sqlProducto = "INSERT INTO $this->tableName
+				(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, codigo_afectacion_igv, porcentaje_igv, unidad_medida_sunat, codigo_producto_sunat, condicion)
+				VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+
+			$idarticulo = (int)$this->conexion->setDataReturnId($sqlProducto, [
+				(int)($producto['idcategoria'] ?? 0),
+				!empty($producto['idsubcategoria']) ? (int)$producto['idsubcategoria'] : null,
+				(int)($producto['idmedida'] ?? 0),
+				(int)($producto['idalmacen'] ?? 0),
+				trim((string)($producto['codigo'] ?? '')),
+				trim((string)($producto['nombre'] ?? '')),
+				max(0, (float)($producto['precio_compra'] ?? 0)),
+				max(0, (float)($producto['precio_venta'] ?? 0)),
+				trim((string)($producto['descripcion'] ?? 'Importado desde carga masiva')),
+				trim((string)($producto['imagen'] ?? 'default.png')) ?: 'default.png',
+				trim((string)($producto['codigo_afectacion_igv'] ?? '10')),
+				max(0, (float)($producto['porcentaje_igv'] ?? 0)),
+				strtoupper(trim((string)($producto['unidad_medida_sunat'] ?? 'NIU'))),
+				isset($producto['codigo_producto_sunat']) && trim((string)$producto['codigo_producto_sunat']) !== ''
+					? trim((string)$producto['codigo_producto_sunat'])
+					: null
+			]);
+
+			if ($idarticulo <= 0) {
+				throw new RuntimeException('No se generó el ID del producto padre.');
+			}
+
+			$sqlVariacion = "INSERT INTO articulo_variacion
+				(idarticulo, combinacion, sku, stock, precio_compra, precio_venta, estado)
+				VALUES (?, ?, ?, ?, ?, ?, 1)";
+
+			$idsVariaciones = [];
+			foreach ($variaciones as $variacion) {
+				$sku = trim((string)($variacion['sku'] ?? ''));
+				$combinacion = trim((string)($variacion['combinacion'] ?? ''));
+
+				if ($sku === '' || $combinacion === '') {
+					throw new RuntimeException('Una variación no tiene SKU o descripción de variante.');
+				}
+
+				$idvariacion = (int)$this->conexion->setDataReturnId($sqlVariacion, [
+					$idarticulo,
+					$combinacion,
+					$sku,
+					max(0, (int)($variacion['stock'] ?? 0)),
+					max(0, (float)($variacion['precio_compra'] ?? 0)),
+					max(0, (float)($variacion['precio_venta'] ?? 0))
+				]);
+
+				if ($idvariacion <= 0) {
+					throw new RuntimeException('No se pudo registrar la variación ' . $sku . '.');
+				}
+
+				$idsVariaciones[] = $idvariacion;
+			}
+
+			$this->conexion->commit();
+			$transaccionIniciada = false;
+
+			return [
+				'success' => true,
+				'idarticulo' => $idarticulo,
+				'ids_variaciones' => $idsVariaciones,
+				'error' => null
+			];
+		} catch (Throwable $error) {
+			if ($transaccionIniciada) {
+				try {
+					$this->conexion->rollBack();
+				} catch (Throwable $rollbackError) {
+					error_log('[ROLLBACK IMPORTACION VARIANTES] ' . $rollbackError->getMessage());
+				}
+			}
+
+			error_log('[IMPORTACION PRODUCTO VARIABLE] ' . $error->getMessage());
+
+			return [
+				'success' => false,
+				'idarticulo' => 0,
+				'ids_variaciones' => [],
+				'error' => $error->getMessage()
+			];
+		}
+	}
+
 	public function insertarVariacion($idarticulo, $combinacion, $sku, $stock, $precio_compra, $precio_venta)
 	{
 		try {

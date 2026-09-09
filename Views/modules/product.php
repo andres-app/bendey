@@ -417,7 +417,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
     }
     .tp-sheet-help i { color:#00a46a; }
     .tp-sheet-wrap { overflow:auto; max-height:54vh; background:#fff; }
-    .tp-sheet { width:100%; min-width:1120px; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+    .tp-sheet { width:100%; min-width:2050px; border-collapse:separate; border-spacing:0; table-layout:fixed; }
     .tp-sheet th {
         position:sticky; top:0; z-index:6; height:42px; padding:0 9px; border-right:1px solid #e7ecef; border-bottom:1px solid #dfe6ea;
         background:#f7f9fa; color:#536174; font-size:.66rem; font-weight:750; text-align:left; letter-spacing:.015em;
@@ -434,6 +434,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
         background:transparent; color:#17212b; font-size:.72rem; box-shadow:none !important;
     }
     .tp-sheet-cell:focus, .tp-sheet-select:focus { background:#f3fcf8; box-shadow:inset 0 0 0 2px rgba(0,164,106,.42) !important; }
+    .tp-sheet-cell:disabled { background:#f8fafc; color:#a0aec0; cursor:not-allowed; }
     .tp-sheet-cell.is-number { text-align:right; font-variant-numeric:tabular-nums; }
     .tp-sheet-select { appearance:auto; cursor:pointer; padding-right:4px; }
     .tp-sheet tr.has-error .tp-sheet-cell[data-invalid='1'], .tp-sheet tr.has-error .tp-sheet-select[data-invalid='1'] {
@@ -1085,7 +1086,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                         <span class="tp-import-title-icon"><i class="fas fa-table"></i></span>
                         <div>
                             <h5>Importar Productos</h5>
-                            <p>Registra productos en masa directamente desde esta hoja o carga un archivo Excel/CSV. Categorías, almacenes y unidades se muestran con nombres legibles.</p>
+                            <p>Registra productos simples o variables en masa desde esta hoja o carga un Excel/CSV. Las variantes se agrupan por SKU padre y la afectación IGV se obtiene del catálogo tributario existente.</p>
                         </div>
                     </div>
                     <button type="button" class="tp-import-close tw-transition-all tw-duration-200 focus:tw-outline-none" onclick="togglePlantilla(false)" title="Cerrar"><i class="fas fa-times"></i></button>
@@ -1109,20 +1110,22 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
 
                 <div class="tp-sheet-help">
                     <i class="fas fa-info-circle"></i>
-                    <span>Puedes pegar varias columnas y filas de una sola vez. Categoría, subcategoría, almacén y unidad muestran <strong>ID + nombre</strong>, pero el sistema guarda únicamente el ID.</span>
+                    <span><strong>Simple:</strong> una fila crea un producto. <strong>Variante:</strong> varias filas con el mismo Grupo/SKU padre crean un solo producto con sus variantes. Categoría, almacén, unidad y afectación IGV se cargan desde la base de datos.</span>
                 </div>
 
                 <div class="tp-sheet-wrap" id="masivoSheetWrap">
                     <table class="tp-sheet" id="tablaMasivaProductos">
                         <colgroup>
-                            <col style="width:54px"><col style="width:210px"><col style="width:130px"><col style="width:82px">
-                            <col style="width:108px"><col style="width:108px"><col style="width:180px"><col style="width:190px">
-                            <col style="width:170px"><col style="width:165px"><col style="width:52px">
+                            <col style="width:54px"><col style="width:120px"><col style="width:145px"><col style="width:210px">
+                            <col style="width:145px"><col style="width:170px"><col style="width:82px"><col style="width:108px">
+                            <col style="width:108px"><col style="width:180px"><col style="width:190px"><col style="width:170px">
+                            <col style="width:165px"><col style="width:220px"><col style="width:52px">
                         </colgroup>
                         <thead>
                             <tr>
-                                <th>#</th><th>Producto *</th><th>SKU *</th><th>Stock</th><th>P. compra</th><th>P. venta *</th>
-                                <th>Categoría *</th><th>Subcategoría</th><th>Almacén *</th><th>Unidad *</th><th></th>
+                                <th>#</th><th>Tipo *</th><th>Grupo / SKU padre</th><th>Producto *</th><th>SKU *</th><th>Variante</th>
+                                <th>Stock</th><th>P. compra</th><th>P. venta *</th><th>Categoría *</th><th>Subcategoría</th>
+                                <th>Almacén *</th><th>Unidad *</th><th>Afectación IGV *</th><th></th>
                             </tr>
                         </thead>
                         <tbody id="cuerpoMasivoProductos"></tbody>

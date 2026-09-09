@@ -8,7 +8,14 @@ var limiteGridProductos = 24;
 var filtroDataTableRegistrado = false;
 var filtroRapidoProducto = "todos";
 var productoDetalleActual = null;
-var catalogosMasivosProducto = { categorias: [], subcategorias: [], almacenes: [], medidas: [] };
+var catalogosMasivosProducto = {
+  categorias: [],
+  subcategorias: [],
+  almacenes: [],
+  medidas: [],
+  afectaciones_igv: [],
+  tributacion_predeterminada: { codigo_afectacion_igv: "10" }
+};
 var catalogosMasivosCargados = false;
 var cargandoCatalogosMasivos = null;
 var secuenciaFilaMasiva = 0;
@@ -92,6 +99,9 @@ function registrarEventosInterfazProductos() {
 
   $(document).on("input change", "#cuerpoMasivoProductos .tp-sheet-cell, #cuerpoMasivoProductos .tp-sheet-select", function () {
     const $fila = $(this).closest("tr");
+    if ($(this).data("field") === "tipo") {
+      actualizarTipoFilaMasivaProducto($fila);
+    }
     if ($(this).data("field") === "categoria") {
       actualizarSubcategoriasFilaMasiva($fila, String($(this).val() || ""), "");
     }
@@ -104,7 +114,7 @@ function registrarEventosInterfazProductos() {
     validarHojaMasivaProducto();
   });
 
-  $(document).on("paste", "#cuerpoMasivoProductos .tp-sheet-cell", function (evento) {
+  $(document).on("paste", "#cuerpoMasivoProductos .tp-sheet-cell, #cuerpoMasivoProductos .tp-sheet-select", function (evento) {
     const original = evento.originalEvent;
     const texto = original && original.clipboardData ? original.clipboardData.getData("text") : "";
     if (!texto || (!texto.includes("\t") && !texto.includes("\n") && !texto.includes("\r"))) return;
@@ -1308,7 +1318,11 @@ function togglePlantilla(forzar) {
 }
 
 function camposMasivosProducto() {
-  return ["nombre", "codigo", "stock", "precio_compra", "precio_venta", "categoria", "subcategoria", "almacen", "medida"];
+  return [
+    "tipo", "grupo", "nombre", "codigo", "variante", "stock",
+    "precio_compra", "precio_venta", "categoria", "subcategoria",
+    "almacen", "medida", "codigo_afectacion_igv"
+  ];
 }
 
 function escaparHtmlMasivoProducto(valor) {
@@ -1333,7 +1347,7 @@ function asegurarCatalogosMasivos() {
   if (catalogosMasivosCargados) return $.Deferred().resolve(catalogosMasivosProducto).promise();
   if (cargandoCatalogosMasivos) return cargandoCatalogosMasivos;
 
-  $("#masivoEstado").html('<span class="spinner-border spinner-border-sm mr-1"></span> Cargando categorías, almacenes y unidades...');
+  $("#masivoEstado").html('<span class="spinner-border spinner-border-sm mr-1"></span> Cargando categorías, almacenes, unidades y tributación...');
 
   cargandoCatalogosMasivos = $.ajax({
     url: "Controllers/Product.php?op=datosImportacion",
@@ -1348,10 +1362,12 @@ function asegurarCatalogosMasivos() {
       categorias: Array.isArray(respuesta.datos.categorias) ? respuesta.datos.categorias : [],
       subcategorias: Array.isArray(respuesta.datos.subcategorias) ? respuesta.datos.subcategorias : [],
       almacenes: Array.isArray(respuesta.datos.almacenes) ? respuesta.datos.almacenes : [],
-      medidas: Array.isArray(respuesta.datos.medidas) ? respuesta.datos.medidas : []
+      medidas: Array.isArray(respuesta.datos.medidas) ? respuesta.datos.medidas : [],
+      afectaciones_igv: Array.isArray(respuesta.datos.afectaciones_igv) ? respuesta.datos.afectaciones_igv : [],
+      tributacion_predeterminada: respuesta.datos.tributacion_predeterminada || { codigo_afectacion_igv: "10" }
     };
     catalogosMasivosCargados = true;
-    $("#masivoEstado").html('<i class="fas fa-check-circle text-success mr-1"></i> Catálogos listos. Puedes digitar o pegar desde Excel.');
+    $("#masivoEstado").html('<i class="fas fa-check-circle text-success mr-1"></i> Catálogos listos. Puedes registrar productos simples y variantes.');
   }).fail(function (xhr) {
     const mensaje = xhr.responseJSON && xhr.responseJSON.mensaje ? xhr.responseJSON.mensaje : "No se pudieron cargar los catálogos para la importación.";
     $("#masivoEstado").text(mensaje);
@@ -1378,6 +1394,56 @@ function opcionesCatalogoMasivo(items, tipo, seleccion) {
     html += `<option value="${escaparHtmlMasivoProducto(id)}"${String(id) === valor ? " selected" : ""}>${escaparHtmlMasivoProducto(etiqueta)}</option>`;
   });
 
+  return html;
+}
+
+function normalizarTipoMasivoProducto(valor) {
+  const tipo = normalizarMasivoProducto(valor);
+  if (["variante", "variacion", "variable"].includes(tipo)) return "variante";
+  if (["simple", "producto simple", "normal"].includes(tipo)) return "simple";
+  return "";
+}
+
+function opcionesTipoMasivoProducto(seleccion) {
+  const actual = normalizarTipoMasivoProducto(seleccion) || "simple";
+  return `<option value="simple"${actual === "simple" ? " selected" : ""}>Simple</option>`
+    + `<option value="variante"${actual === "variante" ? " selected" : ""}>Variante</option>`;
+}
+
+function resolverAfectacionMasivoProducto(valor) {
+  const texto = String(valor == null ? "" : valor).trim();
+  const predeterminado = String(
+    catalogosMasivosProducto.tributacion_predeterminada?.codigo_afectacion_igv || "10"
+  );
+  if (!texto) return predeterminado;
+
+  const codigoInicial = texto.match(/^\s*([0-9]{2})\s*(?:-|$)/);
+  if (codigoInicial) {
+    const existe = catalogosMasivosProducto.afectaciones_igv.some(function (item) {
+      return String(item.codigo || "") === codigoInicial[1];
+    });
+    if (existe) return codigoInicial[1];
+  }
+
+  const objetivo = normalizarMasivoProducto(texto);
+  const encontrado = catalogosMasivosProducto.afectaciones_igv.find(function (item) {
+    const codigo = String(item.codigo || "");
+    const descripcion = String(item.descripcion || "");
+    return [codigo, descripcion, `${codigo} - ${descripcion}`, `${codigo} — ${descripcion}`]
+      .some(function (candidato) { return normalizarMasivoProducto(candidato) === objetivo; });
+  });
+
+  return encontrado ? String(encontrado.codigo || "") : "";
+}
+
+function opcionesAfectacionMasivoProducto(seleccion) {
+  const actual = resolverAfectacionMasivoProducto(seleccion);
+  let html = '<option value="">Seleccionar...</option>';
+  catalogosMasivosProducto.afectaciones_igv.forEach(function (item) {
+    const codigo = String(item.codigo || "");
+    const descripcion = String(item.descripcion || "");
+    html += `<option value="${escaparHtmlMasivoProducto(codigo)}"${codigo === actual ? " selected" : ""}>${escaparHtmlMasivoProducto(`${codigo} - ${descripcion}`)}</option>`;
+  });
   return html;
 }
 
@@ -1411,15 +1477,20 @@ function resolverCatalogoMasivo(valor, items, tipo) {
 function agregarFilaMasivaProducto(datos, validar = true) {
   datos = datos || {};
   const idFila = ++secuenciaFilaMasiva;
+  const tipo = normalizarTipoMasivoProducto(datos.tipo ?? "Simple") || "simple";
   const categoria = resolverCatalogoMasivo(datos.categoria ?? datos.idcategoria ?? "", catalogosMasivosProducto.categorias, "categoria");
   const almacen = resolverCatalogoMasivo(datos.almacen ?? datos.idalmacen ?? "", catalogosMasivosProducto.almacenes, "almacen");
   const medida = resolverCatalogoMasivo(datos.medida ?? datos.idmedida ?? "", catalogosMasivosProducto.medidas, "medida");
+  const afectacion = resolverAfectacionMasivoProducto(datos.codigo_afectacion_igv ?? datos.afectacion_igv ?? "");
 
   const $fila = $(
     `<tr data-row-id="${idFila}">
       <td><div class="tp-sheet-rownum"><span class="tp-row-state"></span><span class="tp-row-number">1</span></div></td>
-      <td><input class="tp-sheet-cell" data-field="nombre" maxlength="200" autocomplete="off" placeholder="Producto"></td>
-      <td><input class="tp-sheet-cell" data-field="codigo" maxlength="50" autocomplete="off" placeholder="SKU"></td>
+      <td><select class="tp-sheet-select" data-field="tipo">${opcionesTipoMasivoProducto(tipo)}</select></td>
+      <td><input class="tp-sheet-cell" data-field="grupo" maxlength="50" autocomplete="off" placeholder="POLO-001"></td>
+      <td><input class="tp-sheet-cell" data-field="nombre" maxlength="100" autocomplete="off" placeholder="Producto"></td>
+      <td><input class="tp-sheet-cell" data-field="codigo" maxlength="100" autocomplete="off" placeholder="SKU"></td>
+      <td><input class="tp-sheet-cell" data-field="variante" maxlength="150" autocomplete="off" placeholder="Negro - M"></td>
       <td><input class="tp-sheet-cell is-number" data-field="stock" inputmode="numeric" autocomplete="off" value="0"></td>
       <td><input class="tp-sheet-cell is-number" data-field="precio_compra" inputmode="decimal" autocomplete="off" value="0.00"></td>
       <td><input class="tp-sheet-cell is-number" data-field="precio_venta" inputmode="decimal" autocomplete="off" value="0.00"></td>
@@ -1427,23 +1498,45 @@ function agregarFilaMasivaProducto(datos, validar = true) {
       <td><select class="tp-sheet-select" data-field="subcategoria"><option value="">Sin subcategoría</option></select></td>
       <td><select class="tp-sheet-select" data-field="almacen">${opcionesCatalogoMasivo(catalogosMasivosProducto.almacenes, "almacen", almacen)}</select></td>
       <td><select class="tp-sheet-select" data-field="medida">${opcionesCatalogoMasivo(catalogosMasivosProducto.medidas, "medida", medida)}</select></td>
+      <td><select class="tp-sheet-select" data-field="codigo_afectacion_igv">${opcionesAfectacionMasivoProducto(afectacion)}</select></td>
       <td><div class="tp-sheet-row-actions"><button type="button" class="tp-sheet-remove" title="Eliminar fila"><i class="fas fa-times"></i></button></div></td>
     </tr>`
   );
 
   $("#cuerpoMasivoProductos").append($fila);
+  $fila.find('[data-field="grupo"]').val(datos.grupo ?? datos.grupo_sku ?? "");
   $fila.find('[data-field="nombre"]').val(datos.nombre ?? datos.producto ?? "");
   $fila.find('[data-field="codigo"]').val(datos.codigo ?? datos.sku ?? "");
+  $fila.find('[data-field="variante"]').val(datos.variante ?? datos.combinacion ?? "");
   $fila.find('[data-field="stock"]').val(datos.stock === undefined || datos.stock === "" ? "0" : datos.stock);
   $fila.find('[data-field="precio_compra"]').val(datos.precio_compra ?? datos.preciocompra ?? "0.00");
   $fila.find('[data-field="precio_venta"]').val(datos.precio_venta ?? datos.precioventa ?? "0.00");
+  $fila.find('[data-field="codigo_afectacion_igv"]').val(afectacion);
 
   const subValor = resolverCatalogoMasivo(datos.subcategoria ?? datos.idsubcategoria ?? "", catalogosMasivosProducto.subcategorias, "subcategoria");
   actualizarSubcategoriasFilaMasiva($fila, categoria, subValor);
+  actualizarTipoFilaMasivaProducto($fila, false);
   renumerarFilasMasivasProducto();
   $("#masivoEmpty").hide();
   if (validar) validarHojaMasivaProducto();
   return $fila;
+}
+
+function actualizarTipoFilaMasivaProducto($fila, limpiar = true) {
+  const tipo = normalizarTipoMasivoProducto($fila.find('[data-field="tipo"]').val()) || "simple";
+  const esVariante = tipo === "variante";
+  const $grupo = $fila.find('[data-field="grupo"]');
+  const $variante = $fila.find('[data-field="variante"]');
+
+  $grupo.prop("disabled", !esVariante).attr("placeholder", esVariante ? "SKU padre" : "No aplica");
+  $variante.prop("disabled", !esVariante).attr("placeholder", esVariante ? "Ej. Negro - M" : "No aplica");
+
+  if (!esVariante && limpiar) {
+    $grupo.val("");
+    $variante.val("");
+  }
+
+  $fila.toggleClass("is-variant-row", esVariante);
 }
 
 function actualizarSubcategoriasFilaMasiva($fila, idCategoria, idSeleccionado) {
@@ -1472,8 +1565,10 @@ function datosFilaMasivaProducto($fila) {
 }
 
 function filaMasivaVaciaProducto(datos) {
-  return !String(datos.nombre || "").trim()
+  return !String(datos.grupo || "").trim()
+    && !String(datos.nombre || "").trim()
     && !String(datos.codigo || "").trim()
+    && !String(datos.variante || "").trim()
     && (!String(datos.stock || "").trim() || Number(datos.stock) === 0)
     && (!String(datos.precio_compra || "").trim() || Number(datos.precio_compra) === 0)
     && (!String(datos.precio_venta || "").trim() || Number(datos.precio_venta) === 0)
@@ -1484,30 +1579,55 @@ function filaMasivaVaciaProducto(datos) {
 }
 
 function validarHojaMasivaProducto() {
-  const filas = [];
-  const skus = {};
-  let errores = 0;
-  let validas = 0;
+  const entradas = [];
+  const skuMap = {};
+  const grupos = {};
 
   $("#cuerpoMasivoProductos tr").each(function () {
     const $fila = $(this);
     const datos = datosFilaMasivaProducto($fila);
+    datos.tipo = normalizarTipoMasivoProducto(datos.tipo);
     $fila.removeClass("is-valid has-error").removeAttr("title");
     $fila.find("[data-invalid]").removeAttr("data-invalid");
 
     if (filaMasivaVaciaProducto(datos)) return;
 
-    const mensajes = [];
+    const entrada = { datos: datos, $fila: $fila, mensajes: [] };
+    entradas.push(entrada);
+
     function marcar(campo, mensaje) {
-      mensajes.push(mensaje);
-      $fila.find(`[data-field="${campo}"]`).attr("data-invalid", "1");
+      if (!entrada.mensajes.includes(mensaje)) entrada.mensajes.push(mensaje);
+      if (campo) $fila.find(`[data-field="${campo}"]`).attr("data-invalid", "1");
+    }
+    entrada.marcar = marcar;
+
+    if (!datos.tipo) marcar("tipo", "Selecciona Simple o Variante");
+    if (!datos.nombre) marcar("nombre", "Falta el nombre");
+    if (datos.nombre && datos.nombre.length > 100) marcar("nombre", "El nombre supera 100 caracteres");
+    if (!datos.codigo) marcar("codigo", "Falta el SKU");
+
+    if (datos.tipo === "simple" && datos.codigo.length > 50) {
+      marcar("codigo", "El SKU de un producto simple admite máximo 50 caracteres");
     }
 
-    if (!datos.nombre) marcar("nombre", "Falta el nombre");
-    if (!datos.codigo) marcar("codigo", "Falta el SKU");
+    if (datos.tipo === "variante") {
+      if (!datos.grupo) marcar("grupo", "Falta el Grupo / SKU padre");
+      if (datos.grupo.length > 50) marcar("grupo", "El SKU padre admite máximo 50 caracteres");
+      if (!datos.variante) marcar("variante", "Falta la descripción de la variante");
+      if (datos.variante.length > 150) marcar("variante", "La variante admite máximo 150 caracteres");
+      if (datos.codigo.length > 100) marcar("codigo", "El SKU de variante admite máximo 100 caracteres");
+      if (normalizarMasivoProducto(datos.grupo) && normalizarMasivoProducto(datos.grupo) === normalizarMasivoProducto(datos.codigo)) {
+        marcar("grupo", "El SKU padre no puede ser igual al SKU de la variante");
+        marcar("codigo", "El SKU de variante debe ser distinto al SKU padre");
+      }
+    }
+
     if (!datos.categoria) marcar("categoria", "Selecciona una categoría");
     if (!datos.almacen) marcar("almacen", "Selecciona un almacén");
     if (!datos.medida) marcar("medida", "Selecciona una unidad");
+    if (!datos.codigo_afectacion_igv || !resolverAfectacionMasivoProducto(datos.codigo_afectacion_igv)) {
+      marcar("codigo_afectacion_igv", "Selecciona una afectación IGV válida");
+    }
 
     if (datos.stock === "" || !/^\d+$/.test(datos.stock) || Number(datos.stock) < 0) marcar("stock", "Stock inválido");
     if (datos.precio_compra === "" || !Number.isFinite(Number(datos.precio_compra)) || Number(datos.precio_compra) < 0) marcar("precio_compra", "Precio de compra inválido");
@@ -1520,48 +1640,114 @@ function validarHojaMasivaProducto() {
 
     const skuKey = normalizarMasivoProducto(datos.codigo);
     if (skuKey) {
-      if (skus[skuKey]) {
-        marcar("codigo", "SKU repetido dentro de la hoja");
-        skus[skuKey].find('[data-field="codigo"]').attr("data-invalid", "1").closest("tr").removeClass("is-valid").addClass("has-error");
-      } else {
-        skus[skuKey] = $fila;
-      }
+      if (!skuMap[skuKey]) skuMap[skuKey] = [];
+      skuMap[skuKey].push(entrada);
     }
 
-    datos._errores = mensajes;
-    filas.push(datos);
-
-    if (mensajes.length) {
-      errores++;
-      $fila.addClass("has-error").attr("title", mensajes.join(" · "));
-    } else {
-      validas++;
-      $fila.addClass("is-valid");
+    if (datos.tipo === "variante") {
+      const grupoKey = normalizarMasivoProducto(datos.grupo);
+      if (grupoKey) {
+        if (!grupos[grupoKey]) grupos[grupoKey] = [];
+        grupos[grupoKey].push(entrada);
+      }
     }
   });
 
-  // Segunda pasada para reflejar duplicados marcados en una fila anterior.
-  $("#cuerpoMasivoProductos tr.has-error").each(function () {
-    const id = String($(this).data("row-id") || "");
-    const item = filas.find(function (fila) { return fila.fila_cliente === id; });
-    if (item && (!item._errores || !item._errores.length)) {
-      item._errores = ["SKU repetido dentro de la hoja"];
-      validas = Math.max(0, validas - 1);
+  // Un SKU de fila no puede repetirse, sea producto simple o variación.
+  Object.keys(skuMap).forEach(function (skuKey) {
+    if (skuMap[skuKey].length < 2) return;
+    skuMap[skuKey].forEach(function (entrada) {
+      entrada.marcar("codigo", "SKU repetido dentro de la hoja");
+    });
+  });
+
+  // Reglas a nivel de producto variable.
+  Object.keys(grupos).forEach(function (grupoKey) {
+    const grupo = grupos[grupoKey];
+    if (!grupo.length) return;
+    const base = grupo[0].datos;
+
+    // El SKU padre se convertirá en articulo.codigo, por eso no puede ser el SKU
+    // de otra fila del mismo lote.
+    if (skuMap[grupoKey] && skuMap[grupoKey].length) {
+      grupo.forEach(function (entrada) {
+        entrada.marcar("grupo", "El SKU padre coincide con otro SKU de la hoja");
+      });
+      skuMap[grupoKey].forEach(function (entrada) {
+        entrada.marcar("codigo", "Este SKU coincide con el SKU padre de un producto variable");
+      });
+    }
+
+    const consistente = grupo.every(function (entrada) {
+      const d = entrada.datos;
+      return normalizarMasivoProducto(d.nombre) === normalizarMasivoProducto(base.nombre)
+        && d.categoria === base.categoria
+        && d.subcategoria === base.subcategoria
+        && d.almacen === base.almacen
+        && d.medida === base.medida
+        && d.codigo_afectacion_igv === base.codigo_afectacion_igv;
+    });
+
+    if (!consistente) {
+      grupo.forEach(function (entrada) {
+        entrada.marcar(null, "Todas las variantes del grupo deben usar el mismo producto, categoría, subcategoría, almacén, unidad y afectación IGV");
+      });
+    }
+
+    // La importación del grupo es atómica: si una fila falla, ninguna variante
+    // del grupo debe enviarse sola al servidor.
+    const grupoTieneError = grupo.some(function (entrada) { return entrada.mensajes.length > 0; });
+    if (grupoTieneError) {
+      grupo.forEach(function (entrada) {
+        if (!entrada.mensajes.length) {
+          entrada.marcar(null, "El grupo contiene otra variante con errores; corrige el grupo completo");
+        }
+      });
+    }
+  });
+
+  let errores = 0;
+  let validas = 0;
+  let productosValidos = 0;
+  const gruposValidosContados = {};
+  const filas = [];
+
+  entradas.forEach(function (entrada) {
+    const datos = entrada.datos;
+    datos._errores = entrada.mensajes.slice();
+    filas.push(datos);
+
+    if (entrada.mensajes.length) {
       errores++;
+      entrada.$fila.addClass("has-error").attr("title", entrada.mensajes.join(" · "));
+    } else {
+      validas++;
+      entrada.$fila.addClass("is-valid");
+      if (datos.tipo === "simple") {
+        productosValidos++;
+      } else {
+        const grupoKey = normalizarMasivoProducto(datos.grupo);
+        if (!gruposValidosContados[grupoKey]) {
+          gruposValidosContados[grupoKey] = true;
+          productosValidos++;
+        }
+      }
     }
   });
 
   $("#masivoTotal").text(filas.length);
   $("#masivoValidas").text(validas);
   $("#masivoErrores").text(errores);
-  $("#btnImportarMasivo").prop("disabled", validas === 0).html(`<i class="fas fa-cloud-upload-alt"></i> Importar ${validas} producto${validas === 1 ? "" : "s"} válido${validas === 1 ? "" : "s"}`);
+  $("#btnImportarMasivo")
+    .prop("disabled", validas === 0)
+    .html(`<i class="fas fa-cloud-upload-alt"></i> Importar ${productosValidos} producto${productosValidos === 1 ? "" : "s"} (${validas} fila${validas === 1 ? "" : "s"})`);
 
   if (!filas.length) {
     $("#masivoEstado").text("Agrega una fila o pega información desde Excel.");
   } else if (errores) {
-    $("#masivoEstado").html(`<strong>${validas}</strong> listas para importar · <span class="text-danger"><strong>${errores}</strong> requieren corrección</span>`);
+    $("#masivoEstado").html(`<strong>${validas}</strong> filas listas · <span class="text-danger"><strong>${errores}</strong> requieren corrección</span>`);
   } else {
-    $("#masivoEstado").html(`<span class="text-success"><i class="fas fa-check-circle mr-1"></i><strong>${validas}</strong> productos listos para importar</span>`);
+    $("#masivoEstado").html(`<span class="text-success"><i class="fas fa-check-circle mr-1"></i><strong>${productosValidos}</strong> producto${productosValidos === 1 ? "" : "s"} listo${productosValidos === 1 ? "" : "s"} para importar</span>`);
   }
 
   return filas;
@@ -1615,7 +1801,13 @@ function pegarMatrizMasivaProducto(matriz, $filaInicio, columnaInicio) {
       const $control = $fila.find(`[data-field="${campo}"]`);
       if (!$control.length) return;
 
-      if (["categoria", "subcategoria", "almacen", "medida"].includes(campo)) {
+      if (campo === "tipo") {
+        const tipo = normalizarTipoMasivoProducto(valor);
+        $control.val(tipo || "");
+        actualizarTipoFilaMasivaProducto($fila, false);
+      } else if (campo === "codigo_afectacion_igv") {
+        $control.val(resolverAfectacionMasivoProducto(valor));
+      } else if (["categoria", "subcategoria", "almacen", "medida"].includes(campo)) {
         const items = campo === "categoria" ? catalogosMasivosProducto.categorias : campo === "subcategoria" ? catalogosMasivosProducto.subcategorias : campo === "almacen" ? catalogosMasivosProducto.almacenes : catalogosMasivosProducto.medidas;
         const id = resolverCatalogoMasivo(valor, items, campo);
         if (campo === "categoria") {
@@ -1676,9 +1868,18 @@ function importarFilasMasivasProducto() {
     return;
   }
 
+  const productos = {};
+  filas.forEach(function (fila) {
+    const clave = fila.tipo === "variante"
+      ? `v:${normalizarMasivoProducto(fila.grupo)}`
+      : `s:${normalizarMasivoProducto(fila.codigo)}`;
+    productos[clave] = true;
+  });
+  const totalProductos = Object.keys(productos).length;
+
   Swal.fire({
-    title: `Importar ${filas.length} producto${filas.length === 1 ? "" : "s"}`,
-    text: "Se registrarán los productos válidos y su stock inicial en el sistema.",
+    title: `Importar ${totalProductos} producto${totalProductos === 1 ? "" : "s"}`,
+    text: `Se procesarán ${filas.length} fila${filas.length === 1 ? "" : "s"}. Los grupos de variantes se registran de forma completa o no se registran.`,
     icon: "question",
     showCancelButton: true,
     confirmButtonText: "Importar ahora",

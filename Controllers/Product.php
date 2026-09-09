@@ -83,15 +83,29 @@ function obtenerDatosTributariosProducto(
         ?? '10'
     ));
 
-    if (!in_array($afectacion, ['10', '20', '30', '40'], true)) {
+    $catalogoAfectacion = $conexion->getData(
+        "SELECT codigo, descripcion, porcentaje_predeterminado
+         FROM sunat_catalogo_07_afectacion_igv
+         WHERE codigo = ? AND activo = 1
+         LIMIT 1",
+        [$afectacion]
+    );
+
+    if (empty($catalogoAfectacion)) {
         throw new RuntimeException('La afectación al IGV del producto no es válida.');
     }
 
-    $porcentaje = round((float)(
-        $fuente['porcentaje_igv']
+    $porcentajeBase = $catalogoAfectacion['porcentaje_predeterminado']
         ?? $empresa['porcentaje_igv_predeterminado']
-        ?? 18
-    ), 2);
+        ?? 18;
+
+    if (array_key_exists('porcentaje_igv', $fuente) && trim((string)$fuente['porcentaje_igv']) !== '') {
+        $porcentajeBase = $fuente['porcentaje_igv'];
+    } elseif ($afectacion === '10') {
+        $porcentajeBase = $empresa['porcentaje_igv_predeterminado'] ?? $porcentajeBase;
+    }
+
+    $porcentaje = round((float)$porcentajeBase, 2);
 
     if ($afectacion === '10') {
         if ($porcentaje <= 0 || $porcentaje > 100) {
@@ -176,11 +190,22 @@ function catalogosMasivosProducto(Conexion $conexion): array
          ORDER BY CASE WHEN UPPER(codigo) = 'NIU' THEN 0 ELSE 1 END, nombre ASC"
     );
 
+    $afectacionesIgv = $conexion->getDataAll(
+        "SELECT codigo, descripcion, porcentaje_predeterminado
+         FROM sunat_catalogo_07_afectacion_igv
+         WHERE activo = 1
+         ORDER BY orden ASC, codigo ASC"
+    );
+
+    $configuracionTributaria = obtenerDatosTributariosProducto($conexion, []);
+
     return [
         'categorias' => is_array($categorias) ? $categorias : [],
         'subcategorias' => is_array($subcategorias) ? $subcategorias : [],
         'almacenes' => is_array($almacenes) ? $almacenes : [],
-        'medidas' => is_array($medidas) ? $medidas : []
+        'medidas' => is_array($medidas) ? $medidas : [],
+        'afectaciones_igv' => is_array($afectacionesIgv) ? $afectacionesIgv : [],
+        'tributacion_predeterminada' => $configuracionTributaria
     ];
 }
 
@@ -242,6 +267,54 @@ function idDesdeValorCatalogoMasivo($valor, array $items, string $idKey, array $
     return 0;
 }
 
+function tipoDesdeValorMasivoProducto($valor): string
+{
+    $normalizado = normalizarTextoMasivoProducto($valor);
+    if (in_array($normalizado, ['variante', 'variacion', 'variable'], true)) {
+        return 'variante';
+    }
+    if (in_array($normalizado, ['simple', 'producto simple', 'normal'], true)) {
+        return 'simple';
+    }
+    return '';
+}
+
+function codigoAfectacionDesdeValorMasivoProducto($valor, array $items, string $predeterminado = '10'): string
+{
+    $texto = trim((string)$valor);
+    if ($texto === '') {
+        return $predeterminado;
+    }
+
+    if (preg_match('/^\s*([0-9]{2})\s*(?:-|$)/', $texto, $m)) {
+        $codigo = $m[1];
+        foreach ($items as $item) {
+            if ((string)($item['codigo'] ?? '') === $codigo) {
+                return $codigo;
+            }
+        }
+    }
+
+    $objetivo = normalizarTextoMasivoProducto($texto);
+    foreach ($items as $item) {
+        $codigo = trim((string)($item['codigo'] ?? ''));
+        $descripcion = trim((string)($item['descripcion'] ?? ''));
+        $candidatos = [
+            $codigo,
+            $descripcion,
+            $codigo . ' - ' . $descripcion,
+            $codigo . ' — ' . $descripcion
+        ];
+        foreach ($candidatos as $candidato) {
+            if (normalizarTextoMasivoProducto($candidato) === $objetivo) {
+                return $codigo;
+            }
+        }
+    }
+
+    return '';
+}
+
 function normalizarCabeceraMasivaProducto($valor): string
 {
     return preg_replace('/[^a-z0-9]+/', '', normalizarTextoMasivoProducto($valor));
@@ -250,15 +323,19 @@ function normalizarCabeceraMasivaProducto($valor): string
 function mapaCabecerasMasivasProducto(array $cabeceras): array
 {
     $alias = [
+        'tipo' => ['tipo', 'tipoproducto', 'clase'],
+        'grupo' => ['grupo', 'skupadre', 'codigopadre', 'gruposku', 'gruposkupadre'],
         'nombre' => ['nombre', 'producto', 'nombreproducto'],
         'codigo' => ['codigo', 'sku', 'codigoproducto'],
+        'variante' => ['variante', 'variacion', 'combinacion', 'descripcionvariante'],
         'stock' => ['stock', 'existencia', 'existencias', 'cantidad'],
         'precio_compra' => ['preciocompra', 'costocompra', 'costo', 'pcompra'],
         'precio_venta' => ['precioventa', 'venta', 'pventa'],
         'categoria' => ['categoria', 'idcategoria'],
         'subcategoria' => ['subcategoria', 'idsubcategoria'],
         'almacen' => ['almacen', 'idalmacen'],
-        'medida' => ['medida', 'idmedida', 'unidad', 'unidaddemedida', 'unidadmedida']
+        'medida' => ['medida', 'idmedida', 'unidad', 'unidaddemedida', 'unidadmedida'],
+        'codigo_afectacion_igv' => ['afectacionigv', 'afectacion', 'tributacion', 'igv', 'codigoafectacionigv']
     ];
 
     $resultado = [];
@@ -283,11 +360,16 @@ function matrizAFilasMasivasProducto(array $matriz): array
 
     $cabeceras = array_shift($matriz);
     $mapa = mapaCabecerasMasivasProducto(is_array($cabeceras) ? $cabeceras : []);
-    $campos = ['nombre','codigo','stock','precio_compra','precio_venta','categoria','subcategoria','almacen','medida'];
+    $campos = [
+        'tipo', 'grupo', 'nombre', 'codigo', 'variante', 'stock',
+        'precio_compra', 'precio_venta', 'categoria', 'subcategoria',
+        'almacen', 'medida', 'codigo_afectacion_igv'
+    ];
 
     if (count($mapa) < 4) {
         // Compatibilidad con la plantilla histórica de 9 columnas en orden fijo.
-        $mapa = array_combine($campos, range(0, 8));
+        $camposHistoricos = ['nombre','codigo','stock','precio_compra','precio_venta','categoria','subcategoria','almacen','medida'];
+        $mapa = array_combine($camposHistoricos, range(0, 8));
         array_unshift($matriz, $cabeceras);
     }
 
@@ -306,7 +388,12 @@ function matrizAFilasMasivasProducto(array $matriz): array
         }
 
         $hayDatos = false;
-        foreach ($item as $valor) {
+        foreach ($item as $campo => $valor) {
+            // Tipo y afectación pueden venir con valores predeterminados en
+            // la plantilla; no deben convertir una fila vacía en una fila real.
+            if (in_array($campo, ['tipo', 'codigo_afectacion_igv'], true)) {
+                continue;
+            }
             if (trim((string)$valor) !== '') {
                 $hayDatos = true;
                 break;
@@ -314,6 +401,9 @@ function matrizAFilasMasivasProducto(array $matriz): array
         }
 
         if ($hayDatos) {
+            if ($item['tipo'] === '') {
+                $item['tipo'] = 'Simple';
+            }
             $filas[] = $item;
         }
 
@@ -532,16 +622,28 @@ function xmlHojaListasProducto(array $catalogos): string
         'A' => array_map(fn($x) => $x['idcategoria'] . ' - ' . $x['nombre'], $catalogos['categorias']),
         'B' => array_map(fn($x) => $x['idsubcategoria'] . ' - ' . $x['nombre'] . (!empty($x['categoria']) ? ' · ' . $x['categoria'] : ''), $catalogos['subcategorias']),
         'C' => array_map(fn($x) => $x['idalmacen'] . ' - ' . $x['nombre'], $catalogos['almacenes']),
-        'D' => array_map(fn($x) => $x['idmedida'] . ' - ' . $x['nombre'] . (!empty($x['codigo']) ? ' (' . $x['codigo'] . ')' : ''), $catalogos['medidas'])
+        'D' => array_map(fn($x) => $x['idmedida'] . ' - ' . $x['nombre'] . (!empty($x['codigo']) ? ' (' . $x['codigo'] . ')' : ''), $catalogos['medidas']),
+        'E' => ['Simple', 'Variante'],
+        'F' => array_map(
+            fn($x) => $x['codigo'] . ' - ' . $x['descripcion'],
+            $catalogos['afectaciones_igv'] ?? []
+        )
     ];
 
-    $titulos = ['A' => 'Categorias', 'B' => 'Subcategorias', 'C' => 'Almacenes', 'D' => 'Unidades'];
+    $titulos = [
+        'A' => 'Categorias',
+        'B' => 'Subcategorias',
+        'C' => 'Almacenes',
+        'D' => 'Unidades',
+        'E' => 'Tipos',
+        'F' => 'AfectacionesIGV'
+    ];
     $max = max(array_merge([1], array_values(array_map('count', $columnas))));
     $rows = '';
 
     for ($r = 1; $r <= $max + 1; $r++) {
         $cells = '';
-        foreach (['A', 'B', 'C', 'D'] as $col) {
+        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $col) {
             $valor = $r === 1 ? $titulos[$col] : ($columnas[$col][$r - 2] ?? '');
             if ($valor === '') {
                 continue;
@@ -557,10 +659,10 @@ function xmlHojaListasProducto(array $catalogos): string
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         . '<sheetPr><outlinePr summaryBelow="1" summaryRight="1"/><pageSetUpPr/></sheetPr>'
-        . '<dimension ref="A1:D' . ($max + 1) . '"/>'
+        . '<dimension ref="A1:F' . ($max + 1) . '"/>'
         . '<sheetViews><sheetView workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews>'
         . '<sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>'
-        . '<cols><col min="1" max="4" width="34" customWidth="1"/></cols>'
+        . '<cols><col min="1" max="6" width="34" customWidth="1"/></cols>'
         . '<sheetData>' . $rows . '</sheetData>'
         . '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
         . '</worksheet>';
@@ -568,7 +670,11 @@ function xmlHojaListasProducto(array $catalogos): string
 
 function xmlHojaProductosPlantilla(array $catalogos): string
 {
-    $headers = ['Producto', 'SKU', 'Stock', 'PrecioCompra', 'PrecioVenta', 'Categoria', 'Subcategoria', 'Almacen', 'UnidadMedida'];
+    $headers = [
+        'Tipo', 'GrupoSKU', 'Producto', 'SKU', 'Variante', 'Stock',
+        'PrecioCompra', 'PrecioVenta', 'Categoria', 'Subcategoria',
+        'Almacen', 'UnidadMedida', 'AfectacionIGV'
+    ];
     $cells = '';
     foreach ($headers as $i => $header) {
         $col = columnaExcelProducto($i + 1);
@@ -577,29 +683,33 @@ function xmlHojaProductosPlantilla(array $catalogos): string
 
     $validaciones = [];
     if (count($catalogos['categorias'])) {
-        $validaciones[] = '<dataValidation type="list" allowBlank="0" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Categoría" prompt="Selecciona ID + nombre." errorTitle="Categoría inválida" error="Selecciona una categoría de la lista." sqref="F2:F501"><formula1>CategoriasLista</formula1></dataValidation>';
+        $validaciones[] = '<dataValidation type="list" allowBlank="0" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Categoría" prompt="Selecciona ID + nombre." errorTitle="Categoría inválida" error="Selecciona una categoría de la lista." sqref="I2:I501"><formula1>CategoriasLista</formula1></dataValidation>';
     }
     if (count($catalogos['subcategorias'])) {
-        $validaciones[] = '<dataValidation type="list" allowBlank="1" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Subcategoría" prompt="Selecciona ID + nombre." errorTitle="Subcategoría inválida" error="Selecciona una subcategoría de la lista." sqref="G2:G501"><formula1>SubcategoriasLista</formula1></dataValidation>';
+        $validaciones[] = '<dataValidation type="list" allowBlank="1" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Subcategoría" prompt="Selecciona ID + nombre." errorTitle="Subcategoría inválida" error="Selecciona una subcategoría de la lista." sqref="J2:J501"><formula1>SubcategoriasLista</formula1></dataValidation>';
     }
     if (count($catalogos['almacenes'])) {
-        $validaciones[] = '<dataValidation type="list" allowBlank="0" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Almacén" prompt="Selecciona ID + nombre." errorTitle="Almacén inválido" error="Selecciona un almacén de la lista." sqref="H2:H501"><formula1>AlmacenesLista</formula1></dataValidation>';
+        $validaciones[] = '<dataValidation type="list" allowBlank="0" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Almacén" prompt="Selecciona ID + nombre." errorTitle="Almacén inválido" error="Selecciona un almacén de la lista." sqref="K2:K501"><formula1>AlmacenesLista</formula1></dataValidation>';
     }
     if (count($catalogos['medidas'])) {
-        $validaciones[] = '<dataValidation type="list" allowBlank="0" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Unidad" prompt="Selecciona ID + nombre." errorTitle="Unidad inválida" error="Selecciona una unidad de la lista." sqref="I2:I501"><formula1>MedidasLista</formula1></dataValidation>';
+        $validaciones[] = '<dataValidation type="list" allowBlank="0" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Unidad" prompt="Selecciona ID + nombre." errorTitle="Unidad inválida" error="Selecciona una unidad de la lista." sqref="L2:L501"><formula1>MedidasLista</formula1></dataValidation>';
     }
-    $validaciones[] = '<dataValidation type="whole" operator="greaterThanOrEqual" allowBlank="0" showErrorMessage="1" errorStyle="stop" errorTitle="Stock inválido" error="Ingresa un stock igual o mayor a cero." sqref="C2:C501"><formula1>0</formula1></dataValidation>';
-    $validaciones[] = '<dataValidation type="decimal" operator="greaterThanOrEqual" allowBlank="0" showErrorMessage="1" errorStyle="stop" errorTitle="Precio inválido" error="Ingresa un precio igual o mayor a cero." sqref="D2:E501"><formula1>0</formula1></dataValidation>';
+    $validaciones[] = '<dataValidation type="list" allowBlank="0" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Tipo" prompt="Simple crea un producto independiente. Variante agrupa filas con el mismo GrupoSKU." errorTitle="Tipo inválido" error="Selecciona Simple o Variante." sqref="A2:A501"><formula1>TiposLista</formula1></dataValidation>';
+    if (!empty($catalogos['afectaciones_igv'])) {
+        $validaciones[] = '<dataValidation type="list" allowBlank="0" showDropDown="0" showInputMessage="1" showErrorMessage="1" errorStyle="stop" promptTitle="Afectación IGV" prompt="Selecciona la afectación tributaria desde el catálogo SUNAT configurado." errorTitle="Afectación inválida" error="Selecciona una afectación de la lista." sqref="M2:M501"><formula1>AfectacionesIgvLista</formula1></dataValidation>';
+    }
+    $validaciones[] = '<dataValidation type="whole" operator="greaterThanOrEqual" allowBlank="0" showErrorMessage="1" errorStyle="stop" errorTitle="Stock inválido" error="Ingresa un stock igual o mayor a cero." sqref="F2:F501"><formula1>0</formula1></dataValidation>';
+    $validaciones[] = '<dataValidation type="decimal" operator="greaterThanOrEqual" allowBlank="0" showErrorMessage="1" errorStyle="stop" errorTitle="Precio inválido" error="Ingresa un precio igual o mayor a cero." sqref="G2:H501"><formula1>0</formula1></dataValidation>';
 
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         . '<sheetPr><outlinePr summaryBelow="1" summaryRight="1"/><pageSetUpPr/></sheetPr>'
-        . '<dimension ref="A1:I501"/>'
+        . '<dimension ref="A1:M501"/>'
         . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>'
         . '<sheetFormatPr baseColWidth="8" defaultRowHeight="18"/>'
-        . '<cols><col min="1" max="1" width="30" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="5" width="15" customWidth="1"/><col min="6" max="9" width="30" customWidth="1"/></cols>'
+        . '<cols><col min="1" max="1" width="14" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="3" width="30" customWidth="1"/><col min="4" max="5" width="20" customWidth="1"/><col min="6" max="8" width="15" customWidth="1"/><col min="9" max="13" width="30" customWidth="1"/></cols>'
         . '<sheetData><row r="1" ht="24" customHeight="1">' . $cells . '</row></sheetData>'
-        . '<autoFilter ref="A1:I501"/>'
+        . '<autoFilter ref="A1:M501"/>'
         . '<dataValidations count="' . count($validaciones) . '">' . implode('', $validaciones) . '</dataValidations>'
         . '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
         . '</worksheet>';
@@ -707,6 +817,8 @@ function crearPlantillaXlsxProducto(array $catalogos, string $ruta): void
     $cantSub = max(1, count($catalogos['subcategorias']));
     $cantAlm = max(1, count($catalogos['almacenes']));
     $cantMed = max(1, count($catalogos['medidas']));
+    $cantTipos = 2;
+    $cantAfectaciones = max(1, count($catalogos['afectaciones_igv'] ?? []));
     $creado = gmdate('Y-m-d\\TH:i:s\\Z');
 
     $archivos = [
@@ -714,7 +826,7 @@ function crearPlantillaXlsxProducto(array $catalogos, string $ruta): void
         '_rels/.rels' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>',
         'docProps/core.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Plantilla de productos TiquePOS</dc:title><dc:creator>TiquePOS</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">' . $creado . '</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">' . $creado . '</dcterms:modified></cp:coreProperties>',
         'docProps/app.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>TiquePOS</Application><AppVersion>1.0</AppVersion></Properties>',
-        'xl/workbook.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookPr/><bookViews><workbookView visibility="visible" minimized="0" showHorizontalScroll="1" showVerticalScroll="1" showSheetTabs="1" firstSheet="0" activeTab="0"/></bookViews><sheets><sheet name="Productos" sheetId="1" state="visible" r:id="rId1"/><sheet name="Listas" sheetId="2" state="hidden" r:id="rId2"/></sheets><definedNames><definedName name="CategoriasLista">\'Listas\'!$A$2:$A$' . ($cantCat + 1) . '</definedName><definedName name="SubcategoriasLista">\'Listas\'!$B$2:$B$' . ($cantSub + 1) . '</definedName><definedName name="AlmacenesLista">\'Listas\'!$C$2:$C$' . ($cantAlm + 1) . '</definedName><definedName name="MedidasLista">\'Listas\'!$D$2:$D$' . ($cantMed + 1) . '</definedName><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\'Productos\'!$A$1:$I$501</definedName></definedNames><calcPr calcId="124519" fullCalcOnLoad="1"/></workbook>',
+        'xl/workbook.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookPr/><bookViews><workbookView visibility="visible" minimized="0" showHorizontalScroll="1" showVerticalScroll="1" showSheetTabs="1" firstSheet="0" activeTab="0"/></bookViews><sheets><sheet name="Productos" sheetId="1" state="visible" r:id="rId1"/><sheet name="Listas" sheetId="2" state="hidden" r:id="rId2"/></sheets><definedNames><definedName name="CategoriasLista">\'Listas\'!$A$2:$A$' . ($cantCat + 1) . '</definedName><definedName name="SubcategoriasLista">\'Listas\'!$B$2:$B$' . ($cantSub + 1) . '</definedName><definedName name="AlmacenesLista">\'Listas\'!$C$2:$C$' . ($cantAlm + 1) . '</definedName><definedName name="MedidasLista">\'Listas\'!$D$2:$D$' . ($cantMed + 1) . '</definedName><definedName name="TiposLista">\'Listas\'!$E$2:$E$' . ($cantTipos + 1) . '</definedName><definedName name="AfectacionesIgvLista">\'Listas\'!$F$2:$F$' . ($cantAfectaciones + 1) . '</definedName><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\'Productos\'!$A$1:$M$501</definedName></definedNames><calcPr calcId="124519" fullCalcOnLoad="1"/></workbook>',
         'xl/_rels/workbook.xml.rels' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
         'xl/styles.xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="0"/><fonts count="2"><font><name val="Calibri"/><family val="2"/><sz val="11"/></font><font><b val="1"/><color rgb="FFFFFFFF"/><name val="Calibri"/><sz val="11"/></font></fonts><fills count="3"><fill><patternFill/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF00A46A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><tableStyles count="0" defaultTableStyle="TableStyleMedium9" defaultPivotStyle="PivotStyleLight16"/></styleSheet>',
         'xl/worksheets/sheet1.xml' => xmlHojaProductosPlantilla($catalogos),
@@ -776,8 +888,9 @@ switch ($_GET['op'] ?? '') {
         echo "\xEF\xBB\xBF";
         $salida = fopen('php://output', 'wb');
         fputcsv($salida, [
-            'Producto', 'SKU', 'Stock', 'PrecioCompra', 'PrecioVenta',
-            'Categoria', 'Subcategoria', 'Almacen', 'UnidadMedida'
+            'Tipo', 'GrupoSKU', 'Producto', 'SKU', 'Variante', 'Stock',
+            'PrecioCompra', 'PrecioVenta', 'Categoria', 'Subcategoria',
+            'Almacen', 'UnidadMedida', 'AfectacionIGV'
         ], ',');
         fclose($salida);
         exit;
@@ -877,16 +990,20 @@ switch ($_GET['op'] ?? '') {
                 throw new RuntimeException('No hay filas para importar.');
             }
             if (count($filas) > 1000) {
-                throw new RuntimeException('El máximo por importación es de 1000 productos.');
+                throw new RuntimeException('El máximo por importación es de 1000 filas.');
             }
 
             $conexionMasiva = new Conexion();
             $catalogos = catalogosMasivosProducto($conexionMasiva);
-            $tributosMasivos = obtenerDatosTributariosProducto($conexionMasiva, []);
+            $afectacionesIgv = $catalogos['afectaciones_igv'] ?? [];
+            $tributacionPredeterminada = $catalogos['tributacion_predeterminada'] ?? obtenerDatosTributariosProducto($conexionMasiva, []);
+            $codigoAfectacionPredeterminado = (string)($tributacionPredeterminada['codigo_afectacion_igv'] ?? '10');
+
             $exitosos = [];
             $errores = [];
             $filasExitosas = [];
-            $skuLote = [];
+            $preparadas = [];
+            $gruposConError = [];
 
             foreach ($filas as $indice => $fila) {
                 if (!is_array($fila)) {
@@ -895,33 +1012,58 @@ switch ($_GET['op'] ?? '') {
                 }
 
                 $filaCliente = trim((string)($fila['fila_cliente'] ?? ($indice + 1)));
+                $tipo = tipoDesdeValorMasivoProducto($fila['tipo'] ?? 'Simple');
+                $grupoFila = trim((string)($fila['grupo'] ?? $fila['grupo_sku'] ?? ''));
+                $grupoKey = normalizarTextoMasivoProducto($grupoFila);
                 $nombreFila = preg_replace('/\s+/u', ' ', trim((string)($fila['nombre'] ?? '')));
                 $codigoFila = trim((string)($fila['codigo'] ?? ''));
+                $varianteFila = preg_replace('/\s+/u', ' ', trim((string)($fila['variante'] ?? $fila['combinacion'] ?? '')));
                 $stockCrudo = trim((string)($fila['stock'] ?? '0'));
                 $compraCruda = str_replace(',', '.', trim((string)($fila['precio_compra'] ?? '0')));
                 $ventaCruda = str_replace(',', '.', trim((string)($fila['precio_venta'] ?? '0')));
-
                 $prefijo = 'Fila ' . ($indice + 1) . ($codigoFila !== '' ? ' [' . $codigoFila . ']' : '') . ': ';
+                $problemas = [];
 
-                if ($nombreFila === '' || $codigoFila === '') {
-                    $errores[] = $prefijo . 'nombre y SKU son obligatorios.';
-                    continue;
+                if ($tipo === '') {
+                    $problemas[] = 'el tipo debe ser Simple o Variante.';
                 }
-                if (strlen($codigoFila) > 50) {
-                    $errores[] = $prefijo . 'el SKU supera 50 caracteres.';
-                    continue;
+                if ($nombreFila === '') {
+                    $problemas[] = 'el nombre es obligatorio.';
+                } elseif ((function_exists('mb_strlen') ? mb_strlen($nombreFila, 'UTF-8') : strlen($nombreFila)) > 100) {
+                    $problemas[] = 'el nombre supera 100 caracteres.';
                 }
+                if ($codigoFila === '') {
+                    $problemas[] = 'el SKU es obligatorio.';
+                } elseif ($tipo === 'simple' && strlen($codigoFila) > 50) {
+                    $problemas[] = 'el SKU de un producto simple supera 50 caracteres.';
+                } elseif ($tipo === 'variante' && strlen($codigoFila) > 100) {
+                    $problemas[] = 'el SKU de la variante supera 100 caracteres.';
+                }
+
+                if ($tipo === 'variante') {
+                    if ($grupoFila === '') {
+                        $problemas[] = 'el Grupo/SKU padre es obligatorio para una variante.';
+                    } elseif (strlen($grupoFila) > 50) {
+                        $problemas[] = 'el Grupo/SKU padre supera 50 caracteres.';
+                    }
+                    if ($varianteFila === '') {
+                        $problemas[] = 'la descripción de la variante es obligatoria.';
+                    } elseif ((function_exists('mb_strlen') ? mb_strlen($varianteFila, 'UTF-8') : strlen($varianteFila)) > 150) {
+                        $problemas[] = 'la descripción de la variante supera 150 caracteres.';
+                    }
+                    if ($grupoFila !== '' && normalizarTextoMasivoProducto($grupoFila) === normalizarTextoMasivoProducto($codigoFila)) {
+                        $problemas[] = 'el SKU de la variante no puede ser igual al SKU padre.';
+                    }
+                }
+
                 if (!preg_match('/^\d+$/', $stockCrudo)) {
-                    $errores[] = $prefijo . 'el stock debe ser un número entero igual o mayor a 0.';
-                    continue;
+                    $problemas[] = 'el stock debe ser un número entero igual o mayor a 0.';
                 }
                 if (!is_numeric($compraCruda) || (float)$compraCruda < 0) {
-                    $errores[] = $prefijo . 'el precio de compra no es válido.';
-                    continue;
+                    $problemas[] = 'el precio de compra no es válido.';
                 }
                 if (!is_numeric($ventaCruda) || (float)$ventaCruda <= 0) {
-                    $errores[] = $prefijo . 'el precio de venta debe ser mayor a 0.';
-                    continue;
+                    $problemas[] = 'el precio de venta debe ser mayor a 0.';
                 }
 
                 $idCategoriaFila = idDesdeValorCatalogoMasivo(
@@ -950,16 +1092,13 @@ switch ($_GET['op'] ?? '') {
                 );
 
                 if ($idCategoriaFila <= 0) {
-                    $errores[] = $prefijo . 'la categoría no existe o está desactivada.';
-                    continue;
+                    $problemas[] = 'la categoría no existe o está desactivada.';
                 }
                 if ($idAlmacenFila <= 0) {
-                    $errores[] = $prefijo . 'el almacén no existe o está desactivado.';
-                    continue;
+                    $problemas[] = 'el almacén no existe o está desactivado.';
                 }
                 if ($idMedidaFila <= 0) {
-                    $errores[] = $prefijo . 'la unidad de medida no existe o está desactivada.';
-                    continue;
+                    $problemas[] = 'la unidad de medida no existe o está desactivada.';
                 }
 
                 if ($idSubcategoriaFila > 0) {
@@ -974,49 +1113,258 @@ switch ($_GET['op'] ?? '') {
                         }
                     }
                     if (!$subValida) {
-                        $errores[] = $prefijo . 'la subcategoría no pertenece a la categoría elegida.';
-                        continue;
+                        $problemas[] = 'la subcategoría no pertenece a la categoría elegida.';
                     }
                 }
 
-                $skuNormal = normalizarTextoMasivoProducto($codigoFila);
-                if (isset($skuLote[$skuNormal])) {
-                    $errores[] = $prefijo . 'el SKU está repetido dentro de esta importación.';
+                $codigoAfectacion = codigoAfectacionDesdeValorMasivoProducto(
+                    $fila['codigo_afectacion_igv'] ?? $fila['afectacion_igv'] ?? '',
+                    $afectacionesIgv,
+                    $codigoAfectacionPredeterminado
+                );
+                if ($codigoAfectacion === '') {
+                    $problemas[] = 'la afectación al IGV no existe o está desactivada.';
+                }
+
+                $tributosFila = null;
+                if ($codigoAfectacion !== '') {
+                    try {
+                        $tributosFila = obtenerDatosTributariosProducto(
+                            $conexionMasiva,
+                            ['codigo_afectacion_igv' => $codigoAfectacion]
+                        );
+                    } catch (Throwable $errorTributario) {
+                        $problemas[] = $errorTributario->getMessage();
+                    }
+                }
+
+                if ($problemas) {
+                    $mensaje = $prefijo . implode(' ', array_values(array_unique($problemas)));
+                    $errores[] = $mensaje;
+                    if ($tipo === 'variante' && $grupoKey !== '') {
+                        $gruposConError[$grupoKey][] = $mensaje;
+                    }
                     continue;
                 }
-                $skuLote[$skuNormal] = true;
 
-                if ($product->verificarCodigo($codigoFila)) {
-                    $errores[] = $prefijo . 'ya existe un producto con ese SKU.';
+                $preparadas[] = [
+                    'indice' => $indice,
+                    'fila_cliente' => $filaCliente,
+                    'tipo' => $tipo,
+                    'grupo' => $grupoFila,
+                    'grupo_key' => $grupoKey,
+                    'nombre' => $nombreFila,
+                    'codigo' => $codigoFila,
+                    'variante' => $varianteFila,
+                    'stock' => (int)$stockCrudo,
+                    'precio_compra' => (float)$compraCruda,
+                    'precio_venta' => (float)$ventaCruda,
+                    'idcategoria' => $idCategoriaFila,
+                    'idsubcategoria' => $idSubcategoriaFila > 0 ? $idSubcategoriaFila : null,
+                    'idalmacen' => $idAlmacenFila,
+                    'idmedida' => $idMedidaFila,
+                    'codigo_afectacion_igv' => $tributosFila['codigo_afectacion_igv'],
+                    'porcentaje_igv' => $tributosFila['porcentaje_igv'],
+                    'unidad_medida_sunat' => $tributosFila['unidad_medida_sunat'],
+                    'codigo_producto_sunat' => $tributosFila['codigo_producto_sunat']
+                ];
+            }
+
+            $simples = [];
+            $gruposVariables = [];
+            $codigosLote = [];
+            $codigosBloqueadosLote = [];
+
+            foreach ($preparadas as $item) {
+                $codigoKey = normalizarTextoMasivoProducto($item['codigo']);
+                if (isset($codigosLote[$codigoKey])) {
+                    $anterior = $codigosLote[$codigoKey];
+                    $mensaje = 'SKU repetido dentro de la importación: ' . $item['codigo'] . '.';
+                    $errores[] = $mensaje;
+                    $codigosBloqueadosLote[$codigoKey] = true;
+
+                    if ($item['tipo'] === 'variante' && $item['grupo_key'] !== '') {
+                        $gruposConError[$item['grupo_key']][] = $mensaje;
+                    }
+                    if (($anterior['tipo'] ?? '') === 'variante' && !empty($anterior['grupo_key'])) {
+                        $gruposConError[$anterior['grupo_key']][] = $mensaje;
+                    }
+                    continue;
+                }
+                $codigosLote[$codigoKey] = $item;
+
+                if ($item['tipo'] === 'variante') {
+                    $gruposVariables[$item['grupo_key']][] = $item;
+                } else {
+                    $simples[] = $item;
+                }
+            }
+
+            // Un Grupo/SKU padre también es un código de artículo y no puede chocar
+            // con un SKU simple o con el SKU de una variación del mismo lote. Cuando
+            // existe la colisión se bloquean ambos lados para no importar solo una
+            // parte y dejar un resultado ambiguo.
+            foreach ($gruposVariables as $grupoKey => $itemsGrupo) {
+                $codigoPadre = $itemsGrupo[0]['grupo'];
+                $codigoPadreKey = normalizarTextoMasivoProducto($codigoPadre);
+                if (isset($codigosLote[$codigoPadreKey])) {
+                    $mensaje = 'Grupo [' . $codigoPadre . ']: el SKU padre coincide con otro SKU de la importación.';
+                    $errores[] = $mensaje;
+                    $gruposConError[$grupoKey][] = $mensaje;
+                    $codigosBloqueadosLote[$codigoPadreKey] = true;
+
+                    $itemEnConflicto = $codigosLote[$codigoPadreKey];
+                    if (($itemEnConflicto['tipo'] ?? '') === 'variante' && !empty($itemEnConflicto['grupo_key'])) {
+                        $gruposConError[$itemEnConflicto['grupo_key']][] = $mensaje;
+                    }
+                }
+
+                $base = $itemsGrupo[0];
+                foreach ($itemsGrupo as $itemGrupo) {
+                    $consistente =
+                        normalizarTextoMasivoProducto($itemGrupo['nombre']) === normalizarTextoMasivoProducto($base['nombre'])
+                        && (int)$itemGrupo['idcategoria'] === (int)$base['idcategoria']
+                        && (int)($itemGrupo['idsubcategoria'] ?? 0) === (int)($base['idsubcategoria'] ?? 0)
+                        && (int)$itemGrupo['idalmacen'] === (int)$base['idalmacen']
+                        && (int)$itemGrupo['idmedida'] === (int)$base['idmedida']
+                        && (string)$itemGrupo['codigo_afectacion_igv'] === (string)$base['codigo_afectacion_igv'];
+
+                    if (!$consistente) {
+                        $mensaje = 'Grupo [' . $codigoPadre . ']: todas las variantes deben usar el mismo producto, categoría, subcategoría, almacén, unidad y afectación IGV.';
+                        $errores[] = $mensaje;
+                        $gruposConError[$grupoKey][] = $mensaje;
+                        break;
+                    }
+                }
+            }
+
+            // Validación contra códigos duplicados del lote y contra los códigos
+            // ya existentes en la base de datos.
+            $simplesValidadas = [];
+            foreach ($simples as $item) {
+                $codigoKey = normalizarTextoMasivoProducto($item['codigo']);
+                if (isset($codigosBloqueadosLote[$codigoKey])) {
+                    $item['_bloqueado'] = true;
+                }
+                if ($product->verificarCodigoGlobal($item['codigo'])) {
+                    $errores[] = 'Fila ' . ($item['indice'] + 1) . ' [' . $item['codigo'] . ']: ya existe un producto o variante con ese SKU.';
+                    $item['_bloqueado'] = true;
+                }
+                $simplesValidadas[] = $item;
+            }
+            $simples = $simplesValidadas;
+
+            foreach ($gruposVariables as $grupoKey => $itemsGrupo) {
+                if (isset($gruposConError[$grupoKey])) {
+                    continue;
+                }
+
+                $codigoPadre = $itemsGrupo[0]['grupo'];
+                if ($product->verificarCodigoGlobal($codigoPadre)) {
+                    $mensaje = 'Grupo [' . $codigoPadre . ']: ya existe un producto o variante con ese SKU padre.';
+                    $errores[] = $mensaje;
+                    $gruposConError[$grupoKey][] = $mensaje;
+                    continue;
+                }
+
+                foreach ($itemsGrupo as $itemGrupo) {
+                    if ($product->verificarCodigoGlobal($itemGrupo['codigo'])) {
+                        $mensaje = 'Grupo [' . $codigoPadre . ']: ya existe el SKU de variante ' . $itemGrupo['codigo'] . '.';
+                        $errores[] = $mensaje;
+                        $gruposConError[$grupoKey][] = $mensaje;
+                        break;
+                    }
+                }
+            }
+
+            // Productos simples: una transacción por fila, igual que la importación histórica.
+            foreach ($simples as $item) {
+                if (!empty($item['_bloqueado'])) {
                     continue;
                 }
 
                 $resultadoFila = $product->insertarImportacionSegura(
-                    $idCategoriaFila,
-                    $idSubcategoriaFila > 0 ? $idSubcategoriaFila : null,
-                    $idMedidaFila,
-                    $idAlmacenFila,
-                    $codigoFila,
-                    $nombreFila,
-                    (int)$stockCrudo,
-                    (float)$compraCruda,
-                    (float)$ventaCruda,
+                    $item['idcategoria'],
+                    $item['idsubcategoria'],
+                    $item['idmedida'],
+                    $item['idalmacen'],
+                    $item['codigo'],
+                    $item['nombre'],
+                    $item['stock'],
+                    $item['precio_compra'],
+                    $item['precio_venta'],
                     'Importado desde carga masiva',
                     'default.png',
-                    $tributosMasivos['codigo_afectacion_igv'],
-                    $tributosMasivos['porcentaje_igv'],
-                    $tributosMasivos['unidad_medida_sunat'],
-                    $tributosMasivos['codigo_producto_sunat']
+                    $item['codigo_afectacion_igv'],
+                    $item['porcentaje_igv'],
+                    $item['unidad_medida_sunat'],
+                    $item['codigo_producto_sunat']
                 );
 
                 if (!($resultadoFila['success'] ?? false)) {
-                    $errores[] = $prefijo . 'no se pudo registrar. ' . trim((string)($resultadoFila['error'] ?? ''));
+                    $errores[] = 'Fila ' . ($item['indice'] + 1) . ' [' . $item['codigo'] . ']: no se pudo registrar. ' . trim((string)($resultadoFila['error'] ?? ''));
                     continue;
                 }
 
-                $exitosos[] = "{$codigoFila} · {$nombreFila}";
-                $filasExitosas[] = $filaCliente;
+                $exitosos[] = $item['codigo'] . ' · ' . $item['nombre'];
+                $filasExitosas[] = $item['fila_cliente'];
             }
+
+            // Productos variables: el padre y todas sus variantes se guardan juntos.
+            foreach ($gruposVariables as $grupoKey => $itemsGrupo) {
+                if (isset($gruposConError[$grupoKey])) {
+                    continue;
+                }
+
+                $base = $itemsGrupo[0];
+                $preciosCompra = array_map(fn($x) => (float)$x['precio_compra'], $itemsGrupo);
+                $preciosVenta = array_map(fn($x) => (float)$x['precio_venta'], $itemsGrupo);
+
+                $productoPadre = [
+                    'idcategoria' => $base['idcategoria'],
+                    'idsubcategoria' => $base['idsubcategoria'],
+                    'idmedida' => $base['idmedida'],
+                    'idalmacen' => $base['idalmacen'],
+                    'codigo' => $base['grupo'],
+                    'nombre' => $base['nombre'],
+                    'precio_compra' => $preciosCompra ? min($preciosCompra) : 0,
+                    'precio_venta' => $preciosVenta ? min($preciosVenta) : 0,
+                    'descripcion' => 'Producto variable importado desde carga masiva',
+                    'imagen' => 'default.png',
+                    'codigo_afectacion_igv' => $base['codigo_afectacion_igv'],
+                    'porcentaje_igv' => $base['porcentaje_igv'],
+                    'unidad_medida_sunat' => $base['unidad_medida_sunat'],
+                    'codigo_producto_sunat' => $base['codigo_producto_sunat']
+                ];
+
+                $variaciones = array_map(function ($itemGrupo) {
+                    return [
+                        'combinacion' => $itemGrupo['variante'],
+                        'sku' => $itemGrupo['codigo'],
+                        'stock' => $itemGrupo['stock'],
+                        'precio_compra' => $itemGrupo['precio_compra'],
+                        'precio_venta' => $itemGrupo['precio_venta']
+                    ];
+                }, $itemsGrupo);
+
+                $resultadoGrupo = $product->insertarGrupoVariantesImportacionSegura(
+                    $productoPadre,
+                    $variaciones
+                );
+
+                if (!($resultadoGrupo['success'] ?? false)) {
+                    $errores[] = 'Grupo [' . $base['grupo'] . ']: no se pudo registrar el producto variable. ' . trim((string)($resultadoGrupo['error'] ?? ''));
+                    continue;
+                }
+
+                $exitosos[] = $base['grupo'] . ' · ' . $base['nombre'] . ' (' . count($variaciones) . ' variante' . (count($variaciones) === 1 ? '' : 's') . ')';
+                foreach ($itemsGrupo as $itemGrupo) {
+                    $filasExitosas[] = $itemGrupo['fila_cliente'];
+                }
+            }
+
+            $filasExitosas = array_values(array_unique(array_map('strval', $filasExitosas)));
+            $errores = array_values(array_unique(array_filter(array_map('trim', $errores))));
 
             responderProductoJson(
                 true,
@@ -1028,6 +1376,7 @@ switch ($_GET['op'] ?? '') {
                     'errores' => $errores,
                     'filas_exitosas' => $filasExitosas,
                     'total_exitosos' => count($exitosos),
+                    'total_filas_exitosas' => count($filasExitosas),
                     'total_errores' => count($errores)
                 ]
             );
@@ -1583,6 +1932,118 @@ switch ($_GET['op'] ?? '') {
             $idsubcategoria > 0
             ? $idsubcategoria
             : null;
+
+        $variacionesFormulario = [];
+        $variacionesJson = trim((string)($_POST['variaciones_json'] ?? ''));
+        if ($variacionesJson !== '') {
+            try {
+                $variacionesDecodificadas = json_decode($variacionesJson, true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($variacionesDecodificadas)) {
+                    $variacionesFormulario = $variacionesDecodificadas;
+                }
+            } catch (JsonException $errorVariaciones) {
+                echo 'Las variantes enviadas no tienen un formato válido';
+                break;
+            }
+        }
+
+        /*
+         * Alta de producto variable desde el formulario normal.
+         * El mismo guardado transaccional usado por la importación evita
+         * que queden productos padre sin todas sus variantes.
+         */
+        if ($idarticulo <= 0 && $variacionesFormulario) {
+            $variacionesNormalizadas = [];
+            $skusVariaciones = [];
+
+            foreach ($variacionesFormulario as $indiceVariacion => $variacion) {
+                if (!is_array($variacion)) {
+                    echo 'Una de las variantes no tiene un formato válido';
+                    break 2;
+                }
+
+                $combinacionVariacion = preg_replace('/\s+/u', ' ', trim((string)($variacion['combinacion'] ?? '')));
+                $skuVariacion = trim((string)($variacion['sku'] ?? ''));
+                $stockVariacion = max(0, (int)($variacion['stock'] ?? 0));
+                $compraVariacion = max(0, (float)($variacion['precio_compra'] ?? 0));
+                $ventaVariacion = (float)($variacion['precio_venta'] ?? 0);
+
+                if ($combinacionVariacion === '') {
+                    echo 'Todas las variantes deben tener una combinación';
+                    break 2;
+                }
+                if ($skuVariacion === '') {
+                    echo 'Todas las variantes deben tener un SKU';
+                    break 2;
+                }
+                if (strlen($skuVariacion) > 100) {
+                    echo 'El SKU de una variante supera 100 caracteres';
+                    break 2;
+                }
+                if ($ventaVariacion <= 0) {
+                    echo 'Todas las variantes deben tener un precio de venta mayor a 0';
+                    break 2;
+                }
+
+                $skuKey = normalizarTextoMasivoProducto($skuVariacion);
+                if (isset($skusVariaciones[$skuKey])) {
+                    echo 'No se puede guardar. Hay SKU repetidos entre las variantes';
+                    break 2;
+                }
+                $skusVariaciones[$skuKey] = true;
+
+                if ($product->verificarCodigoGlobal($skuVariacion)) {
+                    echo 'No se puede guardar. El SKU de variante ' . $skuVariacion . ' ya existe';
+                    break 2;
+                }
+
+                $variacionesNormalizadas[] = [
+                    'combinacion' => $combinacionVariacion,
+                    'sku' => $skuVariacion,
+                    'stock' => $stockVariacion,
+                    'precio_compra' => $compraVariacion,
+                    'precio_venta' => $ventaVariacion
+                ];
+            }
+
+            if (isset($skusVariaciones[normalizarTextoMasivoProducto($codigo)])) {
+                echo 'No se puede guardar. El código del producto padre coincide con el SKU de una variante';
+                break;
+            }
+
+            if ($product->verificarCodigoGlobal($codigo)) {
+                echo 'No se puede guardar. El código del producto ya existe como producto o variante';
+                break;
+            }
+
+            $preciosCompraVariaciones = array_map(fn($v) => (float)$v['precio_compra'], $variacionesNormalizadas);
+            $preciosVentaVariaciones = array_map(fn($v) => (float)$v['precio_venta'], $variacionesNormalizadas);
+
+            $resultadoVariable = $product->insertarGrupoVariantesImportacionSegura(
+                [
+                    'idcategoria' => $idcategoria,
+                    'idsubcategoria' => $idsubcategoriaFinal,
+                    'idmedida' => $idmedida,
+                    'idalmacen' => $idalmacen,
+                    'codigo' => $codigo,
+                    'nombre' => $nombre,
+                    'precio_compra' => $preciosCompraVariaciones ? min($preciosCompraVariaciones) : 0,
+                    'precio_venta' => $preciosVentaVariaciones ? min($preciosVentaVariaciones) : 0,
+                    'descripcion' => $descripcion,
+                    'imagen' => $imagen,
+                    'codigo_afectacion_igv' => $tributosProducto['codigo_afectacion_igv'],
+                    'porcentaje_igv' => $tributosProducto['porcentaje_igv'],
+                    'unidad_medida_sunat' => $tributosProducto['unidad_medida_sunat'],
+                    'codigo_producto_sunat' => $tributosProducto['codigo_producto_sunat']
+                ],
+                $variacionesNormalizadas
+            );
+
+            echo ($resultadoVariable['success'] ?? false)
+                ? 'Producto variable registrado correctamente'
+                : 'No se pudo registrar el producto variable. ' . trim((string)($resultadoVariable['error'] ?? ''));
+            break;
+        }
 
         if ($idarticulo <= 0) {
 
