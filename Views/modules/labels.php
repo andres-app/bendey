@@ -78,7 +78,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
     .lb-list-scroll::-webkit-scrollbar-track { background: transparent; }
     .lb-list-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
 
-    /* Vista previa: estas medidas deben conservar unidades físicas (mm). */
+    /* Vista previa: composición física de la etiqueta. */
     .lb-preview-stage {
         min-height: 360px;
         display: flex;
@@ -90,24 +90,132 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
     .lb-preview-sheet { display: grid; transform-origin: top center; }
     .lb-preview-label {
         box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+        display: grid;
+        grid-template-rows: 48% 31% 17%;
+        row-gap: 2%;
         overflow: hidden;
-        padding: 1mm;
-        color: #111;
+        min-width: 0;
+        padding: .65mm .75mm .55mm;
+        color: #050505;
         background: #fff;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, .14);
-        font-family: Arial, sans-serif;
+        border-radius: 1.8mm;
+        box-shadow: 0 3px 10px rgba(15, 23, 42, .16);
+        font-family: Arial, Helvetica, sans-serif;
+        line-height: 1;
     }
     .lb-preview-label.with-border { outline: 1px dashed #94a3b8; outline-offset: -1px; }
-    .lb-label-business { overflow: hidden; margin-bottom: .4mm; font-size: 6pt; font-weight: 900; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-    .lb-label-name { overflow: hidden; margin-bottom: .35mm; font-size: 7pt; font-weight: 800; line-height: 1.08; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    .lb-label-barcode { min-height: 0; display: flex; flex: 1 1 auto; align-items: center; justify-content: center; overflow: hidden; }
-    .lb-label-barcode svg { display: block; width: 100%; height: 100%; max-width: 100%; }
-    .lb-label-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 4px; margin-top: .35mm; font-size: 5.6pt; line-height: 1; }
-    .lb-label-sku { overflow: hidden; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-    .lb-label-price { flex: 0 0 auto; font-size: 7pt; font-weight: 900; }
+    .lb-label-heading {
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+    .lb-label-business {
+        overflow: hidden;
+        flex: 0 0 auto;
+        margin: 0 0 .18mm;
+        font-size: var(--lb-business-size, 4.2pt);
+        font-weight: 700;
+        line-height: 1;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .lb-label-name-price {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+    .lb-label-name {
+        display: -webkit-box;
+        overflow: hidden;
+        min-width: 0;
+        min-height: 0;
+        margin: 0;
+        padding: 0 .1mm;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        font-size: var(--lb-name-size, 6pt);
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -.018em;
+        text-align: left;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    .lb-label-price-row {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        z-index: 3;
+        display: flex;
+        min-width: 0;
+        max-width: 62%;
+        align-items: flex-end;
+        justify-content: flex-end;
+        overflow: hidden;
+        padding: 0 0 .04mm .45mm;
+        background: #fff;
+        white-space: nowrap;
+    }
+    .lb-label-currency {
+        flex: 0 0 auto;
+        margin: 0 .24mm .12em 0;
+        font-size: var(--lb-currency-size, 7.2pt);
+        font-weight: 500;
+        line-height: .9;
+    }
+    .lb-label-price-value {
+        flex: 0 1 auto;
+        max-width: 100%;
+        overflow: hidden;
+        font-size: var(--lb-price-size, 11.8pt);
+        font-weight: 950;
+        line-height: .84;
+        letter-spacing: -.035em;
+        text-overflow: clip;
+    }
+    .lb-label-barcode {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: .04mm .15mm;
+    }
+    .lb-label-barcode svg {
+        display: block;
+        width: 90%;
+        height: 52%;
+        max-width: 90%;
+        max-height: 52%;
+        overflow: hidden;
+        flex: 0 1 auto;
+    }
+    .lb-label-sku {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        align-items: flex-start;
+        justify-content: center;
+        overflow: hidden;
+        margin: 0;
+        padding: .05mm .2mm 0;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: var(--lb-sku-size, 5.3pt);
+        font-weight: 800;
+        line-height: .95;
+        letter-spacing: .015em;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
 
     @media (max-width: 1100px) {
         .lb-preview-sticky { position: static !important; }
