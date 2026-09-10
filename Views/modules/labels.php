@@ -78,7 +78,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
     .lb-list-scroll::-webkit-scrollbar-track { background: transparent; }
     .lb-list-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
 
-    /* Vista previa: estas medidas deben conservar unidades físicas (mm). */
+    /* Vista previa: composición física de la etiqueta. */
     .lb-preview-stage {
         min-height: 360px;
         display: flex;
@@ -90,24 +90,135 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
     .lb-preview-sheet { display: grid; transform-origin: top center; }
     .lb-preview-label {
         box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+        display: grid;
+        grid-template-rows: 48% 31% 17%;
+        row-gap: 2%;
         overflow: hidden;
-        padding: 1mm;
-        color: #111;
+        min-width: 0;
+        padding: .65mm .75mm .55mm;
+        color: #050505;
         background: #fff;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, .14);
-        font-family: Arial, sans-serif;
+        border-radius: 1.8mm;
+        box-shadow: 0 3px 10px rgba(15, 23, 42, .16);
+        font-family: Arial, Helvetica, sans-serif;
+        line-height: 1;
     }
     .lb-preview-label.with-border { outline: 1px dashed #94a3b8; outline-offset: -1px; }
-    .lb-label-business { overflow: hidden; margin-bottom: .4mm; font-size: 6pt; font-weight: 900; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-    .lb-label-name { overflow: hidden; margin-bottom: .35mm; font-size: 7pt; font-weight: 800; line-height: 1.08; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    .lb-label-barcode { min-height: 0; display: flex; flex: 1 1 auto; align-items: center; justify-content: center; overflow: hidden; }
-    .lb-label-barcode svg { display: block; width: 100%; height: 100%; max-width: 100%; }
-    .lb-label-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 4px; margin-top: .35mm; font-size: 5.6pt; line-height: 1; }
-    .lb-label-sku { overflow: hidden; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-    .lb-label-price { flex: 0 0 auto; font-size: 7pt; font-weight: 900; }
+    .lb-label-heading {
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+    .lb-label-business {
+        overflow: hidden;
+        flex: 0 0 auto;
+        margin: 0 0 .18mm;
+        font-size: var(--lb-business-size, 4.2pt);
+        font-weight: 700;
+        line-height: 1;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .lb-label-name-price {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+    .lb-label-name {
+        display: -webkit-box;
+        overflow: hidden;
+        min-width: 0;
+        min-height: 0;
+        margin: 0;
+        padding: 0 .1mm;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        font-size: var(--lb-name-size, 6pt);
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -.018em;
+        text-align: left;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    .lb-label-price-row {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        z-index: 3;
+        display: flex;
+        min-width: 0;
+        max-width: 62%;
+        align-items: flex-end;
+        justify-content: flex-end;
+        overflow: hidden;
+        padding: 0 0 .04mm .45mm;
+        background: #fff;
+        white-space: nowrap;
+    }
+    .lb-label-currency {
+        flex: 0 0 auto;
+        margin: 0 .24mm .12em 0;
+        font-size: var(--lb-currency-size, 7.2pt);
+        font-weight: 500;
+        line-height: .9;
+    }
+    .lb-label-price-value {
+        flex: 0 1 auto;
+        max-width: 100%;
+        overflow: hidden;
+        font-size: var(--lb-price-size, 11.8pt);
+        font-weight: 950;
+        line-height: .84;
+        letter-spacing: -.035em;
+        text-overflow: clip;
+    }
+    .lb-label-barcode {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        align-items: center;
+        justify-content: center;
+        /* Se extiende dentro del padding de la etiqueta para dejar solo ~0.30 mm por lado. */
+        overflow: visible;
+        margin-left: -.45mm;
+        margin-right: -.45mm;
+        padding: 0;
+    }
+    .lb-label-barcode svg {
+        display: block;
+        width: 100%;
+        height: 52%;
+        max-width: none;
+        max-height: 52%;
+        overflow: hidden;
+        flex: 1 1 auto;
+    }
+    .lb-label-sku {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        align-items: flex-start;
+        justify-content: center;
+        overflow: hidden;
+        margin: 0;
+        padding: .05mm .2mm 0;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: var(--lb-sku-size, 5.3pt);
+        font-weight: 800;
+        line-height: .95;
+        letter-spacing: .015em;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
 
     @media (max-width: 1100px) {
         .lb-preview-sticky { position: static !important; }
@@ -302,9 +413,9 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                             <select class="tw-min-w-0 tw-flex-1 tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-px-3 tw-py-2.5 tw-text-[12px] tw-text-slate-700 tw-outline-none focus:tw-border-tique-400" id="directPrinterName"><option value="">Detecta las impresoras instaladas...</option></select>
                                             <button type="button" class="tw-inline-flex tw-min-h-[40px] tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border tw-border-tique-200 tw-bg-white tw-px-3 tw-text-[12px] tw-font-semibold tw-text-tique-700 hover:tw-bg-tique-50" id="btnDetectarImpresoras"><i class="fas fa-plug"></i><span>Detectar</span></button>
                                         </div>
-                                        <button type="button" class="tw-inline-flex tw-min-h-[38px] tw-w-full tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-slate-900 tw-px-3 tw-text-[12px] tw-font-semibold tw-text-white hover:tw-bg-slate-800" id="btnDescargarConector"><i class="fas fa-download"></i><span>Descargar Conector TiquePOS</span></button>
-                                        <div class="tw-text-[10px] tw-leading-4 tw-text-slate-500" id="connectorVersionInfo">TIQUEPOS S.A.C. · RUC 20609518597 · Windows 10/11</div>
-                                        <div class="tw-text-[10px] tw-leading-4 tw-text-slate-500">El conector detecta las impresoras de Windows y envía TSPL directamente, sin abrir el diálogo de impresión.</div>
+                                        <button type="button" class="tw-inline-flex tw-min-h-[40px] tw-w-full tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-slate-900 tw-px-3 tw-text-[12px] tw-font-semibold tw-text-white hover:tw-bg-slate-800" id="btnDescargarQz"><i class="fas fa-shield-alt"></i><span>Descargar QZ Tray · sitio oficial</span></button>
+                                        <div class="tw-text-[10px] tw-leading-4 tw-text-slate-500" id="qzVersionInfo">QZ Tray 2.2.6 · qz.io · Windows / macOS / Linux</div>
+                                        <div class="tw-text-[10px] tw-leading-4 tw-text-slate-500">TiquePOS usa QZ Tray para detectar las impresoras instaladas y enviar TSPL directo. La descarga se abre únicamente desde el sitio oficial de QZ.</div>
                                     </div>
 
                                     <div class="tw-mt-3 tw-border-t tw-border-tique-100 tw-pt-3">
@@ -383,10 +494,10 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                 </div>
                 <div class="tw-mt-4 tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-white tw-p-4">
                     <ul class="tw-m-0 tw-space-y-2 tw-pl-4 tw-text-[11px] tw-leading-5 tw-text-slate-500">
-                        <li>El Conector de impresoras TiquePOS se instala una sola vez en cada PC Windows y se inicia automáticamente.</li>
-                        <li>Solo escucha en <strong>127.0.0.1</strong> y queda vinculado al dominio de este TiquePOS.</li>
-                        <li>La <strong>TSC TE200</strong> recibe TSPL directo a través del spooler de Windows.</li>
-                        <li>Si el conector no está disponible, el diálogo del sistema continúa funcionando como respaldo.</li>
+                        <li><strong>QZ Tray</strong> se instala una sola vez en el equipo y se ejecuta en segundo plano.</li>
+                        <li>La descarga se abre desde <strong>qz.io</strong>, el sitio oficial del fabricante; TiquePOS ya no distribuye ejecutables ni instaladores propios.</li>
+                        <li>La <strong>TSC TE200</strong> recibe TSPL directo mediante QZ Tray, evitando el escalado del navegador.</li>
+                        <li>La primera vez QZ Tray puede pedir autorización para permitir que este sitio imprima. Sin QZ, el diálogo del sistema sigue disponible como respaldo.</li>
                     </ul>
                 </div>
             </div>
@@ -404,5 +515,6 @@ $rutaJs = __DIR__ . '/scripts/labels.js';
 $versionJs = is_file($rutaJs) ? filemtime($rutaJs) : time();
 ?>
 <script src="Assets/js/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.6/qz-tray.js" onerror="this.onerror=null;this.src='https://unpkg.com/qz-tray@2.2.6/qz-tray.js';"></script>
 <script src="Views/modules/scripts/labels.js?v=<?= (int)$versionJs ?>"></script>
 <?php ob_end_flush(); ?>

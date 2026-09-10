@@ -23,7 +23,7 @@ import (
 
 const (
 	connectorName    = "TiquePOS Print Connector"
-	connectorVersion = "1.0.1"
+	connectorVersion = "1.0.4"
 	connectorCompany = "TIQUEPOS S.A.C."
 	connectorRUC     = "20609518597"
 	defaultPort      = 17654

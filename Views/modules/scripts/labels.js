@@ -4,8 +4,6 @@
   const STORAGE_PRINTERS = 'tiquepos_label_printers_v1';
   const STORAGE_FORMAT = 'tiquepos_label_format_v1';
   const STORAGE_DIRECT_PRINTER = 'tiquepos_label_direct_printer_v1';
-  const STORAGE_CONNECTOR_TOKEN = 'tiquepos_print_connector_token_v1';
-  const CONNECTOR_URL = 'http://127.0.0.1:17654';
   const MAX_PREVIEW_LABELS = 12;
 
   let productos = [];
@@ -55,6 +53,25 @@
   function formatoMoneda(valor) {
     const n = Number(valor || 0);
     return (negocio.simbolo || 'S/') + ' ' + n.toFixed(2);
+  }
+
+  function precioEtiqueta(valor) {
+    const n = Number(valor || 0);
+    const monto = Number.isInteger(n) ? String(Math.trunc(n)) : n.toFixed(2);
+    return { simbolo: String(negocio.simbolo || 'S/').trim(), monto: monto };
+  }
+
+  function estilosEtiqueta(s) {
+    const escala = Math.max(0.72, Math.min(1.8, Math.min(Number(s.width || 30) / 30, Number(s.height || 20) / 20)));
+    const compact = s.compactMode ? 0.9 : 1;
+    const ancho = Math.max(15, Number(s.width || 30));
+    return {
+      business: (4.2 * escala * compact).toFixed(2),
+      name: (6.0 * escala * compact).toFixed(2),
+      currency: (7.2 * escala * compact).toFixed(2),
+      price: (11.8 * escala * compact).toFixed(2),
+      sku: (Math.min(5.6, Math.max(4.4, 5.3 * Math.min(1, ancho / 30))) * escala * compact).toFixed(2)
+    };
   }
 
   function cargarPerfiles() {
@@ -472,9 +489,11 @@
         format: 'CODE128',
         displayValue: false,
         margin: 0,
-        width: compact ? 1.05 : 1.25,
-        height: compact ? 24 : 34
+        width: compact ? 0.62 : 0.70,
+        height: compact ? 10 : 12
       });
+      svg.setAttribute('preserveAspectRatio', 'none');
+      svg.style.overflow = 'hidden';
       return svg.outerHTML;
     } catch (e) {
       return '<div style="font-size:6pt;text-align:center">SKU no compatible</div>';
@@ -483,17 +502,24 @@
 
   function etiquetaHtml(p, s, preview) {
     const border = s.showBorder ? ' with-border' : '';
-    const style = preview ? `style="width:${s.width}mm;height:${s.height}mm"` : '';
-    return `<div class="lb-preview-label${border}" ${style}>
-      ${s.showBusiness ? `<div class="lb-label-business">${esc(negocio.nombre)}</div>` : ''}
-      ${s.showName ? `<div class="lb-label-name">${esc(p.nombre)}</div>` : ''}
+    const sizes = estilosEtiqueta(s);
+    const vars = `--lb-business-size:${sizes.business}pt;--lb-name-size:${sizes.name}pt;--lb-currency-size:${sizes.currency}pt;--lb-price-size:${sizes.price}pt;--lb-sku-size:${sizes.sku}pt;`;
+    const dimensions = preview ? `width:${s.width}mm;height:${s.height}mm;` : '';
+    const price = precioEtiqueta(p.precio_venta);
+
+    return `<div class="lb-preview-label${border}" style="${dimensions}${vars}">
+      <div class="lb-label-heading">
+        ${s.showBusiness ? `<div class="lb-label-business">${esc(negocio.nombre)}</div>` : ''}
+        <div class="lb-label-name-price">
+          ${s.showName ? `<div class="lb-label-name" title="${esc(p.nombre)}">${esc(p.nombre)}</div>` : ''}
+          ${s.showPrice ? `<div class="lb-label-price-row"><span class="lb-label-currency">${esc(price.simbolo)}</span><span class="lb-label-price-value">${esc(price.monto)}</span></div>` : ''}
+        </div>
+      </div>
       <div class="lb-label-barcode">${crearBarcodeSvg(p.codigo, s.compactMode)}</div>
-      ${(s.showSku || s.showPrice) ? `<div class="lb-label-bottom">
-        <span class="lb-label-sku">${s.showSku ? esc(p.codigo) : ''}</span>
-        <span class="lb-label-price">${s.showPrice ? esc(formatoMoneda(p.precio_venta)) : ''}</span>
-      </div>` : ''}
+      ${s.showSku ? `<div class="lb-label-sku">${esc(p.codigo)}</div>` : '<div></div>'}
     </div>`;
   }
+
 
   function actualizarPerfilImpresora() {
     const s = getSettings();
@@ -547,93 +573,70 @@
     const direct = ($('input[name="printMode"]:checked').val() || 'direct') === 'direct';
     $('#directPrintBox').toggle(direct);
     $('#printMethodNote').text(direct
-      ? 'En modo directo, el Conector TiquePOS envía TSPL a la impresora elegida sin abrir el cuadro de impresión. El diálogo del sistema queda como respaldo.'
+      ? 'En modo directo, QZ Tray envía TSPL a la impresora elegida sin abrir el cuadro de impresión. El diálogo del sistema queda como respaldo.'
       : 'Se abrirá el cuadro de impresión del sistema operativo para elegir la impresora instalada.');
     $('#btnImprimirEtiquetas').html(direct
       ? '<i class="fas fa-bolt"></i><span>Imprimir directo</span>'
       : '<i class="fas fa-print"></i><span>Imprimir etiquetas</span>');
   }
 
-  function obtenerTokenConector(crear) {
-    let token = String(localStorage.getItem(STORAGE_CONNECTOR_TOKEN) || '').trim().toLowerCase();
-    if (/^[a-f0-9]{64}$/.test(token)) return token;
-    if (!crear) return '';
-
-    const bytes = new Uint8Array(32);
-    if (window.crypto && window.crypto.getRandomValues) {
-      window.crypto.getRandomValues(bytes);
-    } else {
-      for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-    }
-    token = Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-    localStorage.setItem(STORAGE_CONNECTOR_TOKEN, token);
-    return token;
+  function qzDisponible() {
+    return typeof window.qz !== 'undefined' && window.qz && qz.websocket && qz.printers && qz.print;
   }
 
-  function connectorFetch(path, options) {
-    const token = obtenerTokenConector(false);
-    if (!token) {
-      return Promise.reject(new Error('Este navegador todavía no está vinculado. Descarga e instala el Conector de impresoras TiquePOS.'));
+  function abrirDescargaQz() {
+    const url = 'https://qz.io/download/?os=windows';
+    const win = window.open(url, '_blank', 'noopener,noreferrer');
+    if (win) {
+      try { win.opener = null; } catch (_) {}
+    }
+  }
+
+  function conectarQz() {
+    if (!qzDisponible()) {
+      setDirectStatus('err', 'QZ no cargado');
+      return Promise.reject(new Error('No se pudo cargar la librería de QZ Tray. Verifica la conexión a Internet y recarga esta página.'));
     }
 
-    const opts = Object.assign({}, options || {});
-    opts.method = opts.method || 'GET';
-    opts.mode = 'cors';
-    opts.cache = 'no-store';
-    opts.headers = Object.assign({}, opts.headers || {}, {
-      'X-TiquePOS-Token': token,
-      'Accept': 'application/json'
-    });
-    // Los navegadores nuevos usan este dato para identificar explícitamente
-    // el acceso a un servicio que vive en el loopback del mismo dispositivo.
-    opts.targetAddressSpace = 'loopback';
-
-    const controller = new AbortController();
-    opts.signal = controller.signal;
-    const timeout = setTimeout(function () { controller.abort(); }, 3500);
-
-    return fetch(CONNECTOR_URL + path, opts).then(function (response) {
-      return response.json().catch(function () { return {}; }).then(function (payload) {
-        if (!response.ok || payload.ok === false) {
-          throw new Error(payload.error || `Conector TiquePOS respondió HTTP ${response.status}.`);
-        }
-        return payload;
+    if (qz.websocket.isActive()) {
+      return qz.api.getVersion().then(function (version) {
+        setDirectStatus('ok', 'QZ ' + version);
+        $('#qzVersionInfo').text('QZ Tray ' + version + ' · conexión local activa');
+        return version;
       });
-    }).catch(function (err) {
-      if (err && err.name === 'AbortError') throw new Error('El Conector TiquePOS no respondió. Verifica que esté instalado y ejecutándose.');
-      throw err;
-    }).finally(function () {
-      clearTimeout(timeout);
-    });
-  }
+    }
 
-  function conectarTiquePos() {
     setDirectStatus('', 'Conectando...');
-    return connectorFetch('/v1/status').then(function (info) {
-      setDirectStatus('ok', 'Conector ' + (info.version || 'activo'));
-      $('#connectorVersionInfo').text(`Conector ${info.version || ''} · ${info.company || 'TIQUEPOS S.A.C.'} · RUC ${info.ruc || '20609518597'} · ${info.machine || 'Windows'}`.trim());
-      return info;
+    return qz.websocket.connect({ retries: 2, delay: 1 }).then(function () {
+      return qz.api.getVersion();
+    }).then(function (version) {
+      setDirectStatus('ok', 'QZ ' + version);
+      $('#qzVersionInfo').text('QZ Tray ' + version + ' · conexión local activa');
+      return version;
     }).catch(function (err) {
-      setDirectStatus('err', 'Conector desconectado');
-      throw err;
+      setDirectStatus('err', 'QZ desconectado');
+      $('#qzVersionInfo').text('QZ Tray no detectado en este equipo');
+      throw new Error((err && err.message)
+        ? 'No fue posible conectar con QZ Tray: ' + err.message
+        : 'QZ Tray no está instalado o no está abierto.');
     });
   }
 
   function cargarListaImpresorasDirectas(showSuccess) {
-    return conectarTiquePos().then(function () {
-      return connectorFetch('/v1/printers');
+    return conectarQz().then(function () {
+      return Promise.all([
+        qz.printers.find(),
+        qz.printers.getDefault().catch(function () { return ''; })
+      ]);
     }).then(function (result) {
-      const rows = Array.isArray(result.printers) ? result.printers : [];
-      const printers = rows.map(function (p) { return String(p && p.name || ''); }).filter(Boolean);
-      if (!printers.length) throw new Error('El Conector TiquePOS está activo, pero Windows no reportó impresoras instaladas.');
+      const printers = Array.isArray(result[0]) ? result[0].map(String).filter(Boolean) : [];
+      const defaultPrinter = String(result[1] || '');
+      if (!printers.length) throw new Error('QZ Tray está conectado, pero Windows no reportó impresoras instaladas.');
 
       const saved = $('#directPrinterName').attr('data-saved-printer') || localStorage.getItem(STORAGE_DIRECT_PRINTER) || '';
       let preferred = printers.find(function (name) { return String(name).toLowerCase() === String(saved).toLowerCase(); });
       if (!preferred) preferred = printers.find(function (name) { return /\btsc\b|te\s*200/i.test(String(name)); });
-      if (!preferred) {
-        const def = rows.find(function (p) { return !!(p && p.isDefault); });
-        if (def && def.name) preferred = String(def.name);
-      }
+      if (!preferred && defaultPrinter) preferred = printers.find(function (name) { return String(name) === defaultPrinter; });
       if (!preferred) preferred = printers[0];
 
       $('#directPrinterName').html(printers.map(function (name) {
@@ -643,42 +646,15 @@
       $('#directPrinterName').attr('data-saved-printer', preferred);
       setDirectStatus('ok', printers.length + (printers.length === 1 ? ' impresora' : ' impresoras'));
       if (showSuccess) {
-        Swal.fire({ icon: 'success', title: 'Impresoras detectadas', text: `TiquePOS encontró ${printers.length} impresora(s) instaladas en Windows.`, timer: 1800, showConfirmButton: false });
+        Swal.fire({
+          icon: 'success',
+          title: 'Impresoras detectadas',
+          text: `QZ Tray encontró ${printers.length} impresora(s) instalada(s).`,
+          timer: 1800,
+          showConfirmButton: false
+        });
       }
       return printers;
-    });
-  }
-
-  function utf8ToBase64(text) {
-    const bytes = new TextEncoder().encode(String(text || ''));
-    let binary = '';
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-    }
-    return btoa(binary);
-  }
-
-  function descargarConectorTiquePos() {
-    const token = obtenerTokenConector(true);
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'Controllers/Product.php?op=descargar_conector_impresoras';
-    form.style.display = 'none';
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'token';
-    input.value = token;
-    form.appendChild(input);
-    document.body.appendChild(form);
-    form.submit();
-    setTimeout(function () { form.remove(); }, 1000);
-
-    Swal.fire({
-      icon: 'info',
-      title: 'Instalador descargado',
-      html: 'Ejecuta <strong>Instalar-Conector-TiquePOS.cmd</strong> una sola vez.<br>Después vuelve aquí y pulsa <strong>Detectar</strong>.<br><small>Si el navegador solicita permiso para acceder al dispositivo local, permite el acceso para usar el conector.</small>',
-      confirmButtonText: 'Entendido'
     });
   }
 
@@ -699,6 +675,73 @@
     return t.slice(0, Math.max(1, maxChars - 3)).replace(/\s+$/, '') + '...';
   }
 
+  function envolverTextoTspl(value, maxChars, maxLines) {
+    const text = tsplText(value).trim().replace(/\s+/g, ' ');
+    if (!text) return [];
+    const words = [];
+    text.split(' ').forEach(function (word) {
+      if (word.length <= maxChars) {
+        words.push(word);
+        return;
+      }
+      for (let i = 0; i < word.length; i += maxChars) words.push(word.slice(i, i + maxChars));
+    });
+    const lines = [];
+    let current = '';
+    words.forEach(function (word) {
+      const candidate = current ? current + ' ' + word : word;
+      if (candidate.length <= maxChars) {
+        current = candidate;
+      } else {
+        if (current) lines.push(current);
+        current = word;
+      }
+    });
+    if (current) lines.push(current);
+    if (lines.length > maxLines) {
+      lines.length = maxLines;
+      lines[maxLines - 1] = cortarTextoTspl(lines[maxLines - 1], maxChars);
+    }
+    return lines.slice(0, maxLines);
+  }
+
+  function envolverTextoTsplConReserva(value, firstMaxChars, secondMaxChars) {
+    const text = tsplText(value).trim().replace(/\s+/g, ' ');
+    if (!text) return [];
+
+    const words = text.split(' ');
+    const lines = ['', ''];
+    let lineIndex = 0;
+
+    words.forEach(function (word) {
+      if (lineIndex > 1) return;
+      const maxChars = lineIndex === 0 ? firstMaxChars : secondMaxChars;
+      const candidate = lines[lineIndex] ? lines[lineIndex] + ' ' + word : word;
+
+      if (candidate.length <= maxChars) {
+        lines[lineIndex] = candidate;
+        return;
+      }
+
+      if (!lines[lineIndex]) {
+        lines[lineIndex] = cortarTextoTspl(word, maxChars);
+        lineIndex++;
+        return;
+      }
+
+      lineIndex++;
+      if (lineIndex > 1) return;
+      const secondCandidate = word;
+      lines[lineIndex] = secondCandidate.length <= secondMaxChars
+        ? secondCandidate
+        : cortarTextoTspl(secondCandidate, secondMaxChars);
+    });
+
+    // Si aún queda contenido por colocar en la segunda línea, reconstruir desde el texto restante
+    // no es necesario para la etiqueta: se prioriza que nunca invada el precio.
+    return lines.filter(Boolean);
+  }
+
   function generarTspl(items, s, profile) {
     const dpi = Number(profile && profile.dpi || 203);
     const pageWidth = s.columns * s.width + Math.max(0, s.columns - 1) * s.gapX;
@@ -707,12 +750,9 @@
 
     const labelW = mmToDots(s.width, dpi);
     const labelH = mmToDots(s.height, dpi);
-    const pad = mmToDots(s.compactMode ? 0.7 : 1, dpi);
     const gapDots = mmToDots(s.gapX, dpi);
-    const tinyPt = s.compactMode ? 5 : 6;
-    const namePt = s.compactMode ? 5 : 6;
-    const pricePt = s.compactMode ? 6 : 7;
-    const maxNameChars = Math.max(8, Math.floor(s.width / (s.compactMode ? 1.05 : 1.25)));
+    const padX = mmToDots(s.compactMode ? 0.65 : 0.9, dpi);
+    const padY = mmToDots(s.compactMode ? 0.55 : 0.75, dpi);
     const commands = [];
 
     commands.push(`SIZE ${pageWidth.toFixed(1)} mm,${Number(s.height).toFixed(1)} mm`);
@@ -725,32 +765,77 @@
       commands.push('CLS');
       row.forEach(function (p, col) {
         const x0 = col * (labelW + gapDots);
-        let y = pad;
-        const centerX = x0 + Math.floor(labelW / 2);
-        const rightX = x0 + labelW - pad;
+        const usableW = Math.max(1, labelW - padX * 2);
+        const rightX = x0 + labelW - padX;
+        const code = tsplText(p.codigo);
 
         if (s.showBorder) commands.push(`BOX ${x0 + 1},1,${x0 + labelW - 2},${labelH - 2},1`);
+
+        // Composición 30 x 20 mm: nombre a la izquierda, precio sobre la segunda línea,
+        // barcode ancho pero bajo y SKU discreto.
+        const price = precioEtiqueta(p.precio_venta);
+        const nameTop = padY;
+        const nameLineStep = mmToDots(1.82, dpi);
+        const secondLineY = nameTop + nameLineStep;
+
+        // Primero calculamos el precio para reservar exactamente su zona en la segunda línea.
+        let amountScale = s.compactMode ? 2 : 3;
+        const maxPriceWidth = Math.floor(usableW * 0.58);
+        while (amountScale > 1 && price.monto.length * 8 * amountScale > maxPriceWidth) amountScale--;
+        const symbolScale = Math.max(1, amountScale - 1);
+        const amountW = price.monto.length * 8 * amountScale;
+        const symbolW = price.simbolo.length * 8 * symbolScale;
+        const between = mmToDots(0.28, dpi);
+        const priceW = amountW + symbolW + between;
+        const amountX = Math.max(x0 + padX, rightX - amountW);
+        const symbolX = Math.max(x0 + padX, amountX - between - symbolW);
+
         if (s.showBusiness) {
-          commands.push(`TEXT ${centerX},${y},"0",0,${tinyPt},${tinyPt},2,"${tsplText(negocio.nombre)}"`);
-          y += mmToDots(2.5, dpi);
+          const business = cortarTextoTspl(negocio.nombre, Math.max(10, Math.floor(usableW / 7)));
+          commands.push(`TEXT ${x0 + padX},${nameTop},"0",0,1,1,"${business}"`);
         }
+
         if (s.showName) {
-          commands.push(`TEXT ${centerX},${y},"0",0,${namePt},${namePt},2,"${cortarTextoTspl(p.nombre, maxNameChars)}"`);
-          y += mmToDots(3.0, dpi);
+          const firstChars = Math.max(9, Math.floor(usableW / 7));
+          const reserve = s.showPrice ? priceW + mmToDots(0.65, dpi) : 0;
+          const secondUsable = Math.max(mmToDots(7, dpi), usableW - reserve);
+          const secondChars = Math.max(5, Math.floor(secondUsable / 7));
+          const nameY = s.showBusiness ? nameTop + nameLineStep : nameTop;
+          const secondY = nameY + nameLineStep;
+          const nameLines = envolverTextoTsplConReserva(p.nombre, firstChars, secondChars);
+
+          if (nameLines[0]) commands.push(`TEXT ${x0 + padX},${nameY},"0",0,1,1,"${nameLines[0]}"`);
+          if (nameLines[1]) commands.push(`TEXT ${x0 + padX},${secondY},"0",0,1,1,"${nameLines[1]}"`);
         }
 
-        const bottomReserve = (s.showSku || s.showPrice) ? mmToDots(3.4, dpi) : pad;
-        const availableBarcodeHeight = Math.max(mmToDots(3, dpi), labelH - y - bottomReserve - pad);
-        const barcodeHeight = Math.min(mmToDots(s.compactMode ? 8 : 10, dpi), availableBarcodeHeight);
-        const code = tsplText(p.codigo);
-        const estimatedWidth = Math.max(mmToDots(12, dpi), 11 * (code.length + 3) + 2);
-        const barcodeX = x0 + Math.max(pad, Math.floor((labelW - Math.min(estimatedWidth, labelW - pad * 2)) / 2));
-        commands.push(`BARCODE ${barcodeX},${y},"128",${barcodeHeight},0,0,1,1,"${code}"`);
+        if (s.showPrice) {
+          const priceY = (s.showBusiness ? secondLineY + nameLineStep : secondLineY) - mmToDots(0.08, dpi);
+          const symbolY = priceY + Math.max(0, Math.round((12 * amountScale - 12 * symbolScale) * 0.45));
+          commands.push(`TEXT ${symbolX},${symbolY},"0",0,${symbolScale},${symbolScale},"${tsplText(price.simbolo)}"`);
+          commands.push(`TEXT ${amountX},${priceY},"0",0,${amountScale},${amountScale},"${tsplText(price.monto)}"`);
+        }
 
-        if (s.showSku || s.showPrice) {
-          const bottomY = Math.max(y + barcodeHeight + 1, labelH - mmToDots(2.7, dpi));
-          if (s.showSku) commands.push(`TEXT ${x0 + pad},${bottomY},"0",0,${tinyPt},${tinyPt},"${code}"`);
-          if (s.showPrice) commands.push(`TEXT ${rightX},${bottomY},"0",0,${pricePt},${pricePt},3,"${tsplText(formatoMoneda(p.precio_venta))}"`);
+        // Barcode: usa el mayor ancho físico posible y deja solo un margen lateral mínimo.
+        // En TSPL el módulo de CODE128 se expresa en dots enteros; elegimos el mayor que cabe
+        // sin recortar las zonas de silencio ni salir de la etiqueta.
+        const barcodeY = padY + mmToDots(s.showBusiness ? 9.9 : 8.7, dpi);
+        const barcodeHeight = mmToDots(s.compactMode ? 2.0 : 2.35, dpi);
+        const estimatedUnits = Math.max(70, 11 * (code.length + 2) + 13);
+        const barcodeMargin = Math.max(2, mmToDots(0.30, dpi));
+        const targetBarcodeW = Math.max(1, labelW - barcodeMargin * 2);
+        let moduleWidth = Math.max(1, Math.floor(targetBarcodeW / estimatedUnits));
+        moduleWidth = Math.min(10, moduleWidth);
+        const estimatedWidth = Math.min(targetBarcodeW, estimatedUnits * moduleWidth);
+        const barcodeX = x0 + Math.max(barcodeMargin, Math.floor((labelW - estimatedWidth) / 2));
+        commands.push(`BARCODE ${barcodeX},${barcodeY},"128",${barcodeHeight},0,0,${moduleWidth},${moduleWidth},"${code}"`);
+
+        // SKU más pequeño y separado del borde.
+        if (s.showSku) {
+          const skuScale = 1;
+          const skuY = Math.min(labelH - mmToDots(1.85, dpi), barcodeY + barcodeHeight + mmToDots(0.42, dpi));
+          const skuW = code.length * 8 * skuScale;
+          const skuX = x0 + Math.max(padX, Math.floor((labelW - skuW) / 2));
+          commands.push(`TEXT ${skuX},${skuY},"0",0,${skuScale},${skuScale},"${code}"`);
         }
       });
       commands.push('PRINT 1,1');
@@ -758,6 +843,7 @@
 
     return commands.join('\r\n') + '\r\n';
   }
+
 
   function imprimirDirecto() {
     const s = getSettings();
@@ -773,7 +859,7 @@
 
     const profile = perfiles.find(function (p) { return p.id === s.printerId; }) || perfiles[0];
     const ensurePrinter = $('#directPrinterName').val()
-      ? conectarTiquePos()
+      ? conectarQz()
       : cargarListaImpresorasDirectas(false);
 
     $('#btnImprimirEtiquetas').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i><span>Enviando...</span>');
@@ -782,31 +868,29 @@
       if (!printerName) throw new Error('Selecciona una impresora instalada.');
       localStorage.setItem(STORAGE_DIRECT_PRINTER, printerName);
       const raw = generarTspl(items, s, profile);
-      return connectorFetch('/v1/print/raw', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          printer: printerName,
-          data: utf8ToBase64(raw),
-          encoding: 'base64',
-          jobName: 'TiquePOS - Etiquetas'
-        })
+      const config = qz.configs.create(printerName, {
+        encoding: 'UTF-8',
+        jobName: 'TiquePOS - Etiquetas'
       });
+      return qz.print(config, [{ type: 'raw', format: 'command', flavor: 'plain', data: raw }]);
     }).then(function () {
       setDirectStatus('ok', 'Enviado');
-      Swal.fire({ icon: 'success', title: 'Enviado a impresión', text: `${items.length} etiqueta(s) enviadas directamente.`, timer: 1800, showConfirmButton: false });
+      Swal.fire({ icon: 'success', title: 'Enviado a impresión', text: `${items.length} etiqueta(s) enviadas por QZ Tray.`, timer: 1800, showConfirmButton: false });
     }).catch(function (err) {
-      console.error('Impresión directa:', err);
+      console.error('Impresión directa QZ Tray:', err);
       setDirectStatus('err', 'No disponible');
       Swal.fire({
         icon: 'warning',
         title: 'No se pudo imprimir directamente',
-        text: (err && err.message) ? err.message : 'Verifica que el Conector de impresoras TiquePOS esté instalado y ejecutándose.',
+        text: (err && err.message) ? err.message : 'Verifica que QZ Tray esté instalado, abierto y autorizado para este sitio.',
         showCancelButton: true,
+        showDenyButton: true,
         confirmButtonText: 'Usar impresión normal',
+        denyButtonText: 'Descargar QZ Tray',
         cancelButtonText: 'Cerrar'
       }).then(function (result) {
         if (result.isConfirmed) imprimirSistema();
+        if (result.isDenied) abrirDescargaQz();
       });
     }).finally(function () {
       actualizarModoImpresion();
@@ -855,15 +939,17 @@
       @page{size:${pageWidth}mm ${pageHeight}mm;margin:0}
       .print-page{width:${pageWidth}mm;height:${pageHeight}mm;display:grid;grid-template-columns:repeat(${s.columns},${s.width}mm);column-gap:${s.gapX}mm;align-items:start;page-break-after:always;break-after:page;overflow:hidden}
       .print-page:last-child{page-break-after:auto;break-after:auto}
-      .lb-preview-label{width:${s.width}mm;height:${s.height}mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden;padding:1mm;color:#111;background:#fff;font-family:Arial,sans-serif}
+      .lb-preview-label{width:${s.width}mm;height:${s.height}mm;display:grid;grid-template-rows:48% 31% 17%;row-gap:2%;overflow:hidden;min-width:0;padding:.65mm .75mm .55mm;color:#050505;background:#fff;font-family:Arial,Helvetica,sans-serif;line-height:1}
       .lb-preview-label.with-border{outline:.2mm dashed #999;outline-offset:-.3mm}
-      .lb-label-business{overflow:hidden;margin-bottom:.4mm;font-size:6pt;font-weight:900;line-height:1;text-align:center;text-overflow:ellipsis;white-space:nowrap}
-      .lb-label-name{overflow:hidden;margin-bottom:.35mm;font-size:${s.compactMode ? '6' : '7'}pt;font-weight:800;line-height:1.08;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-      .lb-label-barcode{min-height:0;display:flex;flex:1 1 auto;align-items:center;justify-content:center;overflow:hidden}
-      .lb-label-barcode svg{display:block;width:100%;height:100%;max-width:100%}
-      .lb-label-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:1mm;margin-top:.35mm;font-size:${s.compactMode ? '5' : '5.6'}pt;line-height:1}
-      .lb-label-sku{overflow:hidden;font-family:monospace;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
-      .lb-label-price{flex:0 0 auto;font-size:${s.compactMode ? '6' : '7'}pt;font-weight:900}
+      .lb-label-heading{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start}.lb-label-business{overflow:hidden;flex:0 0 auto;margin:0 0 .18mm;font-size:var(--lb-business-size,4.2pt);font-weight:700;line-height:1;text-align:left;text-overflow:ellipsis;white-space:nowrap}
+      .lb-label-name-price{position:relative;min-width:0;min-height:0;flex:1 1 auto;overflow:hidden}
+      .lb-label-name{display:-webkit-box;overflow:hidden;min-width:0;min-height:0;margin:0;padding:0 .1mm;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:var(--lb-name-size,6pt);font-weight:900;line-height:1.05;letter-spacing:-.018em;text-align:left;white-space:normal;overflow-wrap:anywhere}
+      .lb-label-price-row{position:absolute;right:0;bottom:0;z-index:3;display:flex;min-width:0;max-width:62%;align-items:flex-end;justify-content:flex-end;overflow:hidden;padding:0 0 .04mm .45mm;background:#fff;white-space:nowrap}
+      .lb-label-currency{flex:0 0 auto;margin:0 .24mm .12em 0;font-size:var(--lb-currency-size,7.2pt);font-weight:500;line-height:.9}
+      .lb-label-price-value{flex:0 1 auto;max-width:100%;overflow:hidden;font-size:var(--lb-price-size,11.8pt);font-weight:900;line-height:.84;letter-spacing:-.035em;text-overflow:clip}
+      .lb-label-barcode{display:flex;min-width:0;min-height:0;align-items:center;justify-content:center;overflow:visible;margin-left:-.45mm;margin-right:-.45mm;padding:0}
+      .lb-label-barcode svg{display:block;width:100%;height:52%;max-width:none;max-height:52%;overflow:hidden;flex:1 1 auto}
+      .lb-label-sku{display:flex;min-width:0;min-height:0;align-items:flex-start;justify-content:center;overflow:hidden;margin:0;padding:.05mm .2mm 0;font-family:Arial,Helvetica,sans-serif;font-size:var(--lb-sku-size,5.3pt);font-weight:800;line-height:.95;letter-spacing:.015em;text-align:center;text-overflow:ellipsis;white-space:nowrap}
     </style></head><body>${pages}</body></html>`);
     win.document.close();
     win.focus();
@@ -947,17 +1033,17 @@
       cargarListaImpresorasDirectas(true).catch(function (err) {
         Swal.fire({
           icon: 'warning',
-          title: 'Conector no disponible',
-          text: (err && err.message) ? err.message : 'Instala el Conector de impresoras TiquePOS en este equipo.',
+          title: 'QZ Tray no disponible',
+          text: (err && err.message) ? err.message : 'Instala y abre QZ Tray en este equipo.',
           showCancelButton: true,
-          confirmButtonText: '<i class="fas fa-download mr-1"></i> Descargar conector',
+          confirmButtonText: '<i class="fas fa-download mr-1"></i> Descargar QZ Tray',
           cancelButtonText: 'Cerrar'
         }).then(function (result) {
-          if (result.isConfirmed) descargarConectorTiquePos();
+          if (result.isConfirmed) abrirDescargaQz();
         });
       });
     });
-    $('#btnDescargarConector').on('click', descargarConectorTiquePos);
+    $('#btnDescargarQz').on('click', abrirDescargaQz);
     $('#directPrinterName').on('change', function () {
       const name = String($(this).val() || '');
       if (name) { localStorage.setItem(STORAGE_DIRECT_PRINTER, name); $(this).attr('data-saved-printer', name); }
@@ -1003,10 +1089,10 @@
     bindEvents();
     loadSavedSettings();
     actualizarModoImpresion();
-    if (!obtenerTokenConector(false)) {
-      setDirectStatus('err', 'Conector no instalado');
+    if (!qzDisponible()) {
+      setDirectStatus('err', 'QZ no cargado');
     } else {
-      conectarTiquePos().catch(function () { /* estado visual ya actualizado */ });
+      conectarQz().catch(function () { /* estado visual ya actualizado */ });
     }
     cargarNegocio();
     cargarProductos();

@@ -8,7 +8,7 @@ Incluye TODOS los archivos modificados desde el bendey.zip original necesarios p
 - Catálogo de productos/variantes para etiquetas
 - Generación CODE128 desde SKU
 - Impresión normal
-- Conector TiquePOS e impresión directa RAW/TSPL
+- QZ Tray e impresión directa RAW/TSPL desde el sitio oficial
 - Identidad TIQUEPOS S.A.C. | RUC 20609518597
 
 INSTALACION:

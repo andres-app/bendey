@@ -1,39 +1,30 @@
-# TiquePOS - Impresión directa de etiquetas
+# TiquePOS · Impresión directa con QZ Tray
 
-## Qué agrega
+TiquePOS utiliza **QZ Tray 2.2.6** para la impresión directa de etiquetas.
 
-- Modo **Impresión directa** en Inventario > Etiquetas / Códigos de barras.
-- Detección de impresoras instaladas mediante QZ Tray.
-- Recuerda la impresora elegida en cada dispositivo.
-- Prioriza automáticamente impresoras cuyo nombre contenga TSC o TE200.
-- Envía comandos **TSPL** directamente a la impresora, sin abrir el diálogo de impresión del sistema.
-- Conserva **Usar diálogo del sistema** como respaldo.
-- Respeta 1, 2 o 3 columnas, ancho/alto y gap configurados en TiquePOS.
-- Usa CODE128 con el SKU del producto o variante.
+## Qué se eliminó
 
-## Requisito del equipo
+Se eliminó por completo el Conector de impresoras TiquePOS: ejecutable, GZIP, instalador CMD, fuente Go, endpoints PHP, token local y puerto 17654. TiquePOS ya no distribuye ni ejecuta binarios propios para imprimir.
 
-Instalar y ejecutar QZ Tray en el PC que tiene conectada la impresora:
-https://qz.io/download/
+## Instalación oficial
 
-La interfaz de TiquePOS carga el conector web QZ Tray 2.2.6 desde jsDelivr.
+La pantalla **Inventario → Etiquetas / Códigos de barras** contiene el botón **Descargar QZ Tray · sitio oficial**. El botón abre exclusivamente:
 
-## TSC TE200
+https://qz.io/download/?os=windows
 
-El perfil incluido usa 203 DPI y 108 mm de ancho imprimible. La salida directa se genera en TSPL y usa CODEPAGE UTF-8.
+El usuario descarga QZ Tray desde el sitio oficial del fabricante.
 
 ## Flujo
 
-1. Abrir Etiquetas / Códigos de barras.
-2. Seleccionar Impresión directa.
-3. Pulsar Detectar.
-4. Autorizar TiquePOS en QZ Tray si lo solicita.
-5. Elegir la TSC TE200.
-6. Seleccionar productos, cantidades y formato.
-7. Pulsar Imprimir directo.
+1. Instalar y abrir QZ Tray.
+2. Regresar a TiquePOS.
+3. Pulsar **Detectar**.
+4. Autorizar TiquePOS cuando QZ Tray lo solicite.
+5. Elegir la TSC TE200 u otra impresora instalada.
+6. Pulsar **Imprimir directo**.
 
-## Impresión completamente silenciosa
+TiquePOS envía TSPL nativo mediante `qz.print()`; el modo **Usar diálogo del sistema** se mantiene como respaldo.
 
-La versión actual elimina el diálogo de impresión de Windows/macOS. QZ Tray puede seguir mostrando avisos de autorización si las solicitudes no están firmadas.
+## Seguridad
 
-Para producción 100 % silenciosa se debe configurar el certificado de confianza y firma de mensajes de QZ, manteniendo la clave privada únicamente en el servidor. No se incluye una clave privada de ejemplo dentro del proyecto por seguridad.
+La integración estándar no contiene claves privadas ni certificados falsos. QZ Tray puede solicitar autorización para solicitudes no firmadas. La impresión completamente silenciosa requiere configurar firma digital de las solicitudes QZ con credenciales válidas.
