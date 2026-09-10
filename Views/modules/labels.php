@@ -185,6 +185,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
         min-height: 0;
         align-items: center;
         justify-content: center;
+<<<<<<< HEAD
         /* Se extiende dentro del padding de la etiqueta para dejar solo ~0.30 mm por lado. */
         overflow: visible;
         margin-left: -.45mm;
@@ -199,6 +200,19 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
         max-height: 52%;
         overflow: hidden;
         flex: 1 1 auto;
+=======
+        overflow: hidden;
+        padding: .04mm .15mm;
+    }
+    .lb-label-barcode svg {
+        display: block;
+        width: 90%;
+        height: 52%;
+        max-width: 90%;
+        max-height: 52%;
+        overflow: hidden;
+        flex: 0 1 auto;
+>>>>>>> 2bc36874431ef8a8dd84d5086fb5416ffd1db084
     }
     .lb-label-sku {
         display: flex;
