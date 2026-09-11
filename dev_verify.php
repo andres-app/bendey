@@ -53,7 +53,8 @@ function dev_verify_is_text_file(string $relative, string $contents): bool
     return in_array($ext, [
         'php','phtml','inc','js','mjs','cjs','css','scss','less','html','htm',
         'json','xml','sql','md','txt','csv','ini','conf','config','yaml','yml',
-        'toml','lock','map','svg','webmanifest','sh','bat','cmd','ps1'
+        'toml','lock','map','svg','webmanifest','sh','bat','cmd','ps1',
+        'pem','crt','cer'
     ], true);
 }
 
@@ -65,6 +66,13 @@ function dev_verify_hash_file_normalized(string $path, string $relative): string
     }
     if (dev_verify_is_text_file($relative, $contents)) {
         $contents = str_replace(["\r\n", "\r"], "\n", $contents);
+
+        // PEM/CRT/CER pueden terminar con o sin salto de línea sin cambiar
+        // el material criptográfico. Canonizamos el final para evitar falsos positivos.
+        $ext = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
+        if (in_array($ext, ['pem', 'crt', 'cer'], true)) {
+            $contents = rtrim($contents, "\n") . "\n";
+        }
     }
     return hash('sha256', $contents);
 }
