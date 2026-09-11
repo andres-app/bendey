@@ -256,7 +256,7 @@ require_once "sidebar.php";
                         <div class="col-lg-4 col-md-6 col-12 mb-4">
                             <a href="clientdatesales" class="tp-menu-card tp-dark">
                                 <i class="fas fa-chart-bar"></i>
-                                <span>Reportes</span>
+                                <span>Reportitos</span>
                             </a>
                         </div>
 
