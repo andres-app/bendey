@@ -492,11 +492,7 @@
         width: compact ? 0.62 : 0.70,
         height: compact ? 10 : 12
       });
-<<<<<<< HEAD
       svg.setAttribute('preserveAspectRatio', 'none');
-=======
-      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
->>>>>>> 2bc36874431ef8a8dd84d5086fb5416ffd1db084
       svg.style.overflow = 'hidden';
       return svg.outerHTML;
     } catch (e) {
@@ -819,7 +815,6 @@
           commands.push(`TEXT ${amountX},${priceY},"0",0,${amountScale},${amountScale},"${tsplText(price.monto)}"`);
         }
 
-<<<<<<< HEAD
         // Barcode: usa el mayor ancho físico posible y deja solo un margen lateral mínimo.
         // En TSPL el módulo de CODE128 se expresa en dots enteros; elegimos el mayor que cabe
         // sin recortar las zonas de silencio ni salir de la etiqueta.
@@ -832,16 +827,6 @@
         moduleWidth = Math.min(10, moduleWidth);
         const estimatedWidth = Math.min(targetBarcodeW, estimatedUnits * moduleWidth);
         const barcodeX = x0 + Math.max(barcodeMargin, Math.floor((labelW - estimatedWidth) / 2));
-=======
-        // Barcode: hasta ~90% del ancho útil, pero deliberadamente bajo.
-        const barcodeY = padY + mmToDots(s.showBusiness ? 9.9 : 8.7, dpi);
-        const barcodeHeight = mmToDots(s.compactMode ? 2.0 : 2.35, dpi);
-        const estimatedUnits = Math.max(70, 11 * (code.length + 2) + 13);
-        const targetBarcodeW = Math.floor(usableW * 0.90);
-        const moduleWidth = estimatedUnits * 2 <= targetBarcodeW ? 2 : 1;
-        const estimatedWidth = Math.min(targetBarcodeW, estimatedUnits * moduleWidth);
-        const barcodeX = x0 + Math.max(padX, Math.floor((labelW - estimatedWidth) / 2));
->>>>>>> 2bc36874431ef8a8dd84d5086fb5416ffd1db084
         commands.push(`BARCODE ${barcodeX},${barcodeY},"128",${barcodeHeight},0,0,${moduleWidth},${moduleWidth},"${code}"`);
 
         // SKU más pequeño y separado del borde.
@@ -962,13 +947,8 @@
       .lb-label-price-row{position:absolute;right:0;bottom:0;z-index:3;display:flex;min-width:0;max-width:62%;align-items:flex-end;justify-content:flex-end;overflow:hidden;padding:0 0 .04mm .45mm;background:#fff;white-space:nowrap}
       .lb-label-currency{flex:0 0 auto;margin:0 .24mm .12em 0;font-size:var(--lb-currency-size,7.2pt);font-weight:500;line-height:.9}
       .lb-label-price-value{flex:0 1 auto;max-width:100%;overflow:hidden;font-size:var(--lb-price-size,11.8pt);font-weight:900;line-height:.84;letter-spacing:-.035em;text-overflow:clip}
-<<<<<<< HEAD
       .lb-label-barcode{display:flex;min-width:0;min-height:0;align-items:center;justify-content:center;overflow:visible;margin-left:-.45mm;margin-right:-.45mm;padding:0}
       .lb-label-barcode svg{display:block;width:100%;height:52%;max-width:none;max-height:52%;overflow:hidden;flex:1 1 auto}
-=======
-      .lb-label-barcode{display:flex;min-width:0;min-height:0;align-items:center;justify-content:center;overflow:hidden;padding:.04mm .15mm}
-      .lb-label-barcode svg{display:block;width:90%;height:52%;max-width:90%;max-height:52%;overflow:hidden;flex:0 1 auto}
->>>>>>> 2bc36874431ef8a8dd84d5086fb5416ffd1db084
       .lb-label-sku{display:flex;min-width:0;min-height:0;align-items:flex-start;justify-content:center;overflow:hidden;margin:0;padding:.05mm .2mm 0;font-family:Arial,Helvetica,sans-serif;font-size:var(--lb-sku-size,5.3pt);font-weight:800;line-height:.95;letter-spacing:.015em;text-align:center;text-overflow:ellipsis;white-space:nowrap}
     </style></head><body>${pages}</body></html>`);
     win.document.close();
