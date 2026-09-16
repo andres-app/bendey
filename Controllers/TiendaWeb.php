@@ -7,6 +7,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 require_once __DIR__ . '/../Models/TiendaWeb.php';
+require_once __DIR__ . '/../Libraries/MediaStorage.php';
 
 function tiendaResponder(array $payload, int $status = 200): void
 {
@@ -65,7 +66,28 @@ try {
             break;
 
         case 'listar_productos':
-            tiendaResponder(['success' => true, 'data' => $model->listarProductosAdmin()]);
+            $pagina = $model->listarProductosAdminPaginado(
+                (int)($_GET['limit'] ?? 24),
+                (int)($_GET['offset'] ?? 0),
+                (string)($_GET['buscar'] ?? ''),
+                (string)($_GET['filtro'] ?? 'todos')
+            );
+            $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '/Controllers/TiendaWeb.php'));
+            $base = rtrim(dirname(dirname($scriptName)), '/');
+            if ($base === '/' || $base === '.') {
+                $base = '';
+            }
+            foreach ($pagina['data'] as &$producto) {
+                $raw = trim((string)($producto['imagen'] ?? ''));
+                $url = $raw !== '' ? tiquepos_media_url('products', $raw) : '';
+                $producto['imagen_url'] = $url !== '' ? $base . '/' . ltrim($url, '/') : '';
+            }
+            unset($producto);
+            tiendaResponder(['success' => true] + $pagina);
+            break;
+
+        case 'resumen_productos':
+            tiendaResponder(['success' => true, 'resumen' => $model->resumenProductosAdmin()]);
             break;
 
         default:

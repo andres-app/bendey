@@ -8,11 +8,13 @@ final class TiendaWeb
 {
     private Conexion $conexion;
 
-    public function __construct()
+    public function __construct(bool $asegurarInstalacion = true)
     {
         $this->conexion = new Conexion();
-        $this->asegurarEsquema();
-        $this->asegurarConfiguracionInicial();
+        if ($asegurarInstalacion) {
+            $this->asegurarEsquema();
+            $this->asegurarConfiguracionInicial();
+        }
     }
 
     private function tablaExiste(string $tabla): bool
@@ -438,4 +440,363 @@ final class TiendaWeb
             'categorias' => array_values($categorias)
         ];
     }
+
+    /**
+     * Resumen ligero para el panel. Evita cargar todo el inventario sólo para
+     * calcular los contadores superiores.
+     */
+    public function resumenProductosAdmin(): array
+    {
+        $row = $this->conexion->getData(
+            "SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN a.condicion = 1 AND COALESCE(tp.publicado, 1) = 1 THEN 1 ELSE 0 END) AS publicados,
+                SUM(CASE WHEN COALESCE(tp.destacado, 0) = 1 THEN 1 ELSE 0 END) AS destacados,
+                COUNT(DISTINCT a.idcategoria) AS categorias
+             FROM articulo a
+             LEFT JOIN tienda_producto tp ON tp.idarticulo = a.idarticulo"
+        );
+
+        return [
+            'total' => (int)($row['total'] ?? 0),
+            'publicados' => (int)($row['publicados'] ?? 0),
+            'destacados' => (int)($row['destacados'] ?? 0),
+            'categorias' => (int)($row['categorias'] ?? 0),
+        ];
+    }
+
+    /**
+     * Inventario paginado para el administrador de la web.
+     */
+    public function listarProductosAdminPaginado(
+        int $limit = 24,
+        int $offset = 0,
+        string $buscar = '',
+        string $filtro = 'todos'
+    ): array {
+        $limit = max(1, min(60, $limit));
+        $offset = max(0, $offset);
+        $buscar = trim($buscar);
+        $filtro = strtolower(trim($filtro));
+
+        $where = ['1=1'];
+        $params = [];
+
+        if ($buscar !== '') {
+            $buscarNormalizado = function_exists('mb_strtolower') ? mb_strtolower($buscar, 'UTF-8') : strtolower($buscar);
+            $like = '%' . $buscarNormalizado . '%';
+            $where[] = "(LOWER(a.nombre) LIKE ? OR LOWER(COALESCE(a.codigo,'')) LIKE ? OR LOWER(c.nombre) LIKE ?)";
+            array_push($params, $like, $like, $like);
+        }
+
+        if ($filtro === 'publicados') {
+            $where[] = 'a.condicion = 1 AND COALESCE(tp.publicado, 1) = 1';
+        } elseif ($filtro === 'ocultos') {
+            $where[] = '(a.condicion <> 1 OR COALESCE(tp.publicado, 1) = 0)';
+        } elseif ($filtro === 'destacados') {
+            $where[] = 'COALESCE(tp.destacado, 0) = 1';
+        }
+
+        $whereSql = implode(' AND ', $where);
+        $total = null;
+        if ($offset === 0) {
+            $total = (int)$this->conexion->getValue(
+                "SELECT COUNT(*)
+                 FROM articulo a
+                 INNER JOIN categoria c ON c.idcategoria = a.idcategoria
+                 LEFT JOIN tienda_producto tp ON tp.idarticulo = a.idarticulo
+                 WHERE $whereSql",
+                $params
+            );
+        }
+
+        $fetchLimit = $limit + 1;
+        $sql = "SELECT
+                    a.idarticulo,
+                    a.codigo,
+                    a.nombre,
+                    a.descripcion,
+                    a.imagen,
+                    a.stock,
+                    a.precio_venta,
+                    a.condicion,
+                    c.nombre AS categoria,
+                    COALESCE(tp.publicado, 1) AS publicado,
+                    COALESCE(tp.destacado, 0) AS destacado,
+                    COALESCE(v.cantidad_variaciones, 0) AS cantidad_variaciones,
+                    COALESCE(v.stock_variaciones, a.stock, 0) AS stock_mostrado,
+                    CASE
+                        WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+                            THEN COALESCE(v.precio_min, a.precio_venta, 0)
+                        ELSE COALESCE(a.precio_venta, 0)
+                    END AS precio_min,
+                    CASE
+                        WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+                            THEN COALESCE(v.precio_max, a.precio_venta, 0)
+                        ELSE COALESCE(a.precio_venta, 0)
+                    END AS precio_max
+                FROM articulo a
+                INNER JOIN categoria c ON c.idcategoria = a.idcategoria
+                LEFT JOIN tienda_producto tp ON tp.idarticulo = a.idarticulo
+                LEFT JOIN (
+                    SELECT idarticulo,
+                           COUNT(*) AS cantidad_variaciones,
+                           SUM(COALESCE(stock, 0)) AS stock_variaciones,
+                           MIN(CASE WHEN precio_venta > 0 THEN precio_venta END) AS precio_min,
+                           MAX(CASE WHEN precio_venta > 0 THEN precio_venta END) AS precio_max
+                    FROM articulo_variacion
+                    WHERE estado = 1
+                    GROUP BY idarticulo
+                ) v ON v.idarticulo = a.idarticulo
+                WHERE $whereSql
+                ORDER BY COALESCE(tp.destacado, 0) DESC, c.nombre ASC, a.nombre ASC
+                LIMIT $fetchLimit OFFSET $offset";
+
+        $data = $this->conexion->getDataAll($sql, $params);
+        $hasMore = count($data) > $limit;
+        if ($hasMore) {
+            array_pop($data);
+        }
+
+        return [
+            'data' => $data,
+            'total' => $total,
+            'offset' => $offset,
+            'limit' => $limit,
+            'has_more' => $hasMore,
+        ];
+    }
+
+    private function obtenerConfiguracionPublicaPorSlug(string $slug): ?array
+    {
+        $slug = $this->slugBase($slug);
+        $config = $this->conexion->getData(
+            "SELECT tc.*, dn.nombre AS empresa_nombre, dn.documento, dn.direccion,
+                    dn.telefono AS empresa_telefono, dn.email AS empresa_email,
+                    dn.pais, dn.ciudad, dn.moneda, dn.simbolo, dn.logo
+             FROM tienda_configuracion tc
+             INNER JOIN datos_negocio dn ON dn.id_negocio = tc.id_negocio
+             WHERE tc.slug = ? AND tc.activo = 1 AND dn.condicion = 1
+             LIMIT 1",
+            [$slug]
+        );
+
+        return is_array($config) ? $config : null;
+    }
+
+    private function adjuntarVariaciones(array $productos): array
+    {
+        $ids = array_values(array_filter(array_map(
+            static fn(array $p): int => (int)($p['idarticulo'] ?? 0),
+            $productos
+        )));
+
+        if (!$ids) {
+            return $productos;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $variaciones = $this->conexion->getDataAll(
+            "SELECT idvariacion, idarticulo, sku, stock, precio_venta, imagen, combinacion
+             FROM articulo_variacion
+             WHERE estado = 1 AND idarticulo IN ($placeholders)
+             ORDER BY idarticulo ASC, idvariacion ASC",
+            $ids
+        );
+
+        $porArticulo = [];
+        foreach ($variaciones as $variacion) {
+            $porArticulo[(int)$variacion['idarticulo']][] = $variacion;
+        }
+
+        foreach ($productos as &$producto) {
+            $idArticulo = (int)($producto['idarticulo'] ?? 0);
+            $producto['variaciones'] = $porArticulo[$idArticulo] ?? [];
+        }
+        unset($producto);
+
+        return $productos;
+    }
+
+    /**
+     * Página incremental del catálogo público. Diseñado para scroll infinito,
+     * búsqueda y filtros sin traer todo el inventario al navegador.
+     */
+    public function listarProductosPublicosPaginado(
+        string $slug,
+        int $limit = 24,
+        int $offset = 0,
+        string $buscar = '',
+        string $categoria = '',
+        bool $soloDestacados = false
+    ): array {
+        $config = $this->obtenerConfiguracionPublicaPorSlug($slug);
+        if (!$config) {
+            return ['config' => null, 'data' => [], 'total' => 0, 'offset' => 0, 'limit' => $limit, 'has_more' => false];
+        }
+
+        $limit = max(1, min(60, $limit));
+        $offset = max(0, $offset);
+        $buscar = trim($buscar);
+        $categoria = trim($categoria);
+
+        $where = [
+            'a.condicion = 1',
+            'c.condicion = 1',
+            'COALESCE(tp.publicado, 1) = 1'
+        ];
+        $params = [];
+
+        if ((int)($config['mostrar_sin_stock'] ?? 1) !== 1) {
+            $where[] = 'COALESCE(v.stock_variaciones, a.stock, 0) > 0';
+        }
+        if ($soloDestacados) {
+            $where[] = 'COALESCE(tp.destacado, 0) = 1';
+        }
+        if ($buscar !== '') {
+            $buscarNormalizado = function_exists('mb_strtolower') ? mb_strtolower($buscar, 'UTF-8') : strtolower($buscar);
+            $like = '%' . $buscarNormalizado . '%';
+            $where[] = "(LOWER(a.nombre) LIKE ? OR LOWER(COALESCE(a.codigo,'')) LIKE ? OR LOWER(c.nombre) LIKE ?)";
+            array_push($params, $like, $like, $like);
+        }
+        if ($categoria !== '') {
+            $where[] = 'LOWER(c.nombre) = ?';
+            $params[] = function_exists('mb_strtolower') ? mb_strtolower($categoria, 'UTF-8') : strtolower($categoria);
+        }
+
+        $whereSql = implode(' AND ', $where);
+        $joinVariaciones = "LEFT JOIN (
+                    SELECT idarticulo,
+                           COUNT(*) AS cantidad_variaciones,
+                           SUM(COALESCE(stock, 0)) AS stock_variaciones,
+                           MIN(CASE WHEN precio_venta > 0 THEN precio_venta END) AS precio_min,
+                           MAX(CASE WHEN precio_venta > 0 THEN precio_venta END) AS precio_max
+                    FROM articulo_variacion
+                    WHERE estado = 1
+                    GROUP BY idarticulo
+                ) v ON v.idarticulo = a.idarticulo";
+
+        $total = null;
+        if ($offset === 0) {
+            $total = (int)$this->conexion->getValue(
+                "SELECT COUNT(*)
+                 FROM articulo a
+                 INNER JOIN categoria c ON c.idcategoria = a.idcategoria
+                 LEFT JOIN tienda_producto tp ON tp.idarticulo = a.idarticulo
+                 $joinVariaciones
+                 WHERE $whereSql",
+                $params
+            );
+        }
+
+        $fetchLimit = $limit + 1;
+        $productos = $this->conexion->getDataAll(
+            "SELECT
+                    a.idarticulo,
+                    a.codigo,
+                    a.nombre,
+                    a.descripcion,
+                    a.imagen,
+                    a.stock,
+                    a.precio_venta,
+                    c.idcategoria,
+                    c.nombre AS categoria,
+                    COALESCE(tp.destacado, 0) AS destacado,
+                    COALESCE(v.cantidad_variaciones, 0) AS cantidad_variaciones,
+                    COALESCE(v.stock_variaciones, a.stock, 0) AS stock_mostrado,
+                    CASE
+                        WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+                            THEN COALESCE(v.precio_min, a.precio_venta, 0)
+                        ELSE COALESCE(a.precio_venta, 0)
+                    END AS precio_min,
+                    CASE
+                        WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+                            THEN COALESCE(v.precio_max, a.precio_venta, 0)
+                        ELSE COALESCE(a.precio_venta, 0)
+                    END AS precio_max
+             FROM articulo a
+             INNER JOIN categoria c ON c.idcategoria = a.idcategoria
+             LEFT JOIN tienda_producto tp ON tp.idarticulo = a.idarticulo
+             $joinVariaciones
+             WHERE $whereSql
+             ORDER BY COALESCE(tp.destacado, 0) DESC, COALESCE(tp.orden, 0) ASC, c.nombre ASC, a.nombre ASC
+             LIMIT $fetchLimit OFFSET $offset",
+            $params
+        );
+
+        $hasMore = count($productos) > $limit;
+        if ($hasMore) {
+            array_pop($productos);
+        }
+        $productos = $this->adjuntarVariaciones($productos);
+
+        return [
+            'config' => $config,
+            'data' => $productos,
+            'total' => $total,
+            'offset' => $offset,
+            'limit' => $limit,
+            'has_more' => $hasMore,
+        ];
+    }
+
+    public function listarCategoriasPublicas(string $slug): array
+    {
+        $config = $this->obtenerConfiguracionPublicaPorSlug($slug);
+        if (!$config) {
+            return [];
+        }
+
+        $stockWhere = (int)($config['mostrar_sin_stock'] ?? 1) !== 1
+            ? ' AND COALESCE(v.stock_variaciones, a.stock, 0) > 0'
+            : '';
+
+        return $this->conexion->getDataAll(
+            "SELECT c.nombre,
+                    COUNT(*) AS cantidad,
+                    MAX(NULLIF(a.imagen, '')) AS imagen
+             FROM articulo a
+             INNER JOIN categoria c ON c.idcategoria = a.idcategoria AND c.condicion = 1
+             LEFT JOIN tienda_producto tp ON tp.idarticulo = a.idarticulo
+             LEFT JOIN (
+                    SELECT idarticulo, SUM(COALESCE(stock, 0)) AS stock_variaciones
+                    FROM articulo_variacion
+                    WHERE estado = 1
+                    GROUP BY idarticulo
+             ) v ON v.idarticulo = a.idarticulo
+             WHERE a.condicion = 1
+               AND COALESCE(tp.publicado, 1) = 1
+               $stockWhere
+             GROUP BY c.idcategoria, c.nombre
+             ORDER BY c.nombre ASC"
+        );
+    }
+
+    /**
+     * Carga inicial pequeña para SSR + hidratación del scroll infinito.
+     */
+    public function obtenerCatalogoPublicoInicial(string $slug, int $limit = 24): ?array
+    {
+        $pagina = $this->listarProductosPublicosPaginado($slug, $limit, 0);
+        if (!is_array($pagina['config'] ?? null)) {
+            return null;
+        }
+
+        $categoriasRows = $this->listarCategoriasPublicas($slug);
+        $categorias = array_values(array_filter(array_map(
+            static fn(array $row): string => trim((string)($row['nombre'] ?? '')),
+            $categoriasRows
+        )));
+
+        return [
+            'config' => $pagina['config'],
+            'productos' => $pagina['data'],
+            'categorias' => $categorias,
+            'categorias_detalle' => $categoriasRows,
+            'total' => (int)$pagina['total'],
+            'has_more' => (bool)$pagina['has_more'],
+            'limit' => (int)$pagina['limit'],
+        ];
+    }
+
 }
