@@ -1,0 +1,5 @@
+El instalador modifica este archivo existente:
+Views/modules/scripts/listsales.js
+
+No reemplaces listsales.js por este TXT.
+Ejecuta aplicar_cambio_listsales.php desde la raíz del proyecto.

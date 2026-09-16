@@ -6,6 +6,13 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
 
+
+# Catálogo público por negocio.
+# Ejemplo: /tienda/mi-negocio
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^tienda/([A-Za-z0-9-]+)/?$ index.php?url=tienda&slug=$1 [QSA,L]
+
 # Rutas limpias de TiquePOS.
 # Acepta letras, números, guiones y guiones bajos.
 # Ejemplos:

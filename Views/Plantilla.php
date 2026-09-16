@@ -55,7 +55,9 @@ if (isset($_GET["url"])) {
         "kardex",
         "medida",
         "login",
-        "ayuda"
+        "ayuda",
+        "tiendaweb",
+        "tienda"
     ];
 
     if (in_array($url, $rutasPermitidas, true)) {

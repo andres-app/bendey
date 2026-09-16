@@ -492,6 +492,16 @@
                     </ul>
                 </li>
 
+                <!-- PÁGINA WEB / CATÁLOGO PÚBLICO -->
+                <?php if ((!empty($_SESSION['almacen']) && $_SESSION['almacen'] == 1) || (!empty($_SESSION['settings']) && $_SESSION['settings'] == 1)) { ?>
+                    <li class="<?= $url == 'tiendaweb' ? 'active' : '' ?>">
+                        <a class="nav-link" href="tiendaweb">
+                            <i data-feather="globe"></i>
+                            <span>Mi página web</span>
+                        </a>
+                    </li>
+                <?php } ?>
+
                 <!-- AYUDA -->
                 <li class="<?= $url == 'ayuda' ? 'active' : '' ?>">
                     <a class="nav-link" href="ayuda">
