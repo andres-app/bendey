@@ -172,6 +172,7 @@ function mostrarform(flag) {
         $('#listadoregistros').hide();
         $('#formularioregistros').show();
         $('#btnagregar').hide();
+        $('#comprasExportDropdown').hide();
         $('#btnCancelar').show();
 
         cargarDatosCompra();
@@ -182,6 +183,7 @@ function mostrarform(flag) {
         $('#formularioregistros').hide();
         $('#listadoregistros').show();
         $('#btnagregar').show();
+        $('#comprasExportDropdown').show();
     }
 }
 
@@ -2149,6 +2151,45 @@ function registrarEventosFiltroCompras() {
     );
 }
 
+function exportarCompras(formato) {
+    if (!tablaCompras) {
+        alertaCompra(
+            'info',
+            'Reporte no disponible',
+            'Espera a que termine de cargar el listado de compras.'
+        );
+        return;
+    }
+
+    const formatoNormalizado = String(formato || '').toLowerCase();
+    const selector = formatoNormalizado === 'pdf'
+        ? '.buttons-pdf'
+        : formatoNormalizado === 'excel'
+            ? '.buttons-excel'
+            : '';
+
+    if (selector === '') {
+        return;
+    }
+
+    try {
+        const boton = tablaCompras.button(selector);
+
+        if (!boton || !boton.node || boton.node().length === 0) {
+            throw new Error('No se encontró el botón de exportación.');
+        }
+
+        boton.trigger();
+    } catch (error) {
+        console.error('ERROR EXPORTAR COMPRAS:', error);
+        alertaCompra(
+            'error',
+            'No se pudo exportar',
+            'No fue posible generar el reporte. Intenta nuevamente.'
+        );
+    }
+}
+
 function listar() {
     if ($.fn.DataTable.isDataTable('#tbllistado')) {
         $('#tbllistado').DataTable().destroy();
@@ -2270,13 +2311,11 @@ function listar() {
             const api =
                 this.api();
 
-            $('#comprasExportToolbar')
-                .empty()
-                .append(
-                    api
-                        .buttons()
-                        .container()
-                );
+            api
+                .buttons()
+                .container()
+                .addClass('compra-export-engine')
+                .attr('aria-hidden', 'true');
 
             actualizarCantidadFiltradaCompras();
         },
@@ -2518,6 +2557,12 @@ function init() {
     );
 
     listar();
+
+    $(document).on('click', '.compra-export-option', function (event) {
+        event.preventDefault();
+        exportarCompras($(this).attr('data-formato'));
+    });
+
     cargarProveedoresCompra();
     cargarDatosCompra();
     cargarProductosCompra();

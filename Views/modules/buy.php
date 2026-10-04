@@ -793,44 +793,119 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
     }
 
 
-    .compra-export-toolbar {
-        display: flex;
-        min-width: 0;
-        margin: 0;
+    .compra-header-actions {
+        flex: 0 0 auto;
     }
 
-    .compra-export-toolbar .dt-buttons {
-        width: 100%;
-        display: flex;
-        gap: 7px;
-        float: none !important;
+    .compra-export-dropdown {
+        position: relative;
     }
 
-    .compra-export-toolbar .dt-button,
-    .compra-export-toolbar .btn {
-        min-height: 34px;
-        margin: 0 !important;
-        padding: 6px 10px !important;
-        display: inline-flex !important;
-        flex: 1 1 0;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
+    .compra-export-btn {
         border: 1px solid #dbe3de !important;
-        border-radius: 9px !important;
-        color: #536158 !important;
+        color: #42534a !important;
         background: #fff !important;
-        box-shadow: none !important;
-        font-size: .72rem !important;
-        font-weight: 500 !important;
+        box-shadow: 0 5px 14px rgba(15, 23, 42, .04) !important;
         white-space: nowrap;
     }
 
-    .compra-export-toolbar .dt-button:hover,
-    .compra-export-toolbar .btn:hover {
+    .compra-export-btn:hover,
+    .compra-export-btn:focus,
+    .compra-export-dropdown.show .compra-export-btn {
         border-color: #9ed3b1 !important;
         color: #00754d !important;
-        background: #f4fbf5 !important;
+        background: #f4fbf7 !important;
+    }
+
+    .compra-export-caret {
+        margin-left: 2px;
+        font-size: .66rem;
+        opacity: .72;
+        transition: transform .16s ease;
+    }
+
+    .compra-export-dropdown.show .compra-export-caret {
+        transform: rotate(180deg);
+    }
+
+    .compra-export-menu {
+        min-width: 260px;
+        margin-top: 8px;
+        padding: 7px;
+        border: 1px solid #e2e8e4;
+        border-radius: 13px;
+        background: #fff;
+        box-shadow: 0 16px 36px rgba(15, 23, 42, .12);
+    }
+
+    .compra-export-option {
+        display: flex !important;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px !important;
+        border: 0 !important;
+        border-radius: 9px;
+        color: #334155 !important;
+        background: transparent !important;
+        white-space: normal;
+    }
+
+    .compra-export-option + .compra-export-option {
+        margin-top: 3px;
+    }
+
+    .compra-export-option:hover,
+    .compra-export-option:focus {
+        color: #1f3d31 !important;
+        background: #f4f8f6 !important;
+        outline: none;
+    }
+
+    .compra-export-option-icon {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        background: #f1f5f3;
+        font-size: .95rem;
+    }
+
+    .compra-export-option-excel {
+        color: #1f7a4d;
+        background: #edf8f1;
+    }
+
+    .compra-export-option-pdf {
+        color: #b23a3a;
+        background: #fff1f1;
+    }
+
+    .compra-export-option strong,
+    .compra-export-option small {
+        display: block;
+    }
+
+    .compra-export-option strong {
+        font-size: .8rem;
+        font-weight: 700;
+        line-height: 1.25;
+    }
+
+    .compra-export-option small {
+        margin-top: 2px;
+        color: #7b8780;
+        font-size: .68rem;
+        line-height: 1.25;
+    }
+
+    /* Los botones nativos de DataTables se mantienen como motor de exportación,
+       pero no se muestran: la UI visible es el desplegable del encabezado. */
+    .compra-page .dataTables_wrapper > .dt-buttons,
+    .compra-page .compra-export-engine {
+        display: none !important;
     }
 
     .compra-table-wrap {
@@ -1085,9 +1160,15 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
             padding: 16px;
         }
 
-        .compra-nueva-btn {
+        .compra-header-actions {
             width: 100%;
-            margin-top: 12px;
+            margin-top: 4px;
+        }
+
+        .compra-nueva-btn,
+        .compra-export-dropdown,
+        .compra-export-btn {
+            width: 100%;
         }
 
         .compra-filter-grid {
@@ -1107,11 +1188,6 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
         .compra-list-meta {
             align-items: flex-start;
             flex-direction: column;
-        }
-
-        .compra-export-toolbar,
-        .compra-export-toolbar .dt-buttons {
-            width: 100%;
         }
 
         #modalCompraFecha .compra-fecha-modal-dialog {
@@ -1160,68 +1236,50 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                             </div>
                         </div>
 
-                        <button
-                            type="button"
-                            class="compra-nueva-btn tw-inline-flex tw-min-h-[42px] tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-px-4 tw-py-2.5 tw-text-[13px] tw-font-medium tw-text-white tw-shadow-[0_8px_20px_rgba(0,164,106,.18)] tw-transition hover:tw-bg-tique-600 hover:tw-shadow-[0_10px_24px_rgba(0,164,106,.24)] focus:tw-outline-none"
-                            onclick="mostrarform(true)"
-                            id="btnagregar">
-                            <i class="fas fa-plus"></i>
-                            Nueva compra
-                        </button>
+                        <div class="compra-header-actions tw-flex tw-flex-wrap tw-items-center tw-gap-2">
+                            <button
+                                type="button"
+                                class="compra-nueva-btn tw-inline-flex tw-min-h-[42px] tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-px-4 tw-py-2.5 tw-text-[13px] tw-font-medium tw-text-white tw-shadow-[0_8px_20px_rgba(0,164,106,.18)] tw-transition hover:tw-bg-tique-600 hover:tw-shadow-[0_10px_24px_rgba(0,164,106,.24)] focus:tw-outline-none"
+                                onclick="mostrarform(true)"
+                                id="btnagregar">
+                                <i class="fas fa-plus"></i>
+                                Nueva compra
+                            </button>
+
+                            <div class="dropdown compra-export-dropdown" id="comprasExportDropdown">
+                                <button
+                                    type="button"
+                                    class="compra-export-btn tw-inline-flex tw-min-h-[42px] tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-px-4 tw-py-2.5 tw-text-[13px] tw-font-medium tw-transition focus:tw-outline-none"
+                                    id="btnExportarCompras"
+                                    data-toggle="dropdown"
+                                    aria-haspopup="true"
+                                    aria-expanded="false">
+                                    <i class="fas fa-file-export"></i>
+                                    Exportar reporte
+                                    <i class="fas fa-chevron-down compra-export-caret" aria-hidden="true"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-right compra-export-menu" aria-labelledby="btnExportarCompras">
+                                    <button type="button" class="dropdown-item compra-export-option" data-formato="excel">
+                                        <span class="compra-export-option-icon compra-export-option-excel"><i class="fas fa-file-excel"></i></span>
+                                        <span>
+                                            <strong>Excel</strong>
+                                            <small>Exportar compras con los filtros aplicados</small>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="dropdown-item compra-export-option" data-formato="pdf">
+                                        <span class="compra-export-option-icon compra-export-option-pdf"><i class="fas fa-file-pdf"></i></span>
+                                        <span>
+                                            <strong>PDF</strong>
+                                            <small>Generar reporte PDF con los filtros aplicados</small>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="tw-p-4 md:tw-p-6">
                         <div id="listadoregistros">
-                            <div class="tw-mb-4 tw-grid tw-gap-3 sm:tw-grid-cols-2 xl:tw-grid-cols-4">
-                                <div class="tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-slate-50/70 tw-p-4">
-                                    <div class="tw-flex tw-items-center tw-gap-3">
-                                        <span class="tw-flex tw-h-9 tw-w-9 tw-items-center tw-justify-center tw-rounded-xl tw-bg-white tw-text-tique-700 tw-shadow-sm">
-                                            <i class="fas fa-boxes"></i>
-                                        </span>
-                                        <div>
-                                            <div class="tw-text-xs tw-font-medium tw-text-slate-500">Mercadería</div>
-                                            <div class="tw-mt-0.5 tw-text-[13px] tw-text-slate-700">Aumenta stock de productos existentes</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-slate-50/70 tw-p-4">
-                                    <div class="tw-flex tw-items-center tw-gap-3">
-                                        <span class="tw-flex tw-h-9 tw-w-9 tw-items-center tw-justify-center tw-rounded-xl tw-bg-white tw-text-tique-700 tw-shadow-sm">
-                                            <i class="fas fa-file-invoice-dollar"></i>
-                                        </span>
-                                        <div>
-                                            <div class="tw-text-xs tw-font-medium tw-text-slate-500">Gastos y servicios</div>
-                                            <div class="tw-mt-0.5 tw-text-[13px] tw-text-slate-700">Registra costos sin afectar inventario</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-slate-50/70 tw-p-4">
-                                    <div class="tw-flex tw-items-center tw-gap-3">
-                                        <span class="tw-flex tw-h-9 tw-w-9 tw-items-center tw-justify-center tw-rounded-xl tw-bg-white tw-text-tique-700 tw-shadow-sm">
-                                            <i class="fas fa-filter"></i>
-                                        </span>
-                                        <div>
-                                            <div class="tw-text-xs tw-font-medium tw-text-slate-500">Historial ordenado</div>
-                                            <div class="tw-mt-0.5 tw-text-[13px] tw-text-slate-700">Filtra compras por fecha o proveedor</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-slate-50/70 tw-p-4">
-                                    <div class="tw-flex tw-h-full tw-flex-col tw-justify-between tw-gap-3">
-                                        <div class="tw-flex tw-items-center tw-gap-3">
-                                            <span class="tw-flex tw-h-9 tw-w-9 tw-shrink-0 tw-items-center tw-justify-center tw-rounded-xl tw-bg-white tw-text-tique-700 tw-shadow-sm">
-                                                <i class="fas fa-file-export"></i>
-                                            </span>
-                                            <div class="tw-min-w-0">
-                                                <div class="tw-text-xs tw-font-medium tw-text-slate-500">Exportar reporte</div>
-                                                <div class="tw-mt-0.5 tw-text-[13px] tw-leading-5 tw-text-slate-700">Excel o PDF con los filtros aplicados</div>
-                                            </div>
-                                        </div>
-                                        <div class="compra-export-toolbar" id="comprasExportToolbar" aria-label="Exportar reporte de compras"></div>
-                                    </div>
-                                </div>
-                            </div>
-
                             <div class="compra-list-toolbar" id="compraListToolbar">
                                 <div class="compra-filter-grid">
                                     <div class="compra-filter-field">
