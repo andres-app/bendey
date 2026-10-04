@@ -1213,6 +1213,92 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
             min-height: 66px;
         }
     }
+
+
+    /* Proveedor + mini Excel de productos nuevos */
+    .compra-provider-select {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .compra-mini-sheet {
+        width: 100%;
+        min-width: 1220px;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 12px;
+    }
+
+    .compra-mini-sheet th {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        padding: 10px 8px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .compra-mini-sheet td {
+        padding: 6px;
+        border-bottom: 1px solid #eef2f7;
+        background: #fff;
+        vertical-align: middle;
+    }
+
+    .compra-mini-sheet tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .compra-mini-sheet tr.has-error td {
+        background: #fff7f7;
+    }
+
+    .compra-mini-sheet tr.is-valid td {
+        background: #fbfffc;
+    }
+
+    .compra-mini-control {
+        width: 100%;
+        min-height: 36px;
+        padding: 6px 8px;
+        border: 1px solid #dbe3df;
+        border-radius: 8px;
+        background: #fff;
+        color: #334155;
+        font-size: 12px;
+        outline: none;
+    }
+
+    .compra-mini-control:focus {
+        border-color: #00a46a;
+        box-shadow: 0 0 0 3px rgba(0, 164, 106, .10);
+    }
+
+    .compra-mode-tab.is-active {
+        border-color: #a7e0c5 !important;
+        background: #ecfdf5 !important;
+        color: #00754d !important;
+        box-shadow: inset 0 0 0 1px rgba(0, 164, 106, .06);
+    }
+
+    .compra-api-status.is-success {
+        border-color: #bbf7d0;
+        background: #f0fdf4;
+        color: #166534;
+    }
+
+    .compra-api-status.is-error {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
 </style>
 
 <div class="main-content compra-page">
@@ -1389,9 +1475,22 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                                 <div class="compra-form-section tw-grid tw-grid-cols-1 tw-gap-x-4 tw-gap-y-5 md:tw-grid-cols-12">
                                     <div class="md:tw-col-span-6">
                                         <label class="compra-field-label" for="idproveedor">Proveedor <span class="text-danger">*</span></label>
-                                        <select name="idproveedor" id="idproveedor" class="form-control" required>
-                                            <option value="">Cargando proveedores...</option>
-                                        </select>
+                                        <div class="tw-flex tw-flex-col tw-gap-2 sm:tw-flex-row sm:tw-items-stretch">
+                                            <select name="idproveedor" id="idproveedor" class="form-control compra-provider-select" required>
+                                                <option value="">Cargando proveedores...</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                id="btnNuevoProveedorCompra"
+                                                class="tw-inline-flex tw-min-h-[44px] tw-shrink-0 tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border tw-border-tique-200 tw-bg-tique-50 tw-px-4 tw-text-[12px] tw-font-semibold tw-text-tique-700 tw-transition hover:tw-border-tique-300 hover:tw-bg-tique-100 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-tique-500/10">
+                                                <i class="fas fa-user-plus"></i>
+                                                Nuevo / consultar
+                                            </button>
+                                        </div>
+                                        <div class="tw-mt-1.5 tw-flex tw-items-center tw-gap-1.5 tw-text-[11px] tw-text-slate-500">
+                                            <i class="fas fa-bolt tw-text-amber-500"></i>
+                                            Puedes consultar DNI o RUC en PeruDev y registrar al proveedor sin salir de la compra.
+                                        </div>
                                     </div>
 
                                     <div class="md:tw-col-span-3">
@@ -1614,6 +1713,81 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
     </section>
 </div>
 
+<!-- PROVEEDOR: CREAR / CONSULTAR PERUDEV -->
+<div class="modal fade modal-compra" id="modalProveedorCompra" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content tw-overflow-hidden">
+            <form id="formProveedorCompra" autocomplete="off">
+                <div class="tw-flex tw-items-start tw-justify-between tw-border-b tw-border-slate-100 tw-bg-gradient-to-r tw-from-white tw-to-tique-50/60 tw-p-5">
+                    <div class="tw-flex tw-items-start tw-gap-3">
+                        <span class="tw-flex tw-h-11 tw-w-11 tw-shrink-0 tw-items-center tw-justify-center tw-rounded-2xl tw-bg-tique-50 tw-text-tique-700">
+                            <i class="fas fa-building"></i>
+                        </span>
+                        <div>
+                            <h5 class="tw-m-0 tw-text-[16px] tw-font-semibold tw-text-slate-900">Nuevo proveedor</h5>
+                            <p class="tw-mb-0 tw-mt-1 tw-text-[12px] tw-text-slate-500">Consulta DNI o RUC en PeruDev y completa los datos antes de guardarlo.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="close tw-ml-3" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+                </div>
+
+                <div class="modal-body tw-bg-slate-50/50 tw-p-5">
+                    <div class="tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-white tw-p-4 tw-shadow-sm">
+                        <div class="tw-grid tw-grid-cols-1 tw-gap-3 md:tw-grid-cols-12">
+                            <div class="md:tw-col-span-3">
+                                <label class="compra-field-label" for="proveedor_tipo_documento">Documento</label>
+                                <select class="form-control" id="proveedor_tipo_documento">
+                                    <option value="RUC">RUC</option>
+                                    <option value="DNI">DNI</option>
+                                </select>
+                            </div>
+                            <div class="md:tw-col-span-6">
+                                <label class="compra-field-label" for="proveedor_num_documento">Número <span class="text-danger">*</span></label>
+                                <input type="text" inputmode="numeric" class="form-control" id="proveedor_num_documento" maxlength="11" placeholder="Ingresa el RUC" required>
+                            </div>
+                            <div class="tw-flex tw-items-end md:tw-col-span-3">
+                                <button type="button" id="btnConsultarProveedorApi" class="tw-inline-flex tw-min-h-[44px] tw-w-full tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-slate-900 tw-px-4 tw-text-[12px] tw-font-semibold tw-text-white tw-transition hover:tw-bg-slate-800 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-slate-900/10">
+                                    <i class="fas fa-search"></i>
+                                    Consultar PeruDev
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="proveedorApiEstado" class="compra-api-status tw-mt-3 tw-hidden tw-rounded-xl tw-border tw-border-slate-200 tw-bg-slate-50 tw-px-3 tw-py-2.5 tw-text-[12px]"></div>
+                    </div>
+
+                    <div class="tw-mt-4 tw-grid tw-grid-cols-1 tw-gap-4 md:tw-grid-cols-12">
+                        <div class="md:tw-col-span-12">
+                            <label class="compra-field-label" for="proveedor_nombre">Nombre / razón social <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="proveedor_nombre" maxlength="160" required placeholder="Se completará con PeruDev o puedes escribirlo manualmente">
+                        </div>
+                        <div class="md:tw-col-span-12">
+                            <label class="compra-field-label" for="proveedor_direccion">Dirección</label>
+                            <input type="text" class="form-control" id="proveedor_direccion" maxlength="220" placeholder="Dirección fiscal o comercial">
+                        </div>
+                        <div class="md:tw-col-span-6">
+                            <label class="compra-field-label" for="proveedor_telefono">Teléfono</label>
+                            <input type="text" class="form-control" id="proveedor_telefono" maxlength="30" placeholder="Opcional">
+                        </div>
+                        <div class="md:tw-col-span-6">
+                            <label class="compra-field-label" for="proveedor_email">Correo</label>
+                            <input type="email" class="form-control" id="proveedor_email" maxlength="120" placeholder="Opcional">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer tw-flex tw-items-center tw-justify-end tw-gap-2 tw-border-t tw-border-slate-100 tw-bg-white tw-px-5 tw-py-4">
+                    <button type="button" class="tw-inline-flex tw-min-h-[40px] tw-items-center tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-px-4 tw-text-[12px] tw-font-medium tw-text-slate-600 hover:tw-bg-slate-50" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnGuardarProveedorCompra" class="tw-inline-flex tw-min-h-[40px] tw-items-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-px-4 tw-text-[12px] tw-font-semibold tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 disabled:tw-opacity-60">
+                        <i class="fas fa-save"></i>
+                        Guardar proveedor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- PRODUCTO EXISTENTE -->
 <div class="modal fade modal-compra" id="modalProductoExistente" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
@@ -1653,125 +1827,157 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
     </div>
 </div>
 
-<!-- PRODUCTO NUEVO -->
+<!-- PRODUCTO NUEVO: UNO POR UNO / MINI EXCEL -->
 <div class="modal fade modal-compra" id="modalProductoNuevo" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-        <div class="modal-content">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content tw-overflow-hidden">
             <form id="formProductoNuevo" autocomplete="off">
-                <div class="modal-header">
-                    <div>
-                        <h5 class="modal-title mb-1">Registrar producto nuevo</h5>
-                        <small class="text-muted">
-                            El producto se creará definitivamente cuando guardes la compra.
-                        </small>
+                <div class="tw-flex tw-flex-col tw-gap-4 tw-border-b tw-border-slate-100 tw-bg-gradient-to-r tw-from-white tw-via-white tw-to-tique-50/50 tw-p-5 sm:tw-flex-row sm:tw-items-start sm:tw-justify-between">
+                    <div class="tw-flex tw-items-start tw-gap-3">
+                        <span class="tw-flex tw-h-11 tw-w-11 tw-shrink-0 tw-items-center tw-justify-center tw-rounded-2xl tw-bg-tique-50 tw-text-tique-700">
+                            <i class="fas fa-box-open"></i>
+                        </span>
+                        <div>
+                            <h5 class="tw-m-0 tw-text-[16px] tw-font-semibold tw-text-slate-900">Agregar productos nuevos</h5>
+                            <p class="tw-mb-0 tw-mt-1 tw-text-[12px] tw-text-slate-500">Registra uno por uno o usa el mini Excel para preparar varios productos de la misma compra.</p>
+                        </div>
                     </div>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
-                        <span aria-hidden="true">&times;</span>
+                    <button type="button" class="close tw-self-start" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+                </div>
+
+                <div class="tw-border-b tw-border-slate-100 tw-bg-white tw-px-5 tw-pt-4">
+                    <div class="tw-inline-flex tw-rounded-xl tw-bg-slate-100 tw-p-1">
+                        <button type="button" class="compra-mode-tab is-active tw-inline-flex tw-min-h-[38px] tw-items-center tw-gap-2 tw-rounded-lg tw-border tw-border-transparent tw-bg-transparent tw-px-4 tw-text-[12px] tw-font-semibold tw-text-slate-600 tw-transition" data-producto-modo="individual">
+                            <i class="fas fa-plus-circle"></i> Uno por uno
+                        </button>
+                        <button type="button" class="compra-mode-tab tw-inline-flex tw-min-h-[38px] tw-items-center tw-gap-2 tw-rounded-lg tw-border tw-border-transparent tw-bg-transparent tw-px-4 tw-text-[12px] tw-font-semibold tw-text-slate-600 tw-transition" data-producto-modo="masivo">
+                            <i class="fas fa-table"></i> Mini Excel masivo
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-body tw-bg-slate-50/50 tw-p-5">
+                    <div id="productoModoIndividual">
+                        <div class="tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-white tw-p-4 tw-shadow-sm">
+                            <div class="tw-grid tw-grid-cols-1 tw-gap-4 md:tw-grid-cols-12">
+                                <div class="md:tw-col-span-8">
+                                    <label class="compra-field-label" for="nuevo_nombre">Nombre <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="nuevo_nombre" maxlength="100" required placeholder="Ej.: Polo oversize rosado">
+                                </div>
+                                <div class="md:tw-col-span-4">
+                                    <label class="compra-field-label" for="nuevo_codigo">SKU o código</label>
+                                    <input type="text" class="form-control text-uppercase" id="nuevo_codigo" maxlength="50" placeholder="Se genera si queda vacío">
+                                </div>
+                            </div>
+
+                            <div class="coincidencias-producto" id="coincidenciasProductoNuevo"></div>
+
+                            <div class="tw-mt-4 tw-grid tw-grid-cols-1 tw-gap-4 sm:tw-grid-cols-2 lg:tw-grid-cols-4">
+                                <div>
+                                    <label class="compra-field-label" for="nuevo_idcategoria">Categoría <span class="text-danger">*</span></label>
+                                    <select class="form-control" id="nuevo_idcategoria" required></select>
+                                </div>
+                                <div>
+                                    <label class="compra-field-label" for="nuevo_idsubcategoria">Subcategoría</label>
+                                    <select class="form-control" id="nuevo_idsubcategoria"></select>
+                                </div>
+                                <div>
+                                    <label class="compra-field-label" for="nuevo_idmedida">Unidad <span class="text-danger">*</span></label>
+                                    <select class="form-control" id="nuevo_idmedida" required></select>
+                                </div>
+                                <div>
+                                    <label class="compra-field-label" for="nuevo_idalmacen">Almacén <span class="text-danger">*</span></label>
+                                    <select class="form-control" id="nuevo_idalmacen" required></select>
+                                </div>
+                            </div>
+
+                            <div class="tw-mt-4 tw-grid tw-grid-cols-1 tw-gap-4 md:tw-grid-cols-3">
+                                <div>
+                                    <label class="compra-field-label" for="nuevo_cantidad">Cantidad comprada <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="nuevo_cantidad" min="1" step="1" value="1" required>
+                                    <small class="tw-mt-1 tw-block tw-text-[11px] tw-text-slate-500">Se sumará al stock al guardar la compra.</small>
+                                </div>
+                                <div>
+                                    <label class="compra-field-label" for="nuevo_precio_compra">Costo unitario <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">S/</span></div>
+                                        <input type="number" class="form-control" id="nuevo_precio_compra" min="0.01" step="0.01" required>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="compra-field-label" for="nuevo_precio_venta">Precio de venta</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">S/</span></div>
+                                        <input type="number" class="form-control" id="nuevo_precio_venta" min="0" step="0.01" placeholder="Opcional">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="productoModoMasivo" class="tw-hidden">
+                        <div class="tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-white tw-shadow-sm">
+                            <div class="tw-flex tw-flex-col tw-gap-3 tw-border-b tw-border-slate-100 tw-p-4 lg:tw-flex-row lg:tw-items-center lg:tw-justify-between">
+                                <div>
+                                    <div class="tw-text-[13px] tw-font-semibold tw-text-slate-900">Mini Excel de productos</div>
+                                    <div class="tw-mt-1 tw-text-[11px] tw-text-slate-500">Puedes escribir, pegar filas desde Excel o cargar un archivo CSV/XLSX. Cada fila se agregará como producto nuevo a esta compra.</div>
+                                </div>
+                                <div class="tw-flex tw-flex-wrap tw-gap-2">
+                                    <input type="file" id="archivoProductosCompraMasivo" class="tw-hidden" accept=".csv,.xlsx">
+                                    <button type="button" id="btnCargarArchivoProductosCompra" class="tw-inline-flex tw-min-h-[38px] tw-items-center tw-gap-2 tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-px-3 tw-text-[11px] tw-font-semibold tw-text-slate-600 tw-transition hover:tw-border-tique-200 hover:tw-bg-tique-50 hover:tw-text-tique-700">
+                                        <i class="fas fa-file-upload"></i> Cargar CSV/XLSX
+                                    </button>
+                                    <a href="Controllers/Buy.php?op=descargarPlantillaCompraCsv" download="plantilla_productos_compra.csv" class="tw-inline-flex tw-min-h-[38px] tw-items-center tw-gap-2 tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-px-3 tw-text-[11px] tw-font-semibold tw-text-slate-600 tw-no-underline tw-transition hover:tw-border-tique-200 hover:tw-bg-tique-50 hover:tw-text-tique-700">
+                                        <i class="fas fa-file-csv"></i> Plantilla CSV
+                                    </a>
+                                    <button type="button" id="btnAgregarFilaCompraMasiva" class="tw-inline-flex tw-min-h-[38px] tw-items-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-px-3 tw-text-[11px] tw-font-semibold tw-text-white tw-transition hover:tw-bg-tique-600">
+                                        <i class="fas fa-plus"></i> Agregar fila
+                                    </button>
+                                    <button type="button" id="btnLimpiarCompraMasiva" class="tw-inline-flex tw-min-h-[38px] tw-items-center tw-gap-2 tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-px-3 tw-text-[11px] tw-font-semibold tw-text-slate-500 hover:tw-bg-slate-50">
+                                        <i class="fas fa-eraser"></i> Limpiar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="tw-overflow-auto" style="max-height:420px;">
+                                <table class="compra-mini-sheet" id="tablaCompraMasivaProductos">
+                                    <thead>
+                                        <tr>
+                                            <th style="min-width:200px;">Producto *</th>
+                                            <th style="min-width:120px;">SKU</th>
+                                            <th style="min-width:150px;">Categoría *</th>
+                                            <th style="min-width:150px;">Subcategoría</th>
+                                            <th style="min-width:135px;">Unidad *</th>
+                                            <th style="min-width:150px;">Almacén *</th>
+                                            <th style="min-width:90px;">Cantidad *</th>
+                                            <th style="min-width:110px;">Costo *</th>
+                                            <th style="min-width:110px;">P. venta</th>
+                                            <th style="width:44px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="compraMasivoBody"></tbody>
+                                </table>
+                            </div>
+
+                            <div class="tw-flex tw-flex-col tw-gap-2 tw-border-t tw-border-slate-100 tw-bg-slate-50/70 tw-px-4 tw-py-3 sm:tw-flex-row sm:tw-items-center sm:tw-justify-between">
+                                <div id="compraMasivoEstado" class="tw-text-[11px] tw-text-slate-500">Agrega una fila o pega datos desde Excel.</div>
+                                <div class="tw-flex tw-items-center tw-gap-2 tw-text-[11px] tw-text-slate-500">
+                                    <span class="tw-rounded-full tw-bg-white tw-px-2.5 tw-py-1 tw-shadow-sm"><strong id="compraMasivoTotal">0</strong> filas</span>
+                                    <span class="tw-rounded-full tw-bg-emerald-50 tw-px-2.5 tw-py-1 tw-text-emerald-700"><strong id="compraMasivoValidas">0</strong> válidas</span>
+                                    <span class="tw-rounded-full tw-bg-rose-50 tw-px-2.5 tw-py-1 tw-text-rose-700"><strong id="compraMasivoErrores">0</strong> con error</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer tw-flex tw-items-center tw-justify-end tw-gap-2 tw-border-t tw-border-slate-100 tw-bg-white tw-px-5 tw-py-4">
+                    <button type="button" class="tw-inline-flex tw-min-h-[40px] tw-items-center tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-px-4 tw-text-[12px] tw-font-medium tw-text-slate-600 hover:tw-bg-slate-50" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnAgregarProductoIndividual" class="tw-inline-flex tw-min-h-[40px] tw-items-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-px-4 tw-text-[12px] tw-font-semibold tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600">
+                        <i class="fas fa-plus"></i> Agregar a la compra
                     </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="form-group col-lg-8 col-md-8">
-                            <label for="nuevo_nombre">Nombre <span class="text-danger">*</span></label>
-                            <input
-                                type="text"
-                                class="form-control"
-                                id="nuevo_nombre"
-                                maxlength="100"
-                                required
-                                placeholder="Ej.: Polo oversize rosado">
-                        </div>
-
-                        <div class="form-group col-lg-4 col-md-4">
-                            <label for="nuevo_codigo">SKU o código</label>
-                            <input
-                                type="text"
-                                class="form-control text-uppercase"
-                                id="nuevo_codigo"
-                                maxlength="50"
-                                placeholder="Se genera si queda vacío">
-                        </div>
-                    </div>
-
-                    <div class="coincidencias-producto" id="coincidenciasProductoNuevo"></div>
-
-                    <div class="row mt-2">
-                        <div class="form-group col-lg-3 col-md-6">
-                            <label for="nuevo_idcategoria">Categoría <span class="text-danger">*</span></label>
-                            <select class="form-control" id="nuevo_idcategoria" required></select>
-                        </div>
-
-                        <div class="form-group col-lg-3 col-md-6">
-                            <label for="nuevo_idsubcategoria">Subcategoría</label>
-                            <select class="form-control" id="nuevo_idsubcategoria"></select>
-                        </div>
-
-                        <div class="form-group col-lg-3 col-md-6">
-                            <label for="nuevo_idmedida">Unidad <span class="text-danger">*</span></label>
-                            <select class="form-control" id="nuevo_idmedida" required></select>
-                        </div>
-
-                        <div class="form-group col-lg-3 col-md-6">
-                            <label for="nuevo_idalmacen">Almacén <span class="text-danger">*</span></label>
-                            <select class="form-control" id="nuevo_idalmacen" required></select>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="form-group col-lg-4 col-md-4">
-                            <label for="nuevo_cantidad">Cantidad comprada <span class="text-danger">*</span></label>
-                            <input
-                                type="number"
-                                class="form-control"
-                                id="nuevo_cantidad"
-                                min="1"
-                                step="1"
-                                value="1"
-                                required>
-                            <small class="text-muted">Esta cantidad será el stock que ingresa.</small>
-                        </div>
-
-                        <div class="form-group col-lg-4 col-md-4">
-                            <label for="nuevo_precio_compra">Costo unitario <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text">S/</span>
-                                </div>
-                                <input
-                                    type="number"
-                                    class="form-control"
-                                    id="nuevo_precio_compra"
-                                    min="0.01"
-                                    step="0.01"
-                                    required>
-                            </div>
-                        </div>
-
-                        <div class="form-group col-lg-4 col-md-4">
-                            <label for="nuevo_precio_venta">Precio de venta</label>
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text">S/</span>
-                                </div>
-                                <input
-                                    type="number"
-                                    class="form-control"
-                                    id="nuevo_precio_venta"
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="Opcional">
-                            </div>
-                            <small class="text-muted">Podrás definirlo después si aún no lo conoces.</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-plus mr-1"></i>
-                        Agregar a la compra
+                    <button type="button" id="btnAgregarProductosMasivos" class="tw-hidden tw-inline-flex tw-min-h-[40px] tw-items-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-tique-500 tw-px-4 tw-text-[12px] tw-font-semibold tw-text-white tw-shadow-sm tw-transition hover:tw-bg-tique-600 disabled:tw-opacity-60">
+                        <i class="fas fa-layer-group"></i> Agregar productos válidos
                     </button>
                 </div>
             </form>

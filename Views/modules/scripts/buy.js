@@ -14,6 +14,8 @@ let datosFormularioCompra = {
 let datosCompraCargados = false;
 let guardandoCompra = false;
 let temporizadorCoincidencias = null;
+let modoProductoNuevoCompra = 'individual';
+let secuenciaFilaMasivaCompra = 0;
 
 function escaparHtmlCompra(valor) {
     return String(valor ?? '')
@@ -191,20 +193,193 @@ function cancelarform() {
     mostrarform(false);
 }
 
-function cargarProveedoresCompra() {
-    $.ajax({
+function cargarProveedoresCompra(idSeleccionar = null) {
+    const seleccionActual = idSeleccionar !== null
+        ? String(idSeleccionar)
+        : String($('#idproveedor').val() || '');
+
+    return $.ajax({
         url: 'Controllers/Buy.php?op=selectProveedor',
         method: 'GET',
         cache: false
     })
         .done(function (respuesta) {
             $('#idproveedor').html(respuesta);
+            if (seleccionActual) {
+                $('#idproveedor').val(seleccionActual);
+            }
         })
         .fail(function () {
             $('#idproveedor').html(
                 '<option value="">No se pudieron cargar los proveedores</option>'
             );
         });
+}
+
+function limpiarProveedorCompra() {
+    const form = document.getElementById('formProveedorCompra');
+    if (form) {
+        form.reset();
+    }
+
+    $('#proveedor_tipo_documento').val('RUC');
+    $('#proveedor_num_documento')
+        .attr('maxlength', '11')
+        .attr('placeholder', 'Ingresa el RUC')
+        .val('');
+    $('#proveedor_nombre, #proveedor_direccion, #proveedor_telefono, #proveedor_email').val('');
+    $('#proveedorApiEstado')
+        .addClass('tw-hidden')
+        .removeClass('is-success is-error')
+        .empty();
+}
+
+function actualizarDocumentoProveedorCompra() {
+    const tipo = String($('#proveedor_tipo_documento').val() || 'RUC').toUpperCase();
+    const longitud = tipo === 'DNI' ? 8 : 11;
+    $('#proveedor_num_documento')
+        .attr('maxlength', String(longitud))
+        .attr('placeholder', tipo === 'DNI' ? 'Ingresa el DNI' : 'Ingresa el RUC')
+        .val(String($('#proveedor_num_documento').val() || '').replace(/\D/g, '').slice(0, longitud));
+}
+
+function mostrarEstadoProveedorApi(tipo, mensaje) {
+    $('#proveedorApiEstado')
+        .removeClass('tw-hidden is-success is-error')
+        .addClass(tipo === 'success' ? 'is-success' : 'is-error')
+        .html(mensaje);
+}
+
+function consultarProveedorCompraApi() {
+    const tipoDocumento = String($('#proveedor_tipo_documento').val() || '').toUpperCase();
+    const numeroDocumento = String($('#proveedor_num_documento').val() || '').replace(/\D/g, '');
+    const longitud = tipoDocumento === 'DNI' ? 8 : 11;
+
+    if (numeroDocumento.length !== longitud) {
+        mostrarEstadoProveedorApi(
+            'error',
+            `<i class="fas fa-exclamation-circle mr-1"></i> ${tipoDocumento} debe tener ${longitud} dígitos.`
+        );
+        return;
+    }
+
+    const $boton = $('#btnConsultarProveedorApi');
+    $boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Consultando...');
+    mostrarEstadoProveedorApi('success', '<span class="spinner-border spinner-border-sm mr-1"></span> Consultando PeruDev...');
+
+    $.ajax({
+        url: 'Controllers/Buy.php?op=consultarProveedorApi',
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            tipo_documento: tipoDocumento,
+            num_documento: numeroDocumento
+        }
+    }).done(function (respuesta) {
+        if (!respuesta || respuesta.success !== true) {
+            mostrarEstadoProveedorApi(
+                'error',
+                `<i class="fas fa-exclamation-circle mr-1"></i> ${escaparHtmlCompra((respuesta && respuesta.mensaje) || 'No se encontraron datos.')}`
+            );
+            return;
+        }
+
+        if (respuesta.existente && respuesta.proveedor) {
+            const proveedor = respuesta.proveedor;
+            cargarProveedoresCompra(proveedor.idpersona).then(function () {
+                $('#modalProveedorCompra').modal('hide');
+                alertaCompra('success', 'Proveedor seleccionado', 'El proveedor ya estaba registrado y quedó seleccionado en la compra.');
+            });
+            return;
+        }
+
+        const resultado = respuesta.resultado || {};
+        const nombre = String(
+            resultado.razon_social
+            || resultado.nombre_o_razon_social
+            || resultado.nombre_completo
+            || resultado.nombre
+            || ''
+        ).trim();
+        const direccion = String(
+            resultado.direccion_completa
+            || resultado.direccion
+            || resultado.direccion_fiscal
+            || resultado.domicilio_fiscal
+            || ''
+        ).trim();
+
+        if (nombre) {
+            $('#proveedor_nombre').val(nombre);
+        }
+        if (direccion) {
+            $('#proveedor_direccion').val(direccion);
+        }
+
+        mostrarEstadoProveedorApi(
+            'success',
+            '<i class="fas fa-check-circle mr-1"></i> Datos encontrados en PeruDev. Revisa la información y guarda el proveedor.'
+        );
+        $('#proveedor_nombre').trigger('focus');
+    }).fail(function (xhr) {
+        mostrarEstadoProveedorApi(
+            'error',
+            `<i class="fas fa-exclamation-circle mr-1"></i> ${escaparHtmlCompra(mensajeRespuestaCompra(xhr, 'No se pudo consultar PeruDev.'))}`
+        );
+    }).always(function () {
+        $boton.prop('disabled', false).html('<i class="fas fa-search"></i> Consultar PeruDev');
+    });
+}
+
+function guardarProveedorDesdeCompra(evento) {
+    evento.preventDefault();
+
+    const formulario = document.getElementById('formProveedorCompra');
+    if (!formulario || !formulario.checkValidity()) {
+        if (formulario) formulario.reportValidity();
+        return;
+    }
+
+    const tipoDocumento = String($('#proveedor_tipo_documento').val() || '').toUpperCase();
+    const numeroDocumento = String($('#proveedor_num_documento').val() || '').replace(/\D/g, '');
+    const nombre = String($('#proveedor_nombre').val() || '').trim();
+    const longitud = tipoDocumento === 'DNI' ? 8 : 11;
+
+    if (numeroDocumento.length !== longitud) {
+        mostrarEstadoProveedorApi('error', `${tipoDocumento} debe tener ${longitud} dígitos.`);
+        return;
+    }
+
+    const $boton = $('#btnGuardarProveedorCompra');
+    $boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Guardando...');
+
+    $.ajax({
+        url: 'Controllers/Buy.php?op=crearProveedor',
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            tipo_documento: tipoDocumento,
+            num_documento: numeroDocumento,
+            nombre: nombre,
+            direccion: String($('#proveedor_direccion').val() || '').trim(),
+            telefono: String($('#proveedor_telefono').val() || '').trim(),
+            email: String($('#proveedor_email').val() || '').trim()
+        }
+    }).done(function (respuesta) {
+        if (!respuesta || respuesta.success !== true || !respuesta.proveedor) {
+            mostrarEstadoProveedorApi('error', escaparHtmlCompra((respuesta && respuesta.mensaje) || 'No se pudo guardar el proveedor.'));
+            return;
+        }
+
+        cargarProveedoresCompra(respuesta.proveedor.idpersona).then(function () {
+            $('#modalProveedorCompra').modal('hide');
+            alertaCompra('success', 'Proveedor listo', respuesta.mensaje || 'Proveedor registrado correctamente.');
+        });
+    }).fail(function (xhr) {
+        mostrarEstadoProveedorApi('error', escaparHtmlCompra(mensajeRespuestaCompra(xhr, 'No se pudo guardar el proveedor.')));
+    }).always(function () {
+        $boton.prop('disabled', false).html('<i class="fas fa-save"></i> Guardar proveedor');
+    });
 }
 
 function cargarDatosCompra(forzar = false) {
@@ -568,6 +743,11 @@ function agregarProductoExistente(idarticulo) {
 function agregarProductoNuevoDesdeFormulario(evento) {
     evento.preventDefault();
 
+    if (modoProductoNuevoCompra === 'masivo') {
+        agregarProductosMasivosALaCompra();
+        return;
+    }
+
     const formulario = document.getElementById('formProductoNuevo');
 
     if (!formulario || !formulario.checkValidity()) {
@@ -651,6 +831,362 @@ function agregarProductoNuevoDesdeFormulario(evento) {
     poblarSelectoresCompra();
     $('#nuevo_cantidad').val('1');
     $('#coincidenciasProductoNuevo').hide().empty();
+}
+
+
+function opcionesMiniCompra(items, valorKey, textoFn, seleccionado = '') {
+    let html = '<option value="">Seleccione...</option>';
+    const selectedText = String(seleccionado || '');
+
+    (Array.isArray(items) ? items : []).forEach(function (item) {
+        const valor = String(item[valorKey] ?? '');
+        const texto = typeof textoFn === 'function' ? textoFn(item) : String(item[textoFn] ?? '');
+        html += `<option value="${escaparHtmlCompra(valor)}"${valor === selectedText ? ' selected' : ''}>${escaparHtmlCompra(texto)}</option>`;
+    });
+
+    return html;
+}
+
+function resolverCatalogoCompraMasiva(valor, items, idKey, campos) {
+    const texto = String(valor ?? '').trim();
+    if (!texto) return '';
+
+    const prefijo = texto.match(/^\s*(\d+)\s*(?:-|$)/);
+    const idDirecto = prefijo ? prefijo[1] : (/^\d+$/.test(texto) ? texto : '');
+    if (idDirecto && items.some(function (item) { return String(item[idKey]) === String(idDirecto); })) {
+        return String(idDirecto);
+    }
+
+    const objetivo = normalizarTextoCompra(texto);
+    for (const item of items) {
+        const candidatos = [];
+        (campos || []).forEach(function (campo) {
+            if (item[campo] !== undefined && item[campo] !== null) candidatos.push(String(item[campo]));
+        });
+        if (item.nombre !== undefined) candidatos.push(`${item[idKey]} - ${item.nombre}`);
+        if (item.nombre !== undefined && item.codigo !== undefined) {
+            candidatos.push(`${item.nombre} (${item.codigo})`);
+            candidatos.push(`${item[idKey]} - ${item.nombre} (${item.codigo})`);
+        }
+
+        if (candidatos.some(function (candidato) { return normalizarTextoCompra(candidato) === objetivo; })) {
+            return String(item[idKey]);
+        }
+    }
+
+    return '';
+}
+
+function subcategoriasCompraPorCategoria(idcategoria) {
+    const id = Number.parseInt(idcategoria, 10) || 0;
+    return datosFormularioCompra.subcategorias.filter(function (item) {
+        return Number.parseInt(item.idcategoria, 10) === id;
+    });
+}
+
+function actualizarSubcategoriaFilaCompraMasiva($fila, idcategoria, seleccionado = '') {
+    const items = subcategoriasCompraPorCategoria(idcategoria);
+    const $select = $fila.find('[data-mini-field="idsubcategoria"]');
+
+    if (!items.length) {
+        $select.html('<option value="">Sin subcategoría</option>').prop('disabled', true);
+        return;
+    }
+
+    $select
+        .prop('disabled', false)
+        .html(opcionesMiniCompra(items, 'idsubcategoria', 'nombre', seleccionado));
+}
+
+function agregarFilaCompraMasiva(datos = {}, enfocar = false) {
+    secuenciaFilaMasivaCompra += 1;
+    const rowId = secuenciaFilaMasivaCompra;
+
+    const idcategoria = String(
+        datos.idcategoria
+        || resolverCatalogoCompraMasiva(datos.categoria, datosFormularioCompra.categorias, 'idcategoria', ['nombre'])
+        || ''
+    );
+    const subItems = subcategoriasCompraPorCategoria(idcategoria);
+    const idsubcategoria = String(
+        datos.idsubcategoria
+        || resolverCatalogoCompraMasiva(datos.subcategoria, subItems, 'idsubcategoria', ['nombre'])
+        || ''
+    );
+    const idmedida = String(
+        datos.idmedida
+        || resolverCatalogoCompraMasiva(datos.medida, datosFormularioCompra.medidas, 'idmedida', ['nombre', 'codigo'])
+        || (datosFormularioCompra.medidas.find(function (item) { return String(item.codigo || '').toUpperCase() === 'NIU'; }) || {}).idmedida
+        || ''
+    );
+    const idalmacen = String(
+        datos.idalmacen
+        || resolverCatalogoCompraMasiva(datos.almacen, datosFormularioCompra.almacenes, 'idalmacen', ['nombre'])
+        || (datosFormularioCompra.almacenes[0] || {}).idalmacen
+        || ''
+    );
+    const tipoImportado = normalizarTextoCompra(datos.tipo || 'simple');
+    const esVariante = ['variante', 'variacion', 'variable'].includes(tipoImportado);
+
+    const cantidad = String(datos.cantidad ?? datos.stock ?? '1').trim() || '1';
+    const precioCompra = String(datos.precio_compra ?? '').replace(',', '.').trim();
+    const precioVenta = String(datos.precio_venta ?? '').replace(',', '.').trim();
+
+    const html = `
+        <tr data-mini-row="${rowId}" data-import-type="${esVariante ? 'variante' : 'simple'}">
+            <td><input class="compra-mini-control" data-mini-field="nombre" maxlength="100" value="${escaparHtmlCompra(datos.nombre || '')}" placeholder="Nombre del producto"></td>
+            <td><input class="compra-mini-control text-uppercase" data-mini-field="codigo" maxlength="50" value="${escaparHtmlCompra(datos.codigo || '')}" placeholder="Opcional"></td>
+            <td><select class="compra-mini-control" data-mini-field="idcategoria">${opcionesMiniCompra(datosFormularioCompra.categorias, 'idcategoria', 'nombre', idcategoria)}</select></td>
+            <td><select class="compra-mini-control" data-mini-field="idsubcategoria">${opcionesMiniCompra(subItems, 'idsubcategoria', 'nombre', idsubcategoria)}</select></td>
+            <td><select class="compra-mini-control" data-mini-field="idmedida">${opcionesMiniCompra(datosFormularioCompra.medidas, 'idmedida', function (item) { return item.codigo ? `${item.nombre} (${item.codigo})` : item.nombre; }, idmedida)}</select></td>
+            <td><select class="compra-mini-control" data-mini-field="idalmacen">${opcionesMiniCompra(datosFormularioCompra.almacenes, 'idalmacen', 'nombre', idalmacen)}</select></td>
+            <td><input class="compra-mini-control" data-mini-field="cantidad" type="number" min="1" step="1" value="${escaparHtmlCompra(cantidad)}"></td>
+            <td><input class="compra-mini-control" data-mini-field="precio_compra" type="number" min="0.01" step="0.01" value="${escaparHtmlCompra(precioCompra)}" placeholder="0.00"></td>
+            <td><input class="compra-mini-control" data-mini-field="precio_venta" type="number" min="0" step="0.01" value="${escaparHtmlCompra(precioVenta)}" placeholder="Opcional"></td>
+            <td class="tw-text-center">
+                <button type="button" class="btnEliminarFilaCompraMasiva tw-inline-flex tw-h-8 tw-w-8 tw-items-center tw-justify-center tw-rounded-lg tw-border-0 tw-bg-rose-50 tw-text-rose-600 hover:tw-bg-rose-100" title="Eliminar fila"><i class="fas fa-times"></i></button>
+            </td>
+        </tr>`;
+
+    $('#compraMasivoBody').append(html);
+    const $fila = $(`#compraMasivoBody tr[data-mini-row="${rowId}"]`);
+    actualizarSubcategoriaFilaCompraMasiva($fila, idcategoria, idsubcategoria);
+
+    if (esVariante) {
+        $fila.attr('title', 'Las variantes deben importarse desde Inventario > Productos. En Compras se agregan productos simples.');
+    }
+
+    if (enfocar) {
+        $fila.find('[data-mini-field="nombre"]').trigger('focus');
+    }
+
+    validarCompraMasiva();
+    return $fila;
+}
+
+function leerFilaCompraMasiva($fila) {
+    const valor = function (campo) {
+        return String($fila.find(`[data-mini-field="${campo}"]`).val() ?? '').trim();
+    };
+
+    return {
+        row_id: String($fila.attr('data-mini-row') || ''),
+        tipo_importado: String($fila.attr('data-import-type') || 'simple'),
+        nombre: valor('nombre'),
+        codigo: valor('codigo').toUpperCase().replace(/[^A-Z0-9._\-]/g, ''),
+        idcategoria: Number.parseInt(valor('idcategoria'), 10) || 0,
+        idsubcategoria: Number.parseInt(valor('idsubcategoria'), 10) || 0,
+        idmedida: Number.parseInt(valor('idmedida'), 10) || 0,
+        idalmacen: Number.parseInt(valor('idalmacen'), 10) || 0,
+        cantidad: Number.parseInt(valor('cantidad'), 10) || 0,
+        precio_compra: numeroCompra(valor('precio_compra')),
+        precio_venta: valor('precio_venta') === '' ? null : numeroCompra(valor('precio_venta'))
+    };
+}
+
+function validarCompraMasiva() {
+    const filas = [];
+    const codigosGrid = {};
+    const codigosExistentes = new Set(
+        productosCompra
+            .map(function (producto) { return String(producto.codigo || '').trim().toUpperCase(); })
+            .filter(Boolean)
+            .concat(
+                detallesCompra.map(function (detalle) { return String(detalle.codigo || '').trim().toUpperCase(); }).filter(Boolean)
+            )
+    );
+
+    $('#compraMasivoBody tr').each(function () {
+        const $fila = $(this);
+        const datos = leerFilaCompraMasiva($fila);
+        const errores = [];
+
+        if (datos.tipo_importado === 'variante') {
+            errores.push('Las variantes se importan desde Inventario > Productos.');
+        }
+        if (!datos.nombre) errores.push('Nombre obligatorio.');
+        if (datos.idcategoria <= 0) errores.push('Categoría obligatoria.');
+        if (datos.idmedida <= 0) errores.push('Unidad obligatoria.');
+        if (datos.idalmacen <= 0) errores.push('Almacén obligatorio.');
+        if (datos.cantidad <= 0) errores.push('Cantidad mayor que cero.');
+        if (datos.precio_compra <= 0) errores.push('Costo mayor que cero.');
+
+        if (datos.codigo) {
+            if (codigosExistentes.has(datos.codigo)) errores.push('SKU ya registrado o agregado a la compra.');
+            if (codigosGrid[datos.codigo]) errores.push('SKU repetido en el mini Excel.');
+            codigosGrid[datos.codigo] = true;
+        }
+
+        datos._errores = errores;
+        filas.push(datos);
+        $fila.removeClass('has-error is-valid').attr('title', errores.join(' · '));
+        $fila.addClass(errores.length ? 'has-error' : 'is-valid');
+    });
+
+    const validas = filas.filter(function (fila) { return fila._errores.length === 0; }).length;
+    const errores = filas.length - validas;
+
+    $('#compraMasivoTotal').text(filas.length);
+    $('#compraMasivoValidas').text(validas);
+    $('#compraMasivoErrores').text(errores);
+    $('#btnAgregarProductosMasivos')
+        .prop('disabled', validas === 0)
+        .html(`<i class="fas fa-layer-group"></i> Agregar ${validas} producto${validas === 1 ? '' : 's'} válidos`);
+
+    if (!filas.length) {
+        $('#compraMasivoEstado').text('Agrega una fila o pega datos desde Excel.');
+    } else if (errores) {
+        $('#compraMasivoEstado').html(`<strong>${validas}</strong> listas · <span class="tw-text-rose-600"><strong>${errores}</strong> requieren corrección</span>`);
+    } else {
+        $('#compraMasivoEstado').html(`<span class="tw-text-emerald-700"><i class="fas fa-check-circle mr-1"></i><strong>${validas}</strong> productos listos para agregar</span>`);
+    }
+
+    return filas;
+}
+
+function limpiarCompraMasiva() {
+    $('#compraMasivoBody').empty();
+    for (let i = 0; i < 4; i += 1) {
+        agregarFilaCompraMasiva({}, false);
+    }
+    validarCompraMasiva();
+}
+
+function cambiarModoProductoNuevoCompra(modo) {
+    modoProductoNuevoCompra = modo === 'masivo' ? 'masivo' : 'individual';
+    $('[data-producto-modo]').removeClass('is-active');
+    $(`[data-producto-modo="${modoProductoNuevoCompra}"]`).addClass('is-active');
+
+    const esMasivo = modoProductoNuevoCompra === 'masivo';
+    $('#productoModoIndividual').toggleClass('tw-hidden', esMasivo);
+    $('#productoModoMasivo').toggleClass('tw-hidden', !esMasivo);
+    $('#btnAgregarProductoIndividual').toggleClass('tw-hidden', esMasivo);
+    $('#btnAgregarProductosMasivos').toggleClass('tw-hidden', !esMasivo);
+
+    if (esMasivo && !$('#compraMasivoBody tr').length) {
+        limpiarCompraMasiva();
+    }
+}
+
+function agregarProductosMasivosALaCompra() {
+    const filas = validarCompraMasiva();
+    const validas = filas.filter(function (fila) { return fila._errores.length === 0; });
+
+    if (!validas.length) {
+        alertaCompra('warning', 'Sin productos válidos', 'Corrige las filas marcadas antes de agregarlas a la compra.');
+        return;
+    }
+
+    validas.forEach(function (fila) {
+        detallesCompra.push({
+            tipo_detalle: 'INVENTARIO',
+            origen: 'NUEVO',
+            idarticulo: 0,
+            descripcion: fila.nombre,
+            nombre: fila.nombre,
+            codigo: fila.codigo,
+            idcategoria: fila.idcategoria,
+            idsubcategoria: fila.idsubcategoria,
+            idmedida: fila.idmedida,
+            idalmacen: fila.idalmacen,
+            cantidad: fila.cantidad,
+            precio_compra: fila.precio_compra,
+            precio_venta: fila.precio_venta,
+            importe: numeroCompra(fila.cantidad * fila.precio_compra)
+        });
+        $(`#compraMasivoBody tr[data-mini-row="${fila.row_id}"]`).remove();
+    });
+
+    renderizarDetallesCompra();
+    validarCompraMasiva();
+
+    if (!$('#compraMasivoBody tr').length || $('#compraMasivoBody tr.has-error').length === 0) {
+        $('#modalProductoNuevo').modal('hide');
+    }
+
+    alertaCompra(
+        'success',
+        'Productos agregados',
+        `${validas.length} producto${validas.length === 1 ? '' : 's'} nuevo${validas.length === 1 ? '' : 's'} se agregaron a la compra.`
+    );
+}
+
+function pegarMatrizCompraMasiva(texto, $controlInicio) {
+    const limpio = String(texto || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
+    if (!limpio || (!limpio.includes('\t') && !limpio.includes('\n'))) return false;
+
+    const matriz = limpio.split('\n').map(function (linea) { return linea.split('\t'); });
+    const campos = ['nombre', 'codigo', 'idcategoria', 'idsubcategoria', 'idmedida', 'idalmacen', 'cantidad', 'precio_compra', 'precio_venta'];
+    let $fila = $controlInicio.closest('tr');
+    let columnaInicial = campos.indexOf(String($controlInicio.attr('data-mini-field') || ''));
+    if (columnaInicial < 0) columnaInicial = 0;
+
+    matriz.forEach(function (columnas, indiceFila) {
+        if (indiceFila > 0) {
+            let $siguiente = $fila.next('tr');
+            if (!$siguiente.length) $siguiente = agregarFilaCompraMasiva({}, false);
+            $fila = $siguiente;
+        }
+
+        columnas.forEach(function (valor, offset) {
+            const campo = campos[columnaInicial + offset];
+            if (!campo) return;
+            const $control = $fila.find(`[data-mini-field="${campo}"]`);
+            if (!$control.length) return;
+
+            if (campo === 'idcategoria') {
+                const id = resolverCatalogoCompraMasiva(valor, datosFormularioCompra.categorias, 'idcategoria', ['nombre']);
+                $control.val(id);
+                actualizarSubcategoriaFilaCompraMasiva($fila, id, '');
+            } else if (campo === 'idsubcategoria') {
+                const items = subcategoriasCompraPorCategoria($fila.find('[data-mini-field="idcategoria"]').val());
+                $control.val(resolverCatalogoCompraMasiva(valor, items, 'idsubcategoria', ['nombre']));
+            } else if (campo === 'idmedida') {
+                $control.val(resolverCatalogoCompraMasiva(valor, datosFormularioCompra.medidas, 'idmedida', ['nombre', 'codigo']));
+            } else if (campo === 'idalmacen') {
+                $control.val(resolverCatalogoCompraMasiva(valor, datosFormularioCompra.almacenes, 'idalmacen', ['nombre']));
+            } else {
+                $control.val(String(valor ?? '').trim());
+            }
+        });
+    });
+
+    validarCompraMasiva();
+    return true;
+}
+
+function cargarArchivoProductosCompraMasivo(archivo) {
+    if (!archivo) return;
+
+    const formData = new FormData();
+    formData.append('archivo_productos', archivo);
+    $('#compraMasivoEstado').html('<span class="spinner-border spinner-border-sm mr-1"></span> Leyendo archivo...');
+
+    $.ajax({
+        url: 'Controllers/Buy.php?op=previsualizarProductosMasivos',
+        method: 'POST',
+        dataType: 'json',
+        data: formData,
+        processData: false,
+        contentType: false
+    }).done(function (respuesta) {
+        if (!respuesta || respuesta.success !== true) {
+            alertaCompra('error', 'Archivo no válido', (respuesta && respuesta.mensaje) || 'No se pudo leer el archivo.');
+            return;
+        }
+
+        const filas = Array.isArray(respuesta.filas) ? respuesta.filas : [];
+        $('#compraMasivoBody').empty();
+        filas.forEach(function (fila) { agregarFilaCompraMasiva(fila, false); });
+        if (!filas.length) limpiarCompraMasiva();
+        validarCompraMasiva();
+        alertaCompra('success', 'Archivo cargado', `${filas.length} fila${filas.length === 1 ? '' : 's'} preparada${filas.length === 1 ? '' : 's'} para revisión.`);
+    }).fail(function (xhr) {
+        alertaCompra('error', 'No se pudo cargar', mensajeRespuestaCompra(xhr, 'No se pudo procesar el archivo.'));
+        validarCompraMasiva();
+    }).always(function () {
+        $('#archivoProductosCompraMasivo').val('');
+    });
 }
 
 function agregarGastoServicioDesdeFormulario(evento) {
@@ -2573,6 +3109,7 @@ function init() {
         .on('change', actualizarEstadoPagoCompra);
 
     $('#formProductoNuevo').on('submit', agregarProductoNuevoDesdeFormulario);
+    $('#formProveedorCompra').on('submit', guardarProveedorDesdeCompra);
     $('#formGastoServicio').on('submit', agregarGastoServicioDesdeFormulario);
 
     $('#btnProductoExistente').on('click', function () {
@@ -2582,13 +3119,72 @@ function init() {
     });
 
     $('#btnProductoNuevo').on('click', function () {
-        cargarDatosCompra();
-        cargarProductosCompra();
-        $('#formProductoNuevo')[0].reset();
-        poblarSelectoresCompra();
-        $('#nuevo_cantidad').val('1');
-        $('#coincidenciasProductoNuevo').hide().empty();
-        $('#modalProductoNuevo').modal('show');
+        $.when(cargarDatosCompra(), cargarProductosCompra()).always(function () {
+            $('#formProductoNuevo')[0].reset();
+            poblarSelectoresCompra();
+            $('#nuevo_cantidad').val('1');
+            $('#coincidenciasProductoNuevo').hide().empty();
+            $('#compraMasivoBody').empty();
+            cambiarModoProductoNuevoCompra('individual');
+            $('#modalProductoNuevo').modal('show');
+        });
+    });
+
+    $('#btnNuevoProveedorCompra').on('click', function () {
+        limpiarProveedorCompra();
+        $('#modalProveedorCompra').modal('show');
+    });
+
+    $('#proveedor_tipo_documento').on('change', actualizarDocumentoProveedorCompra);
+    $('#proveedor_num_documento').on('input', function () {
+        actualizarDocumentoProveedorCompra();
+        $('#proveedorApiEstado').addClass('tw-hidden').removeClass('is-success is-error').empty();
+    });
+    $('#btnConsultarProveedorApi').on('click', consultarProveedorCompraApi);
+
+    $('[data-producto-modo]').on('click', function () {
+        cambiarModoProductoNuevoCompra($(this).attr('data-producto-modo'));
+    });
+
+    $('#btnAgregarFilaCompraMasiva').on('click', function () {
+        agregarFilaCompraMasiva({}, true);
+    });
+
+    $('#btnLimpiarCompraMasiva').on('click', function () {
+        limpiarCompraMasiva();
+    });
+
+    $('#btnAgregarProductosMasivos').on('click', agregarProductosMasivosALaCompra);
+
+    $('#btnCargarArchivoProductosCompra').on('click', function () {
+        $('#archivoProductosCompraMasivo').trigger('click');
+    });
+
+    $('#archivoProductosCompraMasivo').on('change', function () {
+        cargarArchivoProductosCompraMasivo(this.files && this.files[0] ? this.files[0] : null);
+    });
+
+    $(document).on('click', '.btnEliminarFilaCompraMasiva', function () {
+        $(this).closest('tr').remove();
+        validarCompraMasiva();
+    });
+
+    $(document).on('change', '#compraMasivoBody [data-mini-field="idcategoria"]', function () {
+        const $fila = $(this).closest('tr');
+        actualizarSubcategoriaFilaCompraMasiva($fila, $(this).val(), '');
+        validarCompraMasiva();
+    });
+
+    $(document).on('input change', '#compraMasivoBody .compra-mini-control', function () {
+        validarCompraMasiva();
+    });
+
+    $(document).on('paste', '#compraMasivoBody .compra-mini-control', function (evento) {
+        const original = evento.originalEvent;
+        const texto = original && original.clipboardData ? original.clipboardData.getData('text/plain') : '';
+        if (pegarMatrizCompraMasiva(texto, $(this))) {
+            evento.preventDefault();
+        }
     });
 
     $('#btnGastoServicio').on('click', function () {
@@ -2604,7 +3200,13 @@ function init() {
     });
 
     $('#modalProductoNuevo').on('shown.bs.modal', function () {
-        $('#nuevo_nombre').trigger('focus');
+        if (modoProductoNuevoCompra === 'individual') {
+            $('#nuevo_nombre').trigger('focus');
+        }
+    });
+
+    $('#modalProveedorCompra').on('shown.bs.modal', function () {
+        $('#proveedor_num_documento').trigger('focus');
     });
 
     $('#modalGastoServicio').on('shown.bs.modal', function () {

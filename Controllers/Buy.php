@@ -267,12 +267,251 @@ try {
             echo '<option value="">Seleccione un proveedor...</option>';
 
             foreach ($proveedores as $reg) {
+                $documento = trim((string)($reg['num_documento'] ?? ''));
+                $texto = trim((string)$reg['nombre']);
+                if ($documento !== '') {
+                    $texto .= ' · ' . $documento;
+                }
+
                 echo '<option value="'
                     . (int)$reg['idpersona']
                     . '">'
-                    . htmlspecialchars((string)$reg['nombre'], ENT_QUOTES, 'UTF-8')
+                    . htmlspecialchars($texto, ENT_QUOTES, 'UTF-8')
                     . '</option>';
             }
+            exit;
+
+        case 'consultarProveedorApi':
+            exigirSesionCompras();
+
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responderJson(false, 'Método no permitido.', [], 405);
+            }
+
+            require_once __DIR__ . '/../Models/Person.php';
+            $person = new Person();
+
+            $tipoDocumento = strtoupper(trim((string)($_POST['tipo_documento'] ?? '')));
+            $numeroDocumento = preg_replace('/\D/', '', (string)($_POST['num_documento'] ?? ''));
+
+            if (!in_array($tipoDocumento, ['DNI', 'RUC'], true)) {
+                responderJson(false, 'Selecciona DNI o RUC para consultar.', [], 422);
+            }
+
+            $longitudEsperada = $tipoDocumento === 'DNI' ? 8 : 11;
+            if (strlen($numeroDocumento) !== $longitudEsperada) {
+                responderJson(
+                    false,
+                    $tipoDocumento . ' debe tener ' . $longitudEsperada . ' dígitos.',
+                    [],
+                    422
+                );
+            }
+
+            $existente = $person->mostrarPorDocumento($numeroDocumento);
+            if ($existente) {
+                if (strcasecmp((string)($existente['tipo_persona'] ?? ''), 'Proveedor') === 0) {
+                    responderJson(
+                        true,
+                        'El proveedor ya se encuentra registrado.',
+                        [
+                            'existente' => true,
+                            'proveedor' => [
+                                'idpersona' => (int)$existente['idpersona'],
+                                'tipo_documento' => (string)($existente['tipo_documento'] ?? $tipoDocumento),
+                                'num_documento' => (string)($existente['num_documento'] ?? $numeroDocumento),
+                                'nombre' => (string)($existente['nombre'] ?? ''),
+                                'direccion' => (string)($existente['direccion'] ?? ''),
+                                'telefono' => (string)($existente['telefono'] ?? ''),
+                                'email' => (string)($existente['email'] ?? '')
+                            ]
+                        ]
+                    );
+                }
+
+                responderJson(
+                    false,
+                    'El documento ya está registrado como ' . (string)($existente['tipo_persona'] ?? 'persona') . '.',
+                    [],
+                    409
+                );
+            }
+
+            $respuestaApi = json_decode(
+                (string)$person->getCustomerInfo($numeroDocumento, $tipoDocumento),
+                true
+            );
+
+            if (!is_array($respuestaApi) || empty($respuestaApi['estado'])) {
+                responderJson(
+                    false,
+                    (string)($respuestaApi['mensaje'] ?? 'PeruDev no devolvió información para el documento.'),
+                    ['api' => $respuestaApi],
+                    422
+                );
+            }
+
+            responderJson(
+                true,
+                'Datos encontrados en PeruDev.',
+                [
+                    'existente' => false,
+                    'tipo_documento' => $tipoDocumento,
+                    'num_documento' => $numeroDocumento,
+                    'resultado' => is_array($respuestaApi['resultado'] ?? null)
+                        ? $respuestaApi['resultado']
+                        : []
+                ]
+            );
+            break;
+
+        case 'crearProveedor':
+            exigirSesionCompras();
+
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responderJson(false, 'Método no permitido.', [], 405);
+            }
+
+            require_once __DIR__ . '/../Models/Person.php';
+            $person = new Person();
+
+            $tipoDocumento = strtoupper(trim((string)($_POST['tipo_documento'] ?? 'RUC')));
+            $numeroDocumento = preg_replace('/\D/', '', (string)($_POST['num_documento'] ?? ''));
+            $nombreProveedor = trim((string)($_POST['nombre'] ?? ''));
+            $direccionProveedor = trim((string)($_POST['direccion'] ?? ''));
+            $telefonoProveedor = trim((string)($_POST['telefono'] ?? ''));
+            $emailProveedor = trim((string)($_POST['email'] ?? ''));
+
+            if (!in_array($tipoDocumento, ['DNI', 'RUC'], true)) {
+                responderJson(false, 'El tipo de documento no es válido.', [], 422);
+            }
+
+            $longitudEsperada = $tipoDocumento === 'DNI' ? 8 : 11;
+            if (strlen($numeroDocumento) !== $longitudEsperada) {
+                responderJson(false, 'El número de documento no es válido.', [], 422);
+            }
+
+            if ($nombreProveedor === '') {
+                responderJson(false, 'El nombre o razón social es obligatorio.', [], 422);
+            }
+
+            if ($emailProveedor !== '' && !filter_var($emailProveedor, FILTER_VALIDATE_EMAIL)) {
+                responderJson(false, 'El correo electrónico no es válido.', [], 422);
+            }
+
+            $existente = $person->mostrarPorDocumento($numeroDocumento);
+            if ($existente) {
+                if (strcasecmp((string)($existente['tipo_persona'] ?? ''), 'Proveedor') === 0) {
+                    responderJson(
+                        true,
+                        'El proveedor ya estaba registrado y fue seleccionado.',
+                        [
+                            'existente' => true,
+                            'proveedor' => [
+                                'idpersona' => (int)$existente['idpersona'],
+                                'nombre' => (string)($existente['nombre'] ?? ''),
+                                'num_documento' => (string)($existente['num_documento'] ?? $numeroDocumento)
+                            ]
+                        ]
+                    );
+                }
+
+                responderJson(false, 'El documento ya está registrado con otro tipo de persona.', [], 409);
+            }
+
+            $idpersona = (int)$person->insertar(
+                'Proveedor',
+                $nombreProveedor,
+                $tipoDocumento,
+                $numeroDocumento,
+                $direccionProveedor,
+                $telefonoProveedor,
+                $emailProveedor
+            );
+
+            if ($idpersona <= 0) {
+                responderJson(false, 'No se pudo registrar el proveedor.', [], 500);
+            }
+
+            responderJson(
+                true,
+                'Proveedor registrado correctamente.',
+                [
+                    'existente' => false,
+                    'proveedor' => [
+                        'idpersona' => $idpersona,
+                        'tipo_documento' => $tipoDocumento,
+                        'num_documento' => $numeroDocumento,
+                        'nombre' => $nombreProveedor,
+                        'direccion' => $direccionProveedor,
+                        'telefono' => $telefonoProveedor,
+                        'email' => $emailProveedor
+                    ]
+                ]
+            );
+            break;
+
+        case 'previsualizarProductosMasivos':
+            exigirSesionCompras();
+
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responderJson(false, 'Método no permitido.', [], 405);
+            }
+
+            if (
+                !isset($_FILES['archivo_productos'])
+                || $_FILES['archivo_productos']['error'] !== UPLOAD_ERR_OK
+            ) {
+                responderJson(false, 'No se recibió un archivo válido.', [], 400);
+            }
+
+            require_once __DIR__ . '/../Libraries/ProductImportReader.php';
+
+            $archivo = $_FILES['archivo_productos'];
+            if ((int)($archivo['size'] ?? 0) > 8 * 1024 * 1024) {
+                responderJson(false, 'El archivo supera el máximo permitido de 8 MB.', [], 422);
+            }
+
+            $nombreOriginal = basename((string)($archivo['name'] ?? ''));
+            $extension = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+            if (!in_array($extension, ['csv', 'xlsx'], true)) {
+                responderJson(false, 'Solo se permiten archivos CSV o XLSX.', [], 422);
+            }
+
+            $filas = ProductImportReader::read(
+                (string)$archivo['tmp_name'],
+                $nombreOriginal
+            );
+
+            responderJson(
+                true,
+                'Archivo preparado para revisión.',
+                [
+                    'filas' => $filas,
+                    'total' => count($filas),
+                    'tipo' => $extension
+                ]
+            );
+            break;
+
+        case 'descargarPlantillaCompraCsv':
+            exigirSesionCompras();
+
+            while (ob_get_level() > 0) {
+                @ob_end_clean();
+            }
+            header('Content-Type: text/csv; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="plantilla_productos_compra.csv"');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('X-Content-Type-Options: nosniff');
+
+            echo "\xEF\xBB\xBF";
+            $salida = fopen('php://output', 'wb');
+            fputcsv($salida, [
+                'Producto', 'SKU', 'Cantidad', 'PrecioCompra', 'PrecioVenta',
+                'Categoria', 'Subcategoria', 'Almacen', 'UnidadMedida'
+            ], ',');
+            fclose($salida);
             exit;
 
         default:
