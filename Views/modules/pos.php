@@ -167,11 +167,55 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
         </section>
 
         <aside class="pos-cart-panel" id="posCartPanel" aria-label="Pedido actual">
+            <div class="pos-cart-desktop-head">
+                <div>
+                    <strong>Pedido actual</strong>
+                    <small>Configura la venta y agrega productos</small>
+                </div>
+                <button type="button" class="pos-sale-settings-btn" data-open-sale-settings aria-expanded="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+                    <span>Ajustes</span>
+                </button>
+            </div>
+
             <div class="pos-cart-mobile-head">
                 <strong>Pedido actual</strong>
-                <button type="button" class="pos-icon-btn" id="btnCerrarCarritoMovil" aria-label="Cerrar pedido">
-                    <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
-                </button>
+                <div class="pos-cart-mobile-actions">
+                    <button type="button" class="pos-sale-settings-btn compact" data-open-sale-settings aria-expanded="false" aria-label="Ajustes de campos">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+                    </button>
+                    <button type="button" class="pos-icon-btn" id="btnCerrarCarritoMovil" aria-label="Cerrar pedido">
+                        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="pos-sale-settings-panel" id="posSaleSettingsPanel" hidden aria-hidden="true">
+                <div class="pos-sale-settings-head">
+                    <div>
+                        <strong>Campos de Nueva Venta</strong>
+                        <small>Activa solo la información que necesitas.</small>
+                    </div>
+                    <button type="button" class="pos-sale-settings-close" id="btnCloseSaleSettings" aria-label="Cerrar ajustes">
+                        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    </button>
+                </div>
+                <div class="pos-sale-settings-list">
+                    <label class="pos-sale-setting is-fixed"><span>Tipo de comprobante</span><input type="checkbox" checked disabled><i></i><em>Fijo</em></label>
+                    <label class="pos-sale-setting is-fixed"><span>Cliente</span><input type="checkbox" checked disabled><i></i><em>Fijo</em></label>
+                    <label class="pos-sale-setting"><span>Dirección</span><input type="checkbox" data-pos-field-switch="direccion"><i></i></label>
+                    <label class="pos-sale-setting"><span>Tipo de pago</span><input type="checkbox" data-pos-field-switch="tipo_pago"><i></i></label>
+                    <label class="pos-sale-setting"><span>Forma de pago</span><input type="checkbox" data-pos-field-switch="forma_pago"><i></i></label>
+                    <label class="pos-sale-setting"><span>Celular</span><input type="checkbox" data-pos-field-switch="celular"><i></i></label>
+                    <label class="pos-sale-setting"><span>Fecha de emisión</span><input type="checkbox" data-pos-field-switch="fecha_emision"><i></i></label>
+                    <label class="pos-sale-setting"><span>Tipo de operación SUNAT</span><input type="checkbox" data-pos-field-switch="tipo_operacion_sunat"><i></i></label>
+                    <label class="pos-sale-setting"><span>Descuentos</span><input type="checkbox" data-pos-field-switch="descuento"><i></i></label>
+                    <label class="pos-sale-setting"><span>Envío del comprobante</span><input type="checkbox" data-pos-field-switch="envio_comprobante"><i></i></label>
+                </div>
+                <div class="pos-sale-settings-status" id="posSaleSettingsStatus" aria-live="polite">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg>
+                    <span>Configuración guardada</span>
+                </div>
             </div>
 
             <div class="pos-sale-config">
@@ -192,17 +236,13 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
 
                 <div class="pos-customer-block">
                     <div class="pos-customer-heading">
-                        <div>
-                            <span class="pos-field-label">Cliente</span>
-                            <span class="pos-customer-caption" id="posCustomerCaption">Cliente varios</span>
-                        </div>
-                        <button type="button" class="pos-link-btn" id="btnClienteGenerico">Usar cliente varios</button>
+                        <span class="pos-field-label">Cliente</span>
                     </div>
                     <div class="pos-customer-search-stack">
                         <div class="pos-customer-field">
                             <div class="pos-customer-label-row">
                                 <label class="pos-customer-sub-label" for="posCustomerDocument">DNI / RUC</label>
-                                <button type="button" class="pos-verify-address-btn" id="btnVerifyCustomerAddress" hidden title="Consultar nuevamente la dirección fiscal en SUNAT mediante PeruDev">
+                                <button type="button" class="pos-verify-address-btn" id="btnVerifyCustomerAddress" hidden title="Consultar nuevamente la dirección fiscal en SUNAT">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5"/><path d="M4 18v-5h5"/><path d="M6.1 9a7 7 0 0 1 11.4-2.6L20 11M4 13l2.5 4.6A7 7 0 0 0 17.9 15"/></svg>
                                     <span>Verificar dirección</span>
                                 </button>
@@ -233,7 +273,7 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                     <button type="button" class="pos-customer-extra-toggle" id="btnCustomerExtra" aria-expanded="false" aria-controls="posCustomerExtra">
                         <span class="pos-customer-extra-toggle-main">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg>
-                            <span>Dirección y teléfono</span>
+                            <span id="posCustomerExtraLabel">Datos adicionales</span>
                         </span>
                         <span class="pos-customer-extra-toggle-side">
                             <small id="posCustomerExtraSummary">Oculto</small>
@@ -242,7 +282,7 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                     </button>
 
                     <div class="pos-customer-extra-panel" id="posCustomerExtra" hidden>
-                        <div class="pos-customer-field">
+                        <div class="pos-customer-field" data-pos-sale-field="direccion">
                             <div class="pos-customer-label-row">
                                 <label class="pos-customer-sub-label" for="posCustomerAddress">Dirección para esta venta</label>
                                 <span class="pos-address-source" id="posCustomerAddressSource">Registrada</span>
@@ -252,10 +292,30 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
 
                         <div class="pos-address-verification" id="posAddressVerification" hidden aria-live="polite"></div>
 
-                        <div class="pos-customer-field">
+                        <div class="pos-customer-field" data-pos-sale-field="celular">
                             <label class="pos-customer-sub-label" for="posCustomerPhone">Teléfono</label>
                             <input class="pos-customer-extra-input" id="posCustomerPhone" inputmode="tel" autocomplete="tel" maxlength="15" placeholder="Teléfono del cliente">
                         </div>
+
+                        <label class="pos-sale-option-field" data-pos-sale-field="fecha_emision" hidden>
+                            <span>Fecha de emisión</span>
+                            <input type="date" id="posSaleDate">
+                        </label>
+
+                        <label class="pos-sale-option-field" data-pos-sale-field="tipo_operacion_sunat" hidden>
+                            <span>Tipo de operación SUNAT</span>
+                            <select id="posSaleOperation"></select>
+                            <small id="posSaleOperationHelp"></small>
+                        </label>
+
+                        <label class="pos-sale-option-field" data-pos-sale-field="envio_comprobante" hidden>
+                            <span>Envío del comprobante</span>
+                            <select id="posSaleSendMode">
+                                <option value="inmediato">Enviar inmediatamente a SUNAT</option>
+                                <option value="manual">Guardar y enviar manualmente después</option>
+                                <option value="resumen_diario">Incluir en Resumen Diario de Boletas</option>
+                            </select>
+                        </label>
                     </div>
 
                     <div class="pos-customer-results" id="posCustomerResults" hidden></div>
@@ -278,7 +338,7 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
             </div>
 
             <div class="pos-summary-panel">
-                <div class="pos-discount-card">
+                <div class="pos-discount-card" data-pos-sale-field="descuento">
                     <div class="pos-discount-heading">
                         <span>Descuento</span>
                         <div class="pos-segmented" role="group" aria-label="Tipo de descuento">
@@ -386,7 +446,7 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                     <div class="pos-payment-stat"><small>Vuelto</small><strong id="checkoutChange">S/. 0.00</strong></div>
                 </div>
 
-                <div class="pos-payment-type" id="checkoutPaymentTypeWrap">
+                <div class="pos-payment-type" id="checkoutPaymentTypeWrap" data-pos-sale-field="tipo_pago">
                     <span>Condición</span>
                     <div class="pos-segmented pos-segmented-wide">
                         <button type="button" class="active" data-payment-type="Contado">Contado</button>
@@ -412,11 +472,13 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                     </label>
                 </div>
 
-                <div class="pos-payment-list" id="checkoutPaymentRows"></div>
-                <button type="button" class="pos-add-payment-btn" id="btnAddPayment">
-                    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                    Agregar otra forma de pago
-                </button>
+                <div id="checkoutPaymentMethodWrap" data-pos-sale-field="forma_pago">
+                    <div class="pos-payment-list" id="checkoutPaymentRows"></div>
+                    <button type="button" class="pos-add-payment-btn" id="btnAddPayment">
+                        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                        Agregar otra forma de pago
+                    </button>
+                </div>
 
                 <div class="pos-payment-helper" id="checkoutPaymentHelper">
                     Ingresa el monto recibido. Si pagas en efectivo calcularemos el vuelto automáticamente.

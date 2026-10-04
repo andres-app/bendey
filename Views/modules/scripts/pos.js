@@ -69,6 +69,15 @@
         payments: [],
         company: {},
         tax: {},
+        operationTypes: [],
+        fieldConfig: {
+            tipo_comprobante: 1, cliente: 1, direccion: 0, tipo_pago: 1, forma_pago: 1,
+            celular: 1, fecha_emision: 0, tipo_operacion_sunat: 1, descuento: 1, envio_comprobante: 1
+        },
+        fieldConfigPersisted: null,
+        fieldConfigSaveTimer: null,
+        fieldConfigSaving: false,
+        fieldConfigPending: false,
         sales: [],
         activeSaleId: null,
         activeCategory: 0,
@@ -133,6 +142,149 @@
             throw new Error(message);
         }
         return data;
+    }
+
+    const DEFAULT_SALE_FIELD_CONFIG = Object.freeze({
+        tipo_comprobante: 1,
+        cliente: 1,
+        direccion: 0,
+        tipo_pago: 1,
+        forma_pago: 1,
+        celular: 1,
+        fecha_emision: 0,
+        tipo_operacion_sunat: 1,
+        descuento: 1,
+        envio_comprobante: 1
+    });
+
+    function normalizeSaleFieldConfig(config) {
+        const normalized = { ...DEFAULT_SALE_FIELD_CONFIG };
+        if (config && typeof config === 'object') {
+            Object.keys(normalized).forEach(key => {
+                if (key === 'tipo_comprobante' || key === 'cliente') return;
+                if (Object.prototype.hasOwnProperty.call(config, key)) {
+                    normalized[key] = Number(config[key]) === 1 || config[key] === true ? 1 : 0;
+                }
+            });
+        }
+        normalized.tipo_comprobante = 1;
+        normalized.cliente = 1;
+        return normalized;
+    }
+
+    function saleFieldVisible(key) {
+        if (key === 'tipo_comprobante' || key === 'cliente') return true;
+        return Number(state.fieldConfig?.[key] ?? DEFAULT_SALE_FIELD_CONFIG[key] ?? 1) === 1;
+    }
+
+    function setSaleSettingsStatus(mode = 'saved', text = 'Configuración guardada') {
+        const box = qs('#posSaleSettingsStatus');
+        if (!box) return;
+        box.classList.remove('saving', 'saved', 'error');
+        if (mode) box.classList.add(mode);
+        const label = qs('span', box);
+        if (label) label.textContent = text;
+    }
+
+    function setSaleSettingsOpen(open) {
+        const panel = qs('#posSaleSettingsPanel');
+        if (!panel) return;
+        panel.hidden = !open;
+        panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        qsa('[data-open-sale-settings]').forEach(btn => btn.setAttribute('aria-expanded', open ? 'true' : 'false'));
+    }
+
+    function renderSaleFieldConfig() {
+        qsa('[data-pos-field-switch]').forEach(input => {
+            input.checked = saleFieldVisible(input.dataset.posFieldSwitch);
+        });
+        qsa('[data-pos-sale-field]').forEach(el => {
+            const key = el.dataset.posSaleField;
+            el.hidden = !saleFieldVisible(key);
+        });
+
+        const extraKeys = ['direccion', 'celular', 'fecha_emision', 'tipo_operacion_sunat', 'envio_comprobante'];
+        const hasExtraFields = extraKeys.some(key => saleFieldVisible(key));
+        const extraToggle = qs('#btnCustomerExtra');
+        const extraLabel = qs('#posCustomerExtraLabel');
+        const extraPanel = qs('#posCustomerExtra');
+        if (extraLabel) extraLabel.textContent = 'Datos adicionales';
+        if (extraToggle) extraToggle.hidden = !hasExtraFields;
+        if (!hasExtraFields && extraPanel) setCustomerExtraOpen(false);
+
+        renderCustomer();
+        renderSaleOptionalFields();
+        if (!qs('#modalCheckout')?.hidden) renderCheckout();
+    }
+
+    async function loadSaleFieldConfig() {
+        try {
+            const response = await api(`Controllers/Company.php?op=venta_campos_visibles&v=${Date.now()}`);
+            if (!response || response.success !== true) throw new Error(response?.mensaje || 'No se pudo cargar la configuración.');
+            state.fieldConfig = normalizeSaleFieldConfig(response.configuracion || {});
+            state.fieldConfigPersisted = { ...state.fieldConfig };
+            setSaleSettingsStatus('saved', 'Configuración guardada');
+        } catch (error) {
+            state.fieldConfig = normalizeSaleFieldConfig(DEFAULT_SALE_FIELD_CONFIG);
+            state.fieldConfigPersisted = { ...state.fieldConfig };
+            setSaleSettingsStatus('error', 'No se pudo cargar la configuración');
+            console.warn('Configuración de campos de venta:', error);
+        }
+        renderSaleFieldConfig();
+    }
+
+    function scheduleSaleFieldConfigSave() {
+        setSaleSettingsStatus('saving', 'Guardando...');
+        if (state.fieldConfigSaving) {
+            state.fieldConfigPending = true;
+            return;
+        }
+        if (state.fieldConfigSaveTimer) clearTimeout(state.fieldConfigSaveTimer);
+        state.fieldConfigSaveTimer = setTimeout(() => {
+            state.fieldConfigSaveTimer = null;
+            saveSaleFieldConfig();
+        }, 180);
+    }
+
+    async function saveSaleFieldConfig() {
+        if (state.fieldConfigSaving) {
+            state.fieldConfigPending = true;
+            return;
+        }
+        const expected = normalizeSaleFieldConfig(state.fieldConfig);
+        state.fieldConfigSaving = true;
+        setSaleSettingsStatus('saving', 'Guardando...');
+        try {
+            const body = new URLSearchParams({ configuracion: JSON.stringify(expected) });
+            const response = await api('Controllers/Company.php?op=guardar_venta_campos_visibles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                body: body.toString()
+            });
+            if (!response || response.success !== true) throw new Error(response?.mensaje || 'No se pudo guardar la configuración.');
+            const saved = normalizeSaleFieldConfig(response.configuracion || {});
+            const matches = Object.keys(DEFAULT_SALE_FIELD_CONFIG).every(key => Number(saved[key]) === Number(expected[key]));
+            if (!matches) throw new Error('La configuración guardada no coincide con los cambios solicitados.');
+            state.fieldConfigPersisted = { ...saved };
+            if (!state.fieldConfigPending) {
+                state.fieldConfig = saved;
+                renderSaleFieldConfig();
+                setSaleSettingsStatus('saved', 'Configuración guardada');
+            }
+        } catch (error) {
+            if (!state.fieldConfigPending && state.fieldConfigPersisted) {
+                state.fieldConfig = { ...state.fieldConfigPersisted };
+                renderSaleFieldConfig();
+            }
+            setSaleSettingsStatus('error', 'No se pudo guardar');
+            toast(error.message || 'No se pudo guardar la configuración de campos.', 'error', 'Ajustes de venta');
+        } finally {
+            state.fieldConfigSaving = false;
+            if (state.fieldConfigPending) {
+                state.fieldConfigPending = false;
+                saveSaleFieldConfig();
+            }
+        }
     }
 
     function storageKey() {
@@ -213,6 +365,11 @@
             cart: [],
             discountMode: 'amount',
             discountValue: 0,
+            tipoPago: normalize(state.company?.venta_tipo_pago_predeterminado || 'Contado').includes('credito') ? 'Crédito' : 'Contado',
+            idFormaPago: Number(state.company?.venta_idforma_pago_predeterminada || 0) || 0,
+            fechaEmision: boot.today || new Date().toISOString().slice(0, 10),
+            tipoOperacionSunat: String(state.tax?.tipo_operacion_sunat || '0101'),
+            modoEnvio: String(state.company?.venta_modo_envio_predeterminado || 'inmediato'),
             createdAt: Date.now()
         };
     }
@@ -284,6 +441,11 @@
             cart,
             discountMode: sale.discountMode === 'percent' ? 'percent' : 'amount',
             discountValue: Math.max(0, Number(sale.discountValue) || 0),
+            tipoPago: normalize(sale.tipoPago || state.company?.venta_tipo_pago_predeterminado || 'Contado').includes('credito') ? 'Crédito' : 'Contado',
+            idFormaPago: Number(sale.idFormaPago || state.company?.venta_idforma_pago_predeterminada || 0) || 0,
+            fechaEmision: /^\d{4}-\d{2}-\d{2}$/.test(String(sale.fechaEmision || '')) ? String(sale.fechaEmision) : (boot.today || new Date().toISOString().slice(0, 10)),
+            tipoOperacionSunat: String(sale.tipoOperacionSunat || state.tax?.tipo_operacion_sunat || '0101'),
+            modoEnvio: ['inmediato', 'manual', 'resumen_diario'].includes(String(sale.modoEnvio || '').toLowerCase()) ? String(sale.modoEnvio).toLowerCase() : String(state.company?.venta_modo_envio_predeterminado || 'inmediato'),
             createdAt: Number(sale.createdAt) || Date.now()
         };
     }
@@ -604,24 +766,17 @@
     function updateCustomerExtraSummary(customer = activeSale().customer || genericCustomer()) {
         const summary = qs('#posCustomerExtraSummary');
         if (!summary) return;
-        if (customer.generic) {
-            summary.textContent = 'Oculto';
-            return;
-        }
-        const verification = customer.addressVerification;
-        if (verification?.verifiedAt && verification?.apiAddress) {
+        const verification = customer && !customer.generic ? customer.addressVerification : null;
+        if (verification?.verifiedAt && verification?.apiAddress && saleFieldVisible('direccion')) {
             summary.textContent = addressesMatch(customer.direccion, verification.apiAddress) ? '✓ SUNAT' : 'Revisar dirección';
             return;
         }
-        const hasAddress = Boolean(String(customer.direccion || '').trim() && String(customer.direccion || '').trim() !== '-');
-        const hasPhone = Boolean(String(customer.telefono || '').trim());
-        summary.textContent = hasAddress && hasPhone
-            ? 'Datos completos'
-            : hasAddress
-                ? 'Con dirección'
-                : hasPhone
-                    ? 'Con teléfono'
-                    : 'Sin datos';
+        const hasAddress = !customer?.generic && saleFieldVisible('direccion') && Boolean(String(customer.direccion || '').trim() && String(customer.direccion || '').trim() !== '-');
+        const hasPhone = !customer?.generic && saleFieldVisible('celular') && Boolean(String(customer.telefono || '').trim());
+        if (hasAddress && hasPhone) summary.textContent = 'Datos completos';
+        else if (hasAddress) summary.textContent = 'Con dirección';
+        else if (hasPhone) summary.textContent = 'Con teléfono';
+        else summary.textContent = 'Opcional';
     }
 
     function setCustomerExtraOpen(open) {
@@ -641,8 +796,13 @@
         const isRuc = !customer.generic
             && customer.tipo_documento === 'RUC'
             && /^\d{11}$/.test(String(customer.num_documento || ''));
-        verifyButton.hidden = !isRuc;
+        verifyButton.hidden = !isRuc || !saleFieldVisible('direccion');
         source.textContent = customer.generic ? '' : currentAddressSourceLabel(customer);
+        if (!saleFieldVisible('direccion')) {
+            box.hidden = true;
+            box.innerHTML = '';
+            return;
+        }
 
         const verification = customer.addressVerification;
         if (customer.generic || !verification?.apiAddress || !verification?.verifiedAt) {
@@ -676,7 +836,7 @@
             ` : `
                 <div class="pos-address-compare">
                     <div><span>${escapeHtml(sourceLabel)}</span><strong>${escapeHtml(current || 'Sin dirección')}</strong></div>
-                    <div><span>SUNAT / PeruDev</span><strong>${escapeHtml(apiAddress)}</strong></div>
+                    <div><span>Dirección SUNAT</span><strong>${escapeHtml(apiAddress)}</strong></div>
                 </div>
                 <div class="pos-address-verify-actions">
                     <button type="button" class="pos-address-action primary" data-address-action="use-sunat">Usar dirección SUNAT</button>
@@ -703,6 +863,81 @@
         renderAddressVerification(customer);
     }
 
+    function sanitizeSaleSendMode(mode, voucher = currentVoucher()) {
+        let value = String(mode || state.company?.venta_modo_envio_predeterminado || 'inmediato').trim().toLowerCase();
+        if (!['inmediato', 'manual', 'resumen_diario'].includes(value)) value = 'inmediato';
+        if (value === 'resumen_diario' && !normalize(voucher?.nombre).includes('boleta')) value = 'inmediato';
+        return value;
+    }
+
+    function renderSaleOptionalFields() {
+        const sale = activeSale();
+        const paymentType = qs('#posSalePaymentType');
+        if (paymentType) {
+            const invoice = normalize(currentVoucher()?.nombre).includes('factura');
+            if (sale.tipoPago === 'Crédito' && !invoice) sale.tipoPago = 'Contado';
+            paymentType.value = sale.tipoPago === 'Crédito' ? 'Crédito' : 'Contado';
+            const creditOption = paymentType.querySelector('option[value="Crédito"]');
+            if (creditOption) creditOption.disabled = !invoice;
+        }
+
+        const paymentMethod = qs('#posSalePaymentMethod');
+        if (paymentMethod) {
+            const methods = state.payments.filter(item => Number(item.condicion ?? 1) === 1);
+            paymentMethod.innerHTML = methods.map(method => `<option value="${Number(method.idforma_pago)}">${escapeHtml(method.nombre || 'Forma de pago')}</option>`).join('');
+            let selected = Number(sale.idFormaPago || 0);
+            if (!methods.some(method => Number(method.idforma_pago) === selected)) selected = defaultSalePaymentId();
+            sale.idFormaPago = selected;
+            if (selected > 0) paymentMethod.value = String(selected);
+            paymentMethod.disabled = sale.tipoPago === 'Crédito';
+        }
+
+        const date = qs('#posSaleDate');
+        if (date) {
+            date.max = boot.today || new Date().toISOString().slice(0, 10);
+            date.value = sale.fechaEmision || date.max;
+        }
+
+        const operation = qs('#posSaleOperation');
+        if (operation) {
+            const configured = String(state.tax?.tipo_operacion_sunat || '0101');
+            const list = Array.isArray(state.operationTypes) && state.operationTypes.length
+                ? state.operationTypes
+                : [{ codigo: configured, descripcion: 'Venta interna' }];
+            operation.innerHTML = list.filter(item => String(item.codigo || '').trim()).map(item => {
+                const code = String(item.codigo || '').trim();
+                const description = String(item.descripcion || '').trim();
+                return `<option value="${escapeHtml(code)}">${escapeHtml(code)} — ${escapeHtml(description)}</option>`;
+            }).join('');
+            const requested = String(sale.tipoOperacionSunat || configured);
+            if (!Array.from(operation.options).some(option => option.value === requested)) {
+                const option = document.createElement('option');
+                option.value = requested;
+                option.textContent = requested;
+                operation.appendChild(option);
+            }
+            operation.value = requested;
+            const canChange = Number(state.tax?.permitir_cambio_afectacion_venta || 0) === 1;
+            if (!canChange && sale.tipoOperacionSunat !== configured) {
+                sale.tipoOperacionSunat = configured;
+                operation.value = configured;
+            }
+            operation.disabled = !canChange;
+            const help = qs('#posSaleOperationHelp');
+            if (help) help.textContent = canChange ? 'Selecciona la operación que se declarará.' : 'Valor administrado desde la configuración tributaria.';
+        }
+
+        const sendMode = qs('#posSaleSendMode');
+        if (sendMode) {
+            const voucher = currentVoucher();
+            const isBoleta = normalize(voucher?.nombre).includes('boleta');
+            const daily = sendMode.querySelector('option[value="resumen_diario"]');
+            if (daily) daily.disabled = !isBoleta;
+            sale.modoEnvio = sanitizeSaleSendMode(sale.modoEnvio, voucher);
+            sendMode.value = sale.modoEnvio;
+        }
+    }
+
     function renderCustomer() {
         const customer = activeSale().customer || genericCustomer();
         const generic = Boolean(customer.generic);
@@ -712,10 +947,14 @@
         qs('#posCustomerName').title = generic ? '' : (customer.nombre || '');
         qs('#posCustomerAddress').value = generic ? '' : (customer.direccion === '-' ? '' : (customer.direccion || ''));
         qs('#posCustomerPhone').value = generic ? '' : (customer.telefono || '');
-        qs('#posCustomerCaption').textContent = generic ? 'Cliente varios' : 'Cliente seleccionado';
         qs('#posCustomerCheck').hidden = generic;
         updateCustomerExtraSummary(customer);
         renderAddressVerification(customer);
+        const extraKeys = ['direccion', 'celular', 'fecha_emision', 'tipo_operacion_sunat', 'envio_comprobante'];
+        qs('#btnCustomerExtra').hidden = !extraKeys.some(key => saleFieldVisible(key));
+        qsa('#posCustomerExtra [data-pos-sale-field]').forEach(el => {
+            el.hidden = !saleFieldVisible(el.dataset.posSaleField);
+        });
     }
 
     function renderCart() {
@@ -770,6 +1009,7 @@
         renderDocumentButton();
         renderCustomer();
         renderCart();
+        renderSaleFieldConfig();
         persistSales();
     }
 
@@ -1127,9 +1367,12 @@
         sale.voucherName = voucher.nombre;
         qs('#posDocumentMenu').hidden = true;
         qs('#btnDocumentoVenta').setAttribute('aria-expanded', 'false');
+        sale.modoEnvio = sanitizeSaleSendMode(sale.modoEnvio, voucher);
         persistSales();
         renderDocumentButton();
         const isInvoice = normalize(voucher.nombre).includes('factura');
+        if (!isInvoice && sale.tipoPago === 'Crédito') sale.tipoPago = 'Contado';
+        renderSaleOptionalFields();
         if (isInvoice && sale.customer?.generic) {
             toast('Para una factura selecciona un cliente con RUC válido.', 'warning', 'Cliente requerido');
             qs('#posCustomerDocType').value = 'RUC';
@@ -1191,6 +1434,12 @@
         return Number(cash?.idforma_pago || paymentMethods()[0]?.idforma_pago || 0);
     }
 
+    function defaultSalePaymentId() {
+        const configured = Number(state.company?.venta_idforma_pago_predeterminada || 0);
+        if (state.payments.some(p => Number(p.idforma_pago) === configured && Number(p.condicion ?? 1) === 1)) return configured;
+        return defaultPaymentId();
+    }
+
     function openCheckout() {
         const sale = activeSale();
         const t = totals(sale);
@@ -1206,8 +1455,18 @@
                 return;
             }
         }
-        state.checkout.type = 'Contado';
-        state.checkout.rows = [{ methodId: defaultPaymentId(), amount: t.total }];
+        state.checkout.type = sale.tipoPago === 'Crédito' && invoice ? 'Crédito' : 'Contado';
+        const chosenPayment = state.payments.find(p => Number(p.idforma_pago) === Number(sale.idFormaPago || 0));
+        if (state.checkout.type === 'Contado' && Number(chosenPayment?.es_combinado) === 1) {
+            const methods = paymentMethods();
+            state.checkout.rows = [
+                { methodId: Number(methods[0]?.idforma_pago || defaultPaymentId()), amount: t.total },
+                { methodId: Number(methods[1]?.idforma_pago || methods[0]?.idforma_pago || defaultPaymentId()), amount: 0 }
+            ];
+        } else {
+            const methodId = Number(chosenPayment?.idforma_pago || defaultPaymentId());
+            state.checkout.rows = [{ methodId, amount: t.total }];
+        }
         state.checkout.processing = false;
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1229,6 +1488,7 @@
         // regresamos a contado. El botón Crédito permanece clicable para poder explicar
         // claramente por qué una boleta no puede emitirse con cronograma SUNAT.
         if (!invoice && state.checkout.type === 'Crédito') state.checkout.type = 'Contado';
+        sale.tipoPago = state.checkout.type;
 
         qs('#checkoutDocumentCaption').textContent = `${voucher?.nombre || 'Comprobante'} · ${clientLabel}`;
         qs('#checkoutTotal').textContent = fmt(t.total);
@@ -1250,15 +1510,26 @@
         });
 
         const credit = state.checkout.type === 'Crédito';
+        const showPaymentType = saleFieldVisible('tipo_pago');
+        const showPaymentMethod = saleFieldVisible('forma_pago');
+        qs('#checkoutPaymentTypeWrap').hidden = !showPaymentType;
         qs('#checkoutCreditFields').hidden = !credit;
-        qs('#checkoutPaymentRows').hidden = credit;
-        qs('#btnAddPayment').hidden = credit;
+        qs('#checkoutPaymentMethodWrap').hidden = credit || !showPaymentMethod;
+        qs('#checkoutPaymentRows').hidden = credit || !showPaymentMethod;
+        qs('#btnAddPayment').hidden = credit || !showPaymentMethod;
         qs('#checkoutPaymentTypeWrap').title = invoice ? '' : 'Para crédito selecciona Factura Electrónica y un cliente con RUC.';
 
         if (credit) {
             updateCreditSummary();
         } else {
+            if (!showPaymentMethod) {
+                state.checkout.rows = [{ methodId: defaultPaymentId(), amount: t.total }];
+            }
             renderPaymentRows();
+            if (!showPaymentMethod) {
+                const method = state.payments.find(p => Number(p.idforma_pago) === Number(defaultPaymentId()));
+                qs('#checkoutPaymentHelper').textContent = `Se usará la forma de pago predeterminada${method?.nombre ? `: ${method.nombre}` : ''}.`;
+            }
         }
     }
 
@@ -1324,6 +1595,10 @@
         const method = paymentMethods().find(p => !used.has(Number(p.idforma_pago))) || paymentMethods()[0];
         if (!method) return;
         state.checkout.rows.push({ methodId: Number(method.idforma_pago), amount: 0 });
+        const mixed = state.payments.find(p => Number(p.es_combinado) === 1);
+        if (mixed) activeSale().idFormaPago = Number(mixed.idforma_pago);
+        persistSales();
+        renderSaleOptionalFields();
         renderPaymentRows();
     }
 
@@ -1373,11 +1648,8 @@
         return { sale, voucher, totals: t, selected };
     }
 
-    function effectiveSendMode(voucher) {
-        let mode = String(state.company?.venta_modo_envio_predeterminado || 'inmediato').trim().toLowerCase();
-        if (!['inmediato', 'manual', 'resumen_diario'].includes(mode)) mode = 'inmediato';
-        if (mode === 'resumen_diario' && !normalize(voucher?.nombre).includes('boleta')) mode = 'inmediato';
-        return mode;
+    function effectiveSendMode(voucher, sale = activeSale()) {
+        return sanitizeSaleSendMode(sale?.modoEnvio || state.company?.venta_modo_envio_predeterminado || 'inmediato', voucher);
     }
 
     async function processSale() {
@@ -1390,11 +1662,11 @@
         const { sale, voucher, totals: t } = validated;
         const form = new FormData();
         form.append('tipo_comprobante', voucher.nombre);
-        form.append('fecha_emision', boot.today || new Date().toISOString().slice(0, 10));
-        form.append('modo_envio', effectiveSendMode(voucher));
+        form.append('fecha_emision', String(sale.fechaEmision || boot.today || new Date().toISOString().slice(0, 10)));
+        form.append('modo_envio', effectiveSendMode(voucher, sale));
         form.append('moneda_codigo', String(state.tax?.moneda_codigo || 'PEN'));
         form.append('tipo_cambio_sunat', '1');
-        form.append('tipo_operacion_sunat', String(state.tax?.tipo_operacion_sunat || '0101'));
+        form.append('tipo_operacion_sunat', String(sale.tipoOperacionSunat || state.tax?.tipo_operacion_sunat || '0101'));
         const customer = sale.customer || genericCustomer();
         form.append('idcliente', String(Number(customer.idpersona) || 0));
         form.append('cliente_generico', customer.generic ? '1' : '0');
@@ -1713,7 +1985,9 @@
             state.categories = Array.isArray(data.categorias) ? data.categorias : [];
             state.vouchers = Array.isArray(data.comprobantes) ? data.comprobantes : [];
             state.payments = Array.isArray(data.formas_pago) ? data.formas_pago : [];
+            state.operationTypes = Array.isArray(data.tipos_operacion) ? data.tipos_operacion : [];
             loadSales();
+            await loadSaleFieldConfig();
             renderCompanyShell();
             renderCategories();
             renderProducts();
@@ -1747,6 +2021,7 @@
                 });
                 qs('#posDocumentMenu').hidden = true;
                 qs('#posUserPopover').hidden = true;
+                setSaleSettingsOpen(false);
                 hideCustomerResults();
                 closeMobileCart();
             }
@@ -1828,9 +2103,46 @@
             if (!event.target.closest('.pos-document-selector')) qs('#posDocumentMenu').hidden = true;
             if (!event.target.closest('.pos-user-menu-wrap')) qs('#posUserPopover').hidden = true;
             if (!event.target.closest('.pos-customer-block')) hideCustomerResults();
+            if (!event.target.closest('#posSaleSettingsPanel') && !event.target.closest('[data-open-sale-settings]')) setSaleSettingsOpen(false);
         });
 
-        qs('#btnClienteGenerico').addEventListener('click', setGenericCustomer);
+        qsa('[data-open-sale-settings]').forEach(button => button.addEventListener('click', event => {
+            event.stopPropagation();
+            setSaleSettingsOpen(qs('#posSaleSettingsPanel').hidden);
+        }));
+        qs('#btnCloseSaleSettings').addEventListener('click', () => setSaleSettingsOpen(false));
+        qs('#posSaleSettingsPanel').addEventListener('click', event => event.stopPropagation());
+        qsa('[data-pos-field-switch]').forEach(input => input.addEventListener('change', event => {
+            const key = event.currentTarget.dataset.posFieldSwitch;
+            if (!Object.prototype.hasOwnProperty.call(DEFAULT_SALE_FIELD_CONFIG, key)) return;
+            state.fieldConfig[key] = event.currentTarget.checked ? 1 : 0;
+            state.fieldConfig.tipo_comprobante = 1;
+            state.fieldConfig.cliente = 1;
+            renderSaleFieldConfig();
+            scheduleSaleFieldConfigSave();
+        }));
+
+        qs('#posSaleDate').addEventListener('change', event => {
+            const value = String(event.target.value || '');
+            const max = boot.today || new Date().toISOString().slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value > max) {
+                event.target.value = activeSale().fechaEmision || max;
+                toast('Selecciona una fecha de emisión válida.', 'warning');
+                return;
+            }
+            activeSale().fechaEmision = value;
+            persistSales();
+        });
+        qs('#posSaleOperation').addEventListener('change', event => {
+            activeSale().tipoOperacionSunat = String(event.target.value || state.tax?.tipo_operacion_sunat || '0101');
+            persistSales();
+        });
+        qs('#posSaleSendMode').addEventListener('change', event => {
+            activeSale().modoEnvio = sanitizeSaleSendMode(event.target.value, currentVoucher());
+            event.target.value = activeSale().modoEnvio;
+            persistSales();
+        });
+
         qs('#btnBuscarDocumento').addEventListener('click', lookupCustomerDocument);
         qs('#btnVerifyCustomerAddress').addEventListener('click', verifyCustomerAddress);
         qs('#btnCustomerExtra').addEventListener('click', () => {
@@ -1859,6 +2171,10 @@
             if (event.target.value !== selectedDoc || type !== activeSale().customer?.tipo_documento) {
                 qs('#btnVerifyCustomerAddress').hidden = true;
             }
+            if (!event.target.value.trim() && !String(qs('#posCustomerName').value || '').trim() && !activeSale().customer?.generic) {
+                setGenericCustomer();
+                return;
+            }
             clearTimeout(state.customerTimer);
             state.customerTimer = setTimeout(() => searchCustomers(event.target.value), 180);
         });
@@ -1867,10 +2183,14 @@
         });
         qs('#posCustomerName').addEventListener('input', event => {
             const sale = activeSale();
+            const value = String(event.target.value || '').trim();
+            if (!value && !String(qs('#posCustomerDocument').value || '').trim() && sale.customer && !sale.customer.generic) {
+                setGenericCustomer();
+                return;
+            }
             if (sale.customer && !sale.customer.generic) {
-                sale.customer.nombre = String(event.target.value || '').trim();
+                sale.customer.nombre = value;
                 persistSales();
-                qs('#posCustomerCaption').textContent = 'Cliente seleccionado';
                 event.target.title = sale.customer.nombre;
             }
             clearTimeout(state.customerTimer);
@@ -1927,6 +2247,14 @@
             const method = event.target.closest('[data-payment-method]');
             if (method) {
                 state.checkout.rows[Number(method.dataset.paymentMethod)].methodId = Number(method.value);
+                const sale = activeSale();
+                if (state.checkout.rows.length === 1) sale.idFormaPago = Number(method.value);
+                else {
+                    const mixed = state.payments.find(p => Number(p.es_combinado) === 1);
+                    if (mixed) sale.idFormaPago = Number(mixed.idforma_pago);
+                }
+                persistSales();
+                renderSaleOptionalFields();
                 updatePaymentSummary();
             }
         });
@@ -1941,6 +2269,9 @@
             const remove = event.target.closest('[data-remove-payment]');
             if (remove && state.checkout.rows.length > 1) {
                 state.checkout.rows.splice(Number(remove.dataset.removePayment), 1);
+                if (state.checkout.rows.length === 1) activeSale().idFormaPago = Number(state.checkout.rows[0].methodId);
+                persistSales();
+                renderSaleOptionalFields();
                 renderPaymentRows();
             }
         });
@@ -1952,6 +2283,9 @@
                 return;
             }
             state.checkout.type = nextType;
+            activeSale().tipoPago = nextType;
+            persistSales();
+            renderSaleOptionalFields();
             renderCheckout();
         }));
         qs('#checkoutInstallments').addEventListener('input', updateCreditSummary);
@@ -1976,6 +2310,7 @@
                 state.payments = data.formas_pago || [];
                 state.company = data.empresa || state.company;
                 state.tax = data.tributaria || state.tax;
+                state.operationTypes = data.tipos_operacion || state.operationTypes;
                 renderCompanyShell(); renderCategories(); renderProducts(); renderActiveSale();
                 toast('Catálogo y stock actualizados.', 'success');
             } catch (error) { toast(error.message, 'error'); }
