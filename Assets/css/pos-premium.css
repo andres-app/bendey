@@ -115,3 +115,70 @@ svg{display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:
     font-size:16px!important;
   }
 }
+
+
+/* ================================================================
+   POS · Cliente en dos filas + datos adicionales desplegables
+   ================================================================ */
+.pos-customer-search-stack{display:grid;grid-template-columns:minmax(0,1fr);gap:7px}
+.pos-customer-field{min-width:0;display:grid;gap:4px}
+.pos-customer-sub-label{margin:0 2px;color:#7b8797;font-size:8.5px;font-weight:750;line-height:1.2;letter-spacing:.01em}
+.pos-customer-search-stack .pos-customer-document,.pos-customer-search-stack .pos-customer-name-wrap{width:100%;height:40px}
+.pos-customer-search-stack .pos-customer-name-wrap input{font-size:10.5px;font-weight:650;text-overflow:ellipsis}
+.pos-customer-extra-toggle{width:100%;min-height:31px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:0 8px;border:1px solid #e7ebf0;border-radius:9px;background:#fafbfc;color:#64748b;text-align:left;transition:.16s ease}
+.pos-customer-extra-toggle:hover{border-color:#cfd8e2;background:#f7faf9;color:#334155}
+.pos-customer-extra-toggle[aria-expanded="true"]{border-color:#c7e7da;background:#f2faf6;color:#087a52}
+.pos-customer-extra-toggle-main,.pos-customer-extra-toggle-side{display:flex;align-items:center;gap:6px;min-width:0}
+.pos-customer-extra-toggle-main>svg{width:13px;height:13px;flex:0 0 auto}
+.pos-customer-extra-toggle-main>span{font-size:9px;font-weight:750;white-space:nowrap}
+.pos-customer-extra-toggle-side small{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#94a3b8;font-size:8px;font-weight:650}
+.pos-customer-extra-chevron{width:13px;height:13px;flex:0 0 auto;transition:transform .16s ease}
+.pos-customer-extra-toggle[aria-expanded="true"] .pos-customer-extra-chevron{transform:rotate(180deg)}
+.pos-customer-extra-panel{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;margin-top:7px;padding:9px;border:1px solid #e3ebe7;border-radius:11px;background:#f8fbfa}
+.pos-customer-extra-panel[hidden]{display:none!important}
+.pos-customer-extra-input{width:100%;height:38px;padding:0 10px;border:1px solid #dfe5ec;border-radius:10px;outline:0;background:#fff;color:#334155;font-size:10px;transition:.16s ease}
+.pos-customer-extra-input:focus{border-color:#8edec1;box-shadow:0 0 0 3px rgba(0,164,106,.07)}
+.pos-customer-results{top:100%;margin-top:6px}
+@media (max-width:640px){
+  .pos-customer-search-stack{grid-template-columns:minmax(0,1fr)}
+  .pos-customer-extra-toggle-side small{max-width:100px}
+}
+
+/* ================================================================
+   POS · Verificación rápida de dirección SUNAT / PeruDev
+   ================================================================ */
+.pos-customer-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.pos-verify-address-btn{display:inline-flex;align-items:center;gap:4px;padding:2px 5px;border:0;border-radius:6px;background:transparent;color:#087a52;font-size:8px;font-weight:800;line-height:1.2;white-space:nowrap;transition:.16s ease}
+.pos-verify-address-btn:hover{background:#eaf9f3;color:#006f4a}
+.pos-verify-address-btn:disabled{cursor:wait;opacity:.58}
+.pos-verify-address-btn svg{width:11px;height:11px}
+.pos-verify-address-btn.is-loading svg{animation:pos-address-spin .8s linear infinite}
+@keyframes pos-address-spin{to{transform:rotate(360deg)}}
+.pos-address-source{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 5px;border-radius:999px;background:#eef3f6;color:#64748b;font-size:7.5px;font-weight:800;line-height:1.35}
+.pos-address-verification{display:grid;gap:7px;padding:8px;border:1px solid #dbe5e0;border-radius:10px;background:#fff}
+.pos-address-verification.is-match{border-color:#bce8d3;background:#f5fcf8}
+.pos-address-verification.is-different{border-color:#f3d39d;background:#fffaf2}
+.pos-address-verify-head{display:flex;align-items:flex-start;gap:7px;min-width:0}
+.pos-address-verify-icon{width:24px;height:24px;display:grid;place-items:center;flex:0 0 auto;border-radius:8px;background:#e9f8f1;color:#087a52}
+.pos-address-verification.is-different .pos-address-verify-icon{background:#fff0d8;color:#b96808}
+.pos-address-verify-icon svg{width:14px;height:14px}
+.pos-address-verify-head>div{display:grid;gap:1px;min-width:0}
+.pos-address-verify-head strong{color:#334155;font-size:9px;line-height:1.25}
+.pos-address-verify-head small{color:#8b98a8;font-size:7.5px;line-height:1.25}
+.pos-address-verify-current{padding:7px 8px;border:1px solid #dcefe5;border-radius:8px;background:#fff;color:#334155;font-size:8.5px;font-weight:700;line-height:1.35;word-break:break-word}
+.pos-address-compare{display:grid;gap:5px}
+.pos-address-compare>div{display:grid;gap:2px;padding:7px 8px;border:1px solid #eceff2;border-radius:8px;background:#fff;min-width:0}
+.pos-address-compare span{color:#8a96a5;font-size:7.5px;font-weight:750}
+.pos-address-compare strong{color:#334155;font-size:8.5px;line-height:1.35;word-break:break-word}
+.pos-address-verify-actions{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.pos-address-action,.pos-address-save-profile{min-height:29px;padding:5px 7px;border:1px solid #dce3e9;border-radius:8px;background:#fff;color:#475569;font-size:8px;font-weight:800;line-height:1.2;transition:.16s ease}
+.pos-address-action:hover,.pos-address-save-profile:hover{border-color:#bfcbd4;background:#f8fafc;color:#1e293b}
+.pos-address-action.primary{border-color:#b7e6d3;background:#ecfaf4;color:#087a52}
+.pos-address-action.primary:hover{border-color:#8fd5b9;background:#e1f7ed}
+.pos-address-save-profile{width:100%;border-style:dashed;border-color:#b9d8cb;background:#f7fbf9;color:#087a52}
+.pos-address-save-profile:disabled{cursor:wait;opacity:.58}
+@media (max-width:420px){
+  .pos-verify-address-btn span{display:none}
+  .pos-verify-address-btn{width:24px;height:22px;justify-content:center;padding:0}
+  .pos-address-verify-actions{grid-template-columns:1fr}
+}

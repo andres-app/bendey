@@ -629,26 +629,26 @@ switch ($op) {
                     )
                 );
 
-                $direccion = trim(
-                    (string)(
-                        $clienteExistente['direccion']
-                        ?? $direccion
-                    )
-                );
+                /*
+                 * Dirección, teléfono y correo pueden ajustarse en la venta
+                 * (POS / Nueva Venta) sin modificar la ficha maestra del cliente.
+                 * Si el formulario no envía un valor, se conserva el registrado.
+                 */
+                $direccionEnviada = $direccion;
+                $telefonoEnviado = $telefono;
+                $emailEnviado = $email;
 
-                $telefono = trim(
-                    (string)(
-                        $clienteExistente['telefono']
-                        ?? $telefono
-                    )
-                );
+                $direccion = $direccionEnviada !== ''
+                    ? $direccionEnviada
+                    : trim((string)($clienteExistente['direccion'] ?? ''));
 
-                $email = trim(
-                    (string)(
-                        $clienteExistente['email']
-                        ?? $email
-                    )
-                );
+                $telefono = $telefonoEnviado !== ''
+                    ? $telefonoEnviado
+                    : trim((string)($clienteExistente['telefono'] ?? ''));
+
+                $email = $emailEnviado !== ''
+                    ? $emailEnviado
+                    : trim((string)($clienteExistente['email'] ?? ''));
 
                 $clienteGenericoSolicitado =
                     $num_documento === '99999999';

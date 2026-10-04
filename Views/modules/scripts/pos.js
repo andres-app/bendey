@@ -16,6 +16,34 @@
         .toLocaleLowerCase('es')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '');
+    const normalizeAddress = (value) => normalize(value)
+        .replace(/\bavenida\b|\bav\.?\b/g, ' av ')
+        .replace(/\bjiron\b|\bjr\.?\b/g, ' jr ')
+        .replace(/\burbanizacion\b|\burb\.?\b/g, ' urb ')
+        .replace(/\bmanzana\b|\bmz\.?\b/g, ' mz ')
+        .replace(/\blote\b|\blt\.?\b/g, ' lt ')
+        .replace(/\bnumero\b|\bnro\.?\b|n[°º]/g, ' ')
+        .replace(/[#.,;:\-_/\\()]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const addressesMatch = (a, b) => {
+        const left = normalizeAddress(a);
+        const right = normalizeAddress(b);
+        return Boolean(left && right && left === right);
+    };
+    const formatVerifiedAt = (iso) => {
+        if (!iso) return '';
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return '';
+        try {
+            return new Intl.DateTimeFormat('es-PE', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            }).format(date);
+        } catch {
+            return date.toLocaleString();
+        }
+    };
     const uid = () => (window.crypto?.randomUUID?.() || `sale-${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
     const ICONS = {
@@ -112,6 +140,44 @@
         return `tiquepos.pos.premium.v2.${Number(boot.userId || 0)}.${branch}`;
     }
 
+    function addressVerificationCacheKey() {
+        const branch = Number(state.bootstrap?.caja?.idsucursal || 0);
+        return `tiquepos.pos.address-verification.v1.${Number(boot.userId || 0)}.${branch}`;
+    }
+
+    function readAddressVerificationCache(documentNumber) {
+        const doc = String(documentNumber || '').replace(/\D/g, '');
+        if (doc.length !== 11) return null;
+        try {
+            const cache = JSON.parse(localStorage.getItem(addressVerificationCacheKey()) || '{}');
+            const item = cache?.[doc];
+            if (!item?.apiAddress || !item?.verifiedAt) return null;
+            const checkedAt = new Date(item.verifiedAt).getTime();
+            if (!Number.isFinite(checkedAt) || Date.now() - checkedAt > 24 * 60 * 60 * 1000) return null;
+            return item;
+        } catch {
+            return null;
+        }
+    }
+
+    function writeAddressVerificationCache(documentNumber, verification) {
+        const doc = String(documentNumber || '').replace(/\D/g, '');
+        if (doc.length !== 11 || !verification?.apiAddress || !verification?.verifiedAt) return;
+        try {
+            const key = addressVerificationCacheKey();
+            const cache = JSON.parse(localStorage.getItem(key) || '{}');
+            cache[doc] = {
+                apiAddress: String(verification.apiAddress || '').trim(),
+                apiName: String(verification.apiName || '').trim(),
+                verifiedAt: verification.verifiedAt,
+                origin: verification.origin || 'verify'
+            };
+            localStorage.setItem(key, JSON.stringify(cache));
+        } catch (error) {
+            console.warn('No se pudo guardar la verificación de dirección:', error);
+        }
+    }
+
     function defaultVoucherName() {
         const preferred = String(state.company?.venta_tipo_comprobante_predeterminado || '').trim();
         const usable = usableVouchers();
@@ -130,7 +196,10 @@
             telefono: '',
             email: '',
             generic: true,
-            source: 'generic'
+            source: 'generic',
+            registeredAddress: '',
+            addressSource: 'generic',
+            addressVerification: null
         };
     }
 
@@ -164,6 +233,28 @@
         persistSales();
     }
 
+    function normalizeSavedCustomer(customer) {
+        if (!customer || typeof customer !== 'object') return genericCustomer();
+        if (customer.generic) return { ...genericCustomer(), ...customer, generic: true };
+        const address = String(customer.direccion || '').trim();
+        return {
+            ...customer,
+            idpersona: Number(customer.idpersona) || 0,
+            tipo_documento: String(customer.tipo_documento || '').toUpperCase() === 'RUC' ? 'RUC' : 'DNI',
+            num_documento: String(customer.num_documento || '').trim(),
+            nombre: String(customer.nombre || '').trim(),
+            direccion: address,
+            telefono: String(customer.telefono || '').trim(),
+            email: String(customer.email || '').trim(),
+            generic: false,
+            registeredAddress: String(customer.registeredAddress ?? (customer.source === 'local' ? address : '')).trim(),
+            addressSource: String(customer.addressSource || (customer.source === 'api' ? 'api' : 'registered')),
+            addressVerification: customer.addressVerification && typeof customer.addressVerification === 'object'
+                ? customer.addressVerification
+                : null
+        };
+    }
+
     function normalizeSavedSale(sale, index) {
         const productMap = new Map(state.products.map(p => [Number(p.idarticulo), p]));
         const cart = Array.isArray(sale.cart) ? sale.cart.map(item => {
@@ -189,7 +280,7 @@
             id: sale.id || uid(),
             name: String(sale.name || `Venta ${index + 1}`),
             voucherName: voucher,
-            customer: sale.customer && typeof sale.customer === 'object' ? sale.customer : genericCustomer(),
+            customer: normalizeSavedCustomer(sale.customer),
             cart,
             discountMode: sale.discountMode === 'percent' ? 'percent' : 'amount',
             discountValue: Math.max(0, Number(sale.discountValue) || 0),
@@ -489,14 +580,142 @@
         renderDocumentMenu();
     }
 
+    function customerRegisteredAddress(customer) {
+        const stored = String(customer?.registeredAddress ?? '').trim();
+        if (stored) return stored === '-' ? '' : stored;
+        if (customer?.source === 'local') {
+            const current = String(customer?.direccion || '').trim();
+            return current === '-' ? '' : current;
+        }
+        return '';
+    }
+
+    function currentAddressSourceLabel(customer) {
+        if (!customer || customer.generic) return '';
+        const current = String(customer.direccion || '').trim();
+        const registered = customerRegisteredAddress(customer);
+        const apiAddress = String(customer.addressVerification?.apiAddress || '').trim();
+        if (apiAddress && addressesMatch(current, apiAddress)) return 'SUNAT';
+        if (registered && addressesMatch(current, registered)) return 'Registrada';
+        if (customer.addressSource === 'api') return 'SUNAT';
+        return current ? 'Editada' : 'Sin dirección';
+    }
+
+    function updateCustomerExtraSummary(customer = activeSale().customer || genericCustomer()) {
+        const summary = qs('#posCustomerExtraSummary');
+        if (!summary) return;
+        if (customer.generic) {
+            summary.textContent = 'Oculto';
+            return;
+        }
+        const verification = customer.addressVerification;
+        if (verification?.verifiedAt && verification?.apiAddress) {
+            summary.textContent = addressesMatch(customer.direccion, verification.apiAddress) ? '✓ SUNAT' : 'Revisar dirección';
+            return;
+        }
+        const hasAddress = Boolean(String(customer.direccion || '').trim() && String(customer.direccion || '').trim() !== '-');
+        const hasPhone = Boolean(String(customer.telefono || '').trim());
+        summary.textContent = hasAddress && hasPhone
+            ? 'Datos completos'
+            : hasAddress
+                ? 'Con dirección'
+                : hasPhone
+                    ? 'Con teléfono'
+                    : 'Sin datos';
+    }
+
+    function setCustomerExtraOpen(open) {
+        const panel = qs('#posCustomerExtra');
+        const button = qs('#btnCustomerExtra');
+        if (!panel || !button) return;
+        panel.hidden = !open;
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function renderAddressVerification(customer = activeSale().customer || genericCustomer()) {
+        const box = qs('#posAddressVerification');
+        const source = qs('#posCustomerAddressSource');
+        const verifyButton = qs('#btnVerifyCustomerAddress');
+        if (!box || !source || !verifyButton) return;
+
+        const isRuc = !customer.generic
+            && customer.tipo_documento === 'RUC'
+            && /^\d{11}$/.test(String(customer.num_documento || ''));
+        verifyButton.hidden = !isRuc;
+        source.textContent = customer.generic ? '' : currentAddressSourceLabel(customer);
+
+        const verification = customer.addressVerification;
+        if (customer.generic || !verification?.apiAddress || !verification?.verifiedAt) {
+            box.hidden = true;
+            box.innerHTML = '';
+            return;
+        }
+
+        const current = String(customer.direccion || '').trim();
+        const registered = customerRegisteredAddress(customer);
+        const apiAddress = String(verification.apiAddress || '').trim();
+        const match = addressesMatch(current, apiAddress);
+        const registeredDiffers = Boolean(registered && !addressesMatch(registered, current));
+        const canUpdate = Number(customer.idpersona) > 0 && Boolean(current);
+        const sourceLabel = registered && addressesMatch(current, registered)
+            ? 'Dirección registrada'
+            : 'Dirección para esta venta';
+
+        box.hidden = false;
+        box.className = `pos-address-verification ${match ? 'is-match' : 'is-different'}`;
+        box.innerHTML = `
+            <div class="pos-address-verify-head">
+                <span class="pos-address-verify-icon">${match ? ICONS.success : ICONS.warning}</span>
+                <div>
+                    <strong>${match ? 'Dirección verificada con SUNAT' : 'La dirección no coincide con SUNAT'}</strong>
+                    <small>Verificado: ${escapeHtml(formatVerifiedAt(verification.verifiedAt))}</small>
+                </div>
+            </div>
+            ${match ? `
+                <div class="pos-address-verify-current">${escapeHtml(apiAddress)}</div>
+            ` : `
+                <div class="pos-address-compare">
+                    <div><span>${escapeHtml(sourceLabel)}</span><strong>${escapeHtml(current || 'Sin dirección')}</strong></div>
+                    <div><span>SUNAT / PeruDev</span><strong>${escapeHtml(apiAddress)}</strong></div>
+                </div>
+                <div class="pos-address-verify-actions">
+                    <button type="button" class="pos-address-action primary" data-address-action="use-sunat">Usar dirección SUNAT</button>
+                    <button type="button" class="pos-address-action" data-address-action="keep-current">Mantener actual</button>
+                </div>
+            `}
+            ${canUpdate && (registeredDiffers || (!registered && current)) ? `
+                <button type="button" class="pos-address-save-profile" data-address-action="save-profile">
+                    Guardar esta dirección en la ficha del cliente
+                </button>
+            ` : ''}
+        `;
+    }
+
+    function updateActiveCustomerField(field, value) {
+        const sale = activeSale();
+        const customer = sale.customer || genericCustomer();
+        if (customer.generic) return;
+        customer[field] = String(value || '').trim();
+        if (field === 'direccion') customer.addressSource = 'manual';
+        sale.customer = customer;
+        persistSales();
+        updateCustomerExtraSummary(customer);
+        renderAddressVerification(customer);
+    }
+
     function renderCustomer() {
         const customer = activeSale().customer || genericCustomer();
         const generic = Boolean(customer.generic);
         qs('#posCustomerDocType').value = customer.tipo_documento === 'RUC' ? 'RUC' : 'DNI';
         qs('#posCustomerDocument').value = generic ? '' : (customer.num_documento || '');
         qs('#posCustomerName').value = generic ? '' : (customer.nombre || '');
-        qs('#posCustomerCaption').textContent = generic ? 'Cliente varios' : (customer.nombre || 'Cliente seleccionado');
+        qs('#posCustomerName').title = generic ? '' : (customer.nombre || '');
+        qs('#posCustomerAddress').value = generic ? '' : (customer.direccion === '-' ? '' : (customer.direccion || ''));
+        qs('#posCustomerPhone').value = generic ? '' : (customer.telefono || '');
+        qs('#posCustomerCaption').textContent = generic ? 'Cliente varios' : 'Cliente seleccionado';
         qs('#posCustomerCheck').hidden = generic;
+        updateCustomerExtraSummary(customer);
+        renderAddressVerification(customer);
     }
 
     function renderCart() {
@@ -652,6 +871,7 @@
         sale.customer = genericCustomer();
         if (normalize(sale.name).startsWith('venta')) sale.name = `Venta ${state.sales.indexOf(sale) + 1}`;
         persistSales();
+        setCustomerExtraOpen(false);
         renderCustomer();
         renderSalesTabs();
         hideCustomerResults();
@@ -659,17 +879,35 @@
 
     function selectCustomer(customer, source = 'local') {
         const sale = activeSale();
+        const address = String(customer.direccion || '').trim();
+        const documentType = String(customer.tipo_documento || '').toUpperCase() === 'RUC' ? 'RUC' : 'DNI';
+        const documentNumber = String(customer.num_documento || '').trim();
+        const apiVerification = source === 'api' && address ? {
+            apiAddress: address,
+            apiName: String(customer.nombre || '').trim(),
+            verifiedAt: new Date().toISOString(),
+            origin: 'lookup'
+        } : null;
+        const cachedVerification = source === 'local' && documentType === 'RUC'
+            ? readAddressVerificationCache(documentNumber)
+            : null;
         sale.customer = {
             idpersona: Number(customer.idpersona) || 0,
-            tipo_documento: String(customer.tipo_documento || '').toUpperCase() === 'RUC' ? 'RUC' : 'DNI',
-            num_documento: String(customer.num_documento || '').trim(),
+            tipo_documento: documentType,
+            num_documento: documentNumber,
             nombre: String(customer.nombre || '').trim(),
-            direccion: String(customer.direccion || '').trim(),
-            telefono: String(customer.telefono || '').trim(),
+            direccion: address,
+            telefono: String(customer.telefono || customer.celular || '').trim(),
             email: String(customer.email || '').trim(),
             generic: false,
-            source
+            source,
+            registeredAddress: source === 'local' ? address : '',
+            addressSource: source === 'api' ? 'api' : 'registered',
+            addressVerification: apiVerification || cachedVerification
         };
+        if (apiVerification && documentType === 'RUC') {
+            writeAddressVerificationCache(documentNumber, apiVerification);
+        }
         const first = sale.customer.nombre.split(/\s+/).filter(Boolean).slice(0, 2).join(' ');
         if (first) sale.name = first.length > 18 ? `${first.slice(0, 18)}…` : first;
         persistSales();
@@ -737,23 +975,148 @@
                 throw new Error(external?.mensaje || 'No se encontró información para este documento.');
             }
             const r = external.resultado;
-            const name = String(r.nombre || r.nombre_completo || r.razon_social || r.razonSocial || r.nombre_o_razon_social || '').trim();
-            const address = String(r.direccion || r.domicilio_fiscal || r.direccion_completa || '').trim();
-            if (!name) throw new Error('La consulta no devolvió el nombre del cliente.');
+            const info = extractExternalCustomer(r);
+            if (!info.name) throw new Error('La consulta no devolvió el nombre del cliente.');
             selectCustomer({
                 idpersona: 0,
                 tipo_documento: type,
                 num_documento: doc,
-                nombre: name,
-                direccion: address,
-                telefono: '',
-                email: ''
+                nombre: info.name,
+                direccion: info.address,
+                telefono: String(r.telefono || r.celular || '').trim(),
+                email: String(r.email || r.correo || '').trim()
             }, 'api');
             toast('Datos del cliente cargados correctamente.', 'success');
         } catch (error) {
             toast(error.message || 'No se pudo consultar el documento.', 'error', 'Consulta DNI/RUC');
         } finally {
             button.disabled = false;
+        }
+    }
+
+    function extractExternalCustomer(result) {
+        const data = result || {};
+        return {
+            name: String(data.nombre || data.nombre_completo || data.razon_social || data.razonSocial || data.nombre_o_razon_social || '').trim(),
+            address: String(data.direccion || data.domicilio_fiscal || data.direccion_completa || '').trim()
+        };
+    }
+
+    async function verifyCustomerAddress() {
+        const sale = activeSale();
+        const customer = sale.customer || genericCustomer();
+        const doc = String(customer.num_documento || '').replace(/\D/g, '');
+        if (customer.generic || customer.tipo_documento !== 'RUC' || doc.length !== 11) {
+            toast('La verificación de dirección está disponible para clientes con RUC de 11 dígitos.', 'warning', 'RUC requerido');
+            return;
+        }
+
+        const button = qs('#btnVerifyCustomerAddress');
+        button.disabled = true;
+        button.classList.add('is-loading');
+        try {
+            const body = new URLSearchParams({ tipo_documento: 'RUC', num_documento: doc });
+            const external = await api('Controllers/Person.php?op=getCustomerInfo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                body: body.toString()
+            });
+            if (!external || external.estado !== true || !external.resultado) {
+                throw new Error(external?.mensaje || 'No se encontró información para este RUC.');
+            }
+            const info = extractExternalCustomer(external.resultado);
+            if (!info.address) {
+                throw new Error('SUNAT no devolvió una dirección para este RUC.');
+            }
+
+            customer.addressVerification = {
+                apiAddress: info.address,
+                apiName: info.name,
+                verifiedAt: new Date().toISOString(),
+                origin: 'verify'
+            };
+            writeAddressVerificationCache(doc, customer.addressVerification);
+            sale.customer = customer;
+            persistSales();
+            setCustomerExtraOpen(true);
+            renderCustomer();
+
+            if (addressesMatch(customer.direccion, info.address)) {
+                toast('La dirección coincide con la información consultada en SUNAT.', 'success', 'Dirección verificada');
+            } else {
+                toast('La dirección es diferente. Revisa ambas opciones antes de continuar.', 'warning', 'Dirección distinta');
+            }
+        } catch (error) {
+            toast(error.message || 'No se pudo verificar la dirección.', 'error', 'Consulta SUNAT');
+        } finally {
+            button.disabled = false;
+            button.classList.remove('is-loading');
+        }
+    }
+
+    function useVerifiedSunatAddress() {
+        const sale = activeSale();
+        const customer = sale.customer || genericCustomer();
+        const apiAddress = String(customer.addressVerification?.apiAddress || '').trim();
+        if (!apiAddress || customer.generic) return;
+        customer.direccion = apiAddress;
+        customer.addressSource = 'sunat';
+        sale.customer = customer;
+        persistSales();
+        renderCustomer();
+        setCustomerExtraOpen(true);
+        toast('Se usará la dirección de SUNAT para esta venta.', 'success');
+    }
+
+    function keepCurrentCustomerAddress() {
+        const customer = activeSale().customer || genericCustomer();
+        if (customer.generic) return;
+        customer.addressSource = addressesMatch(customer.direccion, customerRegisteredAddress(customer)) ? 'registered' : 'manual';
+        persistSales();
+        renderAddressVerification(customer);
+        updateCustomerExtraSummary(customer);
+        toast('Se mantendrá la dirección actual para esta venta.', 'info');
+    }
+
+    async function saveCurrentAddressToCustomerProfile() {
+        const sale = activeSale();
+        const customer = sale.customer || genericCustomer();
+        const address = String(customer.direccion || '').trim();
+        if (customer.generic || Number(customer.idpersona) <= 0) {
+            toast('Este cliente todavía no tiene una ficha registrada para actualizar.', 'warning');
+            return;
+        }
+        if (!address) {
+            toast('Ingresa una dirección antes de actualizar la ficha del cliente.', 'warning');
+            return;
+        }
+
+        const saveButton = qs('[data-address-action="save-profile"]');
+        if (saveButton) saveButton.disabled = true;
+        try {
+            const body = new URLSearchParams({
+                idpersona: String(customer.idpersona),
+                direccion: address
+            });
+            const response = await api('Controllers/Person.php?op=actualizarDireccionClientePos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                body: body.toString()
+            });
+            if (!response || response.estado !== true) {
+                throw new Error(response?.mensaje || 'No se pudo actualizar la ficha del cliente.');
+            }
+            customer.registeredAddress = address;
+            customer.addressSource = addressesMatch(address, customer.addressVerification?.apiAddress || '') ? 'sunat' : 'registered';
+            sale.customer = customer;
+            persistSales();
+            renderCustomer();
+            setCustomerExtraOpen(true);
+            toast('La dirección quedó actualizada en la ficha del cliente.', 'success', 'Ficha actualizada');
+        } catch (error) {
+            toast(error.message || 'No se pudo actualizar la ficha del cliente.', 'error');
+        } finally {
+            if (saveButton) saveButton.disabled = false;
         }
     }
 
@@ -1469,10 +1832,33 @@
 
         qs('#btnClienteGenerico').addEventListener('click', setGenericCustomer);
         qs('#btnBuscarDocumento').addEventListener('click', lookupCustomerDocument);
+        qs('#btnVerifyCustomerAddress').addEventListener('click', verifyCustomerAddress);
+        qs('#btnCustomerExtra').addEventListener('click', () => {
+            setCustomerExtraOpen(qs('#posCustomerExtra').hidden);
+        });
+        qs('#posAddressVerification').addEventListener('click', event => {
+            const button = event.target.closest('[data-address-action]');
+            if (!button) return;
+            const action = button.dataset.addressAction;
+            if (action === 'use-sunat') useVerifiedSunatAddress();
+            if (action === 'keep-current') keepCurrentCustomerAddress();
+            if (action === 'save-profile') saveCurrentAddressToCustomerProfile();
+        });
+        qs('#posCustomerAddress').addEventListener('input', event => {
+            updateActiveCustomerField('direccion', event.target.value);
+        });
+        qs('#posCustomerPhone').addEventListener('input', event => {
+            event.target.value = event.target.value.replace(/[^0-9+()\-\s]/g, '').slice(0, 15);
+            updateActiveCustomerField('telefono', event.target.value);
+        });
         qs('#posCustomerDocument').addEventListener('input', event => {
             const type = qs('#posCustomerDocType').value;
             event.target.maxLength = type === 'RUC' ? 11 : 8;
             event.target.value = event.target.value.replace(/\D/g, '').slice(0, type === 'RUC' ? 11 : 8);
+            const selectedDoc = String(activeSale().customer?.num_documento || '').replace(/\D/g, '');
+            if (event.target.value !== selectedDoc || type !== activeSale().customer?.tipo_documento) {
+                qs('#btnVerifyCustomerAddress').hidden = true;
+            }
             clearTimeout(state.customerTimer);
             state.customerTimer = setTimeout(() => searchCustomers(event.target.value), 180);
         });
@@ -1480,6 +1866,13 @@
             if (event.key === 'Enter') { event.preventDefault(); lookupCustomerDocument(); }
         });
         qs('#posCustomerName').addEventListener('input', event => {
+            const sale = activeSale();
+            if (sale.customer && !sale.customer.generic) {
+                sale.customer.nombre = String(event.target.value || '').trim();
+                persistSales();
+                qs('#posCustomerCaption').textContent = 'Cliente seleccionado';
+                event.target.title = sale.customer.nombre;
+            }
             clearTimeout(state.customerTimer);
             state.customerTimer = setTimeout(() => searchCustomers(event.target.value), 180);
         });
@@ -1488,6 +1881,7 @@
             input.value = '';
             input.maxLength = event.target.value === 'RUC' ? 11 : 8;
             input.placeholder = event.target.value === 'RUC' ? '11 dígitos' : '8 dígitos';
+            qs('#btnVerifyCustomerAddress').hidden = true;
             input.focus();
         });
         qs('#posCustomerResults').addEventListener('click', event => {

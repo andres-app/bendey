@@ -155,6 +155,22 @@ function productoPuedeImportarMasivo(): bool
     return isset($_SESSION['nombre']) && (int)($_SESSION['almacen'] ?? 0) === 1;
 }
 
+/**
+ * Permite reutilizar el mini Excel de Productos desde Compras sin conceder
+ * permiso para ejecutar la importación directa del módulo Almacén.
+ */
+function productoPuedePrepararMasivo(): bool
+{
+    $sesionValida = isset($_SESSION['nombre'])
+        || (int)($_SESSION['idusuario'] ?? 0) > 0;
+
+    return $sesionValida
+        && (
+            (int)($_SESSION['almacen'] ?? 0) === 1
+            || (int)($_SESSION['compras'] ?? 0) === 1
+        );
+}
+
 
 function normalizarTextoMasivoProducto($valor): string
 {
@@ -855,7 +871,7 @@ switch ($_GET['op'] ?? '') {
        MINI EXCEL / IMPORTACIÓN MASIVA DE PRODUCTOS
        ========================================================= */
     case 'datosImportacion':
-        if (!productoPuedeImportarMasivo()) {
+        if (!productoPuedePrepararMasivo()) {
             responderProductoJson(false, 'No tiene permiso para gestionar productos.', null, 403);
         }
 
@@ -875,7 +891,7 @@ switch ($_GET['op'] ?? '') {
         break;
 
     case 'descargarPlantillaCsv':
-        if (!productoPuedeImportarMasivo()) {
+        if (!productoPuedePrepararMasivo()) {
             http_response_code(403);
             exit('No autorizado');
         }
@@ -898,7 +914,7 @@ switch ($_GET['op'] ?? '') {
         exit;
 
     case 'descargarPlantillaExcel':
-        if (!productoPuedeImportarMasivo()) {
+        if (!productoPuedePrepararMasivo()) {
             http_response_code(403);
             exit('No autorizado');
         }
@@ -932,7 +948,7 @@ switch ($_GET['op'] ?? '') {
         }
 
     case 'previsualizarMasivo':
-        if (!productoPuedeImportarMasivo()) {
+        if (!productoPuedePrepararMasivo()) {
             responderProductoJson(false, 'No tiene permiso para importar productos.', null, 403);
         }
 

@@ -75,6 +75,13 @@ class Person
         return $this->conexion->setData($sql, $arrData);
     }
 
+    // Actualizar únicamente la dirección de un cliente desde el POS
+    public function actualizarDireccionCliente($idpersona, $direccion)
+    {
+        $sql = "UPDATE $this->tableName SET direccion=? WHERE idpersona=? AND tipo_persona='Cliente'";
+        return $this->conexion->setData($sql, array($direccion, $idpersona));
+    }
+
     // Método para eliminar registros
     public function eliminar($idpersona)
     {

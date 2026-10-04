@@ -23,6 +23,27 @@ switch ($_GET["op"]) {
 		}
 		break;
 
+	case 'actualizarDireccionClientePos':
+		header('Content-Type: application/json; charset=utf-8');
+		$idpersonaPos = isset($_POST['idpersona']) ? (int)$_POST['idpersona'] : 0;
+		$direccionPos = isset($_POST['direccion']) ? trim((string)$_POST['direccion']) : '';
+
+		if ($idpersonaPos <= 0 || $direccionPos === '') {
+			http_response_code(422);
+			echo json_encode([
+				'estado' => false,
+				'mensaje' => 'Cliente o dirección inválidos.'
+			], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+			break;
+		}
+
+		$rspta = $person->actualizarDireccionCliente($idpersonaPos, $direccionPos);
+		echo json_encode([
+			'estado' => (bool)$rspta,
+			'mensaje' => $rspta ? 'Dirección actualizada correctamente.' : 'No se pudo actualizar la dirección del cliente.'
+		], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		break;
+
 	case 'eliminar':
 		$rspta = $person->eliminar($idpersona);
 		echo $rspta ? "Datos eliminados correctamente" : "No se pudo eliminar los datos";

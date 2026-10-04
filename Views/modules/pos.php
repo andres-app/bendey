@@ -198,24 +198,66 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                         </div>
                         <button type="button" class="pos-link-btn" id="btnClienteGenerico">Usar cliente varios</button>
                     </div>
-                    <div class="pos-customer-search-row">
-                        <div class="pos-customer-document">
-                            <select id="posCustomerDocType" aria-label="Tipo de documento">
-                                <option value="DNI">DNI</option>
-                                <option value="RUC">RUC</option>
-                            </select>
-                            <input id="posCustomerDocument" inputmode="numeric" autocomplete="off" placeholder="Número de documento" maxlength="11">
-                            <button type="button" id="btnBuscarDocumento" title="Consultar DNI/RUC" aria-label="Consultar documento">
-                                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-                            </button>
+                    <div class="pos-customer-search-stack">
+                        <div class="pos-customer-field">
+                            <div class="pos-customer-label-row">
+                                <label class="pos-customer-sub-label" for="posCustomerDocument">DNI / RUC</label>
+                                <button type="button" class="pos-verify-address-btn" id="btnVerifyCustomerAddress" hidden title="Consultar nuevamente la dirección fiscal en SUNAT mediante PeruDev">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5"/><path d="M4 18v-5h5"/><path d="M6.1 9a7 7 0 0 1 11.4-2.6L20 11M4 13l2.5 4.6A7 7 0 0 0 17.9 15"/></svg>
+                                    <span>Verificar dirección</span>
+                                </button>
+                            </div>
+                            <div class="pos-customer-document">
+                                <select id="posCustomerDocType" aria-label="Tipo de documento">
+                                    <option value="DNI">DNI</option>
+                                    <option value="RUC">RUC</option>
+                                </select>
+                                <input id="posCustomerDocument" inputmode="numeric" autocomplete="off" placeholder="Número de documento" maxlength="11">
+                                <button type="button" id="btnBuscarDocumento" title="Consultar DNI/RUC" aria-label="Consultar documento">
+                                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+                                </button>
+                            </div>
                         </div>
-                        <div class="pos-customer-name-wrap">
-                            <input id="posCustomerName" autocomplete="off" placeholder="Nombre o razón social">
-                            <span class="pos-customer-check" id="posCustomerCheck" hidden>
-                                <svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>
-                            </span>
+
+                        <div class="pos-customer-field">
+                            <label class="pos-customer-sub-label" for="posCustomerName">Nombre / razón social</label>
+                            <div class="pos-customer-name-wrap">
+                                <input id="posCustomerName" autocomplete="off" placeholder="Nombre o razón social">
+                                <span class="pos-customer-check" id="posCustomerCheck" hidden>
+                                    <svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>
+                                </span>
+                            </div>
                         </div>
                     </div>
+
+                    <button type="button" class="pos-customer-extra-toggle" id="btnCustomerExtra" aria-expanded="false" aria-controls="posCustomerExtra">
+                        <span class="pos-customer-extra-toggle-main">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg>
+                            <span>Dirección y teléfono</span>
+                        </span>
+                        <span class="pos-customer-extra-toggle-side">
+                            <small id="posCustomerExtraSummary">Oculto</small>
+                            <svg class="pos-customer-extra-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10l4 4 4-4"/></svg>
+                        </span>
+                    </button>
+
+                    <div class="pos-customer-extra-panel" id="posCustomerExtra" hidden>
+                        <div class="pos-customer-field">
+                            <div class="pos-customer-label-row">
+                                <label class="pos-customer-sub-label" for="posCustomerAddress">Dirección para esta venta</label>
+                                <span class="pos-address-source" id="posCustomerAddressSource">Registrada</span>
+                            </div>
+                            <input class="pos-customer-extra-input" id="posCustomerAddress" autocomplete="street-address" maxlength="255" placeholder="Dirección del cliente">
+                        </div>
+
+                        <div class="pos-address-verification" id="posAddressVerification" hidden aria-live="polite"></div>
+
+                        <div class="pos-customer-field">
+                            <label class="pos-customer-sub-label" for="posCustomerPhone">Teléfono</label>
+                            <input class="pos-customer-extra-input" id="posCustomerPhone" inputmode="tel" autocomplete="tel" maxlength="15" placeholder="Teléfono del cliente">
+                        </div>
+                    </div>
+
                     <div class="pos-customer-results" id="posCustomerResults" hidden></div>
                 </div>
             </div>

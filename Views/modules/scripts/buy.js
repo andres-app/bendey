@@ -16,6 +16,16 @@ let guardandoCompra = false;
 let temporizadorCoincidencias = null;
 let modoProductoNuevoCompra = 'individual';
 let secuenciaFilaMasivaCompra = 0;
+let catalogosMasivosCompraProducto = {
+    categorias: [],
+    subcategorias: [],
+    almacenes: [],
+    medidas: [],
+    afectaciones_igv: [],
+    tributacion_predeterminada: { codigo_afectacion_igv: '10' }
+};
+let catalogosMasivosCompraCargados = false;
+let cargandoCatalogosMasivosCompra = null;
 
 function escaparHtmlCompra(valor) {
     return String(valor ?? '')
@@ -811,6 +821,10 @@ function agregarProductoNuevoDesdeFormulario(evento) {
     detallesCompra.push({
         tipo_detalle: 'INVENTARIO',
         origen: 'NUEVO',
+        producto_tipo: 'simple',
+        grupo: '',
+        variante: '',
+        codigo_afectacion_igv: '10',
         idarticulo: 0,
         descripcion: nombre,
         nombre: nombre,
@@ -834,222 +848,471 @@ function agregarProductoNuevoDesdeFormulario(evento) {
 }
 
 
-function opcionesMiniCompra(items, valorKey, textoFn, seleccionado = '') {
-    let html = '<option value="">Seleccione...</option>';
-    const selectedText = String(seleccionado || '');
+function camposMasivosCompraProducto() {
+    return [
+        'tipo', 'grupo', 'nombre', 'codigo', 'variante', 'stock',
+        'precio_compra', 'precio_venta', 'categoria', 'subcategoria',
+        'almacen', 'medida', 'codigo_afectacion_igv'
+    ];
+}
 
-    (Array.isArray(items) ? items : []).forEach(function (item) {
-        const valor = String(item[valorKey] ?? '');
-        const texto = typeof textoFn === 'function' ? textoFn(item) : String(item[textoFn] ?? '');
-        html += `<option value="${escaparHtmlCompra(valor)}"${valor === selectedText ? ' selected' : ''}>${escaparHtmlCompra(texto)}</option>`;
+function normalizarTipoMasivoCompraProducto(valor) {
+    const tipo = normalizarTextoCompra(valor);
+    if (['variante', 'variacion', 'variable'].includes(tipo)) return 'variante';
+    if (['simple', 'producto simple', 'normal'].includes(tipo)) return 'simple';
+    return '';
+}
+
+function opcionesTipoMasivoCompraProducto(seleccion) {
+    const actual = normalizarTipoMasivoCompraProducto(seleccion) || 'simple';
+    return `<option value="simple"${actual === 'simple' ? ' selected' : ''}>Simple</option>`
+        + `<option value="variante"${actual === 'variante' ? ' selected' : ''}>Variante</option>`;
+}
+
+function asegurarCatalogosMasivosCompra() {
+    if (catalogosMasivosCompraCargados) {
+        return $.Deferred().resolve(catalogosMasivosCompraProducto).promise();
+    }
+    if (cargandoCatalogosMasivosCompra) return cargandoCatalogosMasivosCompra;
+
+    $('#compraMasivoEstado').html('<span class="spinner-border spinner-border-sm mr-1"></span> Cargando categorías, almacenes, unidades y tributación...');
+
+    cargandoCatalogosMasivosCompra = $.ajax({
+        url: 'Controllers/Product.php?op=datosImportacion',
+        type: 'GET',
+        dataType: 'json',
+        cache: false
+    }).done(function (respuesta) {
+        if (!respuesta || respuesta.success !== true || !respuesta.datos) {
+            throw new Error((respuesta && respuesta.mensaje) || 'No se pudieron cargar los catálogos.');
+        }
+
+        catalogosMasivosCompraProducto = {
+            categorias: Array.isArray(respuesta.datos.categorias) ? respuesta.datos.categorias : [],
+            subcategorias: Array.isArray(respuesta.datos.subcategorias) ? respuesta.datos.subcategorias : [],
+            almacenes: Array.isArray(respuesta.datos.almacenes) ? respuesta.datos.almacenes : [],
+            medidas: Array.isArray(respuesta.datos.medidas) ? respuesta.datos.medidas : [],
+            afectaciones_igv: Array.isArray(respuesta.datos.afectaciones_igv) ? respuesta.datos.afectaciones_igv : [],
+            tributacion_predeterminada: respuesta.datos.tributacion_predeterminada || { codigo_afectacion_igv: '10' }
+        };
+        catalogosMasivosCompraCargados = true;
+        $('#compraMasivoEstado').html('<i class="fas fa-check-circle text-success mr-1"></i> Catálogos listos. Puedes registrar productos simples y variantes.');
+    }).fail(function (xhr) {
+        const mensaje = mensajeRespuestaCompra(xhr, 'No se pudieron cargar los catálogos para la importación.');
+        $('#compraMasivoEstado').text(mensaje);
+        alertaCompra('error', 'No se pudo iniciar la carga masiva', mensaje);
+    }).always(function () {
+        cargandoCatalogosMasivosCompra = null;
+    });
+
+    return cargandoCatalogosMasivosCompra;
+}
+
+function opcionesCatalogoMasivoCompra(items, tipo, seleccion) {
+    const valor = String(seleccion == null ? '' : seleccion);
+    let html = '<option value="">Seleccionar...</option>';
+
+    items.forEach(function (item) {
+        const id = tipo === 'categoria' ? item.idcategoria
+            : tipo === 'subcategoria' ? item.idsubcategoria
+                : tipo === 'almacen' ? item.idalmacen
+                    : item.idmedida;
+        let etiqueta = `${id} - ${item.nombre || ''}`;
+        if (tipo === 'medida' && item.codigo) etiqueta += ` (${item.codigo})`;
+        if (tipo === 'subcategoria' && item.categoria) etiqueta += ` · ${item.categoria}`;
+        html += `<option value="${escaparHtmlCompra(id)}"${String(id) === valor ? ' selected' : ''}>${escaparHtmlCompra(etiqueta)}</option>`;
     });
 
     return html;
 }
 
-function resolverCatalogoCompraMasiva(valor, items, idKey, campos) {
-    const texto = String(valor ?? '').trim();
-    if (!texto) return '';
+function resolverAfectacionMasivoCompra(valor) {
+    const texto = String(valor == null ? '' : valor).trim();
+    const predeterminado = String(
+        (catalogosMasivosCompraProducto.tributacion_predeterminada || {}).codigo_afectacion_igv || '10'
+    );
+    if (!texto) return predeterminado;
 
-    const prefijo = texto.match(/^\s*(\d+)\s*(?:-|$)/);
-    const idDirecto = prefijo ? prefijo[1] : (/^\d+$/.test(texto) ? texto : '');
-    if (idDirecto && items.some(function (item) { return String(item[idKey]) === String(idDirecto); })) {
-        return String(idDirecto);
+    const codigoInicial = texto.match(/^\s*([0-9]{2})\s*(?:-|$)/);
+    if (codigoInicial) {
+        const existe = catalogosMasivosCompraProducto.afectaciones_igv.some(function (item) {
+            return String(item.codigo || '') === codigoInicial[1];
+        });
+        if (existe) return codigoInicial[1];
     }
 
     const objetivo = normalizarTextoCompra(texto);
-    for (const item of items) {
-        const candidatos = [];
-        (campos || []).forEach(function (campo) {
-            if (item[campo] !== undefined && item[campo] !== null) candidatos.push(String(item[campo]));
-        });
-        if (item.nombre !== undefined) candidatos.push(`${item[idKey]} - ${item.nombre}`);
-        if (item.nombre !== undefined && item.codigo !== undefined) {
-            candidatos.push(`${item.nombre} (${item.codigo})`);
-            candidatos.push(`${item[idKey]} - ${item.nombre} (${item.codigo})`);
-        }
-
-        if (candidatos.some(function (candidato) { return normalizarTextoCompra(candidato) === objetivo; })) {
-            return String(item[idKey]);
-        }
-    }
-
-    return '';
-}
-
-function subcategoriasCompraPorCategoria(idcategoria) {
-    const id = Number.parseInt(idcategoria, 10) || 0;
-    return datosFormularioCompra.subcategorias.filter(function (item) {
-        return Number.parseInt(item.idcategoria, 10) === id;
+    const encontrado = catalogosMasivosCompraProducto.afectaciones_igv.find(function (item) {
+        const codigo = String(item.codigo || '');
+        const descripcion = String(item.descripcion || '');
+        return [codigo, descripcion, `${codigo} - ${descripcion}`, `${codigo} — ${descripcion}`]
+            .some(function (candidato) { return normalizarTextoCompra(candidato) === objetivo; });
     });
+
+    return encontrado ? String(encontrado.codigo || '') : '';
 }
 
-function actualizarSubcategoriaFilaCompraMasiva($fila, idcategoria, seleccionado = '') {
-    const items = subcategoriasCompraPorCategoria(idcategoria);
-    const $select = $fila.find('[data-mini-field="idsubcategoria"]');
-
-    if (!items.length) {
-        $select.html('<option value="">Sin subcategoría</option>').prop('disabled', true);
-        return;
-    }
-
-    $select
-        .prop('disabled', false)
-        .html(opcionesMiniCompra(items, 'idsubcategoria', 'nombre', seleccionado));
+function opcionesAfectacionMasivoCompra(seleccion) {
+    const actual = resolverAfectacionMasivoCompra(seleccion);
+    let html = '<option value="">Seleccionar...</option>';
+    catalogosMasivosCompraProducto.afectaciones_igv.forEach(function (item) {
+        const codigo = String(item.codigo || '');
+        const descripcion = String(item.descripcion || '');
+        html += `<option value="${escaparHtmlCompra(codigo)}"${codigo === actual ? ' selected' : ''}>${escaparHtmlCompra(`${codigo} - ${descripcion}`)}</option>`;
+    });
+    return html;
 }
 
-function agregarFilaCompraMasiva(datos = {}, enfocar = false) {
-    secuenciaFilaMasivaCompra += 1;
-    const rowId = secuenciaFilaMasivaCompra;
+function resolverCatalogoMasivoCompra(valor, items, tipo) {
+    const texto = String(valor == null ? '' : valor).trim();
+    if (!texto) return '';
 
-    const idcategoria = String(
-        datos.idcategoria
-        || resolverCatalogoCompraMasiva(datos.categoria, datosFormularioCompra.categorias, 'idcategoria', ['nombre'])
-        || ''
-    );
-    const subItems = subcategoriasCompraPorCategoria(idcategoria);
-    const idsubcategoria = String(
-        datos.idsubcategoria
-        || resolverCatalogoCompraMasiva(datos.subcategoria, subItems, 'idsubcategoria', ['nombre'])
-        || ''
-    );
-    const idmedida = String(
-        datos.idmedida
-        || resolverCatalogoCompraMasiva(datos.medida, datosFormularioCompra.medidas, 'idmedida', ['nombre', 'codigo'])
-        || (datosFormularioCompra.medidas.find(function (item) { return String(item.codigo || '').toUpperCase() === 'NIU'; }) || {}).idmedida
-        || ''
-    );
-    const idalmacen = String(
-        datos.idalmacen
-        || resolverCatalogoCompraMasiva(datos.almacen, datosFormularioCompra.almacenes, 'idalmacen', ['nombre'])
-        || (datosFormularioCompra.almacenes[0] || {}).idalmacen
-        || ''
-    );
-    const tipoImportado = normalizarTextoCompra(datos.tipo || 'simple');
-    const esVariante = ['variante', 'variacion', 'variable'].includes(tipoImportado);
-
-    const cantidad = String(datos.cantidad ?? datos.stock ?? '1').trim() || '1';
-    const precioCompra = String(datos.precio_compra ?? '').replace(',', '.').trim();
-    const precioVenta = String(datos.precio_venta ?? '').replace(',', '.').trim();
-
-    const html = `
-        <tr data-mini-row="${rowId}" data-import-type="${esVariante ? 'variante' : 'simple'}">
-            <td><input class="compra-mini-control" data-mini-field="nombre" maxlength="100" value="${escaparHtmlCompra(datos.nombre || '')}" placeholder="Nombre del producto"></td>
-            <td><input class="compra-mini-control text-uppercase" data-mini-field="codigo" maxlength="50" value="${escaparHtmlCompra(datos.codigo || '')}" placeholder="Opcional"></td>
-            <td><select class="compra-mini-control" data-mini-field="idcategoria">${opcionesMiniCompra(datosFormularioCompra.categorias, 'idcategoria', 'nombre', idcategoria)}</select></td>
-            <td><select class="compra-mini-control" data-mini-field="idsubcategoria">${opcionesMiniCompra(subItems, 'idsubcategoria', 'nombre', idsubcategoria)}</select></td>
-            <td><select class="compra-mini-control" data-mini-field="idmedida">${opcionesMiniCompra(datosFormularioCompra.medidas, 'idmedida', function (item) { return item.codigo ? `${item.nombre} (${item.codigo})` : item.nombre; }, idmedida)}</select></td>
-            <td><select class="compra-mini-control" data-mini-field="idalmacen">${opcionesMiniCompra(datosFormularioCompra.almacenes, 'idalmacen', 'nombre', idalmacen)}</select></td>
-            <td><input class="compra-mini-control" data-mini-field="cantidad" type="number" min="1" step="1" value="${escaparHtmlCompra(cantidad)}"></td>
-            <td><input class="compra-mini-control" data-mini-field="precio_compra" type="number" min="0.01" step="0.01" value="${escaparHtmlCompra(precioCompra)}" placeholder="0.00"></td>
-            <td><input class="compra-mini-control" data-mini-field="precio_venta" type="number" min="0" step="0.01" value="${escaparHtmlCompra(precioVenta)}" placeholder="Opcional"></td>
-            <td class="tw-text-center">
-                <button type="button" class="btnEliminarFilaCompraMasiva tw-inline-flex tw-h-8 tw-w-8 tw-items-center tw-justify-center tw-rounded-lg tw-border-0 tw-bg-rose-50 tw-text-rose-600 hover:tw-bg-rose-100" title="Eliminar fila"><i class="fas fa-times"></i></button>
-            </td>
-        </tr>`;
-
-    $('#compraMasivoBody').append(html);
-    const $fila = $(`#compraMasivoBody tr[data-mini-row="${rowId}"]`);
-    actualizarSubcategoriaFilaCompraMasiva($fila, idcategoria, idsubcategoria);
-
-    if (esVariante) {
-        $fila.attr('title', 'Las variantes deben importarse desde Inventario > Productos. En Compras se agregan productos simples.');
+    const coincidenciaId = texto.match(/^\s*(\d+)\s*(?:-|$)/);
+    if (coincidenciaId) {
+        const id = coincidenciaId[1];
+        const existe = items.some(function (item) {
+            const itemId = tipo === 'categoria' ? item.idcategoria
+                : tipo === 'subcategoria' ? item.idsubcategoria
+                    : tipo === 'almacen' ? item.idalmacen
+                        : item.idmedida;
+            return String(itemId) === String(id);
+        });
+        if (existe) return String(id);
     }
 
-    if (enfocar) {
-        $fila.find('[data-mini-field="nombre"]').trigger('focus');
-    }
+    const objetivo = normalizarTextoCompra(texto);
+    const encontrado = items.find(function (item) {
+        const id = tipo === 'categoria' ? item.idcategoria
+            : tipo === 'subcategoria' ? item.idsubcategoria
+                : tipo === 'almacen' ? item.idalmacen
+                    : item.idmedida;
+        const candidatos = [String(item.nombre || ''), `${id} - ${item.nombre || ''}`];
+        if (tipo === 'medida') candidatos.push(String(item.codigo || ''), `${item.nombre || ''} (${item.codigo || ''})`);
+        if (tipo === 'subcategoria' && item.categoria) candidatos.push(`${item.nombre || ''} · ${item.categoria}`);
+        return candidatos.some(function (candidato) { return normalizarTextoCompra(candidato) === objetivo; });
+    });
 
-    validarCompraMasiva();
+    if (!encontrado) return '';
+    return String(
+        tipo === 'categoria' ? encontrado.idcategoria
+            : tipo === 'subcategoria' ? encontrado.idsubcategoria
+                : tipo === 'almacen' ? encontrado.idalmacen
+                    : encontrado.idmedida
+    );
+}
+
+function agregarFilaCompraMasiva(datos = {}, validar = true) {
+    const idFila = ++secuenciaFilaMasivaCompra;
+    const tipo = normalizarTipoMasivoCompraProducto(datos.tipo ?? 'Simple') || 'simple';
+    const categoria = resolverCatalogoMasivoCompra(datos.categoria ?? datos.idcategoria ?? '', catalogosMasivosCompraProducto.categorias, 'categoria');
+    const almacen = resolverCatalogoMasivoCompra(datos.almacen ?? datos.idalmacen ?? '', catalogosMasivosCompraProducto.almacenes, 'almacen');
+    const medida = resolverCatalogoMasivoCompra(datos.medida ?? datos.idmedida ?? '', catalogosMasivosCompraProducto.medidas, 'medida');
+    const afectacion = resolverAfectacionMasivoCompra(datos.codigo_afectacion_igv ?? datos.afectacion_igv ?? '');
+
+    const $fila = $(
+        `<tr data-row-id="${idFila}">
+            <td><div class="tp-sheet-rownum"><span class="tp-row-state"></span><span class="tp-row-number">1</span></div></td>
+            <td><select class="tp-sheet-select" data-field="tipo">${opcionesTipoMasivoCompraProducto(tipo)}</select></td>
+            <td><input class="tp-sheet-cell" data-field="grupo" maxlength="50" autocomplete="off" placeholder="POLO-001"></td>
+            <td><input class="tp-sheet-cell" data-field="nombre" maxlength="100" autocomplete="off" placeholder="Producto"></td>
+            <td><input class="tp-sheet-cell" data-field="codigo" maxlength="100" autocomplete="off" placeholder="SKU"></td>
+            <td><input class="tp-sheet-cell" data-field="variante" maxlength="150" autocomplete="off" placeholder="Negro - M"></td>
+            <td><input class="tp-sheet-cell is-number" data-field="stock" inputmode="numeric" autocomplete="off" value="0"></td>
+            <td><input class="tp-sheet-cell is-number" data-field="precio_compra" inputmode="decimal" autocomplete="off" value="0.00"></td>
+            <td><input class="tp-sheet-cell is-number" data-field="precio_venta" inputmode="decimal" autocomplete="off" value="0.00"></td>
+            <td><select class="tp-sheet-select" data-field="categoria">${opcionesCatalogoMasivoCompra(catalogosMasivosCompraProducto.categorias, 'categoria', categoria)}</select></td>
+            <td><select class="tp-sheet-select" data-field="subcategoria"><option value="">Sin subcategoría</option></select></td>
+            <td><select class="tp-sheet-select" data-field="almacen">${opcionesCatalogoMasivoCompra(catalogosMasivosCompraProducto.almacenes, 'almacen', almacen)}</select></td>
+            <td><select class="tp-sheet-select" data-field="medida">${opcionesCatalogoMasivoCompra(catalogosMasivosCompraProducto.medidas, 'medida', medida)}</select></td>
+            <td><select class="tp-sheet-select" data-field="codigo_afectacion_igv">${opcionesAfectacionMasivoCompra(afectacion)}</select></td>
+            <td><div class="tp-sheet-row-actions"><button type="button" class="tp-sheet-remove compra-sheet-remove" title="Eliminar fila"><i class="fas fa-times"></i></button></div></td>
+        </tr>`
+    );
+
+    $('#compraMasivoBody').append($fila);
+    $fila.find('[data-field="grupo"]').val(datos.grupo ?? datos.grupo_sku ?? '');
+    $fila.find('[data-field="nombre"]').val(datos.nombre ?? datos.producto ?? '');
+    $fila.find('[data-field="codigo"]').val(datos.codigo ?? datos.sku ?? '');
+    $fila.find('[data-field="variante"]').val(datos.variante ?? datos.combinacion ?? '');
+    $fila.find('[data-field="stock"]').val(datos.stock === undefined || datos.stock === '' ? '0' : datos.stock);
+    $fila.find('[data-field="precio_compra"]').val(datos.precio_compra ?? datos.preciocompra ?? '0.00');
+    $fila.find('[data-field="precio_venta"]').val(datos.precio_venta ?? datos.precioventa ?? '0.00');
+    $fila.find('[data-field="codigo_afectacion_igv"]').val(afectacion);
+
+    const subValor = resolverCatalogoMasivoCompra(datos.subcategoria ?? datos.idsubcategoria ?? '', catalogosMasivosCompraProducto.subcategorias, 'subcategoria');
+    actualizarSubcategoriasFilaCompraMasiva($fila, categoria, subValor);
+    actualizarTipoFilaCompraMasiva($fila, false);
+    renumerarFilasCompraMasiva();
+    $('#compraMasivoEmpty').hide();
+    if (validar) validarCompraMasiva();
     return $fila;
 }
 
-function leerFilaCompraMasiva($fila) {
-    const valor = function (campo) {
-        return String($fila.find(`[data-mini-field="${campo}"]`).val() ?? '').trim();
-    };
+function actualizarTipoFilaCompraMasiva($fila, limpiar = true) {
+    const tipo = normalizarTipoMasivoCompraProducto($fila.find('[data-field="tipo"]').val()) || 'simple';
+    const esVariante = tipo === 'variante';
+    const $grupo = $fila.find('[data-field="grupo"]');
+    const $variante = $fila.find('[data-field="variante"]');
 
-    return {
-        row_id: String($fila.attr('data-mini-row') || ''),
-        tipo_importado: String($fila.attr('data-import-type') || 'simple'),
-        nombre: valor('nombre'),
-        codigo: valor('codigo').toUpperCase().replace(/[^A-Z0-9._\-]/g, ''),
-        idcategoria: Number.parseInt(valor('idcategoria'), 10) || 0,
-        idsubcategoria: Number.parseInt(valor('idsubcategoria'), 10) || 0,
-        idmedida: Number.parseInt(valor('idmedida'), 10) || 0,
-        idalmacen: Number.parseInt(valor('idalmacen'), 10) || 0,
-        cantidad: Number.parseInt(valor('cantidad'), 10) || 0,
-        precio_compra: numeroCompra(valor('precio_compra')),
-        precio_venta: valor('precio_venta') === '' ? null : numeroCompra(valor('precio_venta'))
-    };
+    $grupo.prop('disabled', !esVariante).attr('placeholder', esVariante ? 'SKU padre' : 'No aplica');
+    $variante.prop('disabled', !esVariante).attr('placeholder', esVariante ? 'Ej. Negro - M' : 'No aplica');
+
+    if (!esVariante && limpiar) {
+        $grupo.val('');
+        $variante.val('');
+    }
+
+    $fila.toggleClass('is-variant-row', esVariante);
+}
+
+function actualizarSubcategoriasFilaCompraMasiva($fila, idCategoria, idSeleccionado) {
+    const categoria = String(idCategoria || '');
+    const filtradas = catalogosMasivosCompraProducto.subcategorias.filter(function (item) {
+        return !categoria || String(item.idcategoria) === categoria;
+    });
+    const $select = $fila.find('[data-field="subcategoria"]');
+    $select.html('<option value="">Sin subcategoría</option>' + opcionesCatalogoMasivoCompra(filtradas, 'subcategoria', idSeleccionado).replace('<option value="">Seleccionar...</option>', ''));
+    if (idSeleccionado) $select.val(String(idSeleccionado));
+}
+
+function renumerarFilasCompraMasiva() {
+    $('#compraMasivoBody tr').each(function (indice) {
+        $(this).find('.tp-row-number').text(indice + 1);
+    });
+    $('#compraMasivoEmpty').toggle($('#compraMasivoBody tr').length === 0);
+}
+
+function datosFilaCompraMasiva($fila) {
+    const datos = { fila_cliente: String($fila.data('row-id') || '') };
+    camposMasivosCompraProducto().forEach(function (campo) {
+        datos[campo] = String($fila.find(`[data-field="${campo}"]`).val() ?? '').trim();
+    });
+    return datos;
+}
+
+function filaCompraMasivaVacia(datos) {
+    return !String(datos.grupo || '').trim()
+        && !String(datos.nombre || '').trim()
+        && !String(datos.codigo || '').trim()
+        && !String(datos.variante || '').trim()
+        && (!String(datos.stock || '').trim() || Number(datos.stock) === 0)
+        && (!String(datos.precio_compra || '').trim() || Number(datos.precio_compra) === 0)
+        && (!String(datos.precio_venta || '').trim() || Number(datos.precio_venta) === 0)
+        && !String(datos.categoria || '').trim()
+        && !String(datos.subcategoria || '').trim()
+        && !String(datos.almacen || '').trim()
+        && !String(datos.medida || '').trim();
 }
 
 function validarCompraMasiva() {
-    const filas = [];
-    const codigosGrid = {};
-    const codigosExistentes = new Set(
-        productosCompra
-            .map(function (producto) { return String(producto.codigo || '').trim().toUpperCase(); })
-            .filter(Boolean)
-            .concat(
-                detallesCompra.map(function (detalle) { return String(detalle.codigo || '').trim().toUpperCase(); }).filter(Boolean)
-            )
-    );
+    const entradas = [];
+    const skuMap = {};
+    const grupos = {};
+    const codigosYaUsados = new Set();
+
+    productosCompra.forEach(function (producto) {
+        const codigo = normalizarTextoCompra(producto.codigo || '');
+        if (codigo) codigosYaUsados.add(codigo);
+    });
+    detallesCompra.forEach(function (detalle) {
+        const codigo = normalizarTextoCompra(detalle.codigo || '');
+        const grupo = normalizarTextoCompra(detalle.grupo || '');
+        if (codigo) codigosYaUsados.add(codigo);
+        if (grupo) codigosYaUsados.add(grupo);
+    });
 
     $('#compraMasivoBody tr').each(function () {
         const $fila = $(this);
-        const datos = leerFilaCompraMasiva($fila);
-        const errores = [];
+        const datos = datosFilaCompraMasiva($fila);
+        datos.tipo = normalizarTipoMasivoCompraProducto(datos.tipo);
+        $fila.removeClass('is-valid has-error').removeAttr('title');
+        $fila.find('[data-invalid]').removeAttr('data-invalid');
 
-        if (datos.tipo_importado === 'variante') {
-            errores.push('Las variantes se importan desde Inventario > Productos.');
+        if (filaCompraMasivaVacia(datos)) return;
+
+        const entrada = { datos: datos, $fila: $fila, mensajes: [] };
+        entradas.push(entrada);
+
+        function marcar(campo, mensaje) {
+            if (!entrada.mensajes.includes(mensaje)) entrada.mensajes.push(mensaje);
+            if (campo) $fila.find(`[data-field="${campo}"]`).attr('data-invalid', '1');
         }
-        if (!datos.nombre) errores.push('Nombre obligatorio.');
-        if (datos.idcategoria <= 0) errores.push('Categoría obligatoria.');
-        if (datos.idmedida <= 0) errores.push('Unidad obligatoria.');
-        if (datos.idalmacen <= 0) errores.push('Almacén obligatorio.');
-        if (datos.cantidad <= 0) errores.push('Cantidad mayor que cero.');
-        if (datos.precio_compra <= 0) errores.push('Costo mayor que cero.');
+        entrada.marcar = marcar;
 
-        if (datos.codigo) {
-            if (codigosExistentes.has(datos.codigo)) errores.push('SKU ya registrado o agregado a la compra.');
-            if (codigosGrid[datos.codigo]) errores.push('SKU repetido en el mini Excel.');
-            codigosGrid[datos.codigo] = true;
+        if (!datos.tipo) marcar('tipo', 'Selecciona Simple o Variante');
+        if (!datos.nombre) marcar('nombre', 'Falta el nombre');
+        if (datos.nombre && datos.nombre.length > 100) marcar('nombre', 'El nombre supera 100 caracteres');
+        if (!datos.codigo) marcar('codigo', 'Falta el SKU');
+
+        if (datos.tipo === 'simple' && datos.codigo.length > 50) {
+            marcar('codigo', 'El SKU de un producto simple admite máximo 50 caracteres');
         }
 
-        datos._errores = errores;
-        filas.push(datos);
-        $fila.removeClass('has-error is-valid').attr('title', errores.join(' · '));
-        $fila.addClass(errores.length ? 'has-error' : 'is-valid');
+        if (datos.tipo === 'variante') {
+            if (!datos.grupo) marcar('grupo', 'Falta el Grupo / SKU padre');
+            if (datos.grupo.length > 50) marcar('grupo', 'El SKU padre admite máximo 50 caracteres');
+            if (!datos.variante) marcar('variante', 'Falta la descripción de la variante');
+            if (datos.variante.length > 150) marcar('variante', 'La variante admite máximo 150 caracteres');
+            if (datos.codigo.length > 100) marcar('codigo', 'El SKU de variante admite máximo 100 caracteres');
+            if (normalizarTextoCompra(datos.grupo) && normalizarTextoCompra(datos.grupo) === normalizarTextoCompra(datos.codigo)) {
+                marcar('grupo', 'El SKU padre no puede ser igual al SKU de la variante');
+                marcar('codigo', 'El SKU de variante debe ser distinto al SKU padre');
+            }
+        }
+
+        if (!datos.categoria) marcar('categoria', 'Selecciona una categoría');
+        if (!datos.almacen) marcar('almacen', 'Selecciona un almacén');
+        if (!datos.medida) marcar('medida', 'Selecciona una unidad');
+        if (!datos.codigo_afectacion_igv || !resolverAfectacionMasivoCompra(datos.codigo_afectacion_igv)) {
+            marcar('codigo_afectacion_igv', 'Selecciona una afectación IGV válida');
+        }
+
+        if (datos.stock === '' || !/^\d+$/.test(datos.stock) || Number(datos.stock) <= 0) marcar('stock', 'La cantidad/stock debe ser mayor que 0');
+        if (datos.precio_compra === '' || !Number.isFinite(Number(datos.precio_compra)) || Number(datos.precio_compra) <= 0) marcar('precio_compra', 'El precio de compra debe ser mayor a 0');
+        if (datos.precio_venta === '' || !Number.isFinite(Number(datos.precio_venta)) || Number(datos.precio_venta) <= 0) marcar('precio_venta', 'El precio de venta debe ser mayor a 0');
+
+        if (datos.subcategoria) {
+            const sub = catalogosMasivosCompraProducto.subcategorias.find(function (item) {
+                return String(item.idsubcategoria) === datos.subcategoria;
+            });
+            if (!sub || String(sub.idcategoria) !== datos.categoria) marcar('subcategoria', 'La subcategoría no pertenece a la categoría');
+        }
+
+        const skuKey = normalizarTextoCompra(datos.codigo);
+        if (skuKey) {
+            if (codigosYaUsados.has(skuKey)) marcar('codigo', 'El SKU ya existe o ya fue agregado a la compra');
+            if (!skuMap[skuKey]) skuMap[skuKey] = [];
+            skuMap[skuKey].push(entrada);
+        }
+
+        if (datos.tipo === 'variante') {
+            const grupoKey = normalizarTextoCompra(datos.grupo);
+            if (grupoKey) {
+                if (codigosYaUsados.has(grupoKey)) marcar('grupo', 'El SKU padre ya existe o ya fue agregado a la compra');
+                if (!grupos[grupoKey]) grupos[grupoKey] = [];
+                grupos[grupoKey].push(entrada);
+            }
+        }
     });
 
-    const validas = filas.filter(function (fila) { return fila._errores.length === 0; }).length;
-    const errores = filas.length - validas;
+    Object.keys(skuMap).forEach(function (skuKey) {
+        if (skuMap[skuKey].length < 2) return;
+        skuMap[skuKey].forEach(function (entrada) {
+            entrada.marcar('codigo', 'SKU repetido dentro de la hoja');
+        });
+    });
+
+    Object.keys(grupos).forEach(function (grupoKey) {
+        const grupo = grupos[grupoKey];
+        if (!grupo.length) return;
+        const base = grupo[0].datos;
+
+        if (skuMap[grupoKey] && skuMap[grupoKey].length) {
+            grupo.forEach(function (entrada) {
+                entrada.marcar('grupo', 'El SKU padre coincide con otro SKU de la hoja');
+            });
+            skuMap[grupoKey].forEach(function (entrada) {
+                entrada.marcar('codigo', 'Este SKU coincide con el SKU padre de un producto variable');
+            });
+        }
+
+        const consistente = grupo.every(function (entrada) {
+            const datos = entrada.datos;
+            return normalizarTextoCompra(datos.nombre) === normalizarTextoCompra(base.nombre)
+                && datos.categoria === base.categoria
+                && datos.subcategoria === base.subcategoria
+                && datos.almacen === base.almacen
+                && datos.medida === base.medida
+                && datos.codigo_afectacion_igv === base.codigo_afectacion_igv;
+        });
+
+        if (!consistente) {
+            grupo.forEach(function (entrada) {
+                entrada.marcar(null, 'Todas las variantes del grupo deben usar el mismo producto, categoría, subcategoría, almacén, unidad y afectación IGV');
+            });
+        }
+
+        const grupoTieneError = grupo.some(function (entrada) { return entrada.mensajes.length > 0; });
+        if (grupoTieneError) {
+            grupo.forEach(function (entrada) {
+                if (!entrada.mensajes.length) entrada.marcar(null, 'El grupo contiene otra variante con errores; corrige el grupo completo');
+            });
+        }
+    });
+
+    let errores = 0;
+    let validas = 0;
+    let productosValidos = 0;
+    const gruposValidosContados = {};
+    const filas = [];
+
+    entradas.forEach(function (entrada) {
+        const datos = entrada.datos;
+        datos._errores = entrada.mensajes.slice();
+        filas.push(datos);
+
+        if (entrada.mensajes.length) {
+            errores += 1;
+            entrada.$fila.addClass('has-error').attr('title', entrada.mensajes.join(' · '));
+        } else {
+            validas += 1;
+            entrada.$fila.addClass('is-valid');
+            if (datos.tipo === 'simple') {
+                productosValidos += 1;
+            } else {
+                const grupoKey = normalizarTextoCompra(datos.grupo);
+                if (!gruposValidosContados[grupoKey]) {
+                    gruposValidosContados[grupoKey] = true;
+                    productosValidos += 1;
+                }
+            }
+        }
+    });
 
     $('#compraMasivoTotal').text(filas.length);
     $('#compraMasivoValidas').text(validas);
     $('#compraMasivoErrores').text(errores);
     $('#btnAgregarProductosMasivos')
         .prop('disabled', validas === 0)
-        .html(`<i class="fas fa-layer-group"></i> Agregar ${validas} producto${validas === 1 ? '' : 's'} válidos`);
+        .html(`<i class="fas fa-cart-plus"></i> Agregar ${productosValidos} producto${productosValidos === 1 ? '' : 's'} (${validas} fila${validas === 1 ? '' : 's'})`);
 
     if (!filas.length) {
-        $('#compraMasivoEstado').text('Agrega una fila o pega datos desde Excel.');
+        $('#compraMasivoEstado').text('Agrega una fila o pega información desde Excel.');
     } else if (errores) {
-        $('#compraMasivoEstado').html(`<strong>${validas}</strong> listas · <span class="tw-text-rose-600"><strong>${errores}</strong> requieren corrección</span>`);
+        $('#compraMasivoEstado').html(`<strong>${validas}</strong> filas listas · <span class="text-danger"><strong>${errores}</strong> requieren corrección</span>`);
     } else {
-        $('#compraMasivoEstado').html(`<span class="tw-text-emerald-700"><i class="fas fa-check-circle mr-1"></i><strong>${validas}</strong> productos listos para agregar</span>`);
+        $('#compraMasivoEstado').html(`<span class="text-success"><i class="fas fa-check-circle mr-1"></i><strong>${productosValidos}</strong> producto${productosValidos === 1 ? '' : 's'} listo${productosValidos === 1 ? '' : 's'} para agregar a la compra</span>`);
     }
 
     return filas;
 }
 
-function limpiarCompraMasiva() {
-    $('#compraMasivoBody').empty();
-    for (let i = 0; i < 4; i += 1) {
-        agregarFilaCompraMasiva({}, false);
+function limpiarCompraMasiva(confirmar = false) {
+    const ejecutar = function () {
+        $('#compraMasivoBody').empty();
+        for (let i = 0; i < 5; i += 1) agregarFilaCompraMasiva({}, false);
+        validarCompraMasiva();
+    };
+
+    if (!confirmar || !$('#compraMasivoBody tr.is-valid, #compraMasivoBody tr.has-error').length) {
+        ejecutar();
+        return;
     }
-    validarCompraMasiva();
+
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+        Swal.fire({
+            title: '¿Limpiar la hoja?',
+            text: 'Se eliminarán los datos digitados o pegados que todavía no se han agregado a la compra.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, limpiar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#00a46a'
+        }).then(function (resultado) { if (resultado.isConfirmed) ejecutar(); });
+        return;
+    }
+
+    if (window.confirm('¿Limpiar la hoja?')) ejecutar();
 }
 
 function cambiarModoProductoNuevoCompra(modo) {
@@ -1061,65 +1324,85 @@ function cambiarModoProductoNuevoCompra(modo) {
     $('#productoModoIndividual').toggleClass('tw-hidden', esMasivo);
     $('#productoModoMasivo').toggleClass('tw-hidden', !esMasivo);
     $('#btnAgregarProductoIndividual').toggleClass('tw-hidden', esMasivo);
-    $('#btnAgregarProductosMasivos').toggleClass('tw-hidden', !esMasivo);
 
-    if (esMasivo && !$('#compraMasivoBody tr').length) {
-        limpiarCompraMasiva();
+    if (esMasivo) {
+        asegurarCatalogosMasivosCompra().then(function () {
+            if (!$('#compraMasivoBody tr').length) limpiarCompraMasiva(false);
+        });
     }
 }
 
 function agregarProductosMasivosALaCompra() {
     const filas = validarCompraMasiva();
-    const validas = filas.filter(function (fila) { return fila._errores.length === 0; });
+    const validas = filas.filter(function (fila) { return !fila._errores || fila._errores.length === 0; });
 
     if (!validas.length) {
-        alertaCompra('warning', 'Sin productos válidos', 'Corrige las filas marcadas antes de agregarlas a la compra.');
+        alertaCompra('warning', 'Sin productos válidos', 'Corrige los campos marcados antes de agregarlos a la compra.');
         return;
     }
 
+    const productos = {};
     validas.forEach(function (fila) {
+        const clave = fila.tipo === 'variante'
+            ? `v:${normalizarTextoCompra(fila.grupo)}`
+            : `s:${normalizarTextoCompra(fila.codigo)}`;
+        productos[clave] = true;
+    });
+    const totalProductos = Object.keys(productos).length;
+
+    validas.forEach(function (fila) {
+        const esVariante = fila.tipo === 'variante';
+        const nombreDetalle = esVariante
+            ? `${fila.nombre} - ${fila.variante}`
+            : fila.nombre;
+
         detallesCompra.push({
             tipo_detalle: 'INVENTARIO',
             origen: 'NUEVO',
+            producto_tipo: esVariante ? 'variante' : 'simple',
+            grupo: esVariante ? String(fila.grupo || '').trim().toUpperCase() : '',
+            variante: esVariante ? String(fila.variante || '').trim() : '',
             idarticulo: 0,
-            descripcion: fila.nombre,
-            nombre: fila.nombre,
-            codigo: fila.codigo,
-            idcategoria: fila.idcategoria,
-            idsubcategoria: fila.idsubcategoria,
-            idmedida: fila.idmedida,
-            idalmacen: fila.idalmacen,
-            cantidad: fila.cantidad,
-            precio_compra: fila.precio_compra,
-            precio_venta: fila.precio_venta,
-            importe: numeroCompra(fila.cantidad * fila.precio_compra)
+            descripcion: nombreDetalle,
+            nombre: String(fila.nombre || '').trim(),
+            codigo: String(fila.codigo || '').trim().toUpperCase(),
+            idcategoria: Number.parseInt(fila.categoria, 10) || 0,
+            idsubcategoria: Number.parseInt(fila.subcategoria, 10) || 0,
+            idmedida: Number.parseInt(fila.medida, 10) || 0,
+            idalmacen: Number.parseInt(fila.almacen, 10) || 0,
+            codigo_afectacion_igv: String(fila.codigo_afectacion_igv || '10'),
+            cantidad: Number.parseInt(fila.stock, 10) || 0,
+            precio_compra: numeroCompra(fila.precio_compra),
+            precio_venta: numeroCompra(fila.precio_venta),
+            importe: numeroCompra((Number.parseInt(fila.stock, 10) || 0) * numeroCompra(fila.precio_compra))
         });
-        $(`#compraMasivoBody tr[data-mini-row="${fila.row_id}"]`).remove();
+
+        $(`#compraMasivoBody tr[data-row-id="${fila.fila_cliente}"]`).remove();
     });
 
-    renderizarDetallesCompra();
+    renumerarFilasCompraMasiva();
     validarCompraMasiva();
-
-    if (!$('#compraMasivoBody tr').length || $('#compraMasivoBody tr.has-error').length === 0) {
-        $('#modalProductoNuevo').modal('hide');
-    }
+    renderizarDetallesCompra();
+    $('#modalProductoNuevo').modal('hide');
 
     alertaCompra(
         'success',
         'Productos agregados',
-        `${validas.length} producto${validas.length === 1 ? '' : 's'} nuevo${validas.length === 1 ? '' : 's'} se agregaron a la compra.`
+        `${totalProductos} producto${totalProductos === 1 ? '' : 's'} (${validas.length} fila${validas.length === 1 ? '' : 's'}) se agregaron a la compra.`
     );
 }
 
-function pegarMatrizCompraMasiva(texto, $controlInicio) {
+function parsearTextoPegadoCompraMasiva(texto) {
     const limpio = String(texto || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
-    if (!limpio || (!limpio.includes('\t') && !limpio.includes('\n'))) return false;
+    if (!limpio) return [];
+    return limpio.split('\n').map(function (linea) { return linea.split('\t'); });
+}
 
-    const matriz = limpio.split('\n').map(function (linea) { return linea.split('\t'); });
-    const campos = ['nombre', 'codigo', 'idcategoria', 'idsubcategoria', 'idmedida', 'idalmacen', 'cantidad', 'precio_compra', 'precio_venta'];
-    let $fila = $controlInicio.closest('tr');
-    let columnaInicial = campos.indexOf(String($controlInicio.attr('data-mini-field') || ''));
-    if (columnaInicial < 0) columnaInicial = 0;
+function pegarMatrizCompraMasiva(matriz, $filaInicio, columnaInicio) {
+    if (!Array.isArray(matriz) || !matriz.length) return;
+    const campos = camposMasivosCompraProducto();
+    let $fila = $filaInicio && $filaInicio.length ? $filaInicio : $('#compraMasivoBody tr').last();
+    if (!$fila.length) $fila = agregarFilaCompraMasiva({}, false);
 
     matriz.forEach(function (columnas, indiceFila) {
         if (indiceFila > 0) {
@@ -1129,65 +1412,88 @@ function pegarMatrizCompraMasiva(texto, $controlInicio) {
         }
 
         columnas.forEach(function (valor, offset) {
-            const campo = campos[columnaInicial + offset];
+            const campo = campos[columnaInicio + offset];
             if (!campo) return;
-            const $control = $fila.find(`[data-mini-field="${campo}"]`);
+            const $control = $fila.find(`[data-field="${campo}"]`);
             if (!$control.length) return;
 
-            if (campo === 'idcategoria') {
-                const id = resolverCatalogoCompraMasiva(valor, datosFormularioCompra.categorias, 'idcategoria', ['nombre']);
-                $control.val(id);
-                actualizarSubcategoriaFilaCompraMasiva($fila, id, '');
-            } else if (campo === 'idsubcategoria') {
-                const items = subcategoriasCompraPorCategoria($fila.find('[data-mini-field="idcategoria"]').val());
-                $control.val(resolverCatalogoCompraMasiva(valor, items, 'idsubcategoria', ['nombre']));
-            } else if (campo === 'idmedida') {
-                $control.val(resolverCatalogoCompraMasiva(valor, datosFormularioCompra.medidas, 'idmedida', ['nombre', 'codigo']));
-            } else if (campo === 'idalmacen') {
-                $control.val(resolverCatalogoCompraMasiva(valor, datosFormularioCompra.almacenes, 'idalmacen', ['nombre']));
+            if (campo === 'tipo') {
+                const tipo = normalizarTipoMasivoCompraProducto(valor);
+                $control.val(tipo || '');
+                actualizarTipoFilaCompraMasiva($fila, false);
+            } else if (campo === 'codigo_afectacion_igv') {
+                $control.val(resolverAfectacionMasivoCompra(valor));
+            } else if (['categoria', 'subcategoria', 'almacen', 'medida'].includes(campo)) {
+                const items = campo === 'categoria' ? catalogosMasivosCompraProducto.categorias
+                    : campo === 'subcategoria' ? catalogosMasivosCompraProducto.subcategorias
+                        : campo === 'almacen' ? catalogosMasivosCompraProducto.almacenes
+                            : catalogosMasivosCompraProducto.medidas;
+                const id = resolverCatalogoMasivoCompra(valor, items, campo);
+                if (campo === 'categoria') {
+                    $control.val(id);
+                    actualizarSubcategoriasFilaCompraMasiva($fila, id, '');
+                } else if (campo === 'subcategoria') {
+                    actualizarSubcategoriasFilaCompraMasiva($fila, String($fila.find('[data-field="categoria"]').val() || ''), id);
+                } else {
+                    $control.val(id);
+                }
             } else {
-                $control.val(String(valor ?? '').trim());
+                $control.val(String(valor == null ? '' : valor).trim());
             }
         });
     });
 
+    renumerarFilasCompraMasiva();
     validarCompraMasiva();
-    return true;
 }
 
 function cargarArchivoProductosCompraMasivo(archivo) {
     if (!archivo) return;
 
-    const formData = new FormData();
-    formData.append('archivo_productos', archivo);
-    $('#compraMasivoEstado').html('<span class="spinner-border spinner-border-sm mr-1"></span> Leyendo archivo...');
+    asegurarCatalogosMasivosCompra().then(function () {
+        const formData = new FormData();
+        formData.append('archivo_productos', archivo);
 
-    $.ajax({
-        url: 'Controllers/Buy.php?op=previsualizarProductosMasivos',
-        method: 'POST',
-        dataType: 'json',
-        data: formData,
-        processData: false,
-        contentType: false
-    }).done(function (respuesta) {
-        if (!respuesta || respuesta.success !== true) {
-            alertaCompra('error', 'Archivo no válido', (respuesta && respuesta.mensaje) || 'No se pudo leer el archivo.');
-            return;
-        }
+        $.ajax({
+            url: 'Controllers/Product.php?op=previsualizarMasivo',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            beforeSend: function () {
+                $('#compraMasivoEstado').html('<span class="spinner-border spinner-border-sm mr-1"></span> Leyendo archivo...');
+            }
+        }).done(function (respuesta) {
+            if (!respuesta || respuesta.success !== true) {
+                alertaCompra('error', 'Archivo no válido', (respuesta && respuesta.mensaje) || 'No se pudo leer el archivo.');
+                return;
+            }
 
-        const filas = Array.isArray(respuesta.filas) ? respuesta.filas : [];
-        $('#compraMasivoBody').empty();
-        filas.forEach(function (fila) { agregarFilaCompraMasiva(fila, false); });
-        if (!filas.length) limpiarCompraMasiva();
-        validarCompraMasiva();
-        alertaCompra('success', 'Archivo cargado', `${filas.length} fila${filas.length === 1 ? '' : 's'} preparada${filas.length === 1 ? '' : 's'} para revisión.`);
-    }).fail(function (xhr) {
-        alertaCompra('error', 'No se pudo cargar', mensajeRespuestaCompra(xhr, 'No se pudo procesar el archivo.'));
-        validarCompraMasiva();
-    }).always(function () {
-        $('#archivoProductosCompraMasivo').val('');
+            const filas = Array.isArray(respuesta.filas) ? respuesta.filas : [];
+            $('#compraMasivoBody').empty();
+            filas.forEach(function (fila) { agregarFilaCompraMasiva(fila, false); });
+            if (!filas.length) {
+                for (let i = 0; i < 5; i += 1) agregarFilaCompraMasiva({}, false);
+            }
+            validarCompraMasiva();
+
+            if (typeof Swal !== 'undefined' && Swal.fire) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Archivo cargado',
+                    text: `${filas.length} fila${filas.length === 1 ? '' : 's'} preparada${filas.length === 1 ? '' : 's'} para revisión.`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            }
+        }).fail(function (xhr) {
+            const mensaje = mensajeRespuestaCompra(xhr, 'No se pudo procesar el archivo.');
+            alertaCompra('error', 'Error', mensaje);
+        });
     });
 }
+
 
 function agregarGastoServicioDesdeFormulario(evento) {
     evento.preventDefault();
@@ -1250,7 +1556,7 @@ function agregarGastoServicioDesdeFormulario(evento) {
 function tipoDetalleHtml(detalle) {
     if (detalle.tipo_detalle === 'INVENTARIO') {
         const texto = detalle.origen === 'NUEVO'
-            ? 'Producto nuevo'
+            ? (detalle.producto_tipo === 'variante' ? 'Producto variable' : 'Producto nuevo')
             : 'Inventario';
 
         return '<span class="detalle-tipo detalle-tipo-inventario">'
@@ -3147,44 +3453,59 @@ function init() {
     });
 
     $('#btnAgregarFilaCompraMasiva').on('click', function () {
-        agregarFilaCompraMasiva({}, true);
+        asegurarCatalogosMasivosCompra().then(function () {
+            const $fila = agregarFilaCompraMasiva({}, true);
+            $fila.find('[data-field="nombre"]').trigger('focus');
+        });
     });
 
     $('#btnLimpiarCompraMasiva').on('click', function () {
-        limpiarCompraMasiva();
+        limpiarCompraMasiva(true);
     });
 
     $('#btnAgregarProductosMasivos').on('click', agregarProductosMasivosALaCompra);
-
-    $('#btnCargarArchivoProductosCompra').on('click', function () {
-        $('#archivoProductosCompraMasivo').trigger('click');
+    $('#btnCerrarCompraMasiva').on('click', function () {
+        cambiarModoProductoNuevoCompra('individual');
     });
 
     $('#archivoProductosCompraMasivo').on('change', function () {
-        cargarArchivoProductosCompraMasivo(this.files && this.files[0] ? this.files[0] : null);
+        if (this.files && this.files[0]) cargarArchivoProductosCompraMasivo(this.files[0]);
+        this.value = '';
     });
 
-    $(document).on('click', '.btnEliminarFilaCompraMasiva', function () {
+    $(document).on('click', '#compraMasivoBody .compra-sheet-remove', function () {
         $(this).closest('tr').remove();
+        renumerarFilasCompraMasiva();
         validarCompraMasiva();
     });
 
-    $(document).on('change', '#compraMasivoBody [data-mini-field="idcategoria"]', function () {
+    $(document).on('input change', '#compraMasivoBody .tp-sheet-cell, #compraMasivoBody .tp-sheet-select', function () {
         const $fila = $(this).closest('tr');
-        actualizarSubcategoriaFilaCompraMasiva($fila, $(this).val(), '');
+        const campo = String($(this).data('field') || '');
+        if (campo === 'tipo') actualizarTipoFilaCompraMasiva($fila);
+        if (campo === 'categoria') actualizarSubcategoriasFilaCompraMasiva($fila, String($(this).val() || ''), '');
         validarCompraMasiva();
     });
 
-    $(document).on('input change', '#compraMasivoBody .compra-mini-control', function () {
-        validarCompraMasiva();
-    });
-
-    $(document).on('paste', '#compraMasivoBody .compra-mini-control', function (evento) {
+    $(document).on('paste', '#compraMasivoBody .tp-sheet-cell, #compraMasivoBody .tp-sheet-select', function (evento) {
         const original = evento.originalEvent;
-        const texto = original && original.clipboardData ? original.clipboardData.getData('text/plain') : '';
-        if (pegarMatrizCompraMasiva(texto, $(this))) {
-            evento.preventDefault();
-        }
+        const texto = original && original.clipboardData ? original.clipboardData.getData('text') : '';
+        if (!texto || (!texto.includes('\t') && !texto.includes('\n') && !texto.includes('\r'))) return;
+        evento.preventDefault();
+        const $fila = $(this).closest('tr');
+        const inicio = camposMasivosCompraProducto().indexOf(String($(this).data('field') || ''));
+        pegarMatrizCompraMasiva(parsearTextoPegadoCompraMasiva(texto), $fila, Math.max(0, inicio));
+    });
+
+    $(document).on('keydown', '#compraMasivoBody .tp-sheet-cell, #compraMasivoBody .tp-sheet-select', function (evento) {
+        if (evento.key !== 'Enter') return;
+        evento.preventDefault();
+        const $fila = $(this).closest('tr');
+        const campo = String($(this).data('field') || '');
+        let $siguiente = $fila.next('tr');
+        if (!$siguiente.length) $siguiente = agregarFilaCompraMasiva({}, true);
+        const $destino = $siguiente.find(`[data-field="${campo}"]`);
+        if ($destino.length) $destino.trigger('focus');
     });
 
     $('#btnGastoServicio').on('click', function () {
@@ -3202,7 +3523,13 @@ function init() {
     $('#modalProductoNuevo').on('shown.bs.modal', function () {
         if (modoProductoNuevoCompra === 'individual') {
             $('#nuevo_nombre').trigger('focus');
+            return;
         }
+
+        asegurarCatalogosMasivosCompra().then(function () {
+            if (!$('#compraMasivoBody tr').length) limpiarCompraMasiva(false);
+            $('#compraMasivoBody tr:first [data-field="nombre"]').trigger('focus');
+        });
     });
 
     $('#modalProveedorCompra').on('shown.bs.modal', function () {

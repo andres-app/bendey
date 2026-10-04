@@ -230,6 +230,13 @@ class Buy
                 64
             );
 
+            // Los grupos de variantes se crean completos dentro de la misma
+            // transacción de la compra. Si algo falla, no queda un padre o una
+            // variante registrada a medias.
+            $detallesNormalizados = $this->prepararProductosVariablesCompra(
+                $detallesNormalizados
+            );
+
             foreach ($detallesNormalizados as $detalle) {
                 if ($detalle['tipo_detalle'] === 'INVENTARIO') {
                     $this->registrarDetalleInventario(
@@ -412,7 +419,7 @@ class Buy
             }
 
             $detalles = $this->conexion->getDataAll(
-                "SELECT iddetalle_ingreso, tipo_detalle, idarticulo,
+                "SELECT iddetalle_ingreso, tipo_detalle, idarticulo, descripcion,
                         cantidad, stock_venta, afecta_stock, estado
                  FROM {$this->tableNameDetalle}
                  WHERE idingreso = ?
@@ -421,6 +428,7 @@ class Buy
             );
 
             $cantidadesPorArticulo = [];
+            $cantidadesPorVariacion = [];
 
             foreach ($detalles as $detalle) {
                 $esInventario =
@@ -435,6 +443,35 @@ class Buy
                 $cantidad = (int)round((float)$detalle['cantidad']);
                 $stockVenta = (int)$detalle['stock_venta'];
                 $idarticulo = (int)$detalle['idarticulo'];
+
+                $descripcionDetalle = trim((string)($detalle['descripcion'] ?? ''));
+                if (preg_match('/ · SKU:\s*([A-Z0-9._-]+)$/i', $descripcionDetalle, $skuMatch)) {
+                    $skuVariacion = strtoupper(trim((string)$skuMatch[1]));
+                    $variacion = $this->conexion->getData(
+                        "SELECT idvariacion, stock, combinacion
+                         FROM articulo_variacion
+                         WHERE idarticulo = ?
+                           AND sku = ?
+                           AND estado = 1
+                         LIMIT 1
+                         FOR UPDATE",
+                        [$idarticulo, $skuVariacion]
+                    );
+
+                    if ($variacion) {
+                        if ((int)$variacion['stock'] < $cantidad) {
+                            throw new RuntimeException(
+                                'No se puede anular porque el stock actual de la variante "'
+                                . (string)($variacion['combinacion'] ?? $skuVariacion)
+                                . '" es menor que la cantidad ingresada.'
+                            );
+                        }
+
+                        $idvariacion = (int)$variacion['idvariacion'];
+                        $cantidadesPorVariacion[$idvariacion] =
+                            ($cantidadesPorVariacion[$idvariacion] ?? 0) + $cantidad;
+                    }
+                }
 
                 if ($stockVenta < $cantidad) {
                     $articulo = $this->conexion->getData(
@@ -480,6 +517,15 @@ class Buy
                         . '" es menor que la cantidad total ingresada.'
                     );
                 }
+            }
+
+            foreach ($cantidadesPorVariacion as $idvariacion => $cantidadTotal) {
+                $this->conexion->setData(
+                    "UPDATE articulo_variacion
+                     SET stock = stock - ?
+                     WHERE idvariacion = ?",
+                    [(int)$cantidadTotal, (int)$idvariacion]
+                );
             }
 
             foreach ($cantidadesPorArticulo as $idarticulo => $cantidadTotal) {
@@ -756,6 +802,11 @@ class Buy
             ? null
             : round((float)$precioVentaRaw, 2);
 
+        $tipoProductoCrudo = strtolower(trim((string)($detalle['producto_tipo'] ?? 'simple')));
+        $productoTipo = in_array($tipoProductoCrudo, ['variante', 'variacion', 'variable'], true)
+            ? 'variante'
+            : 'simple';
+
         if (!in_array($tipoDetalle, ['INVENTARIO', 'NO_INVENTARIO'], true)) {
             throw new RuntimeException(
                 "El tipo del detalle {$numeroFila} no es válido."
@@ -794,6 +845,50 @@ class Buy
             }
         } else {
             $origen = 'GASTO';
+            $productoTipo = 'simple';
+        }
+
+        $codigo = $this->limpiarCodigo(
+            $detalle['codigo'] ?? '',
+            $productoTipo === 'variante' ? 100 : 50
+        );
+        $grupo = $this->limpiarCodigo($detalle['grupo'] ?? '', 50);
+        $variante = $this->limpiarTexto($detalle['variante'] ?? '', 150);
+        $codigoAfectacionIgv = preg_replace(
+            '/[^0-9]/',
+            '',
+            (string)($detalle['codigo_afectacion_igv'] ?? '10')
+        ) ?? '10';
+        $codigoAfectacionIgv = substr($codigoAfectacionIgv, 0, 2);
+        if ($codigoAfectacionIgv === '') {
+            $codigoAfectacionIgv = '10';
+        }
+
+        if (
+            $tipoDetalle === 'INVENTARIO'
+            && $origen === 'NUEVO'
+            && $productoTipo === 'variante'
+        ) {
+            if ($grupo === '') {
+                throw new RuntimeException(
+                    "El producto variable del detalle {$numeroFila} requiere Grupo / SKU padre."
+                );
+            }
+            if ($codigo === '') {
+                throw new RuntimeException(
+                    "La variante del detalle {$numeroFila} requiere SKU."
+                );
+            }
+            if ($variante === '') {
+                throw new RuntimeException(
+                    "La variante del detalle {$numeroFila} requiere descripción de variante."
+                );
+            }
+            if ($grupo === $codigo) {
+                throw new RuntimeException(
+                    "El SKU padre y el SKU de la variante deben ser distintos (detalle {$numeroFila})."
+                );
+            }
         }
 
         $importe = round($cantidad * $precioCompra, 2);
@@ -807,14 +902,19 @@ class Buy
         return [
             'tipo_detalle' => $tipoDetalle,
             'origen' => $origen,
+            'producto_tipo' => $productoTipo,
+            'grupo' => $grupo,
+            'variante' => $variante,
+            'codigo_afectacion_igv' => $codigoAfectacionIgv,
             'idarticulo' => (int)($detalle['idarticulo'] ?? 0),
+            'idvariacion' => (int)($detalle['idvariacion'] ?? 0),
             'descripcion' => $this->limpiarTexto($detalle['descripcion'] ?? '', 250),
             'idcategoria_compra' => (int)($detalle['idcategoria_compra'] ?? 0),
             'idcategoria' => (int)($detalle['idcategoria'] ?? 0),
             'idsubcategoria' => (int)($detalle['idsubcategoria'] ?? 0),
             'idmedida' => (int)($detalle['idmedida'] ?? 0),
             'idalmacen' => (int)($detalle['idalmacen'] ?? 0),
-            'codigo' => $this->limpiarCodigo($detalle['codigo'] ?? ''),
+            'codigo' => $codigo,
             'nombre' => $this->limpiarTexto($detalle['nombre'] ?? '', 100),
             'cantidad' => $cantidad,
             'precio_compra' => $precioCompra,
@@ -830,9 +930,37 @@ class Buy
         array $detalle
     ): void {
         $idarticulo = 0;
+        $idvariacion = 0;
         $articulo = null;
+        $esVarianteNueva = $detalle['origen'] === 'NUEVO'
+            && ($detalle['producto_tipo'] ?? 'simple') === 'variante';
 
-        if ($detalle['origen'] === 'NUEVO') {
+        if ($esVarianteNueva) {
+            $idarticulo = (int)($detalle['idarticulo'] ?? 0);
+            $idvariacion = (int)($detalle['idvariacion'] ?? 0);
+
+            if ($idarticulo <= 0 || $idvariacion <= 0) {
+                throw new RuntimeException(
+                    'No se pudo enlazar una de las variantes nuevas con su producto padre.'
+                );
+            }
+
+            $articulo = $this->conexion->getData(
+                "SELECT a.idarticulo, a.nombre, a.idalmacen, a.idmedida,
+                        a.stock, a.precio_compra, a.precio_venta,
+                        av.idvariacion, av.sku, av.combinacion,
+                        av.stock AS stock_variacion
+                 FROM articulo a
+                 INNER JOIN articulo_variacion av
+                    ON av.idarticulo = a.idarticulo
+                 WHERE a.idarticulo = ?
+                   AND av.idvariacion = ?
+                   AND av.estado = 1
+                 LIMIT 1
+                 FOR UPDATE",
+                [$idarticulo, $idvariacion]
+            );
+        } elseif ($detalle['origen'] === 'NUEVO') {
             $idarticulo = $this->crearProductoNuevo($detalle);
 
             $articulo = $this->conexion->getData(
@@ -877,9 +1005,18 @@ class Buy
         $precioVenta = $detalle['precio_venta'];
         $idalmacen = (int)($articulo['idalmacen'] ?? 0);
         $idmedida = (int)($articulo['idmedida'] ?? 0);
-        $descripcion = $detalle['descripcion'] !== ''
-            ? $detalle['descripcion']
-            : (string)$articulo['nombre'];
+
+        if ($esVarianteNueva) {
+            $descripcion = trim(
+                (string)$detalle['nombre']
+                . ($detalle['variante'] !== '' ? ' - ' . $detalle['variante'] : '')
+                . ' · SKU: ' . (string)$detalle['codigo']
+            );
+        } else {
+            $descripcion = $detalle['descripcion'] !== ''
+                ? $detalle['descripcion']
+                : (string)$articulo['nombre'];
+        }
 
         $sqlDetalle = "INSERT INTO {$this->tableNameDetalle}
             (idingreso, tipo_detalle, idarticulo, descripcion,
@@ -905,31 +1042,79 @@ class Buy
             ]
         );
 
-        if ($precioVenta !== null && $precioVenta > 0) {
+        if ($esVarianteNueva) {
+            if ($precioVenta !== null && $precioVenta > 0) {
+                $this->conexion->setData(
+                    "UPDATE articulo_variacion
+                     SET stock = COALESCE(stock, 0) + ?,
+                         precio_compra = ?,
+                         precio_venta = ?
+                     WHERE idvariacion = ?
+                       AND idarticulo = ?",
+                    [$cantidad, $precioCompra, $precioVenta, $idvariacion, $idarticulo]
+                );
+            } else {
+                $this->conexion->setData(
+                    "UPDATE articulo_variacion
+                     SET stock = COALESCE(stock, 0) + ?,
+                         precio_compra = ?
+                     WHERE idvariacion = ?
+                       AND idarticulo = ?",
+                    [$cantidad, $precioCompra, $idvariacion, $idarticulo]
+                );
+            }
+
+            $resumenVariaciones = $this->conexion->getData(
+                "SELECT COALESCE(SUM(stock), 0) AS stock_total,
+                        COALESCE(MIN(precio_compra), 0) AS precio_compra_min,
+                        COALESCE(MIN(precio_venta), 0) AS precio_venta_min
+                 FROM articulo_variacion
+                 WHERE idarticulo = ?
+                   AND estado = 1",
+                [$idarticulo]
+            );
+
+            $stockFinal = (int)($resumenVariaciones['stock_total'] ?? 0);
             $this->conexion->setData(
                 "UPDATE articulo
-                 SET stock = COALESCE(stock, 0) + ?,
+                 SET stock = ?,
                      precio_compra = ?,
                      precio_venta = ?
                  WHERE idarticulo = ?",
-                [$cantidad, $precioCompra, $precioVenta, $idarticulo]
+                [
+                    $stockFinal,
+                    (float)($resumenVariaciones['precio_compra_min'] ?? $precioCompra),
+                    (float)($resumenVariaciones['precio_venta_min'] ?? ($precioVenta ?? 0)),
+                    $idarticulo
+                ]
             );
         } else {
-            $this->conexion->setData(
-                "UPDATE articulo
-                 SET stock = COALESCE(stock, 0) + ?,
-                     precio_compra = ?
+            if ($precioVenta !== null && $precioVenta > 0) {
+                $this->conexion->setData(
+                    "UPDATE articulo
+                     SET stock = COALESCE(stock, 0) + ?,
+                         precio_compra = ?,
+                         precio_venta = ?
+                     WHERE idarticulo = ?",
+                    [$cantidad, $precioCompra, $precioVenta, $idarticulo]
+                );
+            } else {
+                $this->conexion->setData(
+                    "UPDATE articulo
+                     SET stock = COALESCE(stock, 0) + ?,
+                         precio_compra = ?
+                     WHERE idarticulo = ?",
+                    [$cantidad, $precioCompra, $idarticulo]
+                );
+            }
+
+            $stockFinal = (int)$this->conexion->getValue(
+                "SELECT stock
+                 FROM articulo
                  WHERE idarticulo = ?",
-                [$cantidad, $precioCompra, $idarticulo]
+                [$idarticulo]
             );
         }
-
-        $stockFinal = (int)$this->conexion->getValue(
-            "SELECT stock
-             FROM articulo
-             WHERE idarticulo = ?",
-            [$idarticulo]
-        );
 
         $totalIngreso = round($cantidad * $precioCompra, 2);
         $totalExistencia = round($stockFinal * $precioCompra, 2);
@@ -950,7 +1135,7 @@ class Buy
                 $idingreso,
                 $idarticulo,
                 substr($fechaHora, 0, 10),
-                $detalleDocumento,
+                $esVarianteNueva ? $detalleDocumento . ' · ' . $descripcion : $detalleDocumento,
                 $cantidad,
                 $precioCompra,
                 $totalIngreso,
@@ -1039,6 +1224,339 @@ class Buy
         );
     }
 
+    /**
+     * Prepara todos los grupos variables antes de registrar el detalle de compra.
+     * El producto padre y sus variantes se crean con stock 0; el stock se suma
+     * luego desde cada detalle para que la compra y el kardex sean la fuente del ingreso.
+     */
+    private function prepararProductosVariablesCompra(array $detalles): array
+    {
+        $grupos = [];
+        $codigosLote = [];
+
+        foreach ($detalles as $indice => $detalle) {
+            if (
+                ($detalle['tipo_detalle'] ?? '') !== 'INVENTARIO'
+                || ($detalle['origen'] ?? '') !== 'NUEVO'
+            ) {
+                continue;
+            }
+
+            $codigo = strtoupper(trim((string)($detalle['codigo'] ?? '')));
+            if ($codigo !== '') {
+                if (isset($codigosLote[$codigo])) {
+                    throw new RuntimeException(
+                        'El SKU ' . $codigo . ' está repetido entre los productos nuevos de la compra.'
+                    );
+                }
+                $codigosLote[$codigo] = true;
+            }
+
+            if (($detalle['producto_tipo'] ?? 'simple') !== 'variante') {
+                continue;
+            }
+
+            $grupo = strtoupper(trim((string)($detalle['grupo'] ?? '')));
+            if ($grupo === '') {
+                throw new RuntimeException('Un producto variable no tiene Grupo / SKU padre.');
+            }
+            $grupos[$grupo][] = $indice;
+        }
+
+        foreach ($grupos as $grupo => $indices) {
+            if (isset($codigosLote[$grupo])) {
+                throw new RuntimeException(
+                    'El SKU padre ' . $grupo . ' coincide con el SKU de otro producto o variante de la compra.'
+                );
+            }
+
+            if ($this->codigoProductoExisteGlobal($grupo)) {
+                throw new RuntimeException(
+                    'Ya existe un producto o variante con el SKU padre ' . $grupo . '.'
+                );
+            }
+
+            $base = $detalles[$indices[0]];
+            foreach ($indices as $indice) {
+                $actual = $detalles[$indice];
+                $consistente = (string)$actual['nombre'] === (string)$base['nombre']
+                    && (int)$actual['idcategoria'] === (int)$base['idcategoria']
+                    && (int)$actual['idsubcategoria'] === (int)$base['idsubcategoria']
+                    && (int)$actual['idalmacen'] === (int)$base['idalmacen']
+                    && (int)$actual['idmedida'] === (int)$base['idmedida']
+                    && (string)$actual['codigo_afectacion_igv'] === (string)$base['codigo_afectacion_igv'];
+
+                if (!$consistente) {
+                    throw new RuntimeException(
+                        'Todas las variantes del grupo ' . $grupo
+                        . ' deben usar el mismo producto, categoría, subcategoría, almacén, unidad y afectación IGV.'
+                    );
+                }
+
+                if ($this->codigoProductoExisteGlobal((string)$actual['codigo'])) {
+                    throw new RuntimeException(
+                        'Ya existe un producto o variante con el SKU ' . (string)$actual['codigo'] . '.'
+                    );
+                }
+            }
+
+            $resultado = $this->crearProductoVariableCompra(
+                $base,
+                array_map(
+                    fn(int $indice): array => $detalles[$indice],
+                    $indices
+                )
+            );
+
+            foreach ($indices as $indice) {
+                $sku = strtoupper(trim((string)$detalles[$indice]['codigo']));
+                $detalles[$indice]['idarticulo'] = (int)$resultado['idarticulo'];
+                $detalles[$indice]['idvariacion'] = (int)($resultado['variaciones'][$sku] ?? 0);
+
+                if ($detalles[$indice]['idvariacion'] <= 0) {
+                    throw new RuntimeException(
+                        'No se pudo identificar la variante ' . $sku . ' del grupo ' . $grupo . '.'
+                    );
+                }
+            }
+        }
+
+        return $detalles;
+    }
+
+    private function crearProductoVariableCompra(array $base, array $variantes): array
+    {
+        if (!$variantes) {
+            throw new RuntimeException('El producto variable no contiene variantes.');
+        }
+
+        $idcategoria = (int)$base['idcategoria'];
+        $idsubcategoria = (int)$base['idsubcategoria'];
+        $idmedida = (int)$base['idmedida'];
+        $idalmacen = (int)$base['idalmacen'];
+        $nombre = $this->limpiarTexto($base['nombre'] ?? '', 100);
+        $codigoPadre = $this->limpiarCodigo($base['grupo'] ?? '', 50);
+
+        $this->validarCatalogosProductoNuevo(
+            $idcategoria,
+            $idsubcategoria,
+            $idmedida,
+            $idalmacen
+        );
+
+        if ($nombre === '' || $codigoPadre === '') {
+            throw new RuntimeException('El producto variable requiere nombre y SKU padre.');
+        }
+
+        $tributacion = $this->obtenerTributacionProductoCompra(
+            (string)($base['codigo_afectacion_igv'] ?? '10')
+        );
+
+        $preciosCompra = array_map(
+            fn(array $item): float => (float)($item['precio_compra'] ?? 0),
+            $variantes
+        );
+        $preciosVenta = array_map(
+            fn(array $item): float => (float)($item['precio_venta'] ?? 0),
+            $variantes
+        );
+
+        $idarticulo = (int)$this->conexion->setDataReturnId(
+            "INSERT INTO articulo
+                (idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre,
+                 stock, precio_compra, precio_venta, descripcion, imagen,
+                 codigo_afectacion_igv, porcentaje_igv,
+                 unidad_medida_sunat, codigo_producto_sunat, condicion)
+             VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 'default.png', ?, ?, ?, NULL, 1)",
+            [
+                $idcategoria,
+                $idsubcategoria > 0 ? $idsubcategoria : null,
+                $idmedida,
+                $idalmacen,
+                $codigoPadre,
+                $nombre,
+                $preciosCompra ? min($preciosCompra) : 0,
+                $preciosVenta ? min($preciosVenta) : 0,
+                'Creado desde el módulo de Compras · Producto variable',
+                $tributacion['codigo_afectacion_igv'],
+                $tributacion['porcentaje_igv'],
+                $tributacion['unidad_medida_sunat']
+            ]
+        );
+
+        if ($idarticulo <= 0) {
+            throw new RuntimeException(
+                'No se pudo crear el producto variable ' . $codigoPadre . '.'
+            );
+        }
+
+        $idsVariaciones = [];
+        foreach ($variantes as $variante) {
+            $sku = $this->limpiarCodigo($variante['codigo'] ?? '', 100);
+            $combinacion = $this->limpiarTexto($variante['variante'] ?? '', 150);
+
+            if ($sku === '' || $combinacion === '') {
+                throw new RuntimeException(
+                    'Una variante del grupo ' . $codigoPadre . ' no tiene SKU o descripción.'
+                );
+            }
+
+            $idvariacion = (int)$this->conexion->setDataReturnId(
+                "INSERT INTO articulo_variacion
+                    (idarticulo, combinacion, sku, stock, precio_compra, precio_venta, estado)
+                 VALUES (?, ?, ?, 0, ?, ?, 1)",
+                [
+                    $idarticulo,
+                    $combinacion,
+                    $sku,
+                    (float)$variante['precio_compra'],
+                    $variante['precio_venta']
+                ]
+            );
+
+            if ($idvariacion <= 0) {
+                throw new RuntimeException(
+                    'No se pudo crear la variante ' . $sku . ' del grupo ' . $codigoPadre . '.'
+                );
+            }
+
+            $idsVariaciones[$sku] = $idvariacion;
+        }
+
+        return [
+            'idarticulo' => $idarticulo,
+            'variaciones' => $idsVariaciones
+        ];
+    }
+
+    private function validarCatalogosProductoNuevo(
+        int $idcategoria,
+        int $idsubcategoria,
+        int $idmedida,
+        int $idalmacen
+    ): void {
+        if ($idcategoria <= 0 || $idmedida <= 0 || $idalmacen <= 0) {
+            throw new RuntimeException(
+                'El producto nuevo requiere categoría, unidad y almacén.'
+            );
+        }
+
+        $categoria = $this->conexion->getData(
+            "SELECT idcategoria FROM categoria
+             WHERE idcategoria = ? AND condicion = 1 LIMIT 1",
+            [$idcategoria]
+        );
+        if (!$categoria) {
+            throw new RuntimeException('La categoría del producto nuevo no es válida.');
+        }
+
+        if ($idsubcategoria > 0) {
+            $subcategoria = $this->conexion->getData(
+                "SELECT idsubcategoria FROM subcategoria
+                 WHERE idsubcategoria = ? AND idcategoria = ? AND estado = 1 LIMIT 1",
+                [$idsubcategoria, $idcategoria]
+            );
+            if (!$subcategoria) {
+                throw new RuntimeException(
+                    'La subcategoría no pertenece a la categoría seleccionada.'
+                );
+            }
+        }
+
+        $medida = $this->conexion->getData(
+            "SELECT idmedida FROM medida
+             WHERE idmedida = ? AND condicion = 1 LIMIT 1",
+            [$idmedida]
+        );
+        if (!$medida) {
+            throw new RuntimeException('La unidad del producto nuevo no es válida.');
+        }
+
+        $almacen = $this->conexion->getData(
+            "SELECT idalmacen FROM almacen
+             WHERE idalmacen = ? AND estado = 1 LIMIT 1",
+            [$idalmacen]
+        );
+        if (!$almacen) {
+            throw new RuntimeException('El almacén del producto nuevo no es válido.');
+        }
+    }
+
+    private function codigoProductoExisteGlobal(string $codigo): bool
+    {
+        $codigo = strtoupper(trim($codigo));
+        if ($codigo === '') {
+            return false;
+        }
+
+        $producto = $this->conexion->getData(
+            "SELECT idarticulo FROM articulo WHERE codigo = ? LIMIT 1 FOR UPDATE",
+            [$codigo]
+        );
+        if ($producto) {
+            return true;
+        }
+
+        $variacion = $this->conexion->getData(
+            "SELECT idvariacion FROM articulo_variacion WHERE sku = ? LIMIT 1 FOR UPDATE",
+            [$codigo]
+        );
+
+        return !empty($variacion);
+    }
+
+    private function obtenerTributacionProductoCompra(string $codigoAfectacion): array
+    {
+        $codigoAfectacion = preg_replace('/[^0-9]/', '', $codigoAfectacion) ?? '';
+        $codigoAfectacion = substr($codigoAfectacion, 0, 2);
+        if ($codigoAfectacion === '') {
+            $codigoAfectacion = '10';
+        }
+
+        $empresa = $this->conexion->getData(
+            "SELECT codigo_afectacion_igv_predeterminado,
+                    porcentaje_igv_predeterminado,
+                    unidad_medida_sunat_predeterminada
+             FROM datos_negocio
+             WHERE condicion = 1
+             ORDER BY id_negocio DESC
+             LIMIT 1"
+        );
+
+        $afectacion = $this->conexion->getData(
+            "SELECT codigo, porcentaje_predeterminado
+             FROM sunat_catalogo_07_afectacion_igv
+             WHERE codigo = ? AND activo = 1
+             LIMIT 1",
+            [$codigoAfectacion]
+        );
+
+        if (!$afectacion) {
+            throw new RuntimeException(
+                'La afectación IGV ' . $codigoAfectacion . ' no es válida.'
+            );
+        }
+
+        $porcentaje = $codigoAfectacion === '10'
+            ? round((float)($empresa['porcentaje_igv_predeterminado']
+                ?? $afectacion['porcentaje_predeterminado']
+                ?? 18), 2)
+            : 0.00;
+
+        $unidadSunat = strtoupper(trim((string)(
+            $empresa['unidad_medida_sunat_predeterminada'] ?? 'NIU'
+        )));
+        if (!preg_match('/^[A-Z0-9]{2,3}$/', $unidadSunat)) {
+            $unidadSunat = 'NIU';
+        }
+
+        return [
+            'codigo_afectacion_igv' => $codigoAfectacion,
+            'porcentaje_igv' => $porcentaje,
+            'unidad_medida_sunat' => $unidadSunat
+        ];
+    }
+
     private function crearProductoNuevo(array $detalle): int
     {
         $idcategoria = (int)$detalle['idcategoria'];
@@ -1052,93 +1570,33 @@ class Buy
             throw new RuntimeException('Debe ingresar el nombre del producto nuevo.');
         }
 
-        if ($idcategoria <= 0 || $idmedida <= 0 || $idalmacen <= 0) {
-            throw new RuntimeException(
-                'El producto nuevo requiere categoría, unidad y almacén.'
-            );
-        }
-
-        $categoria = $this->conexion->getData(
-            "SELECT idcategoria
-             FROM categoria
-             WHERE idcategoria = ?
-               AND condicion = 1
-             LIMIT 1",
-            [$idcategoria]
+        $this->validarCatalogosProductoNuevo(
+            $idcategoria,
+            $idsubcategoria,
+            $idmedida,
+            $idalmacen
         );
-
-        if (!$categoria) {
-            throw new RuntimeException('La categoría del producto nuevo no es válida.');
-        }
-
-        if ($idsubcategoria > 0) {
-            $subcategoria = $this->conexion->getData(
-                "SELECT idsubcategoria
-                 FROM subcategoria
-                 WHERE idsubcategoria = ?
-                   AND idcategoria = ?
-                   AND estado = 1
-                 LIMIT 1",
-                [$idsubcategoria, $idcategoria]
-            );
-
-            if (!$subcategoria) {
-                throw new RuntimeException(
-                    'La subcategoría no pertenece a la categoría seleccionada.'
-                );
-            }
-        }
-
-        $medida = $this->conexion->getData(
-            "SELECT idmedida
-             FROM medida
-             WHERE idmedida = ?
-               AND condicion = 1
-             LIMIT 1",
-            [$idmedida]
-        );
-
-        if (!$medida) {
-            throw new RuntimeException('La unidad del producto nuevo no es válida.');
-        }
-
-        $almacen = $this->conexion->getData(
-            "SELECT idalmacen
-             FROM almacen
-             WHERE idalmacen = ?
-               AND estado = 1
-             LIMIT 1",
-            [$idalmacen]
-        );
-
-        if (!$almacen) {
-            throw new RuntimeException('El almacén del producto nuevo no es válido.');
-        }
 
         if ($codigo === '') {
             $codigo = $this->generarCodigoProducto();
         }
 
-        $duplicadoCodigo = $this->conexion->getData(
-            "SELECT idarticulo, nombre
-             FROM articulo
-             WHERE codigo = ?
-             LIMIT 1
-             FOR UPDATE",
-            [$codigo]
-        );
-
-        if ($duplicadoCodigo) {
+        if ($this->codigoProductoExisteGlobal($codigo)) {
             throw new RuntimeException(
-                'Ya existe un producto con el código ' . $codigo . '.'
+                'Ya existe un producto o variante con el código ' . $codigo . '.'
             );
         }
+
+        $tributacion = $this->obtenerTributacionProductoCompra(
+            (string)($detalle['codigo_afectacion_igv'] ?? '10')
+        );
 
         $sql = "INSERT INTO articulo
             (idcategoria, idsubcategoria, idmedida, codigo, nombre,
              stock, precio_compra, precio_venta, descripcion, imagen,
-             condicion, idalmacen)
-            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'default.png', 1, ?)";
+             codigo_afectacion_igv, porcentaje_igv, unidad_medida_sunat,
+             codigo_producto_sunat, condicion, idalmacen)
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'default.png', ?, ?, ?, NULL, 1, ?)";
 
         $idarticulo = (int)$this->conexion->setDataReturnId(
             $sql,
@@ -1151,6 +1609,9 @@ class Buy
                 (float)$detalle['precio_compra'],
                 $detalle['precio_venta'],
                 'Creado desde el módulo de Compras',
+                $tributacion['codigo_afectacion_igv'],
+                $tributacion['porcentaje_igv'],
+                $tributacion['unidad_medida_sunat'],
                 $idalmacen
             ]
         );
@@ -1225,11 +1686,11 @@ class Buy
         return substr($texto, 0, $maximo);
     }
 
-    private function limpiarCodigo(mixed $valor): string
+    private function limpiarCodigo(mixed $valor, int $maximo = 50): string
     {
         $codigo = strtoupper(trim((string)$valor));
         $codigo = preg_replace('/[^A-Z0-9._\-]/', '', $codigo) ?? '';
 
-        return substr($codigo, 0, 50);
+        return substr($codigo, 0, max(1, $maximo));
     }
 }
