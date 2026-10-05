@@ -626,9 +626,29 @@ class Sell
                 v.descuento_total,
                 v.descuento_porcentaje,
                 v.impuesto,
+                v.total_gravado,
+                v.total_exonerado,
+                v.total_inafecto,
+                v.total_exportacion,
+                v.total_igv,
+                COALESCE(v.moneda_codigo, 'PEN') AS moneda_codigo,
                 v.estado,
                 v.tipo_pago,
                 v.idforma_pago,
+
+                COALESCE(
+                    NULLIF(v.direccion_cliente, ''),
+                    p.direccion,
+                    ''
+                ) AS direccion_cliente,
+
+                COALESCE(
+                    NULLIF(v.celular_cliente, ''),
+                    p.telefono,
+                    ''
+                ) AS celular_cliente,
+
+                COALESCE(p.email, '') AS email_cliente,
 
                 COALESCE(
                     fp.nombre,
@@ -985,6 +1005,49 @@ class Sell
             ORDER BY v.idventa DESC";
 
         return $this->conexion->getDataAll($sql, $parametros);
+    }
+
+    public function resumenCotizaciones($idsucursal = null): array
+    {
+        $idsucursal = (int)$idsucursal;
+        $filtroSucursal = $idsucursal > 0
+            ? ' AND (v.idsucursal = ? OR v.idsucursal IS NULL)'
+            : '';
+        $parametros = $idsucursal > 0 ? [$idsucursal] : [];
+
+        $registro = $this->conexion->getData(
+            "SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN v.estado = 'Aceptado' THEN 1 ELSE 0 END) AS pendientes,
+                SUM(CASE WHEN v.estado = 'Ejecutado' THEN 1 ELSE 0 END) AS ejecutadas,
+                SUM(CASE WHEN v.estado = 'Anulado' THEN 1 ELSE 0 END) AS anuladas,
+                COALESCE(
+                    SUM(CASE WHEN v.estado = 'Aceptado' THEN v.total_venta ELSE 0 END),
+                    0
+                ) AS monto_pendiente
+             FROM venta v
+             WHERE v.tipo_comprobante LIKE 'Cotizaci%'
+             {$filtroSucursal}",
+            $parametros
+        );
+
+        if (!is_array($registro)) {
+            return [
+                'total' => 0,
+                'pendientes' => 0,
+                'ejecutadas' => 0,
+                'anuladas' => 0,
+                'monto_pendiente' => 0.00,
+            ];
+        }
+
+        return [
+            'total' => (int)($registro['total'] ?? 0),
+            'pendientes' => (int)($registro['pendientes'] ?? 0),
+            'ejecutadas' => (int)($registro['ejecutadas'] ?? 0),
+            'anuladas' => (int)($registro['anuladas'] ?? 0),
+            'monto_pendiente' => round((float)($registro['monto_pendiente'] ?? 0), 2),
+        ];
     }
 
     public function contarCotizacionesPendientes($idsucursal = null): int

@@ -1956,62 +1956,94 @@ switch ($op) {
         $data = [];
         $baseUrl = obtenerBaseUrl();
 
+        require_once __DIR__ . '/../Models/Company.php';
+        $companyCotizaciones = new Company();
+        $empresaCotizaciones = $companyCotizaciones->listar();
+        $empresaActivaCotizaciones = [];
+
+        if (is_array($empresaCotizaciones)) {
+            foreach ($empresaCotizaciones as $empresaFila) {
+                if ((int)($empresaFila['condicion'] ?? 0) === 1) {
+                    $empresaActivaCotizaciones = $empresaFila;
+                    break;
+                }
+            }
+
+            if (!$empresaActivaCotizaciones && isset($empresaCotizaciones[0])) {
+                $empresaActivaCotizaciones = $empresaCotizaciones[0];
+            }
+        }
+
+        $simboloCotizaciones = trim((string)($empresaActivaCotizaciones['simbolo'] ?? 'S/'));
+        if ($simboloCotizaciones === '') {
+            $simboloCotizaciones = 'S/';
+        }
+
+        $iconoDocumento = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"></path><path d="M14 3v4h4M9 11h6M9 15h6"></path></svg>';
+        $iconoVer = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path><circle cx="12" cy="12" r="2.5"></circle></svg>';
+        $iconoEjecutar = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
+        $iconoImprimir = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path></svg>';
+
         foreach ($rspta as $reg) {
             $id = (int)$reg['idventa'];
             $estado = trim((string)($reg['estado'] ?? ''));
             $esPendiente = strcasecmp($estado, 'Aceptado') === 0;
             $esEjecutada = strcasecmp($estado, 'Ejecutado') === 0;
-
-            $acciones = '
-                <div class="btn-group cotizacion-actions">
-                    <button
-                        class="btn btn-info btn-sm"
-                        title="Ver cotización"
-                        onclick="mostrar(' . $id . ')">
-                        <i class="fas fa-eye"></i>
-                    </button>';
-
-            if ($esPendiente) {
-                $acciones .= '
-                    <button
-                        class="btn btn-primary btn-sm"
-                        title="Ejecutar cotización en el POS"
-                        onclick="ejecutarCotizacion(' . $id . ')">
-                        <i class="fas fa-cash-register"></i>
-                    </button>';
-            }
-
-            $acciones .= '
-                    <button
-                        class="btn btn-success btn-sm"
-                        title="Imprimir"
-                        onclick="window.open(\'' .
-                            $baseUrl .
-                            'Reports/a4.php?id=' .
-                            $id .
-                            '\', \'_blank\')">
-                        <i class="fas fa-print"></i>
-                    </button>
-                </div>';
-
-            if ($esPendiente) {
-                $estadoHtml = '<span class="badge badge-warning">Pendiente</span>';
-            } elseif ($esEjecutada) {
-                $estadoHtml = '<span class="badge badge-success">Ejecutada</span>';
-            } elseif (strcasecmp($estado, 'Anulado') === 0) {
-                $estadoHtml = '<span class="badge badge-danger">Anulada</span>';
-            } else {
-                $estadoHtml = '<span class="badge badge-secondary">' .
-                    htmlspecialchars($estado !== '' ? $estado : 'Sin estado', ENT_QUOTES, 'UTF-8') .
-                    '</span>';
-            }
+            $esAnulada = strcasecmp($estado, 'Anulado') === 0;
 
             $numeroCotizacion = trim((string)($reg['serie_comprobante'] ?? ''))
                 . '-'
                 . trim((string)($reg['num_comprobante'] ?? ''));
 
+            $numeroHtml = '<div class="cq-number-cell">'
+                . '<span class="cq-number-icon">' . $iconoDocumento . '</span>'
+                . '<span class="cq-number-copy">'
+                . '<strong>' . htmlspecialchars($numeroCotizacion, ENT_QUOTES, 'UTF-8') . '</strong>'
+                . '<small>Cotización</small>'
+                . '</span>'
+                . '</div>';
+
+            $acciones = '<div class="cq-actions">'
+                . '<button type="button" class="cq-action-btn" title="Vista previa" aria-label="Vista previa" onclick="mostrar(' . $id . ')">'
+                . $iconoVer
+                . '</button>';
+
+            if ($esPendiente) {
+                $acciones .= '<button type="button" class="cq-action-btn cq-action-btn--execute" title="Ejecutar en el POS" aria-label="Ejecutar en el POS" onclick="ejecutarCotizacion(' . $id . ')">'
+                    . $iconoEjecutar
+                    . '</button>';
+            }
+
+            $acciones .= '<button type="button" class="cq-action-btn" title="Imprimir" aria-label="Imprimir" onclick="window.open(\''
+                . $baseUrl
+                . 'Reports/a4.php?id='
+                . $id
+                . '\', \'_blank\')">'
+                . $iconoImprimir
+                . '</button>'
+                . '</div>';
+
+            if ($esPendiente) {
+                $estadoHtml = '<span class="cq-status cq-status--pending">Pendiente</span>';
+            } elseif ($esEjecutada) {
+                $estadoHtml = '<span class="cq-status cq-status--done">Ejecutada</span>';
+            } elseif ($esAnulada) {
+                $estadoHtml = '<span class="cq-status cq-status--cancelled">Anulada</span>';
+            } else {
+                $estadoVisible = $estado !== '' ? $estado : 'Sin estado';
+                $estadoHtml = '<span class="cq-status cq-status--other">'
+                    . htmlspecialchars($estadoVisible, ENT_QUOTES, 'UTF-8')
+                    . '</span>';
+            }
+
+            $montoHtml = '<span class="cq-money">'
+                . htmlspecialchars($simboloCotizaciones, ENT_QUOTES, 'UTF-8')
+                . ' '
+                . number_format((float)$reg['total_venta'], 2, '.', ',')
+                . '</span>';
+
             $data[] = [
-                '0' => $acciones,
+                '0' => $numeroHtml,
                 '1' => htmlspecialchars(
                     (string)($reg['fecha_texto'] ?? $reg['fecha'] ?? ''),
                     ENT_QUOTES,
@@ -2027,19 +2059,9 @@ switch ($op) {
                     ENT_QUOTES,
                     'UTF-8'
                 ),
-                '4' => htmlspecialchars(
-                    (string)($reg['tipo_comprobante'] ?? 'Cotización'),
-                    ENT_QUOTES,
-                    'UTF-8'
-                ),
-                '5' => htmlspecialchars($numeroCotizacion, ENT_QUOTES, 'UTF-8'),
-                '6' => number_format(
-                    (float)$reg['total_venta'],
-                    2,
-                    '.',
-                    ''
-                ),
-                '7' => $estadoHtml
+                '4' => $montoHtml,
+                '5' => $estadoHtml,
+                '6' => $acciones,
             ];
         }
 
@@ -2048,6 +2070,201 @@ switch ($op) {
             'iTotalRecords' => count($data),
             'iTotalDisplayRecords' => count($data),
             'aaData' => $data
+        ]);
+
+        break;
+
+    // =========================================================
+    // RESUMEN DE COTIZACIONES PARA LA VISTA MODERNA
+    // =========================================================
+    case 'resumenCotizaciones':
+
+        if (
+            !isset($_SESSION['nombre'])
+            || (int)($_SESSION['ventas'] ?? 0) !== 1
+        ) {
+            http_response_code(403);
+            responderJson([
+                'success' => false,
+                'mensaje' => 'Acceso no autorizado.'
+            ]);
+        }
+
+        $idsucursalResumenCotizaciones = (int)($_SESSION['idsucursal_activa'] ?? 0);
+        $resumenCotizaciones = $sell->resumenCotizaciones(
+            $idsucursalResumenCotizaciones > 0
+                ? $idsucursalResumenCotizaciones
+                : null
+        );
+
+        require_once __DIR__ . '/../Models/Company.php';
+        $companyResumen = new Company();
+        $empresasResumen = $companyResumen->listar();
+        $simboloResumen = 'S/';
+
+        if (is_array($empresasResumen)) {
+            foreach ($empresasResumen as $empresaResumen) {
+                if ((int)($empresaResumen['condicion'] ?? 0) === 1) {
+                    $simboloResumen = trim((string)($empresaResumen['simbolo'] ?? 'S/')) ?: 'S/';
+                    break;
+                }
+            }
+        }
+
+        responderJson([
+            'success' => true,
+            'resumen' => $resumenCotizaciones,
+            'simbolo' => $simboloResumen,
+            'actualizado_en' => date('c')
+        ]);
+
+        break;
+
+    // =========================================================
+    // VISTA PREVIA COMPLETA DE UNA COTIZACIÓN
+    // =========================================================
+    case 'vistaCotizacion':
+
+        if (
+            !isset($_SESSION['nombre'])
+            || (int)($_SESSION['ventas'] ?? 0) !== 1
+        ) {
+            http_response_code(403);
+            responderJson([
+                'success' => false,
+                'mensaje' => 'Acceso no autorizado.'
+            ]);
+        }
+
+        $idCotizacionVista = (int)(
+            $_GET['idventa']
+            ?? $_POST['idventa']
+            ?? 0
+        );
+
+        if ($idCotizacionVista <= 0) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'La cotización seleccionada no es válida.'
+            ]);
+        }
+
+        $cabeceraCotizacionVista = $sell->mostrar($idCotizacionVista);
+
+        if (
+            !is_array($cabeceraCotizacionVista)
+            || !esCotizacionInterna((string)($cabeceraCotizacionVista['tipo_comprobante'] ?? ''))
+        ) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'No se encontró la cotización solicitada.'
+            ]);
+        }
+
+        $detalleCotizacionVista = $sell->listarDetalle($idCotizacionVista);
+        $detalleCotizacionVista = is_array($detalleCotizacionVista)
+            ? $detalleCotizacionVista
+            : [];
+
+        require_once __DIR__ . '/../Models/Company.php';
+        $companyVista = new Company();
+        $empresasVista = $companyVista->listar();
+        $empresaVista = [];
+
+        if (is_array($empresasVista)) {
+            foreach ($empresasVista as $empresaFilaVista) {
+                if ((int)($empresaFilaVista['condicion'] ?? 0) === 1) {
+                    $empresaVista = $empresaFilaVista;
+                    break;
+                }
+            }
+
+            if (!$empresaVista && isset($empresasVista[0])) {
+                $empresaVista = $empresasVista[0];
+            }
+        }
+
+        $simboloVista = trim((string)($empresaVista['simbolo'] ?? 'S/')) ?: 'S/';
+        $detallesVista = [];
+
+        foreach ($detalleCotizacionVista as $detalleVista) {
+            $cantidadVista = (float)($detalleVista['cantidad'] ?? 0);
+            $precioUnitarioVista = (float)(
+                $detalleVista['precio_unitario_con_impuesto']
+                ?? $detalleVista['precio_venta']
+                ?? 0
+            );
+            $descuentoVista = (float)($detalleVista['descuento'] ?? 0);
+            $importeVista = round((float)($detalleVista['subtotal'] ?? 0), 2);
+
+            $detallesVista[] = [
+                'idarticulo' => (int)($detalleVista['idarticulo'] ?? 0),
+                'nombre' => (string)($detalleVista['nombre'] ?? 'Producto'),
+                'sku' => (string)($detalleVista['sku'] ?? ''),
+                'cantidad' => $cantidadVista,
+                'precio_unitario' => round($precioUnitarioVista, 2),
+                'descuento' => round($descuentoVista, 2),
+                'importe' => $importeVista,
+                'afectacion' => (string)($detalleVista['afectacion_descripcion'] ?? ''),
+            ];
+        }
+
+        $numeroVista = trim((string)($cabeceraCotizacionVista['serie_comprobante'] ?? ''))
+            . '-'
+            . trim((string)($cabeceraCotizacionVista['num_comprobante'] ?? ''));
+
+        $estadoInternoVista = trim((string)($cabeceraCotizacionVista['estado'] ?? ''));
+        if (strcasecmp($estadoInternoVista, 'Aceptado') === 0) {
+            $estadoVisibleVista = 'Pendiente';
+        } elseif (strcasecmp($estadoInternoVista, 'Ejecutado') === 0) {
+            $estadoVisibleVista = 'Ejecutada';
+        } elseif (strcasecmp($estadoInternoVista, 'Anulado') === 0) {
+            $estadoVisibleVista = 'Anulada';
+        } else {
+            $estadoVisibleVista = $estadoInternoVista !== ''
+                ? $estadoInternoVista
+                : 'Sin estado';
+        }
+
+        $tipoDocumentoClienteVista = trim((string)($cabeceraCotizacionVista['tipo_documento_cliente'] ?? ''));
+        $numeroDocumentoClienteVista = trim((string)($cabeceraCotizacionVista['num_documento_cliente'] ?? ''));
+
+        responderJson([
+            'success' => true,
+            'cotizacion' => [
+                'idventa' => $idCotizacionVista,
+                'numero' => $numeroVista,
+                'fecha' => (string)($cabeceraCotizacionVista['fecha'] ?? ''),
+                'tipo_comprobante' => (string)($cabeceraCotizacionVista['tipo_comprobante'] ?? 'Cotización'),
+                'estado' => $estadoVisibleVista,
+                'estado_interno' => $estadoInternoVista,
+                'pendiente' => strcasecmp($estadoInternoVista, 'Aceptado') === 0,
+                'cliente' => (string)($cabeceraCotizacionVista['cliente'] ?? 'SIN CLIENTE'),
+                'tipo_documento_cliente' => $tipoDocumentoClienteVista,
+                'documento_cliente' => $numeroDocumentoClienteVista,
+                'direccion_cliente' => (string)($cabeceraCotizacionVista['direccion_cliente'] ?? ''),
+                'celular_cliente' => (string)($cabeceraCotizacionVista['celular_cliente'] ?? ''),
+                'email_cliente' => (string)($cabeceraCotizacionVista['email_cliente'] ?? ''),
+                'usuario' => (string)($cabeceraCotizacionVista['usuario'] ?? 'SIN USUARIO'),
+                'total_venta' => round((float)($cabeceraCotizacionVista['total_venta'] ?? 0), 2),
+                'descuento_total' => round((float)($cabeceraCotizacionVista['descuento_total'] ?? 0), 2),
+                'total_gravado' => round((float)($cabeceraCotizacionVista['total_gravado'] ?? 0), 2),
+                'total_exonerado' => round((float)($cabeceraCotizacionVista['total_exonerado'] ?? 0), 2),
+                'total_inafecto' => round((float)($cabeceraCotizacionVista['total_inafecto'] ?? 0), 2),
+                'total_exportacion' => round((float)($cabeceraCotizacionVista['total_exportacion'] ?? 0), 2),
+                'total_igv' => round((float)($cabeceraCotizacionVista['total_igv'] ?? 0), 2),
+            ],
+            'empresa' => [
+                'nombre' => (string)($empresaVista['nombre'] ?? 'Empresa'),
+                'documento' => (string)($empresaVista['documento'] ?? $empresaVista['ndocumento'] ?? ''),
+                'direccion' => (string)($empresaVista['direccion'] ?? ''),
+                'telefono' => (string)($empresaVista['telefono'] ?? ''),
+                'email' => (string)($empresaVista['email'] ?? ''),
+                'nombre_impuesto' => (string)($empresaVista['nombre_impuesto'] ?? 'IGV'),
+                'simbolo' => $simboloVista,
+            ],
+            'detalles' => $detallesVista,
+            'print_url' => obtenerBaseUrl() . 'Reports/a4.php?id=' . $idCotizacionVista,
         ]);
 
         break;
