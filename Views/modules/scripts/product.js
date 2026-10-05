@@ -304,6 +304,8 @@ function mostrarform(flag) {
   limpiar();
 
   if (flag) {
+    // Refrescar el catálogo para que Nuevo producto siempre lea los atributos activos de la BD.
+    cargarOpcionesAtributos();
     resetSubcategoriaUI("Seleccione subcategoría");
     $("#listadoregistros, #resumenProductos, #plantillaSection").hide().removeClass("is-open");
     $("#formularioregistros").show();
@@ -1185,19 +1187,42 @@ function imprimir() {
 }
 
 function cargarValoresAtributo(idAtributo, selector) {
-  $.get("Controllers/AtributoValor.php?op=valores_por_atributo&idatributo=" + idAtributo, function (data) {
-    const valores = JSON.parse(data);
-    let html = "";
-    valores.forEach(item => {
-      html += `<option value="${item.valor}">${item.valor}</option>`;
-    });
-    $(selector).html(html);
+  const $selector = $(selector);
 
-    $(selector).select2({
-      placeholder: $(selector).data("placeholder") || "Selecciona",
-      allowClear: true,
-      width: 'resolve'
-    });
+  $.ajax({
+    url: "Controllers/AtributoValor.php",
+    type: "GET",
+    dataType: "json",
+    data: {
+      op: "valores_por_atributo",
+      idatributo: idAtributo
+    },
+    success: function (valores) {
+      const lista = Array.isArray(valores) ? valores : [];
+      let html = "";
+
+      lista.forEach(function (item) {
+        const valor = item && item.valor != null ? String(item.valor) : "";
+        if (valor === "") return;
+        html += `<option value="${escaparHtmlProducto(valor)}">${escaparHtmlProducto(valor)}</option>`;
+      });
+
+      $selector.html(html);
+
+      if ($selector.hasClass("select2-hidden-accessible")) {
+        $selector.select2("destroy");
+      }
+
+      $selector.select2({
+        placeholder: $selector.data("placeholder") || "Selecciona",
+        allowClear: true,
+        width: "100%"
+      });
+    },
+    error: function (xhr) {
+      $selector.empty();
+      console.error("No se pudieron cargar los valores del atributo", idAtributo, xhr);
+    }
   });
 }
 
@@ -1932,26 +1957,36 @@ function importarFilasMasivasProducto() {
 }
 
 function cargarAtributosDinamicos() {
-  $.get("Controllers/Atributo.php?op=atributos_activos", function (data) {
-    const atributos = JSON.parse(data);
-    const contenedor = $("#contenedor_atributos");
-    contenedor.empty();
+  $.ajax({
+    url: "Controllers/Atributo.php",
+    type: "GET",
+    dataType: "json",
+    data: { op: "atributos_activos" },
+    success: function (atributos) {
+      const lista = Array.isArray(atributos) ? atributos : [];
+      const contenedor = $("#contenedor_atributos");
+      contenedor.empty();
 
-    atributos.forEach(attr => {
-      const selectId = `atributo_${attr.idatributo}`;
-      const placeholder = `Selecciona ${attr.nombre.toLowerCase()}`;
-      const label = `<label for="${selectId}">${attr.nombre}:</label>`;
-      const select = `
-        <select id="${selectId}" class="form-control select2" multiple
-                data-id="${attr.idatributo}" data-placeholder="${placeholder}" style="width: 100%;">
-        </select>`;
+      lista.forEach(function (attr) {
+        const id = String(attr.idatributo || "");
+        const nombre = String(attr.nombre || "");
+        if (!id || !nombre) return;
 
-      const formGroup = `<div class="form-group col-lg-6">${label}${select}</div>`;
-      contenedor.append(formGroup);
+        const selectId = `atributo_${id}`;
+        const placeholder = `Selecciona ${nombre.toLowerCase()}`;
+        const label = `<label for="${selectId}">${escaparHtmlProducto(nombre)}:</label>`;
+        const select = `
+          <select id="${selectId}" class="form-control select2" multiple
+                  data-id="${id}" data-placeholder="${escaparHtmlProducto(placeholder)}" style="width: 100%;">
+          </select>`;
 
-      // Cargar valores por atributo
-      cargarValoresAtributo(attr.idatributo, `#${selectId}`);
-    });
+        contenedor.append(`<div class="form-group col-lg-6">${label}${select}</div>`);
+        cargarValoresAtributo(id, `#${selectId}`);
+      });
+    },
+    error: function (xhr) {
+      console.error("No se pudieron cargar los atributos activos", xhr);
+    }
   });
 }
 
@@ -1989,46 +2024,93 @@ function toggleAtributos() {
 
 
 function cargarOpcionesAtributos() {
-  $.get("Controllers/Atributo.php?op=atributos_activos", function (data) {
-    const atributos = JSON.parse(data);
-    const select = $("#atributos_seleccionados");
-    select.empty();
+  const select = $("#atributos_seleccionados");
+  const seleccionActual = (select.val() || []).map(String);
 
-    atributos.forEach(attr => {
-      select.append(`<option value="${attr.idatributo}">${attr.nombre}</option>`);
-    });
+  return $.ajax({
+    url: "Controllers/Atributo.php",
+    type: "GET",
+    dataType: "json",
+    cache: false,
+    data: { op: "atributos_activos" },
+    success: function (atributos) {
+      const lista = Array.isArray(atributos) ? atributos : [];
+      select.empty();
 
-    // Inicializar select2
-    select.select2({
-      allowClear: true,
-      width: 'resolve'
-    });
+      lista.forEach(function (attr) {
+        const id = String(attr.idatributo || "");
+        const nombre = String(attr.nombre || "");
+        if (!id || !nombre) return;
+
+        select.append(new Option(nombre, id, false, seleccionActual.includes(id)));
+      });
+
+      if (select.hasClass("select2-hidden-accessible")) {
+        select.select2("destroy");
+      }
+
+      select.select2({
+        placeholder: "Selecciona uno o más atributos",
+        allowClear: true,
+        width: "100%"
+      });
+
+      // Si estaba activado el modo variantes, sincroniza también los valores.
+      if ($("#activar_atributos").is(":checked")) {
+        cargarAtributosDinamicosSeleccionados(select.val() || []);
+      }
+    },
+    error: function (xhr) {
+      select.empty();
+      if (select.hasClass("select2-hidden-accessible")) {
+        select.select2("destroy");
+      }
+      select.select2({
+        placeholder: "No se pudieron cargar los atributos",
+        allowClear: true,
+        width: "100%"
+      });
+      console.error("Error cargando atributos desde la base de datos", xhr);
+    }
   });
 }
 
 function cargarAtributosDinamicosSeleccionados(idsSeleccionados) {
-  $.get("Controllers/Atributo.php?op=atributos_activos", function (data) {
-    const atributos = JSON.parse(data);
-    const contenedor = $("#contenedor_atributos");
-    contenedor.empty();
+  const ids = (idsSeleccionados || []).map(String);
 
-    atributos.forEach(attr => {
-      if (!idsSeleccionados.includes(attr.idatributo.toString())) return;
+  $.ajax({
+    url: "Controllers/Atributo.php",
+    type: "GET",
+    dataType: "json",
+    cache: false,
+    data: { op: "atributos_activos" },
+    success: function (atributos) {
+      const lista = Array.isArray(atributos) ? atributos : [];
+      const contenedor = $("#contenedor_atributos");
+      contenedor.empty();
 
-      const selectId = `atributo_${attr.idatributo}`;
-      const placeholder = `Selecciona ${attr.nombre.toLowerCase()}`;
-      const label = `<label for="${selectId}">${attr.nombre}:</label>`;
-      const select = `
-        <select id="${selectId}" class="form-control select2" multiple
-                data-id="${attr.idatributo}" data-nombre="${attr.nombre}"
-                data-placeholder="${placeholder}" style="width: 100%;">
-        </select>`;
+      lista.forEach(function (attr) {
+        const id = String(attr.idatributo || "");
+        const nombre = String(attr.nombre || "");
+        if (!id || !nombre || !ids.includes(id)) return;
 
-      const formGroup = `<div class="form-group col-lg-6">${label}${select}</div>`;
-      contenedor.append(formGroup);
+        const selectId = `atributo_${id}`;
+        const placeholder = `Selecciona ${nombre.toLowerCase()}`;
+        const label = `<label for="${selectId}">${escaparHtmlProducto(nombre)}:</label>`;
+        const selectHtml = `
+          <select id="${selectId}" class="form-control select2" multiple
+                  data-id="${id}" data-nombre="${escaparHtmlProducto(nombre)}"
+                  data-placeholder="${escaparHtmlProducto(placeholder)}" style="width: 100%;">
+          </select>`;
 
-      cargarValoresAtributo(attr.idatributo, `#${selectId}`);
-    });
+        contenedor.append(`<div class="form-group col-lg-6">${label}${selectHtml}</div>`);
+        cargarValoresAtributo(id, `#${selectId}`);
+      });
+    },
+    error: function (xhr) {
+      $("#contenedor_atributos").empty();
+      console.error("No se pudieron cargar los atributos seleccionados", xhr);
+    }
   });
 }
 
