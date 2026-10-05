@@ -32,6 +32,7 @@ class Sell
         $idforma_pago,
         $idingreso,
         $idarticulo,
+        $idvariacion,
         $cantidad,
         $precio_compra,
         $precio_venta,
@@ -218,6 +219,7 @@ class Sell
             $sqlDetalle = "INSERT INTO {$this->tableNameDetalle} (
                 idventa,
                 idarticulo,
+                idvariacion,
                 cantidad,
                 precio_compra,
                 precio_venta,
@@ -234,11 +236,12 @@ class Sell
                 monto_igv,
                 total_linea,
                 estado
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
             $arrDetalle = [
                 $idventanew,
                 (int)$idarticulo[$indice],
+                (int)($idvariacion[$indice] ?? 0) > 0 ? (int)$idvariacion[$indice] : null,
                 (float)$cantidad[$indice],
                 round((float)$precio_compra[$indice], 6),
                 round((float)$precio_venta[$indice], 6),
@@ -269,8 +272,12 @@ class Sell
          * una venta real.
          */
         if (!$esCotizacion) {
-            // Actualizar stock de artículo.
-            $sqlStock = "SELECT idarticulo, cantidad
+            /*
+             * Productos simples descuentan articulo.stock. En productos
+             * variables se descuenta la variante exacta y luego se sincroniza
+             * articulo.stock con la suma de sus variantes activas.
+             */
+            $sqlStock = "SELECT idarticulo, idvariacion, cantidad
                          FROM {$this->tableNameDetalle}
                          WHERE idventa = ?";
             $res = $this->conexion->getDataAll(
@@ -278,23 +285,63 @@ class Sell
                 [$idventanew]
             );
 
+            $articulosVariablesAfectados = [];
+
             foreach (is_array($res) ? $res : [] as $reg) {
+                $idArticuloStock = (int)($reg['idarticulo'] ?? 0);
+                $idVariacionStock = (int)($reg['idvariacion'] ?? 0);
+                $cantidadStock = (float)($reg['cantidad'] ?? 0);
+
+                if ($idVariacionStock > 0) {
+                    if (!$this->conexion->setData(
+                        "UPDATE articulo_variacion
+                         SET stock = stock - ?
+                         WHERE idvariacion = ?
+                           AND idarticulo = ?",
+                        [
+                            $cantidadStock,
+                            $idVariacionStock,
+                            $idArticuloStock
+                        ]
+                    )) {
+                        $sw = false;
+                    }
+                    $articulosVariablesAfectados[$idArticuloStock] = true;
+                } else {
+                    if (!$this->conexion->setData(
+                        "UPDATE articulo
+                         SET stock = stock - ?
+                         WHERE idarticulo = ?",
+                        [
+                            $cantidadStock,
+                            $idArticuloStock
+                        ]
+                    )) {
+                        $sw = false;
+                    }
+                }
+            }
+
+            foreach (array_keys($articulosVariablesAfectados) as $idArticuloVariable) {
                 if (!$this->conexion->setData(
-                    "UPDATE articulo
-                     SET stock = stock - ?
-                     WHERE idarticulo = ?",
-                    [
-                        (float)$reg['cantidad'],
-                        (int)$reg['idarticulo']
-                    ]
+                    "UPDATE articulo a
+                     SET a.stock = (
+                        SELECT COALESCE(SUM(av.stock), 0)
+                        FROM articulo_variacion av
+                        WHERE av.idarticulo = a.idarticulo
+                          AND av.estado = 1
+                     )
+                     WHERE a.idarticulo = ?",
+                    [(int)$idArticuloVariable]
                 )) {
                     $sw = false;
                 }
             }
 
-            // Kardex: conserva la lógica FIFO existente.
+            // Kardex: conserva la lógica FIFO por producto padre.
             foreach ($idarticulo as $indice => $idArticuloActual) {
                 $cantidadPendiente = (int)($cantidad[$indice] ?? 0);
+                $costoFallback = max(0, (float)($precio_compra[$indice] ?? 0));
 
                 while ($cantidadPendiente > 0) {
                     $lote = $this->conexion->getData(
@@ -318,7 +365,7 @@ class Sell
 
                     $stockDisponible = (int)($lote['stock_venta'] ?? 0);
                     $idDetalleIngreso = (int)($lote['iddetalle_ingreso'] ?? 0);
-                    $costoUnitario = (float)($lote['precio_compra'] ?? 0);
+                    $costoUnitario = (float)($lote['precio_compra'] ?? $costoFallback);
 
                     if ($stockDisponible <= 0 || $idDetalleIngreso <= 0) {
                         break;
@@ -331,9 +378,13 @@ class Sell
 
                     if (!$this->conexion->setData(
                         "UPDATE detalle_ingreso
-                         SET stock_venta = stock_venta - ?
+                         SET stock_estado = CASE
+                                WHEN (stock_venta - ?) <= 0 THEN 0
+                                ELSE stock_estado
+                             END,
+                             stock_venta = stock_venta - ?
                          WHERE iddetalle_ingreso = ?",
-                        [$cantidadSalida, $idDetalleIngreso]
+                        [$cantidadSalida, $cantidadSalida, $idDetalleIngreso]
                     )) {
                         $sw = false;
                     }
@@ -376,6 +427,55 @@ class Sell
                     }
 
                     $cantidadPendiente -= $cantidadSalida;
+                }
+
+                /*
+                 * Un producto variable puede haber nacido con stock directo
+                 * en articulo_variacion y no tener un lote histórico en
+                 * detalle_ingreso. En ese caso no se bloquea la venta: se deja
+                 * al menos el movimiento de kardex usando el costo de la línea.
+                 */
+                if ($cantidadPendiente > 0) {
+                    $stockActualArticulo = $this->conexion->getData(
+                        "SELECT stock FROM articulo WHERE idarticulo = ? LIMIT 1",
+                        [(int)$idArticuloActual]
+                    );
+                    $existenciaActual = max(0, (float)($stockActualArticulo['stock'] ?? 0));
+                    $totalSalida = $cantidadPendiente * $costoFallback;
+                    $totalExistencia = $existenciaActual * $costoFallback;
+
+                    if (!$this->conexion->setData(
+                        "INSERT INTO {$this->tableNameKardex} (
+                            iddetalle,
+                            idarticulo,
+                            fecha,
+                            detalle,
+                            cantidads,
+                            costous,
+                            totals,
+                            cantidadex,
+                            costouex,
+                            totalex,
+                            tipo,
+                            estado
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                        [
+                            $idventanew,
+                            (int)$idArticuloActual,
+                            $fecha_hora,
+                            $detalleComprobante,
+                            $cantidadPendiente,
+                            $costoFallback,
+                            $totalSalida,
+                            $existenciaActual,
+                            $costoFallback,
+                            $totalExistencia,
+                            'Salida',
+                            'Activo'
+                        ]
+                    )) {
+                        $sw = false;
+                    }
                 }
             }
 
@@ -682,9 +782,14 @@ class Sell
         $sql = "SELECT
                     dv.idventa,
                     dv.idarticulo,
-                    a.codigo AS sku,
-                    a.nombre,
-                    a.stock,
+                    dv.idvariacion,
+                    COALESCE(NULLIF(av.sku, ''), a.codigo) AS sku,
+                    CASE
+                        WHEN av.idvariacion IS NOT NULL
+                        THEN CONCAT(a.nombre, ' - ', av.combinacion)
+                        ELSE a.nombre
+                    END AS nombre,
+                    COALESCE(av.stock, a.stock) AS stock,
                     dv.cantidad,
                     dv.precio_compra,
                     dv.precio_venta,
@@ -723,6 +828,9 @@ class Sell
                 FROM detalle_venta dv
                 INNER JOIN articulo a
                     ON a.idarticulo = dv.idarticulo
+                LEFT JOIN articulo_variacion av
+                    ON av.idvariacion = dv.idvariacion
+                   AND av.idarticulo = dv.idarticulo
                 INNER JOIN venta v
                     ON v.idventa = dv.idventa
                 LEFT JOIN sunat_catalogo_07_afectacion_igv cat
@@ -929,8 +1037,13 @@ class Sell
     public function ventadetalles($idventa)
     {
         $sql = "SELECT
-                a.nombre AS articulo,
-                a.codigo AS sku,
+                CASE
+                    WHEN av.idvariacion IS NOT NULL
+                    THEN CONCAT(a.nombre, ' - ', av.combinacion)
+                    ELSE a.nombre
+                END AS articulo,
+                COALESCE(NULLIF(av.sku, ''), a.codigo) AS sku,
+                d.idvariacion,
                 d.cantidad,
                 d.precio_venta,
                 d.descuento,
@@ -966,6 +1079,9 @@ class Sell
                 END AS precio_unitario_con_impuesto
             FROM {$this->tableNameDetalle} d
             INNER JOIN articulo a ON d.idarticulo = a.idarticulo
+            LEFT JOIN articulo_variacion av
+                ON av.idvariacion = d.idvariacion
+               AND av.idarticulo = d.idarticulo
             LEFT JOIN sunat_catalogo_07_afectacion_igv cat
                 ON cat.codigo = d.codigo_afectacion_igv
             WHERE d.idventa = ?
@@ -1157,6 +1273,7 @@ class Sell
             "SELECT
                 dv.iddetalle_venta,
                 dv.idarticulo,
+                dv.idvariacion,
                 dv.cantidad,
                 dv.precio_compra AS precio_compra_original,
                 dv.precio_venta,
@@ -1166,10 +1283,29 @@ class Sell
                 dv.unidad_medida_sunat,
                 dv.codigo_producto_sunat,
 
-                a.codigo,
-                a.nombre AS articulo,
-                COALESCE(a.stock, 0) AS stock_disponible,
-                a.condicion AS articulo_activo,
+                COALESCE(NULLIF(av.sku, ''), a.codigo) AS codigo,
+                CASE
+                    WHEN av.idvariacion IS NOT NULL
+                    THEN CONCAT(a.nombre, ' - ', av.combinacion)
+                    ELSE a.nombre
+                END AS articulo,
+                CASE
+                    WHEN av.idvariacion IS NOT NULL
+                    THEN COALESCE(av.stock, 0)
+                    ELSE COALESCE(a.stock, 0)
+                END AS stock_disponible,
+                CASE
+                    WHEN a.condicion = 1
+                     AND (av.idvariacion IS NULL OR av.estado = 1)
+                    THEN 1
+                    ELSE 0
+                END AS articulo_activo,
+                (
+                    SELECT COUNT(*)
+                    FROM articulo_variacion avx
+                    WHERE avx.idarticulo = dv.idarticulo
+                      AND avx.estado = 1
+                ) AS cantidad_variaciones_producto,
 
                 COALESCE(
                     (
@@ -1189,6 +1325,7 @@ class Sell
                 ) AS idingreso,
 
                 COALESCE(
+                    av.precio_compra,
                     (
                         SELECT di.precio_compra
                         FROM detalle_ingreso di
@@ -1210,6 +1347,10 @@ class Sell
 
              INNER JOIN articulo a
                 ON a.idarticulo = dv.idarticulo
+
+             LEFT JOIN articulo_variacion av
+                ON av.idvariacion = dv.idvariacion
+               AND av.idarticulo = dv.idarticulo
 
              WHERE dv.idventa = ?
                AND dv.estado = 1

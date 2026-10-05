@@ -306,9 +306,24 @@ class Product
 				a.nombre,
 				a.descripcion,
 				a.imagen,
-				a.precio_compra,
-				a.precio_venta,
-				a.stock,
+				CASE
+					WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+					THEN COALESCE(v.precio_compra_min, a.precio_compra)
+					ELSE a.precio_compra
+				END AS precio_compra,
+				CASE
+					WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+					THEN COALESCE(v.precio_venta_min, a.precio_venta)
+					ELSE a.precio_venta
+				END AS precio_venta,
+				CASE
+					WHEN COALESCE(v.cantidad_variaciones, 0) > 0
+					THEN COALESCE(v.stock_variaciones, 0)
+					ELSE COALESCE(a.stock, 0)
+				END AS stock,
+				COALESCE(v.cantidad_variaciones, 0) AS cantidad_variaciones,
+				CASE WHEN COALESCE(v.cantidad_variaciones, 0) > 0 THEN 1 ELSE 0 END AS tiene_variaciones,
+				COALESCE(v.precio_venta_max, a.precio_venta) AS precio_venta_max,
 				a.codigo_afectacion_igv,
 				a.porcentaje_igv,
 				a.unidad_medida_sunat,
@@ -332,11 +347,57 @@ class Product
 			LEFT JOIN subcategoria s ON s.idsubcategoria = a.idsubcategoria
 			LEFT JOIN medida m ON m.idmedida = a.idmedida
 			LEFT JOIN almacen al ON al.idalmacen = a.idalmacen
+			LEFT JOIN (
+				SELECT
+					idarticulo,
+					COUNT(*) AS cantidad_variaciones,
+					COALESCE(SUM(stock), 0) AS stock_variaciones,
+					MIN(NULLIF(precio_compra, 0)) AS precio_compra_min,
+					MIN(NULLIF(precio_venta, 0)) AS precio_venta_min,
+					MAX(NULLIF(precio_venta, 0)) AS precio_venta_max
+				FROM articulo_variacion
+				WHERE estado = 1
+				GROUP BY idarticulo
+			) v ON v.idarticulo = a.idarticulo
 			WHERE a.condicion = 1
 			ORDER BY c.nombre ASC, a.nombre ASC";
 
-		$resultado = $this->conexion->getDataAll($sql);
-		return is_array($resultado) ? $resultado : [];
+		$productos = $this->conexion->getDataAll($sql);
+		$productos = is_array($productos) ? $productos : [];
+
+		$variaciones = $this->conexion->getDataAll(
+			"SELECT
+				av.idvariacion,
+				av.idarticulo,
+				av.combinacion,
+				av.sku,
+				COALESCE(av.stock, 0) AS stock,
+				COALESCE(av.precio_compra, 0) AS precio_compra,
+				COALESCE(av.precio_venta, 0) AS precio_venta,
+				COALESCE(NULLIF(av.imagen, ''), a.imagen) AS imagen
+			 FROM articulo_variacion av
+			 INNER JOIN articulo a ON a.idarticulo = av.idarticulo
+			 WHERE av.estado = 1
+			   AND a.condicion = 1
+			 ORDER BY av.idarticulo ASC, av.combinacion ASC, av.idvariacion ASC"
+		);
+
+		$variacionesPorArticulo = [];
+		foreach (is_array($variaciones) ? $variaciones : [] as $variacion) {
+			$idArticulo = (int)($variacion['idarticulo'] ?? 0);
+			if ($idArticulo <= 0) {
+				continue;
+			}
+			$variacionesPorArticulo[$idArticulo][] = $variacion;
+		}
+
+		foreach ($productos as &$producto) {
+			$idArticulo = (int)($producto['idarticulo'] ?? 0);
+			$producto['variaciones'] = $variacionesPorArticulo[$idArticulo] ?? [];
+		}
+		unset($producto);
+
+		return $productos;
 	}
 
 	public function cargarMasivoDesdeCSV($rutaArchivo)

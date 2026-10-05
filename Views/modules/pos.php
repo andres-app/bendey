@@ -426,6 +426,29 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
     </div>
 </div>
 
+<!-- Modal seleccionar variante -->
+<div class="pos-modal" id="modalVariantesProducto" hidden role="dialog" aria-modal="true" aria-labelledby="variantProductTitle">
+    <div class="pos-modal-backdrop" data-close-modal="modalVariantesProducto"></div>
+    <div class="pos-modal-dialog pos-variant-dialog">
+        <div class="pos-modal-header">
+            <div>
+                <span class="pos-modal-eyebrow">Producto con variantes</span>
+                <h2 id="variantProductTitle">Seleccionar variante</h2>
+                <p id="variantProductSubtitle">Elige la combinación que vas a vender.</p>
+            </div>
+            <button type="button" class="pos-modal-close" data-close-modal="modalVariantesProducto" aria-label="Cerrar">
+                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div class="pos-modal-body pos-variant-body">
+            <div class="pos-variant-list" id="posVariantList"></div>
+        </div>
+        <div class="pos-modal-footer">
+            <button type="button" class="pos-secondary-btn" data-close-modal="modalVariantesProducto">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal editar producto de la venta -->
 <div class="pos-modal" id="modalEditarItem" hidden role="dialog" aria-modal="true" aria-labelledby="editItemTitle">
     <div class="pos-modal-backdrop" data-close-modal="modalEditarItem"></div>

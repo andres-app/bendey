@@ -1,0 +1,30 @@
+TIQUEPOS - CORRECCION DE STOCK DE PRODUCTOS CON VARIANTES
+=========================================================
+
+PROBLEMA CORREGIDO
+El POS estaba leyendo articulo.stock. En los productos con variantes,
+el stock real se encuentra en articulo_variacion.stock, por lo que el
+producto aparecia "Sin stock" aunque sus variantes si tuvieran stock.
+
+INSTALACION EN UNA BASE YA EXISTENTE
+1. Hacer respaldo de la base de datos.
+2. Ejecutar UNA SOLA VEZ:
+   database/patch_pos_variantes.sql
+3. Copiar/reemplazar los archivos del ZIP respetando las carpetas.
+4. Limpiar cache del navegador (Ctrl+F5) y volver a ingresar al POS.
+
+QUE CAMBIA
+- El POS muestra como stock del producto variable la suma de sus variantes activas.
+- Al pulsar un producto variable se elige la variante exacta.
+- Cada variante muestra combinacion, SKU, precio y stock.
+- Escanear el SKU de una variante agrega directamente esa variante.
+- La venta guarda idvariacion en detalle_venta.
+- La validacion y el descuento de stock se realizan sobre articulo_variacion.
+- El stock del producto padre se resincroniza con la suma de variantes.
+- Cotizaciones conservan la variante seleccionada.
+- Comprobantes muestran SKU/nombre de la variante.
+- Notas de credito reponen stock a la variante correcta.
+
+IMPORTANTE
+No ejecutar ventas con estos archivos antes de aplicar el SQL de migracion,
+porque el codigo espera que detalle_venta tenga la columna idvariacion.

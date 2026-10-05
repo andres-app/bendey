@@ -1180,6 +1180,7 @@ class CreditNote
         $sql = "SELECT
                     dv.iddetalle_venta,
                     dv.idarticulo,
+                    dv.idvariacion,
                     dv.cantidad AS cantidad_original,
                     dv.precio_compra,
                     dv.precio_venta,
@@ -1195,8 +1196,12 @@ class CreditNote
                     dv.base_imponible,
                     dv.monto_igv,
                     dv.total_linea,
-                    a.codigo AS codigo_articulo,
-                    a.nombre AS descripcion_articulo,
+                    COALESCE(NULLIF(av.sku, ''), a.codigo) AS codigo_articulo,
+                    CASE
+                        WHEN av.idvariacion IS NOT NULL
+                        THEN CONCAT(a.nombre, ' - ', av.combinacion)
+                        ELSE a.nombre
+                    END AS descripcion_articulo,
                     COALESCE(
                         NULLIF(UPPER(TRIM(dv.unidad_medida_sunat)), ''),
                         NULLIF(UPPER(TRIM(m.codigo)), ''),
@@ -1213,6 +1218,9 @@ class CreditNote
                 FROM detalle_venta dv
                 INNER JOIN articulo a
                     ON a.idarticulo = dv.idarticulo
+                LEFT JOIN articulo_variacion av
+                    ON av.idvariacion = dv.idvariacion
+                   AND av.idarticulo = dv.idarticulo
                 LEFT JOIN medida m
                     ON m.idmedida = a.idmedida
                 WHERE dv.idventa = ?
@@ -1868,17 +1876,22 @@ class CreditNote
     private function aplicarStock(array $nota): void
     {
         $detalles = $this->conexion->getDataAll(
-            "SELECT *
-             FROM nota_credito_detalle
-             WHERE idnota_credito = ?
-               AND devuelve_stock = 1
-             ORDER BY iddetalle_nota_credito ASC
+            "SELECT
+                ncd.*,
+                dv.idvariacion
+             FROM nota_credito_detalle ncd
+             INNER JOIN detalle_venta dv
+                ON dv.iddetalle_venta = ncd.iddetalle_venta
+             WHERE ncd.idnota_credito = ?
+               AND ncd.devuelve_stock = 1
+             ORDER BY ncd.iddetalle_nota_credito ASC
              FOR UPDATE",
             [(int)$nota['idnota_credito']]
         );
 
         foreach (is_array($detalles) ? $detalles : [] as $detalle) {
             $idarticulo = (int)$detalle['idarticulo'];
+            $idvariacion = (int)($detalle['idvariacion'] ?? 0);
             $cantidad = round((float)$detalle['cantidad_nota'], 3);
             $costo = round((float)$detalle['costo_unitario'], 6);
 
@@ -1920,7 +1933,11 @@ class CreditNote
                 [$idarticulo, $costo]
             );
 
-            if (!is_array($lotes) || count($lotes) === 0) {
+            if (!is_array($lotes)) {
+                $lotes = [];
+            }
+
+            if (count($lotes) === 0 && $idvariacion <= 0) {
                 throw new RuntimeException(
                     'No existe un lote de ingreso donde devolver el producto '
                     . $detalle['descripcion_articulo'] . '.'
@@ -1965,24 +1982,68 @@ class CreditNote
                 );
             }
 
-            if ($cantidadRestante > 0.0001) {
+            if ($cantidadRestante > 0.0001 && $idvariacion <= 0) {
                 throw new RuntimeException(
                     'No existe capacidad suficiente en los lotes de ingreso para devolver '
                     . $detalle['descripcion_articulo'] . '.'
                 );
             }
 
-            $this->conexion->setData(
-                "UPDATE articulo
-                 SET stock = COALESCE(stock, 0) + ?
-                 WHERE idarticulo = ?",
-                [$cantidad, $idarticulo]
-            );
+            if ($idvariacion > 0) {
+                $variacion = $this->conexion->getData(
+                    "SELECT idvariacion, idarticulo, stock, estado
+                     FROM articulo_variacion
+                     WHERE idvariacion = ?
+                       AND idarticulo = ?
+                     LIMIT 1
+                     FOR UPDATE",
+                    [$idvariacion, $idarticulo]
+                );
 
-            $stockActual = round(
-                (float)$articulo['stock'] + $cantidad,
-                3
-            );
+                if (!is_array($variacion)) {
+                    throw new RuntimeException(
+                        'No se encontró la variante original de ' . $detalle['descripcion_articulo'] . '.'
+                    );
+                }
+
+                $this->conexion->setData(
+                    "UPDATE articulo_variacion
+                     SET stock = COALESCE(stock, 0) + ?
+                     WHERE idvariacion = ?
+                       AND idarticulo = ?",
+                    [$cantidad, $idvariacion, $idarticulo]
+                );
+
+                $this->conexion->setData(
+                    "UPDATE articulo a
+                     SET a.stock = (
+                        SELECT COALESCE(SUM(av.stock), 0)
+                        FROM articulo_variacion av
+                        WHERE av.idarticulo = a.idarticulo
+                          AND av.estado = 1
+                     )
+                     WHERE a.idarticulo = ?",
+                    [$idarticulo]
+                );
+
+                $articuloActualizado = $this->conexion->getData(
+                    "SELECT stock FROM articulo WHERE idarticulo = ? LIMIT 1",
+                    [$idarticulo]
+                );
+                $stockActual = round((float)($articuloActualizado['stock'] ?? 0), 3);
+            } else {
+                $this->conexion->setData(
+                    "UPDATE articulo
+                     SET stock = COALESCE(stock, 0) + ?
+                     WHERE idarticulo = ?",
+                    [$cantidad, $idarticulo]
+                );
+
+                $stockActual = round(
+                    (float)$articulo['stock'] + $cantidad,
+                    3
+                );
+            }
             $totalIngreso = round($cantidad * $costo, 2);
             $totalExistencia = round($stockActual * $costo, 2);
             $detalleKardex = 'Nota de crédito '

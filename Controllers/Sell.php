@@ -836,6 +836,7 @@ switch ($op) {
             // 5. VALIDAR PRODUCTOS
             // =================================================
             $idarticulos = $_POST['idarticulo'] ?? [];
+            $idvariaciones = $_POST['idvariacion'] ?? [];
             $idingresos = $_POST['idingreso'] ?? [];
             $cantidades = $_POST['cantidad'] ?? [];
             $preciosCompra = $_POST['precio_compra'] ?? [];
@@ -874,17 +875,28 @@ switch ($op) {
                 );
             }
 
+            if (
+                !is_array($idvariaciones)
+                || count($idvariaciones) !== $cantidadProductos
+            ) {
+                $idvariaciones = array_fill(
+                    0,
+                    $cantidadProductos,
+                    0
+                );
+            }
+
             /*
-             * Validar cantidades siempre y, para una venta real, bloquear el
-             * stock de cada artículo dentro de esta misma transacción. Una
-             * cotización es solo una propuesta comercial: no reserva ni mueve
-             * inventario. El bloqueo evita que dos cajas consuman simultáneamente
-             * la misma existencia (incluido al ejecutar una cotización).
+             * Un producto variable se vende por su variante concreta. El
+             * idarticulo conserva el producto padre para impuestos/reportes y
+             * el idvariacion identifica exactamente qué SKU debe descontarse.
              */
             $cantidadesPorArticulo = [];
+            $cantidadesPorVariacion = [];
 
             for ($indiceProducto = 0; $indiceProducto < $cantidadProductos; $indiceProducto++) {
                 $idArticuloDetalle = (int)($idarticulos[$indiceProducto] ?? 0);
+                $idVariacionDetalle = (int)($idvariaciones[$indiceProducto] ?? 0);
                 $cantidadDetalle = (float)($cantidades[$indiceProducto] ?? 0);
 
                 if ($idArticuloDetalle <= 0) {
@@ -895,33 +907,115 @@ switch ($op) {
                     throw new Exception('La cantidad de cada producto debe ser mayor que cero.');
                 }
 
-                if (!isset($cantidadesPorArticulo[$idArticuloDetalle])) {
-                    $cantidadesPorArticulo[$idArticuloDetalle] = 0.0;
+                if ($idVariacionDetalle > 0) {
+                    if (!isset($cantidadesPorVariacion[$idVariacionDetalle])) {
+                        $cantidadesPorVariacion[$idVariacionDetalle] = [
+                            'idarticulo' => $idArticuloDetalle,
+                            'cantidad' => 0.0
+                        ];
+                    }
+
+                    if ((int)$cantidadesPorVariacion[$idVariacionDetalle]['idarticulo'] !== $idArticuloDetalle) {
+                        throw new Exception('Una variante no corresponde al producto enviado.');
+                    }
+
+                    $cantidadesPorVariacion[$idVariacionDetalle]['cantidad'] += $cantidadDetalle;
+                } else {
+                    if (!isset($cantidadesPorArticulo[$idArticuloDetalle])) {
+                        $cantidadesPorArticulo[$idArticuloDetalle] = 0.0;
+                    }
+                    $cantidadesPorArticulo[$idArticuloDetalle] += $cantidadDetalle;
                 }
-                $cantidadesPorArticulo[$idArticuloDetalle] += $cantidadDetalle;
             }
 
-            if (!$esCotizacion) {
-                foreach ($cantidadesPorArticulo as $idArticuloStock => $cantidadSolicitadaStock) {
-                    $articuloStock = $conexionVenta->getData(
-                        "SELECT idarticulo, nombre, stock, condicion
-                         FROM articulo
-                         WHERE idarticulo = ?
-                         LIMIT 1
-                         FOR UPDATE",
-                        [(int)$idArticuloStock]
+            $bloqueoStockSql = $esCotizacion ? '' : ' FOR UPDATE';
+
+            foreach ($cantidadesPorVariacion as $idVariacionStock => $datosVariacionStock) {
+                $variacionStock = $conexionVenta->getData(
+                    "SELECT
+                        av.idvariacion,
+                        av.idarticulo,
+                        av.sku,
+                        av.combinacion,
+                        av.stock,
+                        av.estado,
+                        a.nombre AS articulo,
+                        a.condicion AS articulo_activo
+                     FROM articulo_variacion av
+                     INNER JOIN articulo a ON a.idarticulo = av.idarticulo
+                     WHERE av.idvariacion = ?
+                       AND av.idarticulo = ?
+                     LIMIT 1" . $bloqueoStockSql,
+                    [
+                        (int)$idVariacionStock,
+                        (int)$datosVariacionStock['idarticulo']
+                    ]
+                );
+
+                if (!is_array($variacionStock)) {
+                    throw new Exception('Una de las variantes seleccionadas ya no existe.');
+                }
+
+                if (
+                    (int)($variacionStock['estado'] ?? 0) !== 1
+                    || (int)($variacionStock['articulo_activo'] ?? 0) !== 1
+                ) {
+                    throw new Exception(
+                        'La variante ' . trim((string)($variacionStock['combinacion'] ?? 'seleccionada')) . ' ya no está activa.'
                     );
+                }
 
-                    if (!is_array($articuloStock)) {
-                        throw new Exception('Uno de los productos de la venta ya no existe.');
-                    }
-
-                    if ((int)($articuloStock['condicion'] ?? 0) !== 1) {
+                if (!$esCotizacion) {
+                    $stockDisponible = (float)($variacionStock['stock'] ?? 0);
+                    $cantidadSolicitadaStock = (float)$datosVariacionStock['cantidad'];
+                    if (($stockDisponible + 0.000001) < $cantidadSolicitadaStock) {
                         throw new Exception(
-                            'El producto ' . trim((string)($articuloStock['nombre'] ?? 'seleccionado')) . ' ya no está activo.'
+                            'Stock insuficiente para '
+                            . trim((string)($variacionStock['articulo'] ?? 'el producto'))
+                            . ' - '
+                            . trim((string)($variacionStock['combinacion'] ?? $variacionStock['sku'] ?? 'variante'))
+                            . '. Disponible: ' . rtrim(rtrim(number_format($stockDisponible, 3, '.', ''), '0'), '.')
+                            . ', solicitado: ' . rtrim(rtrim(number_format($cantidadSolicitadaStock, 3, '.', ''), '0'), '.')
+                            . '. Actualiza la venta e inténtalo nuevamente.'
                         );
                     }
+                }
+            }
 
+            foreach ($cantidadesPorArticulo as $idArticuloStock => $cantidadSolicitadaStock) {
+                $articuloStock = $conexionVenta->getData(
+                    "SELECT
+                        a.idarticulo,
+                        a.nombre,
+                        a.stock,
+                        a.condicion,
+                        (SELECT COUNT(*)
+                         FROM articulo_variacion av
+                         WHERE av.idarticulo = a.idarticulo
+                           AND av.estado = 1) AS cantidad_variaciones
+                     FROM articulo a
+                     WHERE a.idarticulo = ?
+                     LIMIT 1" . $bloqueoStockSql,
+                    [(int)$idArticuloStock]
+                );
+
+                if (!is_array($articuloStock)) {
+                    throw new Exception('Uno de los productos de la venta ya no existe.');
+                }
+
+                if ((int)($articuloStock['condicion'] ?? 0) !== 1) {
+                    throw new Exception(
+                        'El producto ' . trim((string)($articuloStock['nombre'] ?? 'seleccionado')) . ' ya no está activo.'
+                    );
+                }
+
+                if ((int)($articuloStock['cantidad_variaciones'] ?? 0) > 0) {
+                    throw new Exception(
+                        'Debe seleccionar una variante de ' . trim((string)($articuloStock['nombre'] ?? 'este producto')) . '.'
+                    );
+                }
+
+                if (!$esCotizacion) {
                     $stockDisponible = (float)($articuloStock['stock'] ?? 0);
                     if (($stockDisponible + 0.000001) < (float)$cantidadSolicitadaStock) {
                         throw new Exception(
@@ -1330,6 +1424,7 @@ switch ($op) {
                 $idforma_pago,
                 $idingresos,
                 $idarticulos,
+                $idvariaciones,
                 $cantidades,
                 $preciosCompra,
                 $preciosVenta,
@@ -2406,6 +2501,10 @@ switch ($op) {
 
         foreach ((array)($plantilla['detalles'] ?? []) as $detalle) {
             $idArticulo = (int)($detalle['idarticulo'] ?? 0);
+            $idVariacion = (int)($detalle['idvariacion'] ?? 0);
+            $cantidadVariacionesProducto = (int)($detalle['cantidad_variaciones_producto'] ?? 0);
+            $requiereVariante = $cantidadVariacionesProducto > 0;
+            $varianteDefinida = !$requiereVariante || $idVariacion > 0;
             $cantidadOriginal = max(0, (float)($detalle['cantidad'] ?? 0));
             $stockDisponible = max(0, (float)($detalle['stock_disponible'] ?? 0));
             $articuloActivo = (int)($detalle['articulo_activo'] ?? 0) === 1;
@@ -2413,10 +2512,13 @@ switch ($op) {
             $nombreArticulo = trim((string)($detalle['articulo'] ?? 'Producto'));
             $puedeCargar = $idArticulo > 0
                 && $articuloActivo
+                && $varianteDefinida
                 && $cantidadCargar > 0;
 
-            if (!$articuloActivo) {
-                $advertencias[] = $nombreArticulo . ': el producto está inactivo.';
+            if (!$varianteDefinida) {
+                $advertencias[] = $nombreArticulo . ': la cotización fue creada sin especificar una variante. Debe volver a agregar el producto seleccionando su variante.';
+            } elseif (!$articuloActivo) {
+                $advertencias[] = $nombreArticulo . ': el producto o la variante está inactiva.';
             } elseif ($stockDisponible <= 0) {
                 $advertencias[] = $nombreArticulo . ': actualmente no tiene stock.';
             } elseif ($cantidadCargar + 0.00001 < $cantidadOriginal) {
@@ -2431,6 +2533,7 @@ switch ($op) {
             $productos[] = [
                 'idingreso' => (int)($detalle['idingreso'] ?? 0),
                 'idarticulo' => $idArticulo,
+                'idvariacion' => $idVariacion,
                 'codigo' => (string)($detalle['codigo'] ?? ''),
                 'articulo' => $nombreArticulo,
                 'precio_compra' => round(
@@ -2842,6 +2945,16 @@ switch ($op) {
                 $detalle['idarticulo']
                 ?? 0
             );
+            $idVariacion = (int)(
+                $detalle['idvariacion']
+                ?? 0
+            );
+            $cantidadVariacionesProducto = (int)(
+                $detalle['cantidad_variaciones_producto']
+                ?? 0
+            );
+            $requiereVariante = $cantidadVariacionesProducto > 0;
+            $varianteDefinida = !$requiereVariante || $idVariacion > 0;
 
             $cantidadOriginal = max(
                 0,
@@ -2883,14 +2996,19 @@ switch ($op) {
             $puedeCargar = (
                 $idArticulo > 0
                 && $articuloActivo
+                && $varianteDefinida
                 && $stockDisponible > 0
                 && $cantidadCargar > 0
             );
 
-            if (!$articuloActivo) {
+            if (!$varianteDefinida) {
                 $advertencias[] =
                     $nombreArticulo
-                    . ': el producto está inactivo y no fue agregado.';
+                    . ': el comprobante original no especifica una variante y no fue agregado.';
+            } elseif (!$articuloActivo) {
+                $advertencias[] =
+                    $nombreArticulo
+                    . ': el producto o la variante está inactiva y no fue agregado.';
             } elseif ($stockDisponible <= 0) {
                 $advertencias[] =
                     $nombreArticulo
@@ -2911,6 +3029,7 @@ switch ($op) {
                     ?? 0
                 ),
                 'idarticulo' => $idArticulo,
+                'idvariacion' => $idVariacion,
                 'codigo' => trim(
                     (string)(
                         $detalle['codigo']

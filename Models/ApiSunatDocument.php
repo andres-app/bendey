@@ -685,6 +685,7 @@ class ApiSunatDocument
             "SELECT
                 dv.iddetalle_venta,
                 dv.idarticulo,
+                dv.idvariacion,
                 dv.cantidad,
                 dv.precio_venta,
                 dv.descuento,
@@ -700,8 +701,12 @@ class ApiSunatDocument
                 dv.monto_igv,
                 dv.total_linea,
 
-                a.codigo,
-                a.nombre AS nombre_articulo,
+                COALESCE(NULLIF(av.sku, ''), a.codigo) AS codigo,
+                CASE
+                    WHEN av.idvariacion IS NOT NULL
+                    THEN CONCAT(a.nombre, ' - ', av.combinacion)
+                    ELSE a.nombre
+                END AS nombre_articulo,
 
                 m.codigo AS unidad_codigo,
                 m.nombre AS unidad_nombre
@@ -710,6 +715,10 @@ class ApiSunatDocument
 
              INNER JOIN articulo a
                 ON a.idarticulo = dv.idarticulo
+
+             LEFT JOIN articulo_variacion av
+                ON av.idvariacion = dv.idvariacion
+               AND av.idarticulo = dv.idarticulo
 
              LEFT JOIN medida m
                 ON m.idmedida = a.idmedida

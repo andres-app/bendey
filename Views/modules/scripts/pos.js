@@ -105,7 +105,8 @@
             keyboardBuffer: '',
             keyboardLast: 0
         },
-        lastSaleResult: null
+        lastSaleResult: null,
+        pendingVariantProductId: 0
     };
 
     function toast(message, type = 'success', title = '') {
@@ -286,22 +287,29 @@
             (Array.isArray(data.productos) ? data.productos : []).forEach(line => {
                 if (!line?.puede_cargar || Number(line.cantidad_cargar || 0) <= 0) return;
                 const product = productMap.get(Number(line.idarticulo)) || {};
+                const variantId = Number(line.idvariacion || 0);
+                const variant = variantId > 0 ? findVariant(product, variantId) : null;
+                const name = String(line.articulo || (variant
+                    ? `${String(product.nombre || 'Producto')} - ${String(variant.combinacion || 'Variante')}`
+                    : product.nombre || 'Producto'));
                 cartCandidate.push({
+                    cartKey: cartKeyFor(line.idarticulo, variantId),
                     idarticulo: Number(line.idarticulo),
+                    idvariacion: variantId,
                     idingreso: Number(line.idingreso || product.idingreso || 0),
-                    code: String(line.codigo || product.codigo || ''),
-                    name: String(line.articulo || product.nombre || 'Producto'),
-                    displayName: String(line.articulo || product.nombre || 'Producto'),
+                    code: String(line.codigo || variant?.sku || product.codigo || ''),
+                    name,
+                    displayName: name,
                     qty: Number(line.cantidad_cargar || 0),
-                    stock: Math.max(0, Number(line.stock ?? product.stock ?? 0)),
-                    buyPrice: Number(line.precio_compra ?? product.precio_compra ?? 0),
-                    unitPrice: Number(line.precio_venta ?? product.precio_venta ?? 0),
-                    originalPrice: Number(line.precio_venta ?? product.precio_venta ?? 0),
+                    stock: Math.max(0, Number(line.stock ?? variant?.stock ?? product.stock ?? 0)),
+                    buyPrice: Number(line.precio_compra ?? variant?.precio_compra ?? product.precio_compra ?? 0),
+                    unitPrice: Number(line.precio_venta ?? variant?.precio_venta ?? product.precio_venta ?? 0),
+                    originalPrice: Number(line.precio_venta ?? variant?.precio_venta ?? product.precio_venta ?? 0),
                     taxCode: String(line.codigo_afectacion_igv || product.codigo_afectacion_igv || '10'),
                     taxPercent: Number(line.porcentaje_igv ?? product.porcentaje_igv ?? 18),
                     unitSunat: String(line.unidad_medida_sunat || product.unidad_medida_sunat || 'NIU'),
                     sunatCode: String(line.codigo_producto_sunat || product.codigo_producto_sunat || ''),
-                    image: String(product.imagen || ''),
+                    image: String(variant?.imagen || product.imagen || ''),
                     category: String(product.categoria || '')
                 });
             });
@@ -659,23 +667,62 @@
         };
     }
 
+    function productVariants(product) {
+        return Array.isArray(product?.variaciones) ? product.variaciones : [];
+    }
+
+    function findVariant(product, variantId) {
+        const id = Number(variantId || 0);
+        if (id <= 0) return null;
+        return productVariants(product).find(variant => Number(variant.idvariacion) === id) || null;
+    }
+
+    function cartKeyFor(idarticulo, idvariacion = 0) {
+        const variantId = Number(idvariacion || 0);
+        return variantId > 0
+            ? `v:${variantId}`
+            : `p:${Number(idarticulo) || 0}`;
+    }
+
+    function itemCartKey(item) {
+        return String(item?.cartKey || cartKeyFor(item?.idarticulo, item?.idvariacion));
+    }
+
     function normalizeSavedSale(sale, index) {
         const productMap = new Map(state.products.map(p => [Number(p.idarticulo), p]));
         const cart = Array.isArray(sale.cart) ? sale.cart.map(item => {
             const product = productMap.get(Number(item.idarticulo));
             if (!product) return null;
-            const maxStock = Math.max(0, Number(product.stock) || 0);
+
+            const variant = Number(item.idvariacion || 0) > 0
+                ? findVariant(product, item.idvariacion)
+                : null;
+
+            if (Number(item.idvariacion || 0) > 0 && !variant) return null;
+            if (Number(product.tiene_variaciones || 0) === 1 && !variant) return null;
+
+            const stockSource = variant || product;
+            const maxStock = Math.max(0, Number(stockSource.stock) || 0);
             const qty = Math.min(Math.max(1, Number(item.qty) || 1), Math.max(1, maxStock));
+            const variantName = variant
+                ? `${String(product.nombre || 'Producto')} - ${String(variant.combinacion || 'Variante')}`
+                : String(product.nombre || 'Producto');
+
             return {
                 ...item,
+                cartKey: cartKeyFor(product.idarticulo, variant?.idvariacion || 0),
+                idvariacion: Number(variant?.idvariacion || 0),
                 stock: maxStock,
                 qty,
-                buyPrice: Number(product.precio_compra) || Number(item.buyPrice) || 0,
+                code: String(variant?.sku || product.codigo || item.code || ''),
+                name: variantName,
+                displayName: String(item.displayName || variantName),
+                buyPrice: Number(variant?.precio_compra ?? product.precio_compra) || Number(item.buyPrice) || 0,
                 taxCode: String(product.codigo_afectacion_igv || item.taxCode || '10'),
                 taxPercent: Number(product.porcentaje_igv ?? item.taxPercent ?? 18),
                 unitSunat: String(product.unidad_medida_sunat || item.unitSunat || 'NIU'),
                 sunatCode: String(product.codigo_producto_sunat || item.sunatCode || ''),
-                image: String(product.imagen || item.image || ''),
+                image: String(variant?.imagen || product.imagen || item.image || ''),
                 category: String(product.categoria || item.category || '')
             };
         }).filter(Boolean) : [];
@@ -870,8 +917,11 @@
                 if (state.activeCategory > 0 && Number(p.idcategoria) !== state.activeCategory) return false;
                 if (state.onlyStock && Number(p.stock) <= 0) return false;
                 if (!query) return true;
-                return [p.nombre, p.codigo, p.descripcion, p.categoria, p.subcategoria]
-                    .some(v => normalize(v).includes(query));
+                const searchable = [p.nombre, p.codigo, p.descripcion, p.categoria, p.subcategoria];
+                productVariants(p).forEach(variant => {
+                    searchable.push(variant?.sku, variant?.combinacion);
+                });
+                return searchable.some(v => normalize(v).includes(query));
             })
             .slice()
             .sort(compareProducts);
@@ -904,6 +954,13 @@
         const tax = taxLabel(product);
         const exempt = ['20', '30', '40'].includes(String(product.codigo_afectacion_igv || ''));
         const subcategory = String(product.subcategoria || '').trim();
+        const hasVariants = Number(product.tiene_variaciones || 0) === 1;
+        const variantCount = Math.max(0, Number(product.cantidad_variaciones || productVariants(product).length || 0));
+        const minPrice = Number(product.precio_venta) || 0;
+        const maxPrice = Number(product.precio_venta_max ?? product.precio_venta) || minPrice;
+        const priceLabel = hasVariants && Math.abs(maxPrice - minPrice) > 0.009
+            ? `Desde ${fmt(minPrice)}`
+            : fmt(minPrice);
 
         return `
             <article class="pos-product-card ${stock <= 0 ? 'out-of-stock' : ''}" data-product-id="${Number(product.idarticulo)}">
@@ -922,13 +979,14 @@
                     </div>
                     <div class="pos-product-flags">
                         <span class="pos-product-tax-pill ${exempt ? 'exempt' : 'affected'}">${escapeHtml(tax)}</span>
+                        ${hasVariants ? `<span class="pos-product-variant-pill">${variantCount} variante${variantCount === 1 ? '' : 's'}</span>` : ''}
                     </div>
                     <div class="pos-product-meta">
                         <span class="pos-product-sku">${escapeHtml(code || 'Sin SKU')}</span>
-                        <strong class="pos-product-price">${fmt(product.precio_venta)}</strong>
+                        <strong class="pos-product-price">${priceLabel}</strong>
                     </div>
                     <button type="button" class="pos-product-add" data-add-product="${Number(product.idarticulo)}" ${stock <= 0 ? 'disabled' : ''}>
-                        ${ICONS.plus}<span>${stock <= 0 ? 'Agotado' : 'Agregar'}</span>
+                        ${ICONS.plus}<span>${stock <= 0 ? 'Agotado' : hasVariants ? 'Elegir variante' : 'Agregar'}</span>
                     </button>
                 </div>
             </article>`;
@@ -1236,8 +1294,9 @@
         empty.hidden = sale.cart.length !== 0;
         list.innerHTML = sale.cart.map(item => {
             const offer = Number(item.unitPrice) < Number(item.originalPrice) - .001;
+            const key = itemCartKey(item);
             return `
-                <div class="pos-cart-item" data-cart-id="${Number(item.idarticulo)}">
+                <div class="pos-cart-item" data-cart-key="${escapeHtml(key)}">
                     <div class="pos-cart-item-main">
                         <div class="pos-cart-item-name">
                             <strong title="${escapeHtml(item.displayName || item.name)}">${escapeHtml(item.displayName || item.name)}</strong>
@@ -1247,13 +1306,13 @@
                         <div class="pos-cart-item-price">${offer ? `<span class="old">${fmt(item.originalPrice)}</span>` : ''}${fmt(item.unitPrice)} c/u</div>
                         <div class="pos-cart-item-controls">
                             <div class="pos-qty-control">
-                                <button type="button" data-cart-action="minus" data-id="${Number(item.idarticulo)}" ${Number(item.qty) <= 1 ? 'disabled' : ''}>${ICONS.minus}</button>
+                                <button type="button" data-cart-action="minus" data-key="${escapeHtml(key)}" ${Number(item.qty) <= 1 ? 'disabled' : ''}>${ICONS.minus}</button>
                                 <strong>${Number(item.qty)}</strong>
-                                <button type="button" data-cart-action="plus" data-id="${Number(item.idarticulo)}" ${Number(item.qty) >= Number(item.stock) ? 'disabled' : ''}>${ICONS.plus}</button>
+                                <button type="button" data-cart-action="plus" data-key="${escapeHtml(key)}" ${Number(item.qty) >= Number(item.stock) ? 'disabled' : ''}>${ICONS.plus}</button>
                             </div>
                             <div class="pos-cart-item-actions">
-                                <button type="button" data-cart-action="edit" data-id="${Number(item.idarticulo)}" title="Editar precio">${ICONS.edit}</button>
-                                <button type="button" class="danger" data-cart-action="remove" data-id="${Number(item.idarticulo)}" title="Quitar">${ICONS.trash}</button>
+                                <button type="button" data-cart-action="edit" data-key="${escapeHtml(key)}" title="Editar precio">${ICONS.edit}</button>
+                                <button type="button" class="danger" data-cart-action="remove" data-key="${escapeHtml(key)}" title="Quitar">${ICONS.trash}</button>
                             </div>
                         </div>
                     </div>
@@ -1291,6 +1350,93 @@
         persistSales();
     }
 
+    function renderVariantPicker(product) {
+        const list = qs('#posVariantList');
+        const title = qs('#variantProductTitle');
+        const subtitle = qs('#variantProductSubtitle');
+        if (!list || !title || !subtitle) return;
+
+        const variants = productVariants(product);
+        title.textContent = String(product.nombre || 'Seleccionar variante');
+        subtitle.textContent = `${variants.length} variante${variants.length === 1 ? '' : 's'} disponible${variants.length === 1 ? '' : 's'} · Stock total ${Math.max(0, Number(product.stock) || 0)}`;
+
+        list.innerHTML = variants.map(variant => {
+            const stock = Math.max(0, Number(variant.stock) || 0);
+            const sku = String(variant.sku || '').trim();
+            const combination = String(variant.combinacion || 'Variante').trim();
+            const price = Number(variant.precio_venta) || 0;
+            return `
+                <button type="button" class="pos-variant-option ${stock <= 0 ? 'is-empty' : ''}"
+                    data-select-variant="${Number(variant.idvariacion)}" ${stock <= 0 ? 'disabled' : ''}>
+                    <span class="pos-variant-main">
+                        <strong>${escapeHtml(combination)}</strong>
+                        <small>${escapeHtml(sku || 'Sin SKU')}</small>
+                    </span>
+                    <span class="pos-variant-side">
+                        <strong>${fmt(price)}</strong>
+                        <small class="${stock <= 0 ? 'zero' : stock <= 5 ? 'low' : ''}">${stock <= 0 ? 'Sin stock' : `Stock ${stock}`}</small>
+                    </span>
+                </button>`;
+        }).join('');
+    }
+
+    function openVariantPicker(product) {
+        if (!product || Number(product.tiene_variaciones || 0) !== 1) return;
+        state.pendingVariantProductId = Number(product.idarticulo) || 0;
+        renderVariantPicker(product);
+        openModal('modalVariantesProducto');
+    }
+
+    function addVariantToCart(product, variant) {
+        if (!product || !variant) return;
+        const stock = Math.max(0, Number(variant.stock) || 0);
+        if (stock <= 0) {
+            toast('Esta variante no tiene stock disponible.', 'warning', 'Variante agotada');
+            return;
+        }
+
+        const sale = activeSale();
+        const key = cartKeyFor(product.idarticulo, variant.idvariacion);
+        const existing = sale.cart.find(item => itemCartKey(item) === key);
+        if (existing) {
+            if (Number(existing.qty) >= stock) {
+                toast(`Solo hay ${stock} unidad(es) disponibles de esta variante.`, 'warning', 'Stock insuficiente');
+                return;
+            }
+            existing.qty += 1;
+        } else {
+            const variantName = `${String(product.nombre || 'Producto')} - ${String(variant.combinacion || 'Variante')}`;
+            sale.cart.push({
+                cartKey: key,
+                idarticulo: Number(product.idarticulo),
+                idvariacion: Number(variant.idvariacion),
+                idingreso: 0,
+                code: String(variant.sku || product.codigo || ''),
+                name: variantName,
+                displayName: variantName,
+                qty: 1,
+                stock,
+                buyPrice: Number(variant.precio_compra) || 0,
+                unitPrice: Number(variant.precio_venta) || 0,
+                originalPrice: Number(variant.precio_venta) || 0,
+                taxCode: String(product.codigo_afectacion_igv || '10'),
+                taxPercent: Number(product.porcentaje_igv ?? 18),
+                unitSunat: String(product.unidad_medida_sunat || 'NIU'),
+                sunatCode: String(product.codigo_producto_sunat || ''),
+                image: String(variant.imagen || product.imagen || ''),
+                category: String(product.categoria || '')
+            });
+        }
+
+        persistSales();
+        renderCart();
+        closeModal('modalVariantesProducto');
+        state.pendingVariantProductId = 0;
+        if (window.innerWidth <= 930) {
+            toast(`${product.nombre} - ${variant.combinacion} agregado al pedido.`, 'success', 'Variante agregada');
+        }
+    }
+
     function addProduct(productId) {
         const product = state.products.find(p => Number(p.idarticulo) === Number(productId));
         if (!product) return;
@@ -1299,8 +1445,20 @@
             toast('Este producto no tiene stock disponible.', 'warning', 'Producto agotado');
             return;
         }
+
+        if (Number(product.tiene_variaciones || 0) === 1) {
+            const availableVariants = productVariants(product).filter(variant => Number(variant.stock) > 0);
+            if (!availableVariants.length) {
+                toast('Ninguna variante tiene stock disponible.', 'warning', 'Producto agotado');
+                return;
+            }
+            openVariantPicker(product);
+            return;
+        }
+
         const sale = activeSale();
-        const existing = sale.cart.find(item => Number(item.idarticulo) === Number(product.idarticulo));
+        const key = cartKeyFor(product.idarticulo, 0);
+        const existing = sale.cart.find(item => itemCartKey(item) === key);
         if (existing) {
             if (Number(existing.qty) >= stock) {
                 toast(`Solo hay ${stock} unidad(es) disponibles.`, 'warning', 'Stock insuficiente');
@@ -1309,7 +1467,9 @@
             existing.qty += 1;
         } else {
             sale.cart.push({
+                cartKey: key,
                 idarticulo: Number(product.idarticulo),
+                idvariacion: 0,
                 idingreso: Number(product.idingreso) || 0,
                 code: String(product.codigo || ''),
                 name: String(product.nombre || 'Producto'),
@@ -1334,9 +1494,10 @@
         }
     }
 
-    function cartAction(action, productId) {
+    function cartAction(action, cartKey) {
         const sale = activeSale();
-        const item = sale.cart.find(i => Number(i.idarticulo) === Number(productId));
+        const key = String(cartKey || '');
+        const item = sale.cart.find(i => itemCartKey(i) === key);
         if (!item) return;
         if (action === 'plus') {
             if (Number(item.qty) >= Number(item.stock)) {
@@ -1347,19 +1508,20 @@
         } else if (action === 'minus') {
             item.qty = Math.max(1, Number(item.qty) - 1);
         } else if (action === 'remove') {
-            sale.cart = sale.cart.filter(i => Number(i.idarticulo) !== Number(productId));
+            sale.cart = sale.cart.filter(i => itemCartKey(i) !== key);
         } else if (action === 'edit') {
-            openEditItem(productId);
+            openEditItem(key);
             return;
         }
         persistSales();
         renderCart();
     }
 
-    function openEditItem(productId) {
-        const item = activeSale().cart.find(i => Number(i.idarticulo) === Number(productId));
+    function openEditItem(cartKey) {
+        const key = String(cartKey || '');
+        const item = activeSale().cart.find(i => itemCartKey(i) === key);
         if (!item) return;
-        state.editItemId = Number(productId);
+        state.editItemId = key;
         qs('#editItemName').value = item.displayName || item.name;
         qs('#editItemPrice').value = money2(item.unitPrice).toFixed(2);
         qs('#editItemCurrency').textContent = currencySymbol();
@@ -1368,7 +1530,7 @@
     }
 
     function saveEditedItem() {
-        const item = activeSale().cart.find(i => Number(i.idarticulo) === Number(state.editItemId));
+        const item = activeSale().cart.find(i => itemCartKey(i) === String(state.editItemId || ''));
         if (!item) return;
         const price = money2(qs('#editItemPrice').value);
         const name = String(qs('#editItemName').value || '').trim();
@@ -1958,6 +2120,7 @@
         sale.cart.forEach(item => {
             form.append('idingreso[]', String(Number(item.idingreso) || 0));
             form.append('idarticulo[]', String(Number(item.idarticulo)));
+            form.append('idvariacion[]', String(Number(item.idvariacion) || 0));
             form.append('cantidad[]', String(Number(item.qty)));
             form.append('precio_compra[]', money2(item.buyPrice).toFixed(2));
             form.append('precio_venta[]', money2(item.unitPrice).toFixed(2));
@@ -2327,18 +2490,42 @@
         if (state.scanner.instance === scanner) state.scanner.instance = null;
     }
 
-    function handleScannedCode(code) {
+    function findCatalogMatchByCode(code) {
         const normalized = normalize(code);
-        const product = state.products.find(p => normalize(p.codigo) === normalized);
-        if (!product) {
+        if (!normalized) return null;
+
+        for (const product of state.products) {
+            if (normalize(product.codigo) === normalized) {
+                return { product, variant: null };
+            }
+            const variant = productVariants(product).find(item => normalize(item?.sku) === normalized);
+            if (variant) {
+                return { product, variant };
+            }
+        }
+        return null;
+    }
+
+    function handleScannedCode(code) {
+        const match = findCatalogMatchByCode(code);
+        if (!match) {
             state.query = code;
             qs('#posProductSearch').value = code;
             renderProducts();
-            toast(`No existe un producto con el código ${code}.`, 'warning', 'Código no encontrado');
+            toast(`No existe un producto o variante con el código ${code}.`, 'warning', 'Código no encontrado');
             return;
         }
-        addProduct(product.idarticulo);
-        toast(`${product.nombre} agregado.`, 'success', 'Código leído');
+
+        if (match.variant) {
+            addVariantToCart(match.product, match.variant);
+            toast(`${match.product.nombre} - ${match.variant.combinacion} agregado.`, 'success', 'Código leído');
+            return;
+        }
+
+        addProduct(match.product.idarticulo);
+        if (Number(match.product.tiene_variaciones || 0) !== 1) {
+            toast(`${match.product.nombre} agregado.`, 'success', 'Código leído');
+        }
     }
 
     function handleGlobalScanner(event) {
@@ -2425,10 +2612,11 @@
             if (event.key !== 'Enter') return;
             const raw = String(event.currentTarget.value || '').trim();
             if (!raw) return;
-            const exact = state.products.find(p => normalize(p.codigo) === normalize(raw));
+            const exact = findCatalogMatchByCode(raw);
             if (exact) {
                 event.preventDefault();
-                addProduct(exact.idarticulo);
+                if (exact.variant) addVariantToCart(exact.product, exact.variant);
+                else addProduct(exact.product.idarticulo);
                 event.currentTarget.select();
             }
         });
@@ -2602,9 +2790,18 @@
             if (customer) selectCustomer(customer, 'local');
         });
 
+        qs('#posVariantList').addEventListener('click', event => {
+            const btn = event.target.closest('[data-select-variant]');
+            if (!btn || btn.disabled) return;
+            const product = state.products.find(item => Number(item.idarticulo) === Number(state.pendingVariantProductId));
+            if (!product) return;
+            const variant = findVariant(product, Number(btn.dataset.selectVariant));
+            if (variant) addVariantToCart(product, variant);
+        });
+
         qs('#posCartList').addEventListener('click', event => {
             const btn = event.target.closest('[data-cart-action]');
-            if (btn) cartAction(btn.dataset.cartAction, Number(btn.dataset.id));
+            if (btn) cartAction(btn.dataset.cartAction, btn.dataset.key);
         });
         qs('#btnVaciarCarrito').addEventListener('click', () => {
             const sale = activeSale();

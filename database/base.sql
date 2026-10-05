@@ -360,6 +360,7 @@ CREATE TABLE `detalle_venta` (
   `iddetalle_venta` int(11) NOT NULL,
   `idventa` int(11) NOT NULL,
   `idarticulo` int(11) NOT NULL,
+  `idvariacion` int(11) DEFAULT NULL,
   `cantidad` int(11) NOT NULL,
   `precio_compra` decimal(11,2) NOT NULL,
   `precio_venta` decimal(11,2) NOT NULL,
@@ -1218,6 +1219,7 @@ ALTER TABLE `detalle_venta`
   ADD PRIMARY KEY (`iddetalle_venta`),
   ADD KEY `fk_detalle_venta_venta_idx` (`idventa`),
   ADD KEY `fk_detalle_venta_articulo_idx` (`idarticulo`),
+  ADD KEY `idx_detalle_venta_variacion` (`idvariacion`),
   ADD KEY `idx_venta` (`idventa`);
 
 --
@@ -1860,6 +1862,7 @@ ALTER TABLE `configuracion_caja`
 --
 ALTER TABLE `detalle_venta`
   ADD CONSTRAINT `fk_detalle_venta_articulo` FOREIGN KEY (`idarticulo`) REFERENCES `articulo` (`idarticulo`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  ADD CONSTRAINT `fk_detalle_venta_variacion` FOREIGN KEY (`idvariacion`) REFERENCES `articulo_variacion` (`idvariacion`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_detalle_venta_venta` FOREIGN KEY (`idventa`) REFERENCES `venta` (`idventa`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 --
