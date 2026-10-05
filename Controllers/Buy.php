@@ -102,7 +102,7 @@ try {
                 'fecha_hora' => (string)($_POST['fecha_hora'] ?? ''),
                 'impuesto' => (float)($_POST['impuesto'] ?? 0),
                 'observacion' => (string)($_POST['observacion'] ?? ''),
-                'condicion_pago' => (string)($_POST['condicion_pago'] ?? 'CREDITO'),
+                'idtipopago' => (int)($_POST['idtipopago'] ?? 0),
                 'idforma_pago' => (int)($_POST['idforma_pago'] ?? 0),
                 'numero_operacion' => (string)($_POST['numero_operacion'] ?? '')
             ];

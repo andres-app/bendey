@@ -43,13 +43,34 @@ class Buy
         $impuesto = round((float)($cabecera['impuesto'] ?? 0), 2);
         $observacion = $this->limpiarTexto($cabecera['observacion'] ?? '', 255);
 
-        $condicionPago = strtoupper(
-            trim((string)($cabecera['condicion_pago'] ?? 'CREDITO'))
+        $idtipoPago = (int)($cabecera['idtipopago'] ?? 0);
+
+        if ($idtipoPago <= 0) {
+            throw new RuntimeException('Debe seleccionar una condición de pago válida.');
+        }
+
+        $tipoPago = $this->conexion->getData(
+            "SELECT idtipopago, nombre, descripcion
+             FROM tipo_pago
+             WHERE idtipopago = ?
+               AND estado = 1
+             LIMIT 1",
+            [$idtipoPago]
+        );
+
+        if (!$tipoPago) {
+            throw new RuntimeException(
+                'La condición de pago seleccionada ya no está disponible.'
+            );
+        }
+
+        $condicionPago = $this->normalizarCondicionPago(
+            (string)($tipoPago['nombre'] ?? '')
         );
 
         if (!in_array($condicionPago, ['CONTADO', 'CREDITO'], true)) {
             throw new RuntimeException(
-                'La condición de pago seleccionada no es válida.'
+                'El tipo de pago seleccionado debe corresponder a Contado o Crédito.'
             );
         }
 
@@ -769,6 +790,26 @@ class Buy
                  WHERE estado = 1
                  ORDER BY nombre ASC"
             ),
+            'tipos_pago' => array_values(array_filter(array_map(
+                function (array $tipoPago): array {
+                    $tipoPago['condicion'] = $this->normalizarCondicionPago(
+                        (string)($tipoPago['nombre'] ?? '')
+                    );
+                    return $tipoPago;
+                },
+                $this->conexion->getDataAll(
+                    "SELECT idtipopago, nombre, descripcion
+                     FROM tipo_pago
+                     WHERE estado = 1
+                     ORDER BY idtipopago ASC"
+                )
+            ), static function (array $tipoPago): bool {
+                return in_array(
+                    (string)($tipoPago['condicion'] ?? ''),
+                    ['CONTADO', 'CREDITO'],
+                    true
+                );
+            })),
             'formas_pago' => $this->conexion->getDataAll(
                 "SELECT
                     fp.idforma_pago,
@@ -789,6 +830,26 @@ class Buy
                     fp.nombre ASC"
             )
         ];
+    }
+
+    private function normalizarCondicionPago(string $valor): string
+    {
+        $normalizado = mb_strtoupper(trim($valor), 'UTF-8');
+        $normalizado = str_replace(
+            ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ü'],
+            ['A', 'E', 'I', 'O', 'U', 'U'],
+            $normalizado
+        );
+
+        if (str_contains($normalizado, 'CREDITO')) {
+            return 'CREDITO';
+        }
+
+        if (str_contains($normalizado, 'CONTADO')) {
+            return 'CONTADO';
+        }
+
+        return '';
     }
 
     private function normalizarDetalle(array $detalle, int $numeroFila): array

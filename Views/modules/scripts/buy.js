@@ -9,6 +9,7 @@ let datosFormularioCompra = {
     medidas: [],
     almacenes: [],
     categorias_compra: [],
+    tipos_pago: [],
     formas_pago: []
 };
 let datosCompraCargados = false;
@@ -430,6 +431,9 @@ function cargarDatosCompra(forzar = false) {
                 categorias_compra: Array.isArray(respuesta.datos.categorias_compra)
                     ? respuesta.datos.categorias_compra
                     : [],
+                tipos_pago: Array.isArray(respuesta.datos.tipos_pago)
+                    ? respuesta.datos.tipos_pago
+                    : [],
                 formas_pago: Array.isArray(respuesta.datos.formas_pago)
                     ? respuesta.datos.formas_pago
                     : []
@@ -543,6 +547,36 @@ function poblarSelectoresCompra() {
     }
 
     actualizarSubcategoriasCompra();
+
+    const tiposPago = Array.isArray(
+        datosFormularioCompra.tipos_pago
+    )
+        ? datosFormularioCompra.tipos_pago
+        : [];
+
+    let opcionesTipoPago = '<option value="">Seleccione una condición de pago</option>';
+
+    tiposPago.forEach(function (tipoPago) {
+        const condicion = String(tipoPago.condicion || '').toUpperCase();
+        const descripcion = String(tipoPago.descripcion || '').trim();
+        const nombre = String(tipoPago.nombre || '').trim();
+        const texto = descripcion ? `${nombre} · ${descripcion}` : nombre;
+
+        opcionesTipoPago +=
+            `<option value="${escaparHtmlCompra(tipoPago.idtipopago)}" ` +
+            `data-condicion="${escaparHtmlCompra(condicion)}">` +
+            `${escaparHtmlCompra(texto)}</option>`;
+    });
+
+    $('#condicion_pago').html(opcionesTipoPago);
+
+    if (tiposPago.length > 0 && !$('#condicion_pago').val()) {
+        const tipoContado = tiposPago.find(function (tipoPago) {
+            return String(tipoPago.condicion || '').toUpperCase() === 'CONTADO';
+        }) || tiposPago[0];
+
+        $('#condicion_pago').val(String(tipoContado.idtipopago));
+    }
 
     const formasPago = Array.isArray(
         datosFormularioCompra.formas_pago
@@ -1719,6 +1753,12 @@ function calcularTotalesCompra() {
 }
 
 
+function obtenerCondicionPagoCompra() {
+    return String(
+        $('#condicion_pago option:selected').attr('data-condicion') || ''
+    ).toUpperCase();
+}
+
 function obtenerFormaPagoCompraSeleccionada() {
     const id = Number($('#idforma_pago').val() || 0);
 
@@ -1736,10 +1776,7 @@ function obtenerFormaPagoCompraSeleccionada() {
 }
 
 function actualizarEstadoPagoCompra() {
-    const condicion = String(
-        $('#condicion_pago').val() || 'CONTADO'
-    ).toUpperCase();
-
+    const condicion = obtenerCondicionPagoCompra();
     const esContado = condicion === 'CONTADO';
 
     $('#grupoFormaPagoCompra').toggle(esContado);
@@ -1847,15 +1884,13 @@ function validarCompraAntesDeGuardar() {
         return false;
     }
 
-    const condicionPago = String(
-        $('#condicion_pago').val() || ''
-    ).toUpperCase();
+    const condicionPago = obtenerCondicionPagoCompra();
 
     if (!['CONTADO', 'CREDITO'].includes(condicionPago)) {
         alertaCompra(
             'warning',
             'Condición de pago',
-            'Seleccione Contado o Crédito.'
+            'Seleccione un tipo de pago válido.'
         );
         return false;
     }

@@ -1644,25 +1644,19 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                                         <input class="form-control" type="text" name="num_comprobante" id="num_comprobante" maxlength="10" placeholder="Ej.: 00001234" required>
                                     </div>
 
-                                    <div class="md:tw-col-span-12">
-                                        <label class="compra-field-label" for="observacion">Observación</label>
-                                        <textarea class="form-control" name="observacion" id="observacion" maxlength="255" rows="2" placeholder="Información adicional de la compra..."></textarea>
-                                    </div>
-
                                     <div class="md:tw-col-span-4">
                                         <label class="compra-field-label" for="condicion_pago">
                                             Condición de pago <span class="text-danger">*</span>
                                         </label>
                                         <select
-                                            name="condicion_pago"
+                                            name="idtipopago"
                                             id="condicion_pago"
                                             class="form-control"
                                             required>
-                                            <option value="CONTADO">Contado · se paga ahora</option>
-                                            <option value="CREDITO">Crédito · queda pendiente</option>
+                                            <option value="">Cargando tipos de pago...</option>
                                         </select>
                                         <small class="form-text text-muted">
-                                            Crédito registra la compra sin retirar dinero de ninguna caja.
+                                            Se muestran los tipos de pago activos configurados en el sistema.
                                         </small>
                                     </div>
 
@@ -1779,6 +1773,12 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                                             <small>Selecciona un producto existente, registra uno nuevo o agrega un gasto.</small>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="tw-mt-5">
+                                    <label class="compra-field-label" for="observacion">Observación</label>
+                                    <textarea class="form-control" name="observacion" id="observacion" maxlength="255" rows="3" placeholder="Información adicional de la compra..."></textarea>
+                                    <small class="form-text text-muted">Campo opcional para notas o referencias adicionales de la compra.</small>
                                 </div>
 
                                 <div class="compra-save-bar tw-mt-5 tw-flex tw-flex-col tw-gap-4 tw-rounded-2xl tw-border tw-border-slate-200 tw-bg-slate-50/80 tw-p-4 lg:tw-flex-row lg:tw-items-end lg:tw-justify-between">
