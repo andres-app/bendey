@@ -1,8 +1,13 @@
 "use strict";
 
+let dashboardCotizacionesTimer = null;
+let dashboardCotizacionesChannel = null;
+
 function init() {
   cuadros1();
   cuadros2();
+  cotizacionesPendientesDashboard();
+  iniciarCotizacionesDashboardEnVivo();
 
   if (document.getElementById("compra6meses")) {
     compra6meses();
@@ -535,6 +540,69 @@ function formatearMontoDashboard(
       maximumFractionDigits: 2,
     }
   );
+}
+
+
+function cotizacionesPendientesDashboard() {
+  const contador = document.getElementById("tcotizacionespendientes");
+  const numeros = document.getElementById("dashboardCotizacionesNumeros");
+  if (!contador || !numeros) return;
+
+  fetch("Controllers/Sell.php?op=cotizacionesPendientes&limite=4&v=" + Date.now(), {
+    credentials: "same-origin",
+    cache: "no-store",
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (!data || data.success !== true) return;
+      const total = Number(data.total || 0);
+      contador.textContent = String(total);
+      const rows = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
+      if (!rows.length) {
+        numeros.innerHTML = "<span>Sin pendientes</span>";
+        return;
+      }
+      const visibles = rows
+        .slice(0, 3)
+        .map((quote) => `<span>${escapeDashboardHtml(quote.numero || "—")}</span>`);
+      if (total > 3) {
+        visibles.push(`<span>+${Math.max(0, total - 3)} más</span>`);
+      }
+      numeros.innerHTML = visibles.join("");
+    })
+    .catch((error) => console.warn("No se pudo actualizar cotizaciones pendientes:", error));
+}
+
+function escapeDashboardHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function iniciarCotizacionesDashboardEnVivo() {
+  if (dashboardCotizacionesTimer) clearInterval(dashboardCotizacionesTimer);
+  dashboardCotizacionesTimer = setInterval(() => {
+    if (!document.hidden) cotizacionesPendientesDashboard();
+  }, 2500);
+
+  if ("BroadcastChannel" in window) {
+    try {
+      dashboardCotizacionesChannel = new BroadcastChannel("tiquepos-cotizaciones");
+      dashboardCotizacionesChannel.addEventListener("message", cotizacionesPendientesDashboard);
+    } catch (_) {
+      dashboardCotizacionesChannel = null;
+    }
+  }
+
+  window.addEventListener("storage", (event) => {
+    if (event.key === "tiquepos_cotizaciones_actualizadas") cotizacionesPendientesDashboard();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) cotizacionesPendientesDashboard();
+  });
 }
 
 init();

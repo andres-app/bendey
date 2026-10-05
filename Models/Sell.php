@@ -194,6 +194,26 @@ class Sell
             . $num_comprobante;
         $sw = true;
 
+        $tipoComprobanteNormalizado = mb_strtolower(
+            trim((string)$tipo_comprobante),
+            'UTF-8'
+        );
+        $tipoComprobanteNormalizado = strtr(
+            $tipoComprobanteNormalizado,
+            [
+                'á' => 'a',
+                'é' => 'e',
+                'í' => 'i',
+                'ó' => 'o',
+                'ú' => 'u',
+                'ü' => 'u',
+            ]
+        );
+        $esCotizacion = str_contains(
+            $tipoComprobanteNormalizado,
+            'cotizacion'
+        );
+
         foreach ($tributacion['lineas'] as $indice => $linea) {
             $sqlDetalle = "INSERT INTO {$this->tableNameDetalle} (
                 idventa,
@@ -242,114 +262,123 @@ class Sell
             }
         }
 
-        // Actualizar stock de artículo.
-        $sqlStock = "SELECT idarticulo, cantidad
-                     FROM {$this->tableNameDetalle}
-                     WHERE idventa = ?";
-        $res = $this->conexion->getDataAll(
-            $sqlStock,
-            [$idventanew]
-        );
+        /*
+         * Las cotizaciones son propuestas comerciales: no reservan ni
+         * descuentan inventario y tampoco generan movimientos de kardex.
+         * El stock se descuenta recién cuando la cotización se convierte en
+         * una venta real.
+         */
+        if (!$esCotizacion) {
+            // Actualizar stock de artículo.
+            $sqlStock = "SELECT idarticulo, cantidad
+                         FROM {$this->tableNameDetalle}
+                         WHERE idventa = ?";
+            $res = $this->conexion->getDataAll(
+                $sqlStock,
+                [$idventanew]
+            );
 
-        foreach (is_array($res) ? $res : [] as $reg) {
-            if (!$this->conexion->setData(
-                "UPDATE articulo
-                 SET stock = stock - ?
-                 WHERE idarticulo = ?",
-                [
-                    (float)$reg['cantidad'],
-                    (int)$reg['idarticulo']
-                ]
-            )) {
-                $sw = false;
-            }
-        }
-
-        // Kardex: conserva la lógica FIFO existente.
-        foreach ($idarticulo as $indice => $idArticuloActual) {
-            $cantidadPendiente = (int)($cantidad[$indice] ?? 0);
-
-            while ($cantidadPendiente > 0) {
-                $lote = $this->conexion->getData(
-                    "SELECT
-                        iddetalle_ingreso,
-                        stock_venta,
-                        precio_compra
-                     FROM detalle_ingreso
-                     WHERE idarticulo = ?
-                       AND COALESCE(stock_venta, 0) > 0
-                     ORDER BY
-                        CASE WHEN stock_estado = '1' THEN 0 ELSE 1 END,
-                        iddetalle_ingreso ASC
-                     LIMIT 1",
-                    [(int)$idArticuloActual]
-                );
-
-                if (!is_array($lote)) {
-                    break;
-                }
-
-                $stockDisponible = (int)($lote['stock_venta'] ?? 0);
-                $idDetalleIngreso = (int)($lote['iddetalle_ingreso'] ?? 0);
-                $costoUnitario = (float)($lote['precio_compra'] ?? 0);
-
-                if ($stockDisponible <= 0 || $idDetalleIngreso <= 0) {
-                    break;
-                }
-
-                $cantidadSalida = min(
-                    $cantidadPendiente,
-                    $stockDisponible
-                );
-
+            foreach (is_array($res) ? $res : [] as $reg) {
                 if (!$this->conexion->setData(
-                    "UPDATE detalle_ingreso
-                     SET stock_venta = stock_venta - ?
-                     WHERE iddetalle_ingreso = ?",
-                    [$cantidadSalida, $idDetalleIngreso]
-                )) {
-                    $sw = false;
-                }
-
-                $cantidadExistente = $stockDisponible - $cantidadSalida;
-                $totalSalida = $cantidadSalida * $costoUnitario;
-                $totalExistencia = $cantidadExistente * $costoUnitario;
-
-                if (!$this->conexion->setData(
-                    "INSERT INTO {$this->tableNameKardex} (
-                        iddetalle,
-                        idarticulo,
-                        fecha,
-                        detalle,
-                        cantidads,
-                        costous,
-                        totals,
-                        cantidadex,
-                        costouex,
-                        totalex,
-                        tipo,
-                        estado
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "UPDATE articulo
+                     SET stock = stock - ?
+                     WHERE idarticulo = ?",
                     [
-                        $idventanew,
-                        (int)$idArticuloActual,
-                        $fecha_hora,
-                        $detalleComprobante,
-                        $cantidadSalida,
-                        $costoUnitario,
-                        $totalSalida,
-                        $cantidadExistente,
-                        $costoUnitario,
-                        $totalExistencia,
-                        'Salida',
-                        'Activo'
+                        (float)$reg['cantidad'],
+                        (int)$reg['idarticulo']
                     ]
                 )) {
                     $sw = false;
                 }
-
-                $cantidadPendiente -= $cantidadSalida;
             }
+
+            // Kardex: conserva la lógica FIFO existente.
+            foreach ($idarticulo as $indice => $idArticuloActual) {
+                $cantidadPendiente = (int)($cantidad[$indice] ?? 0);
+
+                while ($cantidadPendiente > 0) {
+                    $lote = $this->conexion->getData(
+                        "SELECT
+                            iddetalle_ingreso,
+                            stock_venta,
+                            precio_compra
+                         FROM detalle_ingreso
+                         WHERE idarticulo = ?
+                           AND COALESCE(stock_venta, 0) > 0
+                         ORDER BY
+                            CASE WHEN stock_estado = '1' THEN 0 ELSE 1 END,
+                            iddetalle_ingreso ASC
+                         LIMIT 1",
+                        [(int)$idArticuloActual]
+                    );
+
+                    if (!is_array($lote)) {
+                        break;
+                    }
+
+                    $stockDisponible = (int)($lote['stock_venta'] ?? 0);
+                    $idDetalleIngreso = (int)($lote['iddetalle_ingreso'] ?? 0);
+                    $costoUnitario = (float)($lote['precio_compra'] ?? 0);
+
+                    if ($stockDisponible <= 0 || $idDetalleIngreso <= 0) {
+                        break;
+                    }
+
+                    $cantidadSalida = min(
+                        $cantidadPendiente,
+                        $stockDisponible
+                    );
+
+                    if (!$this->conexion->setData(
+                        "UPDATE detalle_ingreso
+                         SET stock_venta = stock_venta - ?
+                         WHERE iddetalle_ingreso = ?",
+                        [$cantidadSalida, $idDetalleIngreso]
+                    )) {
+                        $sw = false;
+                    }
+
+                    $cantidadExistente = $stockDisponible - $cantidadSalida;
+                    $totalSalida = $cantidadSalida * $costoUnitario;
+                    $totalExistencia = $cantidadExistente * $costoUnitario;
+
+                    if (!$this->conexion->setData(
+                        "INSERT INTO {$this->tableNameKardex} (
+                            iddetalle,
+                            idarticulo,
+                            fecha,
+                            detalle,
+                            cantidads,
+                            costous,
+                            totals,
+                            cantidadex,
+                            costouex,
+                            totalex,
+                            tipo,
+                            estado
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                        [
+                            $idventanew,
+                            (int)$idArticuloActual,
+                            $fecha_hora,
+                            $detalleComprobante,
+                            $cantidadSalida,
+                            $costoUnitario,
+                            $totalSalida,
+                            $cantidadExistente,
+                            $costoUnitario,
+                            $totalExistencia,
+                            'Salida',
+                            'Activo'
+                        ]
+                    )) {
+                        $sw = false;
+                    }
+
+                    $cantidadPendiente -= $cantidadSalida;
+                }
+            }
+
         }
 
         return ($sw && $idventanew)
@@ -809,7 +838,7 @@ class Sell
         LEFT JOIN venta_sunat vs
             ON vs.idventa = v.idventa
 
-        WHERE v.tipo_comprobante <> 'Cotizacion'
+        WHERE v.tipo_comprobante NOT LIKE 'Cotizaci%'
 
         ORDER BY v.idventa DESC
     ";
@@ -929,14 +958,19 @@ class Sell
     }
 
 
-    public function listarCotizaciones()
+    public function listarCotizaciones($idsucursal = null)
     {
-        $sql = "SELECT 
+        $idsucursal = (int)$idsucursal;
+        $filtroSucursal = $idsucursal > 0 ? ' AND (v.idsucursal = ? OR v.idsucursal IS NULL)' : '';
+        $parametros = $idsucursal > 0 ? [$idsucursal] : [];
+
+        $sql = "SELECT
                 v.idventa,
-                DATE(v.fecha_hora) as fecha,
+                DATE(v.fecha_hora) AS fecha,
+                DATE_FORMAT(v.fecha_hora, '%d/%m/%Y %H:%i') AS fecha_texto,
                 v.idcliente,
                 COALESCE(p.nombre, 'SIN CLIENTE') AS cliente,
-                u.nombre AS usuario,
+                COALESCE(u.nombre, 'SIN USUARIO') AS usuario,
                 v.tipo_comprobante,
                 v.serie_comprobante,
                 v.num_comprobante,
@@ -946,10 +980,58 @@ class Sell
             FROM venta v
             LEFT JOIN persona p ON v.idcliente = p.idpersona
             LEFT JOIN usuario u ON v.idusuario = u.idusuario
-            WHERE v.tipo_comprobante = 'Cotizacion'
+            WHERE v.tipo_comprobante LIKE 'Cotizaci%'
+            {$filtroSucursal}
             ORDER BY v.idventa DESC";
 
-        return $this->conexion->getDataAll($sql);
+        return $this->conexion->getDataAll($sql, $parametros);
+    }
+
+    public function contarCotizacionesPendientes($idsucursal = null): int
+    {
+        $idsucursal = (int)$idsucursal;
+        $filtroSucursal = $idsucursal > 0 ? ' AND (idsucursal = ? OR idsucursal IS NULL)' : '';
+        $parametros = $idsucursal > 0 ? [$idsucursal] : [];
+
+        $registro = $this->conexion->getData(
+            "SELECT COUNT(*) AS total
+             FROM venta
+             WHERE tipo_comprobante LIKE 'Cotizaci%'
+               AND estado = 'Aceptado'
+               {$filtroSucursal}",
+            $parametros
+        );
+
+        return (int)($registro['total'] ?? 0);
+    }
+
+    public function listarCotizacionesPendientes(int $limite = 50, $idsucursal = null): array
+    {
+        $limite = max(1, min(100, $limite));
+        $idsucursal = (int)$idsucursal;
+        $filtroSucursal = $idsucursal > 0 ? ' AND (v.idsucursal = ? OR v.idsucursal IS NULL)' : '';
+        $parametros = $idsucursal > 0 ? [$idsucursal] : [];
+
+        $sql = "SELECT
+                v.idventa,
+                v.idsucursal,
+                DATE_FORMAT(v.fecha_hora, '%d/%m/%Y %H:%i') AS fecha,
+                COALESCE(p.nombre, 'SIN CLIENTE') AS cliente,
+                COALESCE(p.num_documento, '') AS documento_cliente,
+                v.serie_comprobante,
+                v.num_comprobante,
+                v.total_venta,
+                v.estado
+            FROM venta v
+            LEFT JOIN persona p ON p.idpersona = v.idcliente
+            WHERE v.tipo_comprobante LIKE 'Cotizaci%'
+              AND v.estado = 'Aceptado'
+              {$filtroSucursal}
+            ORDER BY v.idventa DESC
+            LIMIT {$limite}";
+
+        $filas = $this->conexion->getDataAll($sql, $parametros);
+        return is_array($filas) ? $filas : [];
     }
 
 
@@ -969,6 +1051,7 @@ class Sell
             "SELECT
                 v.idventa,
                 v.idcliente,
+                v.idsucursal,
                 v.tipo_comprobante,
                 v.serie_comprobante,
                 v.num_comprobante,
@@ -982,8 +1065,8 @@ class Sell
                 p.tipo_documento,
                 p.num_documento,
                 p.nombre AS cliente,
-                p.direccion,
-                p.telefono,
+                COALESCE(NULLIF(v.direccion_cliente, ''), p.direccion, '') AS direccion,
+                COALESCE(NULLIF(v.celular_cliente, ''), p.telefono, '') AS telefono,
                 p.email,
 
                 (
@@ -1847,7 +1930,7 @@ class Sell
             LEFT JOIN venta_sunat vs
                 ON vs.idventa = v.idventa
 
-            WHERE v.tipo_comprobante <> 'Cotizacion'
+            WHERE v.tipo_comprobante NOT LIKE 'Cotizaci%'
               AND v.idventa IN ({$placeholders})
 
             ORDER BY

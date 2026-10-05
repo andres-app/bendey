@@ -230,23 +230,26 @@ require_once "sidebar.php";
                             </a>
                         </div>
 
-                        <!-- COMPRAS DEL DIA -->
+                        <!-- COTIZACIONES PENDIENTES -->
                         <div class="col-lg-4 col-md-6 col-12 mb-4">
-                            <a href="buy" style="text-decoration:none;">
+                            <a href="cotizacion" style="text-decoration:none;">
                                 <div class="tp-stat-card tp-pink">
-                                    <div class="tp-stat-value">S/<span id="tcomprahoy"></span></div>
-                                    <p class="tp-stat-label">Compras del día</p>
+                                    <div class="tp-stat-value"><span id="tcotizacionespendientes">0</span></div>
+                                    <p class="tp-stat-label">Cotizaciones pendientes</p>
+                                    <div class="tp-stat-breakdown" id="dashboardCotizacionesNumeros">
+                                        <span>Sin pendientes</span>
+                                    </div>
                                     <div class="tp-mini-plus">+</div>
                                 </div>
                             </a>
                         </div>
 
-                        <!-- PENDIENTES -->
+                        <!-- CLIENTES -->
                         <div class="col-lg-4 col-md-6 col-12 mb-4">
-                            <a href="cotizacion" style="text-decoration:none;">
+                            <a href="customer" style="text-decoration:none;">
                                 <div class="tp-stat-card tp-orange">
-                                    <div class="tp-stat-value"><span id="tpendientes">22</span></div>
-                                    <p class="tp-stat-label">Pendientes</p>
+                                    <div class="tp-stat-value"><span id="tclientes">0</span></div>
+                                    <p class="tp-stat-label">Clientes</p>
                                     <div class="tp-mini-plus">+</div>
                                 </div>
                             </a>

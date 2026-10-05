@@ -82,6 +82,11 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
         </div>
 
         <div class="pos-topbar-actions">
+            <button type="button" class="pos-quote-top-btn" id="btnCotizacionesPos" title="Cotizaciones pendientes" aria-label="Cotizaciones pendientes">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M14 3v4h4M9 11h6M9 15h4"/></svg>
+                <span>Cotizaciones</span>
+                <em id="posQuoteBadge" hidden>0</em>
+            </button>
             <button type="button" class="pos-icon-btn" id="btnPantallaCompleta" title="Pantalla completa" aria-label="Pantalla completa">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
             </button>
@@ -385,6 +390,40 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
     </div>
 
     <div class="pos-toast-stack" id="posToastStack" aria-live="polite"></div>
+</div>
+
+<!-- Modal de cotizaciones pendientes -->
+<div class="pos-modal" id="modalCotizacionesPendientes" hidden role="dialog" aria-modal="true" aria-labelledby="quotesPendingTitle">
+    <div class="pos-modal-backdrop" data-close-modal="modalCotizacionesPendientes"></div>
+    <div class="pos-modal-dialog pos-quotes-dialog">
+        <div class="pos-modal-header">
+            <div>
+                <span class="pos-modal-eyebrow">Actualización automática</span>
+                <h2 id="quotesPendingTitle">Cotizaciones pendientes</h2>
+                <p>Selecciona una cotización para convertirla en una venta.</p>
+            </div>
+            <button type="button" class="pos-modal-close" data-close-modal="modalCotizacionesPendientes" aria-label="Cerrar">
+                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div class="pos-quotes-toolbar">
+            <div class="pos-quotes-count"><strong id="posQuotesModalCount">0</strong><span>pendientes</span></div>
+            <button type="button" class="pos-quotes-refresh" id="btnRefreshQuotes" title="Actualizar ahora">
+                <svg viewBox="0 0 24 24"><path d="M20 6v5h-5"/><path d="M4 18v-5h5"/><path d="M6.1 9a7 7 0 0 1 11.4-2.6L20 11M4 13l2.5 4.6A7 7 0 0 0 17.9 15"/></svg>
+                Actualizar
+            </button>
+        </div>
+        <div class="pos-quotes-list" id="posQuotesList"></div>
+        <div class="pos-quotes-empty" id="posQuotesEmpty" hidden>
+            <span><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M14 3v4h4M8 15l2 2 5-5"/></svg></span>
+            <strong>No hay cotizaciones pendientes</strong>
+            <p>Las nuevas cotizaciones aparecerán aquí automáticamente.</p>
+        </div>
+        <div class="pos-modal-footer pos-quotes-footer">
+            <a class="pos-secondary-btn pos-link-btn" href="cotizacion">Ver módulo de cotizaciones</a>
+            <button type="button" class="pos-primary-btn" id="btnNuevaCotizacionPos">Nueva cotización</button>
+        </div>
+    </div>
 </div>
 
 <!-- Modal editar producto de la venta -->

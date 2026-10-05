@@ -12,19 +12,36 @@ if (!isset($_SESSION['nombre'])) {
 
     if ($_SESSION['ventas'] == 1) {
 ?>
+        <style>
+            .cotizacion-card-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+            .cotizacion-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+            .cotizacion-live-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border-radius:999px;background:#ecfdf5;color:#047857;font-size:12px;font-weight:600}
+            .cotizacion-live-dot{width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 0 4px rgba(16,185,129,.12)}
+            .cotizacion-live-pill.is-loading .cotizacion-live-dot{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.12)}
+            .cotizacion-actions .btn{display:inline-flex;align-items:center;justify-content:center;min-width:34px}
+            #tbllistado td{vertical-align:middle}
+            @media(max-width:640px){.cotizacion-head-actions{width:100%;justify-content:space-between}.cotizacion-card-head .btn{flex:1}}
+        </style>
         <div class="main-content">
             <section class="section">
                 <div class="section-body">
                     <div class="row">
                         <div class="col-12">
                             <div class="card">
-                                <div class="card-header">
-                                    <h4 class="box-title">
-                                        Cotizaciones
-                                        <button class="btn btn-success" id="btnagregar">
-                                            <i class="fa fa-plus-circle"></i> Agregar
+                                <div class="card-header cotizacion-card-head">
+                                    <div>
+                                        <h4 class="box-title mb-1">Cotizaciones</h4>
+                                        <small class="text-muted">Propuestas comerciales pendientes, ejecutadas y anuladas.</small>
+                                    </div>
+                                    <div class="cotizacion-head-actions">
+                                        <span class="cotizacion-live-pill" id="cotizacionLiveStatus" title="La lista se actualiza automáticamente">
+                                            <span class="cotizacion-live-dot"></span>
+                                            <strong id="cotizacionesPendientesCount">0</strong> pendientes
+                                        </span>
+                                        <button class="btn btn-success" id="btnagregar" type="button">
+                                            <i class="fa fa-plus-circle"></i> Nueva cotización
                                         </button>
-                                    </h4>
+                                    </div>
                                 </div>
 
                                 <div class="card-body">

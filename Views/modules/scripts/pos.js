@@ -70,6 +70,12 @@
         company: {},
         tax: {},
         operationTypes: [],
+        pendingQuotes: [],
+        pendingQuotesTotal: 0,
+        pendingQuotesLoading: false,
+        pendingQuotesTimer: null,
+        quoteChannel: null,
+        urlIntentApplied: false,
         fieldConfig: {
             tipo_comprobante: 1, cliente: 1, direccion: 0, tipo_pago: 1, forma_pago: 1,
             celular: 1, fecha_emision: 0, tipo_operacion_sunat: 1, descuento: 1, envio_comprobante: 1
@@ -142,6 +148,238 @@
             throw new Error(message);
         }
         return data;
+    }
+
+    function announceQuotationChange() {
+        try {
+            localStorage.setItem('tiquepos_cotizaciones_actualizadas', String(Date.now()));
+        } catch (_) {}
+        try {
+            state.quoteChannel?.postMessage({ type: 'refresh', at: Date.now() });
+        } catch (_) {}
+    }
+
+    function renderPendingQuotes() {
+        const quotes = Array.isArray(state.pendingQuotes) ? state.pendingQuotes : [];
+        const totalPending = Math.max(quotes.length, Number(state.pendingQuotesTotal || 0));
+        const badge = qs('#posQuoteBadge');
+        const count = qs('#posQuotesModalCount');
+        const list = qs('#posQuotesList');
+        const empty = qs('#posQuotesEmpty');
+
+        if (badge) {
+            badge.textContent = String(totalPending);
+            badge.hidden = totalPending === 0;
+        }
+        if (count) count.textContent = String(totalPending);
+        if (!list || !empty) return;
+
+        empty.hidden = quotes.length !== 0;
+        list.hidden = quotes.length === 0;
+        list.innerHTML = quotes.map(quote => `
+            <article class="pos-quote-row" data-quote-id="${Number(quote.idventa)}">
+                <div class="pos-quote-number">
+                    <strong>${escapeHtml(quote.numero || '—')}</strong>
+                    <small>${escapeHtml(quote.fecha || '')}</small>
+                </div>
+                <div class="pos-quote-client">
+                    <strong title="${escapeHtml(quote.cliente || '')}">${escapeHtml(quote.cliente || 'SIN CLIENTE')}</strong>
+                    <small>${escapeHtml(quote.documento_cliente || 'Sin documento')}</small>
+                </div>
+                <div class="pos-quote-total">${fmt(quote.total || 0)}</div>
+                <button type="button" class="pos-quote-execute" data-execute-quote="${Number(quote.idventa)}">
+                    <svg viewBox="0 0 24 24"><path d="M4 7h16v10H4z"/><path d="M8 12h8M12 8v8"/></svg>
+                    Ejecutar
+                </button>
+            </article>
+        `).join('');
+    }
+
+    async function loadPendingQuotes({ silent = true } = {}) {
+        if (state.pendingQuotesLoading) return;
+        state.pendingQuotesLoading = true;
+        const button = qs('#btnRefreshQuotes');
+        if (button) {
+            button.disabled = true;
+            button.classList.add('is-loading');
+        }
+        try {
+            const data = await api(`Controllers/Sell.php?op=cotizacionesPendientes&limite=50&v=${Date.now()}`);
+            if (!data || data.success !== true) throw new Error(data?.mensaje || 'No se pudieron cargar las cotizaciones.');
+            state.pendingQuotes = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
+            state.pendingQuotesTotal = Number(data.total || state.pendingQuotes.length);
+            renderPendingQuotes();
+        } catch (error) {
+            if (!silent) toast(error.message || 'No se pudieron cargar las cotizaciones.', 'error', 'Cotizaciones');
+        } finally {
+            state.pendingQuotesLoading = false;
+            if (button) {
+                button.disabled = false;
+                button.classList.remove('is-loading');
+            }
+        }
+    }
+
+    function startQuotationRealtime() {
+        loadPendingQuotes({ silent: true });
+        if (state.pendingQuotesTimer) clearInterval(state.pendingQuotesTimer);
+        state.pendingQuotesTimer = window.setInterval(() => {
+            if (!document.hidden) loadPendingQuotes({ silent: true });
+        }, 2500);
+
+        if ('BroadcastChannel' in window) {
+            try {
+                state.quoteChannel = new BroadcastChannel('tiquepos-cotizaciones');
+                state.quoteChannel.addEventListener('message', () => loadPendingQuotes({ silent: true }));
+            } catch (_) {
+                state.quoteChannel = null;
+            }
+        }
+
+        window.addEventListener('storage', event => {
+            if (event.key === 'tiquepos_cotizaciones_actualizadas') loadPendingQuotes({ silent: true });
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) loadPendingQuotes({ silent: true });
+        });
+    }
+
+    function openPendingQuotesModal() {
+        renderPendingQuotes();
+        openModal('modalCotizacionesPendientes');
+        loadPendingQuotes({ silent: false });
+    }
+
+    function saleSlotForIntent(name) {
+        const current = activeSale();
+        const currentIsEmpty = current.cart.length === 0
+            && Number(current.quotationOriginId || 0) === 0
+            && current.customer?.generic;
+        if (currentIsEmpty) {
+            current.name = name || current.name;
+            return current;
+        }
+        if (state.sales.length >= 8) {
+            throw new Error('Ya tienes 8 ventas abiertas. Cierra una antes de cargar otra cotización.');
+        }
+        const sale = newSale(name || `Venta ${state.sales.length + 1}`);
+        state.sales.push(sale);
+        state.activeSaleId = sale.id;
+        return sale;
+    }
+
+    async function loadQuotationIntoPos(idventa, { closeList = true } = {}) {
+        const id = Number(idventa || 0);
+        if (id <= 0) return;
+        try {
+            const data = await api(`Controllers/Sell.php?op=cargarCotizacionPos&idventa=${encodeURIComponent(id)}&v=${Date.now()}`);
+            if (!data || data.success !== true) throw new Error(data?.mensaje || 'No se pudo cargar la cotización.');
+
+            /*
+             * Preparar y validar todo antes de tocar una venta abierta. Así, si
+             * la cotización quedó sin stock o dejó de ser ejecutable, el pedido
+             * que el cajero tenga en pantalla permanece intacto.
+             */
+            const productMap = new Map(state.products.map(product => [Number(product.idarticulo), product]));
+            const cartCandidate = [];
+
+            (Array.isArray(data.productos) ? data.productos : []).forEach(line => {
+                if (!line?.puede_cargar || Number(line.cantidad_cargar || 0) <= 0) return;
+                const product = productMap.get(Number(line.idarticulo)) || {};
+                cartCandidate.push({
+                    idarticulo: Number(line.idarticulo),
+                    idingreso: Number(line.idingreso || product.idingreso || 0),
+                    code: String(line.codigo || product.codigo || ''),
+                    name: String(line.articulo || product.nombre || 'Producto'),
+                    displayName: String(line.articulo || product.nombre || 'Producto'),
+                    qty: Number(line.cantidad_cargar || 0),
+                    stock: Math.max(0, Number(line.stock ?? product.stock ?? 0)),
+                    buyPrice: Number(line.precio_compra ?? product.precio_compra ?? 0),
+                    unitPrice: Number(line.precio_venta ?? product.precio_venta ?? 0),
+                    originalPrice: Number(line.precio_venta ?? product.precio_venta ?? 0),
+                    taxCode: String(line.codigo_afectacion_igv || product.codigo_afectacion_igv || '10'),
+                    taxPercent: Number(line.porcentaje_igv ?? product.porcentaje_igv ?? 18),
+                    unitSunat: String(line.unidad_medida_sunat || product.unidad_medida_sunat || 'NIU'),
+                    sunatCode: String(line.codigo_producto_sunat || product.codigo_producto_sunat || ''),
+                    image: String(product.imagen || ''),
+                    category: String(product.categoria || '')
+                });
+            });
+
+            if (!cartCandidate.length) {
+                throw new Error('La cotización no tiene productos disponibles para ejecutar en este momento.');
+            }
+
+            const originNumber = String(data.origen?.numero || '').trim();
+            const customer = normalizeSavedCustomer({
+                ...(data.cliente || {}),
+                generic: String(data.cliente?.num_documento || '') === '99999999',
+                source: 'quotation',
+                registeredAddress: String(data.cliente?.direccion || ''),
+                addressSource: 'quotation'
+            });
+            const finalVoucher = defaultFinalVoucher(customer);
+            const sale = saleSlotForIntent(originNumber ? `Cot. ${originNumber}` : 'Cotización');
+
+            sale.customer = customer;
+            if (finalVoucher) sale.voucherName = finalVoucher.nombre;
+            sale.quotationOriginId = Number(data.origen?.idventa || id);
+            sale.quotationOriginNumber = originNumber;
+            sale.discountMode = 'amount';
+            sale.discountValue = Math.max(0, Number(data.venta?.descuento_total || 0));
+            sale.cart = cartCandidate;
+
+            state.activeSaleId = sale.id;
+            persistSales();
+            renderActiveSale();
+            if (closeList) closeModal('modalCotizacionesPendientes');
+            if (window.innerWidth <= 930) openMobileCart();
+
+            const warnings = Array.isArray(data.advertencias) ? data.advertencias.filter(Boolean) : [];
+            if (warnings.length) {
+                toast(warnings.slice(0, 2).join(' '), 'warning', 'Cotización cargada con ajustes');
+            } else {
+                toast(`Cotización ${originNumber || ''} cargada. Revisa el comprobante y cobra la venta.`, 'success', 'Lista para ejecutar');
+            }
+        } catch (error) {
+            toast(error.message || 'No se pudo cargar la cotización.', 'error', 'Cotización');
+            loadPendingQuotes({ silent: true });
+        }
+    }
+
+    async function applyUrlIntent() {
+        if (state.urlIntentApplied) return;
+        state.urlIntentApplied = true;
+        const params = new URLSearchParams(window.location.search);
+        const quoteId = Number(params.get('ejecutar_cotizacion') || 0);
+        const requestedVoucher = normalize(params.get('comprobante') || '');
+
+        if (quoteId > 0) {
+            await loadQuotationIntoPos(quoteId, { closeList: false });
+        } else if (requestedVoucher.includes('cotizacion')) {
+            const voucher = quotationVoucher();
+            if (!voucher) {
+                toast('No existe un comprobante Cotización activo en la configuración.', 'error', 'Cotización no disponible');
+            } else {
+                try {
+                    const sale = saleSlotForIntent('Cotización');
+                    sale.voucherName = voucher.nombre;
+                    sale.quotationOriginId = 0;
+                    sale.quotationOriginNumber = '';
+                    state.activeSaleId = sale.id;
+                    persistSales();
+                    renderActiveSale();
+                    if (window.innerWidth <= 930) openMobileCart();
+                } catch (error) {
+                    toast(error.message, 'warning', 'Ventas abiertas');
+                }
+            }
+        }
+
+        if (quoteId > 0 || requestedVoucher.includes('cotizacion')) {
+            const cleanUrl = window.location.pathname;
+            try { window.history.replaceState({}, '', cleanUrl); } catch (_) {}
+        }
     }
 
     const DEFAULT_SALE_FIELD_CONFIG = Object.freeze({
@@ -370,6 +608,8 @@
             fechaEmision: boot.today || new Date().toISOString().slice(0, 10),
             tipoOperacionSunat: String(state.tax?.tipo_operacion_sunat || '0101'),
             modoEnvio: String(state.company?.venta_modo_envio_predeterminado || 'inmediato'),
+            quotationOriginId: 0,
+            quotationOriginNumber: '',
             createdAt: Date.now()
         };
     }
@@ -446,6 +686,8 @@
             fechaEmision: /^\d{4}-\d{2}-\d{2}$/.test(String(sale.fechaEmision || '')) ? String(sale.fechaEmision) : (boot.today || new Date().toISOString().slice(0, 10)),
             tipoOperacionSunat: String(sale.tipoOperacionSunat || state.tax?.tipo_operacion_sunat || '0101'),
             modoEnvio: ['inmediato', 'manual', 'resumen_diario'].includes(String(sale.modoEnvio || '').toLowerCase()) ? String(sale.modoEnvio).toLowerCase() : String(state.company?.venta_modo_envio_predeterminado || 'inmediato'),
+            quotationOriginId: Number(sale.quotationOriginId || 0),
+            quotationOriginNumber: String(sale.quotationOriginNumber || ''),
             createdAt: Number(sale.createdAt) || Date.now()
         };
     }
@@ -476,6 +718,26 @@
             const name = normalize(v.nombre);
             return !name.includes('nota de credito') && !name.includes('nota de crédito') && !name.includes('recibo');
         });
+    }
+
+    function isQuotationVoucher(value) {
+        return normalize(value).includes('cotizacion');
+    }
+
+    function quotationVoucher() {
+        return usableVouchers().find(v => isQuotationVoucher(v.nombre)) || null;
+    }
+
+    function defaultFinalVoucher(customer = activeSale().customer || genericCustomer()) {
+        const usable = usableVouchers().filter(v => !isQuotationVoucher(v.nombre));
+        const isRuc = String(customer?.tipo_documento || '').toUpperCase() === 'RUC'
+            && /^\d{11}$/.test(String(customer?.num_documento || ''));
+        if (isRuc) {
+            const invoice = usable.find(v => normalize(v.nombre).includes('factura'));
+            if (invoice) return invoice;
+        }
+        const receipt = usable.find(v => normalize(v.nombre).includes('boleta'));
+        return receipt || usable[0] || null;
     }
 
     function currentVoucher() {
@@ -996,7 +1258,16 @@
         qs('#posDiscountTotal').textContent = `- ${fmt(discount)}`;
         qs('#posTotal').textContent = fmt(total);
         qs('#posCheckoutAmount').textContent = fmt(total);
-        qs('#btnCobrarVenta').disabled = sale.cart.length === 0 || total <= 0;
+        const primaryButton = qs('#btnCobrarVenta');
+        primaryButton.disabled = sale.cart.length === 0 || total <= 0;
+        const quotationMode = isQuotationVoucher(currentVoucher()?.nombre);
+        primaryButton.classList.toggle('is-quotation', quotationMode);
+        const primaryLabel = qs('.pos-checkout-label', primaryButton);
+        if (primaryLabel) {
+            primaryLabel.innerHTML = quotationMode
+                ? `${ICONS.file} Guardar cotización`
+                : `${ICONS.cart} Cobrar venta`;
+        }
         qs('#posDiscountValue').value = String(Number(sale.discountValue) || 0);
         qs('#posDiscountPrefix').textContent = sale.discountMode === 'percent' ? '%' : currencySymbol();
         qsa('[data-discount-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.discountMode === sale.discountMode));
@@ -1652,14 +1923,7 @@
         return sanitizeSaleSendMode(sale?.modoEnvio || state.company?.venta_modo_envio_predeterminado || 'inmediato', voucher);
     }
 
-    async function processSale() {
-        if (state.checkout.processing) return;
-        let validated;
-        try { validated = validateCheckout(); } catch (error) {
-            toast(error.message, 'error', 'Revisa el cobro');
-            return;
-        }
-        const { sale, voucher, totals: t } = validated;
+    function buildBaseSaleForm(sale, voucher, t) {
         const form = new FormData();
         form.append('tipo_comprobante', voucher.nombre);
         form.append('fecha_emision', String(sale.fechaEmision || boot.today || new Date().toISOString().slice(0, 10)));
@@ -1680,10 +1944,10 @@
         form.append('descuento_total', t.discount.toFixed(2));
         const discountPercent = t.subtotal > 0 ? money2((t.discount / t.subtotal) * 100) : 0;
         form.append('descuento_porcentaje', discountPercent.toFixed(2));
-        form.append('idtipopago', state.checkout.type);
-        form.append('numero_cuotas', state.checkout.type === 'Crédito' ? String(Number(qs('#checkoutInstallments').value || 1)) : '0');
-        form.append('fecha_pago', state.checkout.type === 'Crédito' ? String(qs('#checkoutFirstDue').value || '') : '');
         form.append('num_transac', '');
+        if (Number(sale.quotationOriginId || 0) > 0) {
+            form.append('cotizacion_origen_id', String(Number(sale.quotationOriginId)));
+        }
         sale.cart.forEach(item => {
             form.append('idingreso[]', String(Number(item.idingreso) || 0));
             form.append('idarticulo[]', String(Number(item.idarticulo)));
@@ -1692,6 +1956,65 @@
             form.append('precio_venta[]', money2(item.unitPrice).toFixed(2));
             form.append('descuento[]', '0');
         });
+        return form;
+    }
+
+    function validateQuotation() {
+        const sale = activeSale();
+        const voucher = currentVoucher();
+        const t = totals(sale);
+        if (!voucher || !isQuotationVoucher(voucher.nombre)) throw new Error('Selecciona el comprobante Cotización.');
+        if (!sale.cart.length || t.total <= 0) throw new Error('La cotización debe contener al menos un producto.');
+        if (Number(sale.quotationOriginId || 0) > 0) throw new Error('Una cotización pendiente debe ejecutarse como venta, no guardarse como otra cotización.');
+        return { sale, voucher, totals: t };
+    }
+
+    async function processQuotation() {
+        if (state.checkout.processing) return;
+        let validated;
+        try { validated = validateQuotation(); } catch (error) {
+            toast(error.message, 'error', 'Revisa la cotización');
+            return;
+        }
+        const { sale, voucher, totals: t } = validated;
+        const form = buildBaseSaleForm(sale, voucher, t);
+        state.checkout.processing = true;
+        const button = qs('#btnCobrarVenta');
+        button.disabled = true;
+        const label = qs('.pos-checkout-label', button);
+        const originalLabel = label?.innerHTML || '';
+        if (label) label.innerHTML = '<span class="pos-spinner" style="width:15px;height:15px;margin:0;border-width:2px;border-color:rgba(255,255,255,.35);border-top-color:#fff"></span> Guardando...';
+        try {
+            const result = await api('Controllers/Sell.php?op=guardaryeditar', { method: 'POST', body: form });
+            if (!result || result.success !== true) throw new Error(result?.mensaje || 'No se pudo registrar la cotización.');
+            state.lastSaleResult = result;
+            showSaleSuccess(result);
+            resetCompletedSale(sale.id);
+            announceQuotationChange();
+            loadPendingQuotes({ silent: true });
+        } catch (error) {
+            toast(error.message || 'No se pudo registrar la cotización.', 'error', 'Cotización no registrada');
+        } finally {
+            state.checkout.processing = false;
+            button.disabled = false;
+            if (label && originalLabel) label.innerHTML = originalLabel;
+            renderCart();
+        }
+    }
+
+    async function processSale() {
+        if (state.checkout.processing) return;
+        let validated;
+        try { validated = validateCheckout(); } catch (error) {
+            toast(error.message, 'error', 'Revisa el cobro');
+            return;
+        }
+        const { sale, voucher, totals: t } = validated;
+        const form = buildBaseSaleForm(sale, voucher, t);
+        form.append('idtipopago', state.checkout.type);
+        form.append('numero_cuotas', state.checkout.type === 'Crédito' ? String(Number(qs('#checkoutInstallments').value || 1)) : '0');
+        form.append('fecha_pago', state.checkout.type === 'Crédito' ? String(qs('#checkoutFirstDue').value || '') : '');
+
         if (state.checkout.type === 'Crédito') {
             // El backend conserva una forma de pago principal por compatibilidad con
             // la tabla venta, pero una venta a crédito NO registra venta_pago al emitir.
@@ -1715,6 +2038,7 @@
         button.disabled = true;
         button.querySelector('.label').innerHTML = '<span class="pos-spinner" style="width:16px;height:16px;margin:0;border-width:2px;border-color:rgba(255,255,255,.35);border-top-color:#fff"></span> Procesando...';
         try {
+            const quotationOriginId = Number(sale.quotationOriginId || 0);
             const result = await api('Controllers/Sell.php?op=guardaryeditar', { method: 'POST', body: form });
             if (!result || result.success !== true) throw new Error(result?.mensaje || 'No se pudo registrar la venta.');
             state.lastSaleResult = result;
@@ -1722,6 +2046,10 @@
             showSaleSuccess(result);
             resetCompletedSale(sale.id);
             refreshCatalogAfterSale();
+            if (quotationOriginId > 0) {
+                announceQuotationChange();
+                loadPendingQuotes({ silent: true });
+            }
         } catch (error) {
             toast(error.message || 'No se pudo procesar la venta.', 'error', 'Venta no registrada');
         } finally {
@@ -1764,10 +2092,17 @@
     }
 
     function showSaleSuccess(result) {
-        qs('#saleSuccessMessage').textContent = result.mensaje || 'La venta se registró correctamente.';
+        const quotation = result?.es_cotizacion === true || isQuotationVoucher(result?.tipo_comprobante || '');
+        const eyebrow = qs('.pos-success-dialog .pos-modal-eyebrow');
+        if (eyebrow) eyebrow.textContent = quotation ? 'Cotización guardada' : 'Venta completada';
+        qs('#saleSuccessTitle').textContent = quotation ? 'Cotización registrada' : 'Comprobante emitido';
+        qs('#saleSuccessMessage').textContent = result.mensaje || (quotation ? 'La cotización se registró correctamente.' : 'La venta se registró correctamente.');
         qs('#saleSuccessVoucher').textContent = result.comprobante || `${result.serie_comprobante || ''}-${result.num_comprobante || ''}`;
         qs('#saleSuccessTotal').textContent = fmt(result.total_venta || 0);
-        qs('#saleSuccessSunat').textContent = sunatLabel(result);
+        const statusLabel = qs('#saleSuccessSunat')?.previousElementSibling;
+        if (statusLabel) statusLabel.textContent = quotation ? 'Estado' : 'SUNAT';
+        qs('#saleSuccessSunat').textContent = quotation ? 'Pendiente' : sunatLabel(result);
+        qs('#btnNuevaVentaSuccess').textContent = quotation ? 'Continuar en POS' : 'Nueva venta';
         openModal('modalSaleSuccess');
     }
 
@@ -1993,6 +2328,8 @@
             renderProducts();
             renderSalesTabs();
             renderActiveSale();
+            await applyUrlIntent();
+            startQuotationRealtime();
             qs('#posApp').setAttribute('aria-busy', 'false');
         } catch (error) {
             toast(error.message || 'No se pudo cargar el POS.', 'error', 'Error de inicio');
@@ -2240,8 +2577,38 @@
             persistSales();
             renderCart();
         });
-        qs('#btnCobrarVenta').addEventListener('click', openCheckout);
+        qs('#btnCobrarVenta').addEventListener('click', () => {
+            if (isQuotationVoucher(currentVoucher()?.nombre)) processQuotation();
+            else openCheckout();
+        });
         qs('#btnGuardarItemEditado').addEventListener('click', saveEditedItem);
+
+        qs('#btnCotizacionesPos').addEventListener('click', openPendingQuotesModal);
+        qs('#btnRefreshQuotes').addEventListener('click', () => loadPendingQuotes({ silent: false }));
+        qs('#btnNuevaCotizacionPos').addEventListener('click', () => {
+            closeModal('modalCotizacionesPendientes');
+            const voucher = quotationVoucher();
+            if (!voucher) {
+                toast('No existe un comprobante Cotización activo en la configuración.', 'error', 'Cotización no disponible');
+                return;
+            }
+            try {
+                const sale = saleSlotForIntent('Cotización');
+                sale.voucherName = voucher.nombre;
+                sale.quotationOriginId = 0;
+                sale.quotationOriginNumber = '';
+                state.activeSaleId = sale.id;
+                persistSales();
+                renderActiveSale();
+                if (window.innerWidth <= 930) openMobileCart();
+            } catch (error) {
+                toast(error.message, 'warning', 'Ventas abiertas');
+            }
+        });
+        qs('#posQuotesList').addEventListener('click', event => {
+            const button = event.target.closest('[data-execute-quote]');
+            if (button) loadQuotationIntoPos(Number(button.dataset.executeQuote || 0));
+        });
 
         qs('#checkoutPaymentRows').addEventListener('change', event => {
             const method = event.target.closest('[data-payment-method]');

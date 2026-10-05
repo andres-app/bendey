@@ -188,6 +188,31 @@ function obtenerEstadoSunatTexto(string $estado): string
     };
 }
 
+/**
+ * Normaliza nombres de comprobantes para comparaciones internas.
+ */
+function normalizarTipoComprobanteInterno(string $valor): string
+{
+    $normalizado = mb_strtolower(trim($valor), 'UTF-8');
+    return strtr($normalizado, [
+        'á' => 'a',
+        'é' => 'e',
+        'í' => 'i',
+        'ó' => 'o',
+        'ú' => 'u',
+        'ü' => 'u',
+        'ñ' => 'n',
+    ]);
+}
+
+function esCotizacionInterna(string $valor): bool
+{
+    return str_contains(
+        normalizarTipoComprobanteInterno($valor),
+        'cotizacion'
+    );
+}
+
 switch ($op) {
 
     // =========================================================
@@ -246,11 +271,62 @@ switch ($op) {
 | CAJA_UNICA y MULTICAJA requieren una apertura física activa.
 |--------------------------------------------------------------------------
 */
-            $esCotizacion =
-                stripos(
-                    $tipo_comprobante,
-                    'cotizacion'
-                ) !== false;
+            $esCotizacion = esCotizacionInterna($tipo_comprobante);
+
+            /*
+             * Cuando una venta proviene de una cotización, la cotización se
+             * bloquea dentro de la misma transacción. Así se evita que dos
+             * cajas ejecuten la misma propuesta al mismo tiempo.
+             */
+            $cotizacionOrigenId = (int)(
+                $_POST['cotizacion_origen_id'] ?? 0
+            );
+            $cotizacionOrigen = null;
+
+            if ($cotizacionOrigenId > 0) {
+                if ($esCotizacion) {
+                    throw new Exception(
+                        'Una cotización no puede ejecutarse como otra cotización.'
+                    );
+                }
+
+                $cotizacionOrigen = $conexionVenta->getData(
+                    "SELECT
+                        idventa,
+                        idsucursal,
+                        tipo_comprobante,
+                        serie_comprobante,
+                        num_comprobante,
+                        estado
+                     FROM venta
+                     WHERE idventa = ?
+                     LIMIT 1
+                     FOR UPDATE",
+                    [$cotizacionOrigenId]
+                );
+
+                if (
+                    !is_array($cotizacionOrigen)
+                    || !esCotizacionInterna(
+                        (string)($cotizacionOrigen['tipo_comprobante'] ?? '')
+                    )
+                ) {
+                    throw new Exception(
+                        'La cotización de origen no existe o no es válida.'
+                    );
+                }
+
+                if (
+                    strcasecmp(
+                        trim((string)($cotizacionOrigen['estado'] ?? '')),
+                        'Aceptado'
+                    ) !== 0
+                ) {
+                    throw new Exception(
+                        'La cotización ya fue ejecutada o ya no se encuentra pendiente.'
+                    );
+                }
+            }
 
             if ($modoCajaSesion !== 'LEGACY') {
                 $idsucursalSesion = (int)(
@@ -391,6 +467,20 @@ switch ($op) {
 
                     $idaperturaVenta =
                         (int)$aperturaVenta['idapertura'];
+                }
+            }
+
+            /*
+             * Una cotización creada en una sucursal no debe ejecutarse desde
+             * otra sucursal activa. Las cotizaciones históricas sin sucursal
+             * (modo LEGACY) se mantienen compatibles.
+             */
+            if (is_array($cotizacionOrigen) && (int)$idsucursalVenta > 0) {
+                $sucursalOrigen = (int)($cotizacionOrigen['idsucursal'] ?? 0);
+                if ($sucursalOrigen > 0 && $sucursalOrigen !== (int)$idsucursalVenta) {
+                    throw new Exception(
+                        'La cotización pertenece a otra sucursal y no puede ejecutarse desde la sucursal activa.'
+                    );
                 }
             }
 
@@ -784,6 +874,66 @@ switch ($op) {
                 );
             }
 
+            /*
+             * Validar cantidades siempre y, para una venta real, bloquear el
+             * stock de cada artículo dentro de esta misma transacción. Una
+             * cotización es solo una propuesta comercial: no reserva ni mueve
+             * inventario. El bloqueo evita que dos cajas consuman simultáneamente
+             * la misma existencia (incluido al ejecutar una cotización).
+             */
+            $cantidadesPorArticulo = [];
+
+            for ($indiceProducto = 0; $indiceProducto < $cantidadProductos; $indiceProducto++) {
+                $idArticuloDetalle = (int)($idarticulos[$indiceProducto] ?? 0);
+                $cantidadDetalle = (float)($cantidades[$indiceProducto] ?? 0);
+
+                if ($idArticuloDetalle <= 0) {
+                    throw new Exception('Se encontró un producto no válido en el detalle.');
+                }
+
+                if ($cantidadDetalle <= 0) {
+                    throw new Exception('La cantidad de cada producto debe ser mayor que cero.');
+                }
+
+                if (!isset($cantidadesPorArticulo[$idArticuloDetalle])) {
+                    $cantidadesPorArticulo[$idArticuloDetalle] = 0.0;
+                }
+                $cantidadesPorArticulo[$idArticuloDetalle] += $cantidadDetalle;
+            }
+
+            if (!$esCotizacion) {
+                foreach ($cantidadesPorArticulo as $idArticuloStock => $cantidadSolicitadaStock) {
+                    $articuloStock = $conexionVenta->getData(
+                        "SELECT idarticulo, nombre, stock, condicion
+                         FROM articulo
+                         WHERE idarticulo = ?
+                         LIMIT 1
+                         FOR UPDATE",
+                        [(int)$idArticuloStock]
+                    );
+
+                    if (!is_array($articuloStock)) {
+                        throw new Exception('Uno de los productos de la venta ya no existe.');
+                    }
+
+                    if ((int)($articuloStock['condicion'] ?? 0) !== 1) {
+                        throw new Exception(
+                            'El producto ' . trim((string)($articuloStock['nombre'] ?? 'seleccionado')) . ' ya no está activo.'
+                        );
+                    }
+
+                    $stockDisponible = (float)($articuloStock['stock'] ?? 0);
+                    if (($stockDisponible + 0.000001) < (float)$cantidadSolicitadaStock) {
+                        throw new Exception(
+                            'Stock insuficiente para ' . trim((string)($articuloStock['nombre'] ?? 'el producto'))
+                            . '. Disponible: ' . rtrim(rtrim(number_format($stockDisponible, 3, '.', ''), '0'), '.')
+                            . ', solicitado: ' . rtrim(rtrim(number_format((float)$cantidadSolicitadaStock, 3, '.', ''), '0'), '.')
+                            . '. Actualiza la venta e inténtalo nuevamente.'
+                        );
+                    }
+                }
+            }
+
             // =================================================
             // 6. PREVISUALIZAR TOTAL TRIBUTARIO SIN DESCUENTO GLOBAL
             // =================================================
@@ -925,215 +1075,190 @@ switch ($op) {
             // =================================================
             // 8. FORMA Y TIPO DE PAGO
             // =================================================
-            $idforma_pago = (int)(
-                $_POST['idforma_pago'] ?? 0
-            );
-
-            if ($idforma_pago <= 0) {
-                throw new Exception(
-                    'Debe seleccionar una forma de pago.'
-                );
-            }
-
-            $formaPago = $conexionVenta->getData(
-                "SELECT
-                    idforma_pago,
-                    nombre,
-                    es_efectivo,
-                    es_combinado
-                FROM forma_pago
-                WHERE idforma_pago = ?
-                AND activo = 1
-                AND condicion = 1
-                LIMIT 1",
-                [$idforma_pago]
-            );
-
-            if (!$formaPago) {
-                throw new Exception(
-                    'La forma de pago seleccionada no es válida.'
-                );
-            }
-
             /*
-|--------------------------------------------------------------------------
-| TIPO DE PAGO: CONTADO O CRÉDITO
-|--------------------------------------------------------------------------
-| El formulario puede enviar:
-| - Contado
-| - Crédito
-| - 1
-| - 4
-*/
-            $tipo_pago = trim(
-                (string)(
-                    $_POST['idtipopago']
-                    ?? ''
-                )
-            );
-
-            if ($tipo_pago === '') {
-                throw new Exception(
-                    'Debe seleccionar el tipo de pago.'
-                );
-            }
-
-            $tipoPagoNormalizado = mb_strtoupper(
-                $tipo_pago,
-                'UTF-8'
-            );
-
-            $tipoPagoNormalizado = str_replace(
-                [
-                    'Á',
-                    'É',
-                    'Í',
-                    'Ó',
-                    'Ú'
-                ],
-                [
-                    'A',
-                    'E',
-                    'I',
-                    'O',
-                    'U'
-                ],
-                $tipoPagoNormalizado
-            );
-
-            $esCredito = (
-                $tipoPagoNormalizado === '4'
-                || str_contains(
-                    $tipoPagoNormalizado,
-                    'CREDITO'
-                )
-            );
-
-            $esContado = (
-                $tipoPagoNormalizado === '1'
-                || str_contains(
-                    $tipoPagoNormalizado,
-                    'CONTADO'
-                )
-            );
-
-            if (!$esCredito && !$esContado) {
-                throw new Exception(
-                    'El tipo de pago debe ser Contado o Crédito.'
-                );
-            }
-
-            /*
-|--------------------------------------------------------------------------
-| DATOS DE LAS CUOTAS
-|--------------------------------------------------------------------------
-*/
+             * Una cotización es una propuesta comercial: no genera cobro,
+             * cronograma de crédito ni movimiento financiero. La forma/tipo
+             * de pago se solicitarán recién cuando la cotización se ejecute
+             * como una venta real.
+             */
+            $idforma_pago = null;
+            $formaPago = null;
+            $tipo_pago = 'No aplica';
+            $esCredito = false;
+            $esContado = false;
             $numeroCuotas = 0;
             $fechaPrimeraCuotaTexto = '';
             $fechaPrimeraCuota = null;
 
-            if ($esCredito) {
-                $esFacturaCredito =
-                    stripos(
-                        $tipo_comprobante,
-                        'factura'
-                    ) !== false;
+            if (!$esCotizacion) {
+                $idforma_pago = (int)(
+                    $_POST['idforma_pago'] ?? 0
+                );
 
-                if (!$esFacturaCredito) {
+                if ($idforma_pago <= 0) {
                     throw new Exception(
-                        'Por ahora el pago al crédito está habilitado únicamente para facturas electrónicas.'
+                        'Debe seleccionar una forma de pago.'
                     );
                 }
 
-                $numeroCuotas = (int)(
-                    $_POST['numero_cuotas']
-                    ?? 0
+                $formaPago = $conexionVenta->getData(
+                    "SELECT
+                        idforma_pago,
+                        nombre,
+                        es_efectivo,
+                        es_combinado
+                    FROM forma_pago
+                    WHERE idforma_pago = ?
+                    AND activo = 1
+                    AND condicion = 1
+                    LIMIT 1",
+                    [$idforma_pago]
                 );
 
-                $fechaPrimeraCuotaTexto = trim(
+                if (!$formaPago) {
+                    throw new Exception(
+                        'La forma de pago seleccionada no es válida.'
+                    );
+                }
+
+                $tipo_pago = trim(
                     (string)(
-                        $_POST['fecha_pago']
+                        $_POST['idtipopago']
                         ?? ''
                     )
                 );
 
-                if (
-                    $numeroCuotas < 1
-                    || $numeroCuotas > 36
-                ) {
+                if ($tipo_pago === '') {
                     throw new Exception(
-                        'El número de cuotas debe estar entre 1 y 36.'
+                        'Debe seleccionar el tipo de pago.'
                     );
                 }
 
-                if (
-                    !preg_match(
-                        '/^\d{4}-\d{2}-\d{2}$/',
-                        $fechaPrimeraCuotaTexto
-                    )
-                ) {
-                    throw new Exception(
-                        'Debe ingresar la fecha de vencimiento de la primera cuota.'
-                    );
-                }
-
-                $zonaHoraria = new DateTimeZone(
-                    'America/Lima'
+                $tipoPagoNormalizado = mb_strtoupper(
+                    $tipo_pago,
+                    'UTF-8'
                 );
 
-                try {
-                    $fechaPrimeraCuota =
-                        new DateTimeImmutable(
-                            $fechaPrimeraCuotaTexto,
-                            $zonaHoraria
+                $tipoPagoNormalizado = str_replace(
+                    ['Á', 'É', 'Í', 'Ó', 'Ú'],
+                    ['A', 'E', 'I', 'O', 'U'],
+                    $tipoPagoNormalizado
+                );
+
+                $esCredito = (
+                    $tipoPagoNormalizado === '4'
+                    || str_contains($tipoPagoNormalizado, 'CREDITO')
+                );
+
+                $esContado = (
+                    $tipoPagoNormalizado === '1'
+                    || str_contains($tipoPagoNormalizado, 'CONTADO')
+                );
+
+                if (!$esCredito && !$esContado) {
+                    throw new Exception(
+                        'El tipo de pago debe ser Contado o Crédito.'
+                    );
+                }
+
+                if ($esCredito) {
+                    $esFacturaCredito =
+                        stripos(
+                            $tipo_comprobante,
+                            'factura'
+                        ) !== false;
+
+                    if (!$esFacturaCredito) {
+                        throw new Exception(
+                            'Por ahora el pago al crédito está habilitado únicamente para facturas electrónicas.'
                         );
-                } catch (Throwable $errorFecha) {
-                    throw new Exception(
-                        'La fecha de la primera cuota no es válida.'
+                    }
+
+                    $numeroCuotas = (int)(
+                        $_POST['numero_cuotas']
+                        ?? 0
                     );
-                }
 
-                if (
-                    $fechaPrimeraCuota->format('Y-m-d')
-                    !== $fechaPrimeraCuotaTexto
-                ) {
-                    throw new Exception(
-                        'La fecha de la primera cuota no es válida.'
+                    $fechaPrimeraCuotaTexto = trim(
+                        (string)(
+                            $_POST['fecha_pago']
+                            ?? ''
+                        )
                     );
-                }
 
-                /*
-|--------------------------------------------------------------------------
-| VALIDAR VENCIMIENTO POSTERIOR A HOY
-|--------------------------------------------------------------------------
-| SUNAT no admite como vencimiento una fecha anterior
-| ni igual a la fecha de emisión.
-*/
-                $fechaActual = new DateTimeImmutable(
-                    'today',
-                    $zonaHoraria
-                );
+                    if (
+                        $numeroCuotas < 1
+                        || $numeroCuotas > 36
+                    ) {
+                        throw new Exception(
+                            'El número de cuotas debe estar entre 1 y 36.'
+                        );
+                    }
 
-                $fechaMinimaPermitida = $fechaActual->modify(
-                    '+1 day'
-                );
+                    if (
+                        !preg_match(
+                            '/^\d{4}-\d{2}-\d{2}$/',
+                            $fechaPrimeraCuotaTexto
+                        )
+                    ) {
+                        throw new Exception(
+                            'Debe ingresar la fecha de vencimiento de la primera cuota.'
+                        );
+                    }
 
-                if (
-                    $fechaPrimeraCuota
-                    < $fechaMinimaPermitida
-                ) {
-                    throw new Exception(
-                        'La fecha de vencimiento de la primera cuota debe ser posterior a la fecha de hoy.'
+                    $zonaHoraria = new DateTimeZone(
+                        'America/Lima'
                     );
+
+                    try {
+                        $fechaPrimeraCuota =
+                            new DateTimeImmutable(
+                                $fechaPrimeraCuotaTexto,
+                                $zonaHoraria
+                            );
+                    } catch (Throwable $errorFecha) {
+                        throw new Exception(
+                            'La fecha de la primera cuota no es válida.'
+                        );
+                    }
+
+                    if (
+                        $fechaPrimeraCuota->format('Y-m-d')
+                        !== $fechaPrimeraCuotaTexto
+                    ) {
+                        throw new Exception(
+                            'La fecha de la primera cuota no es válida.'
+                        );
+                    }
+
+                    $fechaActual = new DateTimeImmutable(
+                        'today',
+                        $zonaHoraria
+                    );
+
+                    $fechaMinimaPermitida = $fechaActual->modify(
+                        '+1 day'
+                    );
+
+                    if (
+                        $fechaPrimeraCuota
+                        < $fechaMinimaPermitida
+                    ) {
+                        throw new Exception(
+                            'La fecha de vencimiento de la primera cuota debe ser posterior a la fecha de hoy.'
+                        );
+                    }
                 }
             }
 
-            $num_transac = trim(
-                (string)(
-                    $_POST['num_transac']
-                    ?? ''
-                )
-            );
+            $num_transac = $esCotizacion
+                ? ''
+                : trim(
+                    (string)(
+                        $_POST['num_transac']
+                        ?? ''
+                    )
+                );
 
             // =================================================
             // 9. OBTENER CORRELATIVO BLOQUEADO
@@ -1214,10 +1339,28 @@ switch ($op) {
                 );
             }
 
+            if ($cotizacionOrigenId > 0) {
+                $cotizacionEjecutada = $conexionVenta->setData(
+                    "UPDATE venta
+                     SET estado = 'Ejecutado'
+                     WHERE idventa = ?
+                       AND estado = 'Aceptado'",
+                    [$cotizacionOrigenId]
+                );
+
+                if (!$cotizacionEjecutada) {
+                    throw new Exception(
+                        'No se pudo marcar la cotización como ejecutada.'
+                    );
+                }
+            }
+
             // =================================================
             // 11. CRONOGRAMA DE CRÉDITO / PAGOS AL CONTADO
             // =================================================
-            if ($esCredito) {
+            if ($esCotizacion) {
+                // Una cotización no registra pagos ni cuotas.
+            } elseif ($esCredito) {
                 /*
                 |--------------------------------------------------------------
                 | VENTA AL CRÉDITO
@@ -1668,11 +1811,13 @@ switch ($op) {
                 }
             }
 
-            $mensajeRespuesta =
-                'Venta registrada correctamente.';
+            $mensajeRespuesta = $esCotizacion
+                ? 'Cotización registrada correctamente.'
+                : 'Venta registrada correctamente.';
 
             if (
-                $esBoletaElectronica
+                !$esCotizacion
+                && $esBoletaElectronica
                 && $modoEnvio === 'resumen_diario'
             ) {
                 $mensajeRespuesta =
@@ -1712,6 +1857,8 @@ switch ($op) {
                 'moneda_codigo' => $monedaCodigo,
                 'tipo_cambio_sunat' => $tipoCambioSunat,
                 'modo_envio' => $modoEnvio,
+                'es_cotizacion' => $esCotizacion,
+                'cotizacion_origen_id' => $cotizacionOrigenId > 0 ? $cotizacionOrigenId : null,
                 'mensaje' => $mensajeRespuesta,
                 'sunat' => $resultadoSunat
             ]);
@@ -1802,76 +1949,97 @@ switch ($op) {
     // =========================================================
     case 'listarCotizaciones':
 
-        $rspta = $sell->listarCotizaciones();
+        $idsucursalCotizaciones = (int)($_SESSION['idsucursal_activa'] ?? 0);
+        $rspta = $sell->listarCotizaciones(
+            $idsucursalCotizaciones > 0 ? $idsucursalCotizaciones : null
+        );
         $data = [];
         $baseUrl = obtenerBaseUrl();
 
         foreach ($rspta as $reg) {
             $id = (int)$reg['idventa'];
+            $estado = trim((string)($reg['estado'] ?? ''));
+            $esPendiente = strcasecmp($estado, 'Aceptado') === 0;
+            $esEjecutada = strcasecmp($estado, 'Ejecutado') === 0;
+
+            $acciones = '
+                <div class="btn-group cotizacion-actions">
+                    <button
+                        class="btn btn-info btn-sm"
+                        title="Ver cotización"
+                        onclick="mostrar(' . $id . ')">
+                        <i class="fas fa-eye"></i>
+                    </button>';
+
+            if ($esPendiente) {
+                $acciones .= '
+                    <button
+                        class="btn btn-primary btn-sm"
+                        title="Ejecutar cotización en el POS"
+                        onclick="ejecutarCotizacion(' . $id . ')">
+                        <i class="fas fa-cash-register"></i>
+                    </button>';
+            }
+
+            $acciones .= '
+                    <button
+                        class="btn btn-success btn-sm"
+                        title="Imprimir"
+                        onclick="window.open(\'' .
+                            $baseUrl .
+                            'Reports/a4.php?id=' .
+                            $id .
+                            '\', \'_blank\')">
+                        <i class="fas fa-print"></i>
+                    </button>
+                </div>';
+
+            if ($esPendiente) {
+                $estadoHtml = '<span class="badge badge-warning">Pendiente</span>';
+            } elseif ($esEjecutada) {
+                $estadoHtml = '<span class="badge badge-success">Ejecutada</span>';
+            } elseif (strcasecmp($estado, 'Anulado') === 0) {
+                $estadoHtml = '<span class="badge badge-danger">Anulada</span>';
+            } else {
+                $estadoHtml = '<span class="badge badge-secondary">' .
+                    htmlspecialchars($estado !== '' ? $estado : 'Sin estado', ENT_QUOTES, 'UTF-8') .
+                    '</span>';
+            }
+
+            $numeroCotizacion = trim((string)($reg['serie_comprobante'] ?? ''))
+                . '-'
+                . trim((string)($reg['num_comprobante'] ?? ''));
 
             $data[] = [
-                '0' => '
-                    <div class="btn-group">
-                        <button
-                            class="btn btn-info btn-sm"
-                            title="Ver"
-                            onclick="mostrar(' . $id . ')">
-                            <i class="fas fa-eye"></i>
-                        </button>
-
-                        <button
-                            class="btn btn-success btn-sm"
-                            title="Imprimir"
-                            onclick="window.open(\'' .
-                    $baseUrl .
-                    'Reports/a4.php?id=' .
-                    $id .
-                    '\', \'_blank\')">
-                            <i class="fas fa-print"></i>
-                        </button>
-
-                        <button
-                            type="button"
-                            class="btn btn-secondary btn-sm dropdown-toggle"
-                            data-toggle="dropdown"
-                            title="Más">
-                            <span>...</span>
-                        </button>
-
-                        <div class="dropdown-menu">
-                            <a
-                                class="dropdown-item"
-                                href="' .
-                    $baseUrl .
-                    'Reports/a4.php?id=' .
-                    $id .
-                    '"
-                                target="_blank">
-                                <i class="far fa-file-pdf"></i>
-                                Imprimir A4
-                            </a>
-
-                        </div>
-                    </div>
-                ',
-                '1' => $reg['fecha'],
-                '2' => $reg['cliente'],
-                '3' => $reg['usuario'],
-                '4' => $reg['tipo_comprobante'],
-                '5' =>
-                $reg['serie_comprobante']
-                    . '-'
-                    . $reg['num_comprobante'],
+                '0' => $acciones,
+                '1' => htmlspecialchars(
+                    (string)($reg['fecha_texto'] ?? $reg['fecha'] ?? ''),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+                '2' => htmlspecialchars(
+                    (string)($reg['cliente'] ?? 'SIN CLIENTE'),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+                '3' => htmlspecialchars(
+                    (string)($reg['usuario'] ?? 'SIN USUARIO'),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+                '4' => htmlspecialchars(
+                    (string)($reg['tipo_comprobante'] ?? 'Cotización'),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ),
+                '5' => htmlspecialchars($numeroCotizacion, ENT_QUOTES, 'UTF-8'),
                 '6' => number_format(
                     (float)$reg['total_venta'],
                     2,
                     '.',
                     ''
                 ),
-                '7' =>
-                $reg['estado'] === 'Aceptado'
-                    ? '<div class="badge badge-success">Aceptado</div>'
-                    : '<div class="badge badge-danger">Anulado</div>'
+                '7' => $estadoHtml
             ];
         }
 
@@ -1880,6 +2048,211 @@ switch ($op) {
             'iTotalRecords' => count($data),
             'iTotalDisplayRecords' => count($data),
             'aaData' => $data
+        ]);
+
+        break;
+
+    // =========================================================
+    // COTIZACIONES PENDIENTES PARA DASHBOARD / POS
+    // =========================================================
+    case 'cotizacionesPendientes':
+
+        if (
+            !isset($_SESSION['nombre'])
+            || (int)($_SESSION['ventas'] ?? 0) !== 1
+        ) {
+            http_response_code(403);
+            responderJson([
+                'success' => false,
+                'mensaje' => 'Acceso no autorizado.',
+                'total' => 0,
+                'cotizaciones' => []
+            ]);
+        }
+
+        $limite = (int)($_GET['limite'] ?? 30);
+        $idsucursalCotizaciones = (int)($_SESSION['idsucursal_activa'] ?? 0);
+        $filtroSucursalCotizaciones = $idsucursalCotizaciones > 0
+            ? $idsucursalCotizaciones
+            : null;
+        $pendientes = $sell->listarCotizacionesPendientes(
+            $limite,
+            $filtroSucursalCotizaciones
+        );
+        $cotizaciones = [];
+
+        foreach ($pendientes as $reg) {
+            $cotizaciones[] = [
+                'idventa' => (int)($reg['idventa'] ?? 0),
+                'numero' => trim((string)($reg['serie_comprobante'] ?? ''))
+                    . '-'
+                    . trim((string)($reg['num_comprobante'] ?? '')),
+                'fecha' => (string)($reg['fecha'] ?? ''),
+                'cliente' => (string)($reg['cliente'] ?? 'SIN CLIENTE'),
+                'documento_cliente' => (string)($reg['documento_cliente'] ?? ''),
+                'total' => round((float)($reg['total_venta'] ?? 0), 2)
+            ];
+        }
+
+        responderJson([
+            'success' => true,
+            'total' => $sell->contarCotizacionesPendientes($filtroSucursalCotizaciones),
+            'cotizaciones' => $cotizaciones,
+            'actualizado_en' => date('c')
+        ]);
+
+        break;
+
+    // =========================================================
+    // CARGAR COTIZACIÓN PENDIENTE COMO PLANTILLA DEL POS
+    // =========================================================
+    case 'cargarCotizacionPos':
+
+        if (
+            !isset($_SESSION['nombre'])
+            || (int)($_SESSION['ventas'] ?? 0) !== 1
+        ) {
+            http_response_code(403);
+            responderJson([
+                'success' => false,
+                'mensaje' => 'Acceso no autorizado.'
+            ]);
+        }
+
+        $idCotizacion = (int)(
+            $_GET['idventa']
+            ?? $_POST['idventa']
+            ?? 0
+        );
+
+        if ($idCotizacion <= 0) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'La cotización seleccionada no es válida.'
+            ]);
+        }
+
+        $plantilla = $sell->obtenerDatosDuplicacion($idCotizacion);
+
+        if (!is_array($plantilla)) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'No se encontró la cotización.'
+            ]);
+        }
+
+        $cabecera = is_array($plantilla['cabecera'] ?? null)
+            ? $plantilla['cabecera']
+            : [];
+
+        $idsucursalCotizaciones = (int)($_SESSION['idsucursal_activa'] ?? 0);
+        $sucursalCotizacion = (int)($cabecera['idsucursal'] ?? 0);
+        if (
+            $idsucursalCotizaciones > 0
+            && $sucursalCotizacion > 0
+            && $idsucursalCotizaciones !== $sucursalCotizacion
+        ) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'La cotización pertenece a otra sucursal.'
+            ]);
+        }
+
+        if (!esCotizacionInterna((string)($cabecera['tipo_comprobante'] ?? ''))) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'El documento seleccionado no es una cotización.'
+            ]);
+        }
+
+        if (
+            strcasecmp(
+                trim((string)($cabecera['estado'] ?? '')),
+                'Aceptado'
+            ) !== 0
+        ) {
+            responderJson([
+                'success' => false,
+                'mensaje' => 'La cotización ya fue ejecutada o ya no se encuentra pendiente.'
+            ]);
+        }
+
+        $productos = [];
+        $advertencias = [];
+
+        foreach ((array)($plantilla['detalles'] ?? []) as $detalle) {
+            $idArticulo = (int)($detalle['idarticulo'] ?? 0);
+            $cantidadOriginal = max(0, (float)($detalle['cantidad'] ?? 0));
+            $stockDisponible = max(0, (float)($detalle['stock_disponible'] ?? 0));
+            $articuloActivo = (int)($detalle['articulo_activo'] ?? 0) === 1;
+            $cantidadCargar = min($cantidadOriginal, $stockDisponible);
+            $nombreArticulo = trim((string)($detalle['articulo'] ?? 'Producto'));
+            $puedeCargar = $idArticulo > 0
+                && $articuloActivo
+                && $cantidadCargar > 0;
+
+            if (!$articuloActivo) {
+                $advertencias[] = $nombreArticulo . ': el producto está inactivo.';
+            } elseif ($stockDisponible <= 0) {
+                $advertencias[] = $nombreArticulo . ': actualmente no tiene stock.';
+            } elseif ($cantidadCargar + 0.00001 < $cantidadOriginal) {
+                $advertencias[] = $nombreArticulo
+                    . ': se cotizaron '
+                    . rtrim(rtrim(number_format($cantidadOriginal, 3, '.', ''), '0'), '.')
+                    . ', pero solo hay '
+                    . rtrim(rtrim(number_format($stockDisponible, 3, '.', ''), '0'), '.')
+                    . ' disponibles.';
+            }
+
+            $productos[] = [
+                'idingreso' => (int)($detalle['idingreso'] ?? 0),
+                'idarticulo' => $idArticulo,
+                'codigo' => (string)($detalle['codigo'] ?? ''),
+                'articulo' => $nombreArticulo,
+                'precio_compra' => round(
+                    (float)(
+                        $detalle['precio_compra_actual']
+                        ?? $detalle['precio_compra_original']
+                        ?? 0
+                    ),
+                    2
+                ),
+                'precio_venta' => round((float)($detalle['precio_venta'] ?? 0), 2),
+                'cantidad_original' => $cantidadOriginal,
+                'cantidad_cargar' => $cantidadCargar,
+                'stock' => $stockDisponible,
+                'puede_cargar' => $puedeCargar,
+                'codigo_afectacion_igv' => (string)($detalle['codigo_afectacion_igv'] ?? '10'),
+                'porcentaje_igv' => (float)($detalle['porcentaje_igv'] ?? 18),
+                'unidad_medida_sunat' => (string)($detalle['unidad_medida_sunat'] ?? 'NIU'),
+                'codigo_producto_sunat' => (string)($detalle['codigo_producto_sunat'] ?? '')
+            ];
+        }
+
+        responderJson([
+            'success' => true,
+            'origen' => [
+                'idventa' => (int)($cabecera['idventa'] ?? 0),
+                'numero' => trim((string)($cabecera['serie_comprobante'] ?? ''))
+                    . '-'
+                    . trim((string)($cabecera['num_comprobante'] ?? '')),
+                'total' => round((float)($cabecera['total_venta'] ?? 0), 2)
+            ],
+            'cliente' => [
+                'idpersona' => (int)($cabecera['idcliente'] ?? 0),
+                'tipo_documento' => trim((string)($cabecera['tipo_documento'] ?? 'DNI')),
+                'num_documento' => trim((string)($cabecera['num_documento'] ?? '')),
+                'nombre' => trim((string)($cabecera['cliente'] ?? '')),
+                'direccion' => trim((string)($cabecera['direccion'] ?? '')),
+                'telefono' => trim((string)($cabecera['telefono'] ?? '')),
+                'email' => trim((string)($cabecera['email'] ?? ''))
+            ],
+            'venta' => [
+                'descuento_total' => round((float)($cabecera['descuento_total'] ?? 0), 2),
+                'descuento_porcentaje' => round((float)($cabecera['descuento_porcentaje'] ?? 0), 2)
+            ],
+            'productos' => $productos,
+            'advertencias' => $advertencias
         ]);
 
         break;
