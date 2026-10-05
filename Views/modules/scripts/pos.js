@@ -1275,6 +1275,27 @@
         qs('#posCustomerAddress').value = generic ? '' : (customer.direccion === '-' ? '' : (customer.direccion || ''));
         qs('#posCustomerPhone').value = generic ? '' : (customer.telefono || '');
         qs('#posCustomerCheck').hidden = generic;
+
+        const headerTitle = generic ? 'Pedido actual' : (String(customer.nombre || '').trim() || 'Cliente seleccionado');
+        const documentType = String(customer.tipo_documento || '').toUpperCase() === 'RUC' ? 'RUC' : 'DNI';
+        const documentNumber = String(customer.num_documento || '').trim();
+        const headerSubtitle = generic
+            ? 'Configura la venta y agrega productos'
+            : (documentNumber ? `${documentType}: ${documentNumber}` : 'Cliente seleccionado');
+        qsa('[data-pos-customer-title]').forEach(el => {
+            el.textContent = headerTitle;
+            el.title = generic ? '' : headerTitle;
+        });
+        qsa('[data-pos-customer-subtitle]').forEach(el => {
+            el.textContent = headerSubtitle;
+            el.title = generic ? '' : headerSubtitle;
+        });
+        qsa('[data-open-customer-modal]').forEach(button => {
+            button.classList.toggle('has-customer', !generic);
+            button.setAttribute('aria-label', generic ? 'Agregar datos del cliente' : `Editar datos de ${headerTitle}`);
+            button.title = generic ? 'Datos del cliente' : `Editar cliente: ${headerTitle}`;
+        });
+
         updateCustomerExtraSummary(customer);
         renderAddressVerification(customer);
         const extraKeys = ['direccion', 'celular', 'fecha_emision', 'tipo_operacion_sunat', 'envio_comprobante'];
@@ -1282,6 +1303,18 @@
         qsa('#posCustomerExtra [data-pos-sale-field]').forEach(el => {
             el.hidden = !saleFieldVisible(el.dataset.posSaleField);
         });
+    }
+
+    function openCustomerDataModal() {
+        setSaleSettingsOpen(false);
+        renderCustomer();
+        openModal('modalCustomerData');
+        window.setTimeout(() => {
+            const customer = activeSale().customer || genericCustomer();
+            const target = customer.generic ? qs('#posCustomerDocument') : qs('#posCustomerName');
+            target?.focus();
+            target?.select?.();
+        }, 100);
     }
 
     function renderCart() {
@@ -2334,6 +2367,7 @@
         if (!modal) return;
         modal.hidden = true;
         if (id === 'modalScanner') stopCameraScanner();
+        if (id === 'modalCustomerData') hideCustomerResults();
         if (!qsa('.pos-modal:not([hidden])').length) document.documentElement.style.overflow = '';
     }
 
@@ -2684,8 +2718,14 @@
             if (!event.target.closest('#posSaleSettingsPanel') && !event.target.closest('[data-open-sale-settings]')) setSaleSettingsOpen(false);
         });
 
+        qsa('[data-open-customer-modal]').forEach(button => button.addEventListener('click', event => {
+            event.stopPropagation();
+            openCustomerDataModal();
+        }));
+
         qsa('[data-open-sale-settings]').forEach(button => button.addEventListener('click', event => {
             event.stopPropagation();
+            if (!qs('#modalCustomerData')?.hidden) closeModal('modalCustomerData');
             setSaleSettingsOpen(qs('#posSaleSettingsPanel').hidden);
         }));
         qs('#btnCloseSaleSettings').addEventListener('click', () => setSaleSettingsOpen(false));

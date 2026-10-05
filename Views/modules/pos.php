@@ -173,20 +173,30 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
 
         <aside class="pos-cart-panel" id="posCartPanel" aria-label="Pedido actual">
             <div class="pos-cart-desktop-head">
-                <div>
-                    <strong>Pedido actual</strong>
-                    <small>Configura la venta y agrega productos</small>
+                <div class="pos-cart-head-copy">
+                    <strong data-pos-customer-title>Pedido actual</strong>
+                    <small data-pos-customer-subtitle>Configura la venta y agrega productos</small>
                 </div>
-                <button type="button" class="pos-sale-settings-btn" data-open-sale-settings aria-expanded="false">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
-                    <span>Ajustes</span>
-                </button>
+                <div class="pos-cart-head-actions">
+                    <button type="button" class="pos-cart-head-icon-btn pos-customer-data-btn" data-open-customer-modal title="Datos del cliente" aria-label="Datos del cliente">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16c.7-1.8 2-2.7 3.2-2.7s2.5.9 3.2 2.7M14.5 10h3.5M14.5 14h3.5"/></svg>
+                    </button>
+                    <button type="button" class="pos-cart-head-icon-btn pos-sale-settings-btn" data-open-sale-settings aria-expanded="false" title="Ajustes de la venta" aria-label="Ajustes de la venta">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+                    </button>
+                </div>
             </div>
 
             <div class="pos-cart-mobile-head">
-                <strong>Pedido actual</strong>
+                <div class="pos-cart-mobile-copy">
+                    <strong data-pos-customer-title>Pedido actual</strong>
+                    <small data-pos-customer-subtitle>Configura la venta y agrega productos</small>
+                </div>
                 <div class="pos-cart-mobile-actions">
-                    <button type="button" class="pos-sale-settings-btn compact" data-open-sale-settings aria-expanded="false" aria-label="Ajustes de campos">
+                    <button type="button" class="pos-cart-head-icon-btn pos-customer-data-btn" data-open-customer-modal title="Datos del cliente" aria-label="Datos del cliente">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16c.7-1.8 2-2.7 3.2-2.7s2.5.9 3.2 2.7M14.5 10h3.5M14.5 14h3.5"/></svg>
+                    </button>
+                    <button type="button" class="pos-cart-head-icon-btn pos-sale-settings-btn" data-open-sale-settings aria-expanded="false" title="Ajustes de la venta" aria-label="Ajustes de la venta">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
                     </button>
                     <button type="button" class="pos-icon-btn" id="btnCerrarCarritoMovil" aria-label="Cerrar pedido">
@@ -239,7 +249,91 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                     <div class="pos-document-menu" id="posDocumentMenu" hidden></div>
                 </div>
 
-                <div class="pos-customer-block">
+
+            </div>
+
+            <div class="pos-cart-list-wrap">
+                <div class="pos-cart-list-header">
+                    <span>Productos</span>
+                    <button type="button" class="pos-link-btn danger" id="btnVaciarCarrito">Vaciar</button>
+                </div>
+                <div class="pos-cart-list" id="posCartList"></div>
+                <div class="pos-cart-empty" id="posCartEmpty">
+                    <span>
+                        <svg viewBox="0 0 24 24"><path d="M3 5h2l2.1 9a2 2 0 0 0 2 1.5h7.8a2 2 0 0 0 1.9-1.4L21 8H7"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
+                    </span>
+                    <strong>Tu pedido está vacío</strong>
+                    <p>Selecciona un producto del catálogo para comenzar.</p>
+                </div>
+            </div>
+
+            <div class="pos-summary-panel">
+                <div class="pos-discount-card" data-pos-sale-field="descuento">
+                    <div class="pos-discount-heading">
+                        <span>Descuento</span>
+                        <div class="pos-segmented" role="group" aria-label="Tipo de descuento">
+                            <button type="button" class="active" data-discount-mode="amount">S/.</button>
+                            <button type="button" data-discount-mode="percent">%</button>
+                        </div>
+                    </div>
+                    <div class="pos-money-input">
+                        <span id="posDiscountPrefix">S/.</span>
+                        <input id="posDiscountValue" type="number" inputmode="decimal" min="0" step="0.01" value="0" aria-label="Descuento">
+                    </div>
+                </div>
+
+                <div class="pos-totals">
+                    <div><span>Subtotal</span><strong id="posSubtotal">S/. 0.00</strong></div>
+                    <div id="posDiscountLine" hidden><span>Descuento</span><strong id="posDiscountTotal">- S/. 0.00</strong></div>
+                    <div class="pos-total-main"><span>Total</span><strong id="posTotal">S/. 0.00</strong></div>
+                </div>
+
+                <button type="button" class="pos-checkout-btn" id="btnCobrarVenta" disabled>
+                    <span class="pos-checkout-label">
+                        <svg viewBox="0 0 24 24"><path d="M3 5h2l2.1 9a2 2 0 0 0 2 1.5h7.8a2 2 0 0 0 1.9-1.4L21 8H7"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
+                        Cobrar venta
+                    </span>
+                    <span id="posCheckoutAmount">S/. 0.00</span>
+                </button>
+            </div>
+        </aside>
+    </main>
+
+    <button type="button" class="pos-mobile-cart-fab" id="btnAbrirCarritoMovil" aria-label="Abrir pedido">
+        <svg viewBox="0 0 24 24"><path d="M3 5h2l2.1 9a2 2 0 0 0 2 1.5h7.8a2 2 0 0 0 1.9-1.4L21 8H7"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
+        <span class="pos-mobile-cart-count" id="posMobileCartCount">0</span>
+        <strong id="posMobileCartTotal">S/. 0.00</strong>
+    </button>
+    <div class="pos-mobile-backdrop" id="posMobileBackdrop" hidden></div>
+
+    <div class="pos-loading" id="posLoading">
+        <div class="pos-loading-card">
+            <span class="pos-spinner"></span>
+            <strong>Preparando tu punto de venta</strong>
+            <p>Cargando productos, comprobantes y formas de pago...</p>
+        </div>
+    </div>
+
+    <div class="pos-toast-stack" id="posToastStack" aria-live="polite"></div>
+</div>
+
+
+<!-- Modal de datos del cliente -->
+<div class="pos-modal" id="modalCustomerData" hidden role="dialog" aria-modal="true" aria-labelledby="customerDataTitle">
+    <div class="pos-modal-backdrop" data-close-modal="modalCustomerData"></div>
+    <div class="pos-modal-dialog pos-customer-dialog">
+        <div class="pos-modal-header">
+            <div>
+                <span class="pos-modal-eyebrow">Pedido actual</span>
+                <h2 id="customerDataTitle">Datos del cliente</h2>
+                <p>Busca por DNI/RUC o completa los datos que usarás en esta venta.</p>
+            </div>
+            <button type="button" class="pos-modal-close" data-close-modal="modalCustomerData" aria-label="Cerrar">
+                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div class="pos-modal-body pos-customer-modal-body">
+                <div class="pos-customer-block pos-customer-modal-block">
                     <div class="pos-customer-heading">
                         <span class="pos-field-label">Cliente</span>
                     </div>
@@ -325,71 +419,12 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
 
                     <div class="pos-customer-results" id="posCustomerResults" hidden></div>
                 </div>
-            </div>
-
-            <div class="pos-cart-list-wrap">
-                <div class="pos-cart-list-header">
-                    <span>Productos</span>
-                    <button type="button" class="pos-link-btn danger" id="btnVaciarCarrito">Vaciar</button>
-                </div>
-                <div class="pos-cart-list" id="posCartList"></div>
-                <div class="pos-cart-empty" id="posCartEmpty">
-                    <span>
-                        <svg viewBox="0 0 24 24"><path d="M3 5h2l2.1 9a2 2 0 0 0 2 1.5h7.8a2 2 0 0 0 1.9-1.4L21 8H7"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
-                    </span>
-                    <strong>Tu pedido está vacío</strong>
-                    <p>Selecciona un producto del catálogo para comenzar.</p>
-                </div>
-            </div>
-
-            <div class="pos-summary-panel">
-                <div class="pos-discount-card" data-pos-sale-field="descuento">
-                    <div class="pos-discount-heading">
-                        <span>Descuento</span>
-                        <div class="pos-segmented" role="group" aria-label="Tipo de descuento">
-                            <button type="button" class="active" data-discount-mode="amount">S/.</button>
-                            <button type="button" data-discount-mode="percent">%</button>
-                        </div>
-                    </div>
-                    <div class="pos-money-input">
-                        <span id="posDiscountPrefix">S/.</span>
-                        <input id="posDiscountValue" type="number" inputmode="decimal" min="0" step="0.01" value="0" aria-label="Descuento">
-                    </div>
-                </div>
-
-                <div class="pos-totals">
-                    <div><span>Subtotal</span><strong id="posSubtotal">S/. 0.00</strong></div>
-                    <div id="posDiscountLine" hidden><span>Descuento</span><strong id="posDiscountTotal">- S/. 0.00</strong></div>
-                    <div class="pos-total-main"><span>Total</span><strong id="posTotal">S/. 0.00</strong></div>
-                </div>
-
-                <button type="button" class="pos-checkout-btn" id="btnCobrarVenta" disabled>
-                    <span class="pos-checkout-label">
-                        <svg viewBox="0 0 24 24"><path d="M3 5h2l2.1 9a2 2 0 0 0 2 1.5h7.8a2 2 0 0 0 1.9-1.4L21 8H7"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
-                        Cobrar venta
-                    </span>
-                    <span id="posCheckoutAmount">S/. 0.00</span>
-                </button>
-            </div>
-        </aside>
-    </main>
-
-    <button type="button" class="pos-mobile-cart-fab" id="btnAbrirCarritoMovil" aria-label="Abrir pedido">
-        <svg viewBox="0 0 24 24"><path d="M3 5h2l2.1 9a2 2 0 0 0 2 1.5h7.8a2 2 0 0 0 1.9-1.4L21 8H7"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
-        <span class="pos-mobile-cart-count" id="posMobileCartCount">0</span>
-        <strong id="posMobileCartTotal">S/. 0.00</strong>
-    </button>
-    <div class="pos-mobile-backdrop" id="posMobileBackdrop" hidden></div>
-
-    <div class="pos-loading" id="posLoading">
-        <div class="pos-loading-card">
-            <span class="pos-spinner"></span>
-            <strong>Preparando tu punto de venta</strong>
-            <p>Cargando productos, comprobantes y formas de pago...</p>
+        </div>
+        <div class="pos-modal-footer pos-customer-modal-footer">
+            <span class="pos-customer-modal-hint">El cliente seleccionado se mostrará en la cabecera del pedido.</span>
+            <button type="button" class="pos-primary-btn" data-close-modal="modalCustomerData">Listo</button>
         </div>
     </div>
-
-    <div class="pos-toast-stack" id="posToastStack" aria-live="polite"></div>
 </div>
 
 <!-- Modal de cotizaciones pendientes -->
