@@ -276,7 +276,7 @@ function consultarProveedorCompraApi() {
 
     const $boton = $('#btnConsultarProveedorApi');
     $boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Consultando...');
-    mostrarEstadoProveedorApi('success', '<span class="spinner-border spinner-border-sm mr-1"></span> Consultando PeruDev...');
+    mostrarEstadoProveedorApi('success', '<span class="spinner-border spinner-border-sm mr-1"></span> Consultando documento...');
 
     $.ajax({
         url: 'Controllers/Buy.php?op=consultarProveedorApi',
@@ -329,16 +329,16 @@ function consultarProveedorCompraApi() {
 
         mostrarEstadoProveedorApi(
             'success',
-            '<i class="fas fa-check-circle mr-1"></i> Datos encontrados en PeruDev. Revisa la información y guarda el proveedor.'
+            '<i class="fas fa-check-circle mr-1"></i> Datos encontrados. Revisa la información y guarda el proveedor.'
         );
         $('#proveedor_nombre').trigger('focus');
     }).fail(function (xhr) {
         mostrarEstadoProveedorApi(
             'error',
-            `<i class="fas fa-exclamation-circle mr-1"></i> ${escaparHtmlCompra(mensajeRespuestaCompra(xhr, 'No se pudo consultar PeruDev.'))}`
+            `<i class="fas fa-exclamation-circle mr-1"></i> ${escaparHtmlCompra(mensajeRespuestaCompra(xhr, 'No se pudo consultar el documento.'))}`
         );
     }).always(function () {
-        $boton.prop('disabled', false).html('<i class="fas fa-search"></i> Consultar PeruDev');
+        $boton.prop('disabled', false).html('<i class="fas fa-search"></i> Consultar documento');
     });
 }
 

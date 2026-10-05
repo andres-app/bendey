@@ -327,6 +327,13 @@
             sale.quotationOriginNumber = originNumber;
             sale.discountMode = 'amount';
             sale.discountValue = Math.max(0, Number(data.venta?.descuento_total || 0));
+
+            const quotedPaymentId = Number(data.venta?.idforma_pago || 0);
+            const quotedPayment = paymentMethods().find(method => Number(method.idforma_pago) === quotedPaymentId);
+            if (quotedPayment) sale.idFormaPago = quotedPaymentId;
+
+            const quotedPaymentType = normalize(data.venta?.tipo_pago || 'Contado');
+            sale.tipoPago = quotedPaymentType.includes('credito') ? 'Crédito' : 'Contado';
             sale.cart = cartCandidate;
 
             state.activeSaleId = sale.id;
@@ -1959,6 +1966,36 @@
         return form;
     }
 
+    function openQuotationPayment() {
+        let validated;
+        try { validated = validateQuotation(); } catch (error) {
+            toast(error.message, 'error', 'Revisa la cotización');
+            return;
+        }
+
+        const methods = paymentMethods().filter(method => Number(method.es_combinado) !== 1);
+        if (!methods.length) {
+            toast('No existen formas de pago activas disponibles para la cotización.', 'error', 'Configuración incompleta');
+            return;
+        }
+
+        const sale = validated.sale;
+        const select = qs('#quotationPaymentMethod');
+        select.innerHTML = methods.map(method =>
+            `<option value="${Number(method.idforma_pago)}">${escapeHtml(method.nombre || 'Forma de pago')}</option>`
+        ).join('');
+
+        let selected = Number(sale.idFormaPago || 0);
+        if (!methods.some(method => Number(method.idforma_pago) === selected)) {
+            const preferred = Number(defaultPaymentId());
+            selected = methods.some(method => Number(method.idforma_pago) === preferred)
+                ? preferred
+                : Number(methods[0].idforma_pago);
+        }
+        select.value = String(selected);
+        openModal('modalQuotationPayment');
+    }
+
     function validateQuotation() {
         const sale = activeSale();
         const voucher = currentVoucher();
@@ -1977,17 +2014,33 @@
             return;
         }
         const { sale, voucher, totals: t } = validated;
+        const selectedPaymentId = Number(qs('#quotationPaymentMethod')?.value || 0);
+        const selectedPayment = paymentMethods().find(method =>
+            Number(method.idforma_pago) === selectedPaymentId && Number(method.es_combinado) !== 1
+        );
+        if (!selectedPayment) {
+            toast('Selecciona una forma de pago válida para la cotización.', 'warning', 'Forma de pago requerida');
+            return;
+        }
+
+        sale.idFormaPago = selectedPaymentId;
+        sale.tipoPago = 'Contado';
+        persistSales();
+
         const form = buildBaseSaleForm(sale, voucher, t);
+        form.append('idforma_pago', String(selectedPaymentId));
+        form.append('idtipopago', 'Contado');
+
         state.checkout.processing = true;
-        const button = qs('#btnCobrarVenta');
+        const button = qs('#btnConfirmQuotation');
         button.disabled = true;
-        const label = qs('.pos-checkout-label', button);
-        const originalLabel = label?.innerHTML || '';
-        if (label) label.innerHTML = '<span class="pos-spinner" style="width:15px;height:15px;margin:0;border-width:2px;border-color:rgba(255,255,255,.35);border-top-color:#fff"></span> Guardando...';
+        const originalLabel = button.innerHTML;
+        button.innerHTML = '<span class="pos-spinner" style="width:15px;height:15px;margin:0 8px 0 0;border-width:2px;border-color:rgba(255,255,255,.35);border-top-color:#fff"></span> Guardando...';
         try {
             const result = await api('Controllers/Sell.php?op=guardaryeditar', { method: 'POST', body: form });
             if (!result || result.success !== true) throw new Error(result?.mensaje || 'No se pudo registrar la cotización.');
             state.lastSaleResult = result;
+            closeModal('modalQuotationPayment');
             showSaleSuccess(result);
             resetCompletedSale(sale.id);
             announceQuotationChange();
@@ -1997,7 +2050,7 @@
         } finally {
             state.checkout.processing = false;
             button.disabled = false;
-            if (label && originalLabel) label.innerHTML = originalLabel;
+            button.innerHTML = originalLabel;
             renderCart();
         }
     }
@@ -2578,9 +2631,10 @@
             renderCart();
         });
         qs('#btnCobrarVenta').addEventListener('click', () => {
-            if (isQuotationVoucher(currentVoucher()?.nombre)) processQuotation();
+            if (isQuotationVoucher(currentVoucher()?.nombre)) openQuotationPayment();
             else openCheckout();
         });
+        qs('#btnConfirmQuotation').addEventListener('click', processQuotation);
         qs('#btnGuardarItemEditado').addEventListener('click', saveEditedItem);
 
         qs('#btnCotizacionesPos').addEventListener('click', openPendingQuotesModal);

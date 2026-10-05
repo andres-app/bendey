@@ -345,7 +345,7 @@ try {
             if (!is_array($respuestaApi) || empty($respuestaApi['estado'])) {
                 responderJson(
                     false,
-                    (string)($respuestaApi['mensaje'] ?? 'PeruDev no devolvió información para el documento.'),
+                    (string)($respuestaApi['mensaje'] ?? 'El servicio de consulta no devolvió información para el documento.'),
                     ['api' => $respuestaApi],
                     422
                 );
@@ -353,7 +353,7 @@ try {
 
             responderJson(
                 true,
-                'Datos encontrados en PeruDev.',
+                'Datos encontrados correctamente.',
                 [
                     'existente' => false,
                     'tipo_documento' => $tipoDocumento,

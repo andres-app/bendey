@@ -635,6 +635,7 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
                                 <span class="tw-text-[9px] tw-font-extrabold tw-uppercase tw-tracking-[.14em] tw-text-slate-400">Atendido por</span>
                                 <strong id="previewVendedor" class="tw-mt-1 tw-block tw-text-xs tw-font-bold tw-text-slate-700">—</strong>
                                 <span id="previewEstadoTexto" class="tw-mt-2 tw-block tw-text-[10px] tw-text-slate-500"></span>
+                                <span id="previewFormaPago" class="tw-mt-1 tw-block tw-text-[10px] tw-font-semibold tw-text-slate-600"></span>
                             </div>
                         </div>
 

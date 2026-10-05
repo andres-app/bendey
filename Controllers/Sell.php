@@ -1076,51 +1076,57 @@ switch ($op) {
             // 8. FORMA Y TIPO DE PAGO
             // =================================================
             /*
-             * Una cotización es una propuesta comercial: no genera cobro,
-             * cronograma de crédito ni movimiento financiero. La forma/tipo
-             * de pago se solicitarán recién cuando la cotización se ejecute
-             * como una venta real.
+             * La cotización no genera cobro ni movimiento financiero, pero sí
+             * conserva la forma de pago prevista. De ese modo, al ejecutarla
+             * como venta, el POS puede preseleccionar la forma acordada con el
+             * cliente sin registrar dinero antes de tiempo.
              */
-            $idforma_pago = null;
+            $idforma_pago = (int)(
+                $_POST['idforma_pago'] ?? 0
+            );
             $formaPago = null;
-            $tipo_pago = 'No aplica';
+            $tipo_pago = $esCotizacion ? 'Contado' : '';
             $esCredito = false;
-            $esContado = false;
+            $esContado = $esCotizacion;
             $numeroCuotas = 0;
             $fechaPrimeraCuotaTexto = '';
             $fechaPrimeraCuota = null;
 
+            if ($idforma_pago <= 0) {
+                throw new Exception(
+                    $esCotizacion
+                        ? 'Debe seleccionar la forma de pago prevista para la cotización.'
+                        : 'Debe seleccionar una forma de pago.'
+                );
+            }
+
+            $formaPago = $conexionVenta->getData(
+                "SELECT
+                    idforma_pago,
+                    nombre,
+                    es_efectivo,
+                    es_combinado
+                FROM forma_pago
+                WHERE idforma_pago = ?
+                AND activo = 1
+                AND condicion = 1
+                LIMIT 1",
+                [$idforma_pago]
+            );
+
+            if (!$formaPago) {
+                throw new Exception(
+                    'La forma de pago seleccionada no es válida.'
+                );
+            }
+
+            if ($esCotizacion && (int)($formaPago['es_combinado'] ?? 0) === 1) {
+                throw new Exception(
+                    'Para una cotización seleccione una forma de pago específica; el pago mixto se define al momento del cobro.'
+                );
+            }
+
             if (!$esCotizacion) {
-                $idforma_pago = (int)(
-                    $_POST['idforma_pago'] ?? 0
-                );
-
-                if ($idforma_pago <= 0) {
-                    throw new Exception(
-                        'Debe seleccionar una forma de pago.'
-                    );
-                }
-
-                $formaPago = $conexionVenta->getData(
-                    "SELECT
-                        idforma_pago,
-                        nombre,
-                        es_efectivo,
-                        es_combinado
-                    FROM forma_pago
-                    WHERE idforma_pago = ?
-                    AND activo = 1
-                    AND condicion = 1
-                    LIMIT 1",
-                    [$idforma_pago]
-                );
-
-                if (!$formaPago) {
-                    throw new Exception(
-                        'La forma de pago seleccionada no es válida.'
-                    );
-                }
-
                 $tipo_pago = trim(
                     (string)(
                         $_POST['idtipopago']
@@ -2246,6 +2252,7 @@ switch ($op) {
                 'celular_cliente' => (string)($cabeceraCotizacionVista['celular_cliente'] ?? ''),
                 'email_cliente' => (string)($cabeceraCotizacionVista['email_cliente'] ?? ''),
                 'usuario' => (string)($cabeceraCotizacionVista['usuario'] ?? 'SIN USUARIO'),
+                'forma_pago' => (string)($cabeceraCotizacionVista['forma_pago'] ?? 'No especificado'),
                 'total_venta' => round((float)($cabeceraCotizacionVista['total_venta'] ?? 0), 2),
                 'descuento_total' => round((float)($cabeceraCotizacionVista['descuento_total'] ?? 0), 2),
                 'total_gravado' => round((float)($cabeceraCotizacionVista['total_gravado'] ?? 0), 2),
@@ -2465,6 +2472,8 @@ switch ($op) {
                 'email' => trim((string)($cabecera['email'] ?? ''))
             ],
             'venta' => [
+                'tipo_pago' => trim((string)($cabecera['tipo_pago'] ?? 'Contado')),
+                'idforma_pago' => (int)($cabecera['idforma_pago'] ?? 0),
                 'descuento_total' => round((float)($cabecera['descuento_total'] ?? 0), 2),
                 'descuento_porcentaje' => round((float)($cabecera['descuento_porcentaje'] ?? 0), 2)
             ],

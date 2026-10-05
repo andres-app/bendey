@@ -330,6 +330,7 @@ function renderPreviewCotizacion(data) {
 
   $("#previewVendedor").text(cotizacion.usuario || "—");
   $("#previewEstadoTexto").text(`Estado: ${status}`);
+  $("#previewFormaPago").text(`Forma de pago: ${String(cotizacion.forma_pago || "No especificado")}`);
 
   const detalleBody = document.getElementById("previewDetalleBody");
   if (detalleBody) {

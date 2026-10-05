@@ -462,6 +462,38 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
     </div>
 </div>
 
+<!-- Modal: forma de pago prevista para la cotización -->
+<div class="pos-modal" id="modalQuotationPayment" hidden role="dialog" aria-modal="true" aria-labelledby="quotationPaymentTitle">
+    <div class="pos-modal-backdrop" data-close-modal="modalQuotationPayment"></div>
+    <div class="pos-modal-dialog">
+        <div class="pos-modal-header">
+            <div>
+                <span class="pos-modal-eyebrow">Guardar cotización</span>
+                <h2 id="quotationPaymentTitle">Forma de pago prevista</h2>
+                <p>Selecciona cómo pagará el cliente cuando ejecute esta cotización.</p>
+            </div>
+            <button type="button" class="pos-modal-close" data-close-modal="modalQuotationPayment" aria-label="Cerrar">
+                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div class="pos-modal-body">
+            <label class="pos-form-field">
+                <span>Forma de pago <strong aria-hidden="true">*</strong></span>
+                <select id="quotationPaymentMethod" required></select>
+            </label>
+            <div class="pos-form-note">
+                Esta selección queda guardada en la cotización. No registra ningún cobro ni movimiento de caja hasta convertirla en venta.
+            </div>
+        </div>
+        <div class="pos-modal-footer">
+            <button type="button" class="pos-secondary-btn" data-close-modal="modalQuotationPayment">Cancelar</button>
+            <button type="button" class="pos-primary-btn" id="btnConfirmQuotation">
+                Guardar cotización
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de cobro -->
 <div class="pos-modal" id="modalCheckout" hidden role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
     <div class="pos-modal-backdrop" data-close-modal="modalCheckout"></div>

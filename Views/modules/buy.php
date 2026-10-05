@@ -1606,7 +1606,7 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                                         </div>
                                         <div class="tw-mt-1.5 tw-flex tw-items-center tw-gap-1.5 tw-text-[11px] tw-text-slate-500">
                                             <i class="fas fa-bolt tw-text-amber-500"></i>
-                                            Puedes consultar DNI o RUC en PeruDev y registrar al proveedor sin salir de la compra.
+                                            Puedes consultar DNI o RUC y registrar al proveedor sin salir de la compra.
                                         </div>
                                     </div>
 
@@ -1830,7 +1830,7 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
     </section>
 </div>
 
-<!-- PROVEEDOR: CREAR / CONSULTAR PERUDEV -->
+<!-- PROVEEDOR: CREAR / CONSULTAR DOCUMENTO -->
 <div class="modal fade modal-compra" id="modalProveedorCompra" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content tw-overflow-hidden">
@@ -1842,7 +1842,7 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                         </span>
                         <div>
                             <h5 class="tw-m-0 tw-text-[16px] tw-font-semibold tw-text-slate-900">Nuevo proveedor</h5>
-                            <p class="tw-mb-0 tw-mt-1 tw-text-[12px] tw-text-slate-500">Consulta DNI o RUC en PeruDev y completa los datos antes de guardarlo.</p>
+                            <p class="tw-mb-0 tw-mt-1 tw-text-[12px] tw-text-slate-500">Consulta DNI o RUC y completa los datos antes de guardarlo.</p>
                         </div>
                     </div>
                     <button type="button" class="close tw-ml-3" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
@@ -1865,7 +1865,7 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                             <div class="tw-flex tw-items-end md:tw-col-span-3">
                                 <button type="button" id="btnConsultarProveedorApi" class="tw-inline-flex tw-min-h-[44px] tw-w-full tw-items-center tw-justify-center tw-gap-2 tw-rounded-xl tw-border-0 tw-bg-slate-900 tw-px-4 tw-text-[12px] tw-font-semibold tw-text-white tw-transition hover:tw-bg-slate-800 focus:tw-outline-none focus:tw-ring-4 focus:tw-ring-slate-900/10">
                                     <i class="fas fa-search"></i>
-                                    Consultar PeruDev
+                                    Consultar documento
                                 </button>
                             </div>
                         </div>
@@ -1876,7 +1876,7 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                     <div class="tw-mt-4 tw-grid tw-grid-cols-1 tw-gap-4 md:tw-grid-cols-12">
                         <div class="md:tw-col-span-12">
                             <label class="compra-field-label" for="proveedor_nombre">Nombre / razón social <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="proveedor_nombre" maxlength="160" required placeholder="Se completará con PeruDev o puedes escribirlo manualmente">
+                            <input type="text" class="form-control" id="proveedor_nombre" maxlength="160" required placeholder="Se completará con la consulta o puedes escribirlo manualmente">
                         </div>
                         <div class="md:tw-col-span-12">
                             <label class="compra-field-label" for="proveedor_direccion">Dirección</label>
