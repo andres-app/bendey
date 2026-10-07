@@ -17,8 +17,10 @@ if (!isset($_SESSION['nombre'])) {
     .inventory-report .inv-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px; }
     .inventory-report .inv-title h4 { margin:0 0 4px; color:var(--inv-ink); font-weight:800; font-size:1.42rem; }
     .inventory-report .inv-title p { margin:0; color:var(--inv-muted); }
-    .inventory-report .inv-actions { display:flex; flex-wrap:wrap; gap:8px; }
-    .inventory-report .inv-actions .btn { border-radius:9px; min-height:40px; font-weight:700; }
+    .inventory-report .inv-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; margin-left:auto; }
+    .inventory-report .inv-actions .btn { border-radius:8px; min-height:32px; padding:5px 9px; font-size:.74rem; line-height:1.1; font-weight:800; background:#fff; box-shadow:0 3px 10px rgba(25,34,54,.04); }
+    .inventory-report .inv-actions .btn i { font-size:.76rem; }
+    .inventory-report .inv-actions .btn:disabled { opacity:.65; cursor:wait; }
     .inventory-report .filter-card,
     .inventory-report .content-card,
     .inventory-report .chart-card,
@@ -91,8 +93,8 @@ if (!isset($_SESSION['nombre'])) {
     @media (max-width:1199px) { .inventory-report .kardex-summary { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media (max-width:767px) {
         .inventory-report .inv-toolbar { align-items:flex-start; }
-        .inventory-report .inv-actions { width:100%; }
-        .inventory-report .inv-actions .btn { flex:1 1 auto; }
+        .inventory-report .inv-actions { width:auto; margin-left:auto; }
+        .inventory-report .inv-actions .btn { flex:0 0 auto; }
         .inventory-report .filter-actions { padding-top:0; }
         .inventory-report .chart-wrap { height:240px; }
         .inventory-report .kardex-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -105,7 +107,7 @@ if (!isset($_SESSION['nombre'])) {
     }
 </style>
 
-<div class="main-content inventory-report">
+<div class="main-content inventory-report" data-report-user="<?= htmlspecialchars((string)($_SESSION['nombre'] ?? 'Usuario'), ENT_QUOTES, 'UTF-8') ?>">
     <section class="section">
         <div class="section-body">
             <div class="inv-toolbar">
@@ -113,10 +115,10 @@ if (!isset($_SESSION['nombre'])) {
                     <h4><i class="fas fa-chart-pie mr-2"></i>Inventario valorizado</h4>
                     <p>Resumen ejecutivo, control de stock y Kardex valorizado.</p>
                 </div>
-                <div class="inv-actions">
-                    <button type="button" class="btn btn-outline-success" id="btnExportExcel"><i class="fas fa-file-excel mr-1"></i> Excel</button>
-                    <button type="button" class="btn btn-outline-danger" id="btnExportPdf"><i class="fas fa-file-pdf mr-1"></i> PDF</button>
-                    <button type="button" class="btn btn-outline-primary" id="btnPrintInventario"><i class="fas fa-print mr-1"></i> Imprimir</button>
+                <div class="inv-actions" aria-label="Acciones del reporte">
+                    <button type="button" class="btn btn-outline-success" id="btnExportExcel" title="Exportar reporte completo a Excel"><i class="fas fa-file-excel mr-1"></i><span>Excel</span></button>
+                    <button type="button" class="btn btn-outline-danger" id="btnExportPdf" title="Exportar reporte completo a PDF"><i class="fas fa-file-pdf mr-1"></i><span>PDF</span></button>
+                    <button type="button" class="btn btn-outline-primary" id="btnPrintInventario" title="Imprimir reporte completo"><i class="fas fa-print mr-1"></i><span>Imprimir</span></button>
                 </div>
             </div>
 
@@ -318,7 +320,7 @@ if (!isset($_SESSION['nombre'])) {
     require 'footer.php';
 ?>
 <script src="Assets/bundles/chartjs/chart.min.js"></script>
-<script src="Views/modules/scripts/kardex.js?v=20261007-dashboard"></script>
+<script src="Views/modules/scripts/kardex.js?v=20261007-export-premium"></script>
 <?php
 }
 ob_end_flush();

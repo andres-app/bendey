@@ -1828,6 +1828,42 @@ switch ($_GET['op'] ?? '') {
         $precio_venta = max(0, (float)($_POST['precio_venta'] ?? 0));
         $descripcion = trim((string)($_POST['descripcion'] ?? ''));
 
+        $longitudTexto = static function ($valor): int {
+            $texto = (string)$valor;
+            return function_exists('mb_strlen')
+                ? mb_strlen($texto, 'UTF-8')
+                : strlen($texto);
+        };
+
+        if ($idcategoria <= 0) {
+            echo 'Debe seleccionar una categoría';
+            break;
+        }
+        if ($idmedida <= 0) {
+            echo 'Debe seleccionar una unidad de medida';
+            break;
+        }
+        if ($idalmacen <= 0) {
+            echo 'Debe seleccionar un almacén';
+            break;
+        }
+        if ($nombre === '') {
+            echo 'Debe ingresar el nombre del producto';
+            break;
+        }
+        if ($longitudTexto($nombre) > 100) {
+            echo 'El nombre del producto no puede superar 100 caracteres';
+            break;
+        }
+        if ($longitudTexto($codigo) > 50) {
+            echo 'El SKU del producto no puede superar 50 caracteres';
+            break;
+        }
+        if ($longitudTexto($descripcion) > 256) {
+            echo 'La descripción no puede superar 256 caracteres';
+            break;
+        }
+
         try {
             $conexionTributaria = new Conexion();
             $tributosProducto = obtenerDatosTributariosProducto(
@@ -1839,118 +1875,31 @@ switch ($_GET['op'] ?? '') {
             break;
         }
 
-        if ($idcategoria <= 0) {
-            echo 'Debe seleccionar una categoría';
-            break;
+        /*
+         * El SKU es opcional. Si se informa, debe ser único tanto frente a
+         * productos padre como frente a SKU de variantes. En edición se
+         * permite únicamente el mismo SKU del producto que estamos editando.
+         */
+        if ($codigo !== '') {
+            $codigoExistente = $product->verificarCodigoGlobal($codigo);
+            $codigoPermitido = is_array($codigoExistente)
+                && ($codigoExistente['tipo'] ?? '') === 'producto'
+                && (int)($codigoExistente['id'] ?? 0) === $idarticulo;
+
+            if ($codigoExistente && !$codigoPermitido) {
+                echo 'No se puede guardar. El SKU ya está siendo usado por otro producto o variante';
+                break;
+            }
         }
 
-        if ($idmedida <= 0) {
-            echo 'Debe seleccionar una unidad de medida';
-            break;
-        }
-
-        if ($idalmacen <= 0) {
-            echo 'Debe seleccionar un almacén';
-            break;
-        }
-
-        if ($nombre === '') {
-            echo 'Debe ingresar el nombre del producto';
-            break;
-        }
-
-        if ($codigo === '') {
-            $codigo = 'VAR-' . uniqid();
-        }
+        $idsubcategoriaFinal = $idsubcategoria > 0 ? $idsubcategoria : null;
+        $codigoDb = $codigo !== '' ? $codigo : null;
 
         /*
-             * Permitir el mismo código cuando pertenece
-             * al producto que estamos editando.
-             */
-        $productoConCodigo = $product->verificarCodigo($codigo);
-
-        if (
-            !empty($productoConCodigo)
-            && (int)($productoConCodigo['idarticulo'] ?? 0) !== $idarticulo
-        ) {
-            echo 'No se puede guardar. El código del producto ya existe';
-            break;
-        }
-
-        $imagenActual = basename(
-            trim((string)($_POST['imagenactual'] ?? 'default.png'))
-        );
-
-        if ($imagenActual === '') {
-            $imagenActual = 'default.png';
-        }
-
-        $imagen = $imagenActual;
-        $archivoImagen = $_FILES['imagen'] ?? null;
-
-        if (
-            $archivoImagen
-            && isset($archivoImagen['error'])
-            && $archivoImagen['error'] === UPLOAD_ERR_OK
-            && isset($archivoImagen['tmp_name'])
-            && is_uploaded_file($archivoImagen['tmp_name'])
-        ) {
-            $tiposPermitidos = [
-                'image/jpeg' => 'jpg',
-                'image/png' => 'png'
-            ];
-
-            $tipoReal = mime_content_type($archivoImagen['tmp_name']);
-
-            if (!isset($tiposPermitidos[$tipoReal])) {
-                echo 'La imagen debe ser JPG o PNG';
-                break;
-            }
-
-            $nombreImagenNueva =
-                round(microtime(true))
-                . '-'
-                . random_int(100, 999)
-                . '.'
-                . $tiposPermitidos[$tipoReal];
-
-            $directorioImagenes = tiquepos_media_dir('products');
-            $rutaDestino = $directorioImagenes
-                . DIRECTORY_SEPARATOR
-                . $nombreImagenNueva;
-
-            if (!is_dir($directorioImagenes) || !is_writable($directorioImagenes)) {
-                echo 'No se pudo preparar la carpeta de imágenes de productos';
-                break;
-            }
-
-            if (!move_uploaded_file($archivoImagen['tmp_name'], $rutaDestino)) {
-                echo 'No se pudo guardar la imagen';
-                break;
-            }
-
-            $imagen = $nombreImagenNueva;
-
-            if (
-                $imagenActual !== 'default.png'
-                && $imagenActual !== $imagen
-            ) {
-                $rutaAnterior = tiquepos_media_path(
-                    'products',
-                    $imagenActual
-                );
-
-                if ($rutaAnterior !== '' && is_file($rutaAnterior)) {
-                    unlink($rutaAnterior);
-                }
-            }
-        }
-
-        $idsubcategoriaFinal =
-            $idsubcategoria > 0
-            ? $idsubcategoria
-            : null;
-
+         * Variantes: se reciben siempre como JSON desde la interfaz. En edición
+         * cada fila conserva su idvariacion para poder actualizarla sin crear
+         * duplicados. Las filas retiradas se desactivan de forma lógica.
+         */
         $variacionesFormulario = [];
         $variacionesJson = trim((string)($_POST['variaciones_json'] ?? ''));
         if ($variacionesJson !== '') {
@@ -1965,21 +1914,21 @@ switch ($_GET['op'] ?? '') {
             }
         }
 
-        /*
-         * Alta de producto variable desde el formulario normal.
-         * El mismo guardado transaccional usado por la importación evita
-         * que queden productos padre sin todas sus variantes.
-         */
-        if ($idarticulo <= 0 && $variacionesFormulario) {
-            $variacionesNormalizadas = [];
-            $skusVariaciones = [];
+        $variacionesExistentes = $idarticulo > 0
+            ? $product->listarVariacionesPorArticulo($idarticulo)
+            : [];
+        $esVariableExistente = is_array($variacionesExistentes) && count($variacionesExistentes) > 0;
+        $variacionesNormalizadas = [];
+        $skusVariaciones = [];
 
+        if ($variacionesFormulario) {
             foreach ($variacionesFormulario as $indiceVariacion => $variacion) {
                 if (!is_array($variacion)) {
                     echo 'Una de las variantes no tiene un formato válido';
                     break 2;
                 }
 
+                $idvariacion = max(0, (int)($variacion['idvariacion'] ?? 0));
                 $combinacionVariacion = preg_replace('/\s+/u', ' ', trim((string)($variacion['combinacion'] ?? '')));
                 $skuVariacion = trim((string)($variacion['sku'] ?? ''));
                 $stockVariacion = max(0, (int)($variacion['stock'] ?? 0));
@@ -1994,7 +1943,7 @@ switch ($_GET['op'] ?? '') {
                     echo 'Todas las variantes deben tener un SKU';
                     break 2;
                 }
-                if (strlen($skuVariacion) > 100) {
+                if ($longitudTexto($skuVariacion) > 100) {
                     echo 'El SKU de una variante supera 100 caracteres';
                     break 2;
                 }
@@ -2010,12 +1959,27 @@ switch ($_GET['op'] ?? '') {
                 }
                 $skusVariaciones[$skuKey] = true;
 
-                if ($product->verificarCodigoGlobal($skuVariacion)) {
-                    echo 'No se puede guardar. El SKU de variante ' . $skuVariacion . ' ya existe';
+                if ($codigo !== '' && normalizarTextoMasivoProducto($codigo) === $skuKey) {
+                    echo 'No se puede guardar. El SKU del producto padre coincide con el SKU de una variante';
                     break 2;
                 }
 
+                $skuExistente = $product->verificarCodigoGlobal($skuVariacion);
+                if ($skuExistente) {
+                    $esMismaVariacion = $idarticulo > 0
+                        && $idvariacion > 0
+                        && ($skuExistente['tipo'] ?? '') === 'variacion'
+                        && (int)($skuExistente['id'] ?? 0) === $idvariacion
+                        && (int)($skuExistente['idarticulo'] ?? 0) === $idarticulo;
+
+                    if (!$esMismaVariacion) {
+                        echo 'No se puede guardar. El SKU de variante ' . $skuVariacion . ' ya existe';
+                        break 2;
+                    }
+                }
+
                 $variacionesNormalizadas[] = [
+                    'idvariacion' => $idvariacion,
                     'combinacion' => $combinacionVariacion,
                     'sku' => $skuVariacion,
                     'stock' => $stockVariacion,
@@ -2023,93 +1987,190 @@ switch ($_GET['op'] ?? '') {
                     'precio_venta' => $ventaVariacion
                 ];
             }
+        }
 
-            if (isset($skusVariaciones[normalizarTextoMasivoProducto($codigo)])) {
-                echo 'No se puede guardar. El código del producto padre coincide con el SKU de una variante';
-                break;
-            }
-
-            if ($product->verificarCodigoGlobal($codigo)) {
-                echo 'No se puede guardar. El código del producto ya existe como producto o variante';
-                break;
-            }
-
-            $preciosCompraVariaciones = array_map(fn($v) => (float)$v['precio_compra'], $variacionesNormalizadas);
-            $preciosVentaVariaciones = array_map(fn($v) => (float)$v['precio_venta'], $variacionesNormalizadas);
-
-            $resultadoVariable = $product->insertarGrupoVariantesImportacionSegura(
-                [
-                    'idcategoria' => $idcategoria,
-                    'idsubcategoria' => $idsubcategoriaFinal,
-                    'idmedida' => $idmedida,
-                    'idalmacen' => $idalmacen,
-                    'codigo' => $codigo,
-                    'nombre' => $nombre,
-                    'precio_compra' => $preciosCompraVariaciones ? min($preciosCompraVariaciones) : 0,
-                    'precio_venta' => $preciosVentaVariaciones ? min($preciosVentaVariaciones) : 0,
-                    'descripcion' => $descripcion,
-                    'imagen' => $imagen,
-                    'codigo_afectacion_igv' => $tributosProducto['codigo_afectacion_igv'],
-                    'porcentaje_igv' => $tributosProducto['porcentaje_igv'],
-                    'unidad_medida_sunat' => $tributosProducto['unidad_medida_sunat'],
-                    'codigo_producto_sunat' => $tributosProducto['codigo_producto_sunat']
-                ],
-                $variacionesNormalizadas
-            );
-
-            echo ($resultadoVariable['success'] ?? false)
-                ? 'Producto variable registrado correctamente'
-                : 'No se pudo registrar el producto variable. ' . trim((string)($resultadoVariable['error'] ?? ''));
+        if ($esVariableExistente && !$variacionesNormalizadas) {
+            echo 'No se puede guardar un producto con variantes sin al menos una variante activa';
             break;
         }
 
-        if ($idarticulo <= 0) {
+        $imagenActual = basename(trim((string)($_POST['imagenactual'] ?? 'default.png')));
+        if ($imagenActual === '') {
+            $imagenActual = 'default.png';
+        }
 
-            $resultado = $product->insertar(
-                $idcategoria,
-                $idsubcategoriaFinal,
-                $idmedida,
-                $idalmacen,
-                $codigo,
-                $nombre,
-                $stock,
-                $precio_compra,
-                $precio_venta,
-                $descripcion,
-                $imagen,
-                $tributosProducto['codigo_afectacion_igv'],
-                $tributosProducto['porcentaje_igv'],
-                $tributosProducto['unidad_medida_sunat'],
-                $tributosProducto['codigo_producto_sunat']
-            );
+        $imagen = $imagenActual;
+        $archivoImagen = $_FILES['imagen'] ?? null;
+        $imagenNuevaSubida = false;
+        $rutaImagenNueva = '';
 
-            echo $resultado
-                ? 'Producto registrado correctamente'
-                : 'No se pudo registrar el producto';
-        } else {
+        if (
+            $archivoImagen
+            && isset($archivoImagen['error'])
+            && $archivoImagen['error'] === UPLOAD_ERR_OK
+            && isset($archivoImagen['tmp_name'])
+            && is_uploaded_file($archivoImagen['tmp_name'])
+        ) {
+            $tiposPermitidos = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png'
+            ];
 
-            $resultado = $product->editar(
-                $idarticulo,
-                $idcategoria,
-                $idsubcategoriaFinal,
-                $idmedida,
-                $idalmacen,
-                $codigo,
-                $nombre,
-                $stock,
-                $precio_compra,
-                $precio_venta,
-                $descripcion,
-                $imagen,
-                $tributosProducto['codigo_afectacion_igv'],
-                $tributosProducto['porcentaje_igv'],
-                $tributosProducto['unidad_medida_sunat'],
-                $tributosProducto['codigo_producto_sunat']
-            );
+            $tipoReal = mime_content_type($archivoImagen['tmp_name']);
+            if (!isset($tiposPermitidos[$tipoReal])) {
+                echo 'La imagen debe ser JPG o PNG';
+                break;
+            }
 
-            echo $resultado
-                ? 'Producto actualizado correctamente'
-                : 'No se pudo actualizar el producto';
+            $nombreImagenNueva = round(microtime(true))
+                . '-'
+                . random_int(100, 999)
+                . '.'
+                . $tiposPermitidos[$tipoReal];
+
+            $directorioImagenes = tiquepos_media_dir('products');
+            $rutaImagenNueva = $directorioImagenes . DIRECTORY_SEPARATOR . $nombreImagenNueva;
+
+            if (!is_dir($directorioImagenes) || !is_writable($directorioImagenes)) {
+                echo 'No se pudo preparar la carpeta de imágenes de productos';
+                break;
+            }
+
+            if (!move_uploaded_file($archivoImagen['tmp_name'], $rutaImagenNueva)) {
+                echo 'No se pudo guardar la imagen';
+                break;
+            }
+
+            $imagen = $nombreImagenNueva;
+            $imagenNuevaSubida = true;
+        }
+
+        $limpiarImagenNueva = static function () use (&$imagenNuevaSubida, &$rutaImagenNueva): void {
+            if ($imagenNuevaSubida && $rutaImagenNueva !== '' && is_file($rutaImagenNueva)) {
+                @unlink($rutaImagenNueva);
+            }
+        };
+
+        try {
+            $resultado = false;
+            $mensajeExito = '';
+
+            if ($idarticulo <= 0 && $variacionesNormalizadas) {
+                $preciosCompraVariaciones = array_map(static fn($v) => (float)$v['precio_compra'], $variacionesNormalizadas);
+                $preciosVentaVariaciones = array_map(static fn($v) => (float)$v['precio_venta'], $variacionesNormalizadas);
+
+                $resultadoVariable = $product->insertarGrupoVariantesImportacionSegura(
+                    [
+                        'idcategoria' => $idcategoria,
+                        'idsubcategoria' => $idsubcategoriaFinal,
+                        'idmedida' => $idmedida,
+                        'idalmacen' => $idalmacen,
+                        'codigo' => $codigoDb,
+                        'nombre' => $nombre,
+                        'precio_compra' => $preciosCompraVariaciones ? min($preciosCompraVariaciones) : 0,
+                        'precio_venta' => $preciosVentaVariaciones ? min($preciosVentaVariaciones) : 0,
+                        'descripcion' => $descripcion,
+                        'imagen' => $imagen,
+                        'codigo_afectacion_igv' => $tributosProducto['codigo_afectacion_igv'],
+                        'porcentaje_igv' => $tributosProducto['porcentaje_igv'],
+                        'unidad_medida_sunat' => $tributosProducto['unidad_medida_sunat'],
+                        'codigo_producto_sunat' => $tributosProducto['codigo_producto_sunat']
+                    ],
+                    $variacionesNormalizadas
+                );
+
+                $resultado = (bool)($resultadoVariable['success'] ?? false);
+                $mensajeExito = 'Producto variable registrado correctamente';
+
+                if (!$resultado && !empty($resultadoVariable['error'])) {
+                    throw new RuntimeException((string)$resultadoVariable['error']);
+                }
+            } elseif ($idarticulo <= 0) {
+                $resultado = (bool)$product->insertar(
+                    $idcategoria,
+                    $idsubcategoriaFinal,
+                    $idmedida,
+                    $idalmacen,
+                    $codigoDb,
+                    $nombre,
+                    $stock,
+                    $precio_compra,
+                    $precio_venta,
+                    $descripcion,
+                    $imagen,
+                    $tributosProducto['codigo_afectacion_igv'],
+                    $tributosProducto['porcentaje_igv'],
+                    $tributosProducto['unidad_medida_sunat'],
+                    $tributosProducto['codigo_producto_sunat']
+                );
+                $mensajeExito = 'Producto registrado correctamente';
+            } elseif ($esVariableExistente || $variacionesNormalizadas) {
+                $resultado = $product->editarConVariaciones(
+                    [
+                        'idarticulo' => $idarticulo,
+                        'idcategoria' => $idcategoria,
+                        'idsubcategoria' => $idsubcategoriaFinal,
+                        'idmedida' => $idmedida,
+                        'idalmacen' => $idalmacen,
+                        'codigo' => $codigoDb,
+                        'nombre' => $nombre,
+                        'descripcion' => $descripcion,
+                        'imagen' => $imagen,
+                        'codigo_afectacion_igv' => $tributosProducto['codigo_afectacion_igv'],
+                        'porcentaje_igv' => $tributosProducto['porcentaje_igv'],
+                        'unidad_medida_sunat' => $tributosProducto['unidad_medida_sunat'],
+                        'codigo_producto_sunat' => $tributosProducto['codigo_producto_sunat']
+                    ],
+                    $variacionesNormalizadas
+                );
+                $mensajeExito = 'Producto actualizado correctamente';
+            } else {
+                $resultado = $product->editar(
+                    $idarticulo,
+                    $idcategoria,
+                    $idsubcategoriaFinal,
+                    $idmedida,
+                    $idalmacen,
+                    $codigoDb,
+                    $nombre,
+                    $stock,
+                    $precio_compra,
+                    $precio_venta,
+                    $descripcion,
+                    $imagen,
+                    $tributosProducto['codigo_afectacion_igv'],
+                    $tributosProducto['porcentaje_igv'],
+                    $tributosProducto['unidad_medida_sunat'],
+                    $tributosProducto['codigo_producto_sunat']
+                );
+                $mensajeExito = 'Producto actualizado correctamente';
+            }
+
+            if (!$resultado) {
+                $limpiarImagenNueva();
+                echo $idarticulo > 0
+                    ? 'No se pudo actualizar el producto'
+                    : 'No se pudo registrar el producto';
+                break;
+            }
+
+            /*
+             * La imagen anterior se elimina únicamente después de confirmar
+             * que la base de datos fue actualizada. Así un fallo de guardado no
+             * deja al producto apuntando a un archivo inexistente.
+             */
+            if ($imagenNuevaSubida && $idarticulo > 0 && $imagenActual !== 'default.png' && $imagenActual !== $imagen) {
+                $rutaAnterior = tiquepos_media_path('products', $imagenActual);
+                if ($rutaAnterior !== '' && is_file($rutaAnterior)) {
+                    @unlink($rutaAnterior);
+                }
+            }
+
+            echo $mensajeExito;
+        } catch (Throwable $errorGuardado) {
+            $limpiarImagenNueva();
+            error_log('[GUARDAR PRODUCTO] ' . $errorGuardado->getMessage());
+            echo 'No se pudo guardar el producto. ' . $errorGuardado->getMessage();
         }
 
         break;

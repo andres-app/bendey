@@ -1038,7 +1038,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                             </div>
                         </div>
 
-                        <button class="tp-btn-primary tw-bg-tique-500 tw-border-tique-500 tw-shadow-lg tw-shadow-tique-500/20 hover:tw-bg-tique-600" onclick="mostrarform(true)" id="btnagregar" type="button">
+                        <button class="tp-btn-primary tw-bg-tique-500 tw-border-tique-500 tw-shadow-lg tw-shadow-tique-500/20 hover:tw-bg-tique-600" onclick="nuevoProducto()" id="btnagregar" type="button">
                             <i class="fas fa-plus"></i> Nuevo producto
                         </button>
                     </div>
@@ -1254,7 +1254,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                         </div>
                                         <div id="grupo_sku_principal" class="form-group col-lg-4">
                                             <label for="codigo">SKU</label>
-                                            <input type="text" name="codigo" id="codigo" class="form-control" placeholder="Opcional">
+                                            <input type="text" name="codigo" id="codigo" class="form-control" maxlength="50" placeholder="Opcional">
                                         </div>
                                         <div id="grupo_precio_venta_principal" class="form-group col-lg-4">
                                             <label for="precio_venta">Precio de venta <span class="text-danger">*</span></label>
@@ -1272,7 +1272,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                         </div>
                                         <div class="form-group col-12">
                                             <label for="descripcion">Descripción</label>
-                                            <textarea class="form-control" name="descripcion" id="descripcion" rows="2" maxlength="500" placeholder="Información adicional opcional"></textarea>
+                                            <textarea class="form-control" name="descripcion" id="descripcion" rows="2" maxlength="256" placeholder="Información adicional opcional"></textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -1390,14 +1390,20 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                 </div>
 
                                 <div id="atributos_section" style="display:none;">
-                                    <div class="form-group">
-                                        <label for="atributos_seleccionados">Atributos</label>
-                                        <select id="atributos_seleccionados" class="form-control select2" multiple style="width:100%;"></select>
+                                    <div id="avisoEdicionVariantes" class="alert alert-info py-2 px-3 mb-3" style="display:none;">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Estás editando un producto con variantes existentes. Puedes actualizar SKU, stock, costo y precio de cada combinación.
                                     </div>
-                                    <div class="row" id="contenedor_atributos"></div>
-                                    <button type="button" class="btn btn-outline-info btn-sm" onclick="generarVariaciones()">
-                                        <i class="fas fa-cogs mr-1"></i> Generar combinaciones
-                                    </button>
+                                    <div id="generadorVariacionesProducto">
+                                        <div class="form-group">
+                                            <label for="atributos_seleccionados">Atributos</label>
+                                            <select id="atributos_seleccionados" class="form-control select2" multiple style="width:100%;"></select>
+                                        </div>
+                                        <div class="row" id="contenedor_atributos"></div>
+                                        <button type="button" class="btn btn-outline-info btn-sm" onclick="generarVariaciones()">
+                                            <i class="fas fa-cogs mr-1"></i> Generar combinaciones
+                                        </button>
+                                    </div>
 
                                     <div id="variaciones-container" class="mt-4" style="display:none;">
                                         <div class="table-responsive">
@@ -1409,6 +1415,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                                         <th>Stock</th>
                                                         <th>Costo</th>
                                                         <th>Precio de venta</th>
+                                                        <th style="width:52px;">Acción</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="variaciones-lista"></tbody>

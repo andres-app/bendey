@@ -664,6 +664,14 @@ public function kardex_ingreso($idarticulo){
    * Catálogos del reporte de inventario valorizado.
    */
   public function filtrosInventarioValorizado(){
+    $empresa = $this->conexion->getData(
+      "SELECT nombre, documento, ndocumento, direccion, telefono, email, ciudad, pais, simbolo, logo
+       FROM datos_negocio
+       WHERE condicion=1
+       ORDER BY id_negocio ASC
+       LIMIT 1"
+    );
+
     return [
       'categorias' => $this->conexion->getDataAll(
         "SELECT idcategoria, nombre FROM categoria WHERE condicion=1 ORDER BY nombre ASC"
@@ -676,7 +684,8 @@ public function kardex_ingreso($idarticulo){
       ),
       'productos' => $this->conexion->getDataAll(
         "SELECT idarticulo, codigo, nombre, stock FROM articulo WHERE condicion=1 ORDER BY nombre ASC"
-      )
+      ),
+      'empresa' => is_array($empresa) ? $empresa : []
     ];
   }
 

@@ -2,6 +2,11 @@
 
 var tabla;
 var secuenciaCargaAlmacen = 0;
+var secuenciaCargaCategoria = 0;
+var secuenciaCargaMedida = 0;
+var secuenciaCargaSubcategoria = 0;
+var productoEdicionActual = null;
+var secuenciaEdicionProducto = 0;
 var productosCargados = [];
 var vistaProductos = localStorage.getItem("tp_productos_vista") || "tabla";
 var limiteGridProductos = 24;
@@ -67,6 +72,13 @@ function registrarEventosInterfazProductos() {
   $("#btnMostrarMasProductos").on("click", function () {
     limiteGridProductos += 24;
     renderizarGridProductos();
+  });
+
+  $(document).on("click", ".tp-remove-variant", function () {
+    $(this).closest("tr").remove();
+    if ($("#variaciones-lista tr").length === 0) {
+      $("#variaciones-container").hide();
+    }
   });
 
   $("#imagen").on("change", function () {
@@ -142,6 +154,154 @@ function registrarEventosInterfazProductos() {
   });
 }
 
+function cargarSelectCategoria(idSeleccionado = "", nombreCategoria = "") {
+  const valorSeleccionado = String(idSeleccionado ?? "").trim();
+  const numeroSolicitud = ++secuenciaCargaCategoria;
+
+  return $.ajax({
+    url: "Controllers/Category.php?op=selectCategoria",
+    type: "POST",
+    dataType: "html",
+    cache: false
+  }).done(function (respuesta) {
+    if (numeroSolicitud !== secuenciaCargaCategoria) return;
+
+    const $categoria = $("#idcategoria");
+    $categoria.html(respuesta);
+
+    if (!valorSeleccionado || valorSeleccionado === "0") {
+      $categoria.val("");
+      return;
+    }
+
+    let $opcion = $categoria.find("option").filter(function () {
+      return String($(this).val()).trim() === valorSeleccionado;
+    });
+
+    if (!$opcion.length) {
+      const texto = String(nombreCategoria || "").trim() || ("Categoría actual — ID " + valorSeleccionado);
+      $categoria.append(new Option(texto + " (actual)", valorSeleccionado, true, true));
+      $opcion = $categoria.find("option").filter(function () {
+        return String($(this).val()).trim() === valorSeleccionado;
+      });
+    }
+
+    $categoria.find("option").prop("selected", false);
+    $opcion.prop("selected", true);
+    $categoria.val(valorSeleccionado);
+  }).fail(function (xhr) {
+    if (xhr.statusText !== "abort") {
+      console.error("No se pudieron cargar las categorías:", xhr.status, xhr.responseText);
+    }
+  });
+}
+
+function cargarSelectMedida(idSeleccionado = "", nombreMedida = "") {
+  const valorSeleccionado = String(idSeleccionado ?? "").trim();
+  const numeroSolicitud = ++secuenciaCargaMedida;
+
+  return $.ajax({
+    url: "Controllers/Medida.php?op=selectMedida",
+    type: "POST",
+    dataType: "html",
+    cache: false
+  }).done(function (respuesta) {
+    if (numeroSolicitud !== secuenciaCargaMedida) return;
+
+    const $medida = $("#idmedida");
+    $medida.html(respuesta);
+
+    if (!valorSeleccionado || valorSeleccionado === "0") {
+      $medida.val("");
+      return;
+    }
+
+    let $opcion = $medida.find("option").filter(function () {
+      return String($(this).val()).trim() === valorSeleccionado;
+    });
+
+    if (!$opcion.length) {
+      const texto = String(nombreMedida || "").trim() || ("Unidad actual — ID " + valorSeleccionado);
+      $medida.append(new Option(texto + " (actual)", valorSeleccionado, true, true));
+      $opcion = $medida.find("option").filter(function () {
+        return String($(this).val()).trim() === valorSeleccionado;
+      });
+    }
+
+    $medida.find("option").prop("selected", false);
+    $opcion.prop("selected", true);
+    $medida.val(valorSeleccionado);
+  }).fail(function (xhr) {
+    if (xhr.statusText !== "abort") {
+      console.error("No se pudieron cargar las unidades de medida:", xhr.status, xhr.responseText);
+    }
+  });
+}
+
+function cargarSubcategoriasProducto(categoriaId, idSeleccionado = "", nombreSubcategoria = "") {
+  const categoria = String(categoriaId ?? "").trim();
+  const valorSeleccionado = String(idSeleccionado ?? "").trim();
+  const numeroSolicitud = ++secuenciaCargaSubcategoria;
+  const $subcategoria = $("#idsubcategoria");
+
+  $subcategoria
+    .prop("disabled", true)
+    .html('<option value="">Seleccione subcategoría</option>');
+
+  if (!categoria || categoria === "0") {
+    return $.Deferred().resolve().promise();
+  }
+
+  return $.ajax({
+    url: "Controllers/Subcategoria.php?op=selectSubcategoria",
+    type: "POST",
+    data: { categoria_id: categoria },
+    dataType: "html",
+    cache: false
+  }).done(function (respuesta) {
+    if (numeroSolicitud !== secuenciaCargaSubcategoria) return;
+
+    $subcategoria.html(respuesta);
+
+    if (valorSeleccionado && valorSeleccionado !== "0") {
+      let $opcion = $subcategoria.find("option").filter(function () {
+        return String($(this).val()).trim() === valorSeleccionado;
+      });
+
+      if (!$opcion.length) {
+        const texto = String(nombreSubcategoria || "").trim() || ("Subcategoría actual — ID " + valorSeleccionado);
+        $subcategoria.append(new Option(texto + " (actual)", valorSeleccionado, true, true));
+        $opcion = $subcategoria.find("option").filter(function () {
+          return String($(this).val()).trim() === valorSeleccionado;
+        });
+      }
+
+      $subcategoria.find("option").prop("selected", false);
+      $opcion.prop("selected", true);
+      $subcategoria.val(valorSeleccionado).prop("disabled", false);
+      return;
+    }
+
+    const opcionesReales = $subcategoria.find("option").filter(function () {
+      return String($(this).val() || "").trim() !== "";
+    }).length;
+
+    if (opcionesReales > 0) {
+      $subcategoria.prop("disabled", false).val("");
+    } else {
+      $subcategoria
+        .prop("disabled", true)
+        .html('<option value="">Esta categoría no tiene subcategorías</option>');
+    }
+  }).fail(function (xhr) {
+    if (numeroSolicitud !== secuenciaCargaSubcategoria) return;
+    $subcategoria
+      .prop("disabled", true)
+      .html('<option value="">No se pudieron cargar las subcategorías</option>');
+    console.error("No se pudieron cargar las subcategorías:", xhr.status, xhr.responseText);
+  });
+}
+
 function cargarSelectAlmacen(idSeleccionado = "", nombreAlmacen = "") {
   const valorSeleccionado = String(idSeleccionado ?? "").trim();
   const numeroSolicitud = ++secuenciaCargaAlmacen;
@@ -203,12 +363,8 @@ function init() {
   });
 
   cargarSelectAlmacen();
-  $.post("Controllers/Category.php?op=selectCategoria", function (respuesta) {
-    $("#idcategoria").html(respuesta);
-  });
-  $.post("Controllers/Medida.php?op=selectMedida", function (respuesta) {
-    $("#idmedida").html(respuesta);
-  });
+  cargarSelectCategoria();
+  cargarSelectMedida();
 
   aplicarVistaProductos();
 }
@@ -243,9 +399,22 @@ function registrarEventosTributariosProducto() {
     });
 }
 
+function seleccionarUnidadSunatProducto(codigo) {
+  const unidad = String(codigo || "NIU").trim().toUpperCase() || "NIU";
+  const $select = $("#unidad_medida_sunat");
+  const existe = $select.find("option").filter(function () {
+    return String($(this).val() || "").toUpperCase() === unidad;
+  }).length > 0;
+
+  if (!existe) {
+    $select.append(new Option(unidad + " — Unidad registrada", unidad));
+  }
+  $select.val(unidad);
+}
+
 function aplicarConfiguracionTributariaProductoPredeterminada() {
   $("#codigo_afectacion_igv").val(configuracionTributariaProducto.afectacion || "10");
-  $("#unidad_medida_sunat").val(configuracionTributariaProducto.unidad || "NIU");
+  seleccionarUnidadSunatProducto(configuracionTributariaProducto.unidad || "NIU");
   $("#codigo_producto_sunat").val("");
   sincronizarAfectacionTributariaProducto(true);
 }
@@ -300,6 +469,11 @@ function validarDatosTributariosProducto() {
   return true;
 }
 
+function nuevoProducto() {
+  secuenciaEdicionProducto++;
+  mostrarform(true);
+}
+
 function mostrarform(flag) {
   limpiar();
 
@@ -329,15 +503,18 @@ function limpiar() {
   $("#imagenmuestra").attr("src", "storage/images/products/default.png").show();
   $("#imagenactual").val("default.png");
   $("#idarticulo").val("");
+  productoEdicionActual = null;
   $("#variaciones-lista").empty();
-  $("#variaciones-container, #atributos_section").hide();
-  $("#activar_atributos").prop("checked", false);
+  $("#variaciones-container, #atributos_section, #avisoEdicionVariantes").hide();
+  $("#generadorVariacionesProducto").show();
+  $("#activar_atributos").prop("checked", false).prop("disabled", false);
   $("#atributos_seleccionados").val(null).trigger("change");
   resetSubcategoriaUI("Seleccione subcategoría");
   aplicarConfiguracionTributariaProductoPredeterminada();
 }
 
 function cancelarform() {
+  secuenciaEdicionProducto++;
   limpiar();
   mostrarform(false);
 }
@@ -941,6 +1118,7 @@ function guardaryeditar(e) {
   // Recoger variaciones manualmente
   const variaciones = [];
   $("#variaciones-lista tr").each(function () {
+    const idvariacion = Number($(this).find("input[name*='idvariacion']").val() || 0);
     const combinacion = $(this).find("input[name*='combinacion']").val();
     const sku = $(this).find("input[name*='sku']").val();
     const stock = $(this).find("input[name*='stock']").val();
@@ -948,6 +1126,7 @@ function guardaryeditar(e) {
     const precio_venta = $(this).find("input[name*='precio_venta']").val();
 
     variaciones.push({
+      idvariacion,
       combinacion,
       sku,
       stock,
@@ -1004,142 +1183,123 @@ function guardaryeditar(e) {
   });
 }
 
+function construirFilaVariacionEdicion(variacion, indice) {
+  const idvariacion = Number(variacion.idvariacion || 0);
+  const combinacion = escaparHtmlProducto(variacion.combinacion || "Variación");
+  const sku = escaparHtmlProducto(variacion.sku || "");
+  const stock = Number(variacion.stock || 0);
+  const compra = Number(variacion.precio_compra || 0);
+  const venta = Number(variacion.precio_venta || 0);
+
+  return `
+    <tr>
+      <td>
+        <input type="hidden" name="variaciones[${indice}][idvariacion]" value="${idvariacion}">
+        <input type="text" name="variaciones[${indice}][combinacion]" class="form-control" value="${combinacion}" readonly>
+      </td>
+      <td><input type="text" name="variaciones[${indice}][sku]" class="form-control" maxlength="100" value="${sku}" required></td>
+      <td><input type="number" name="variaciones[${indice}][stock]" class="form-control" min="0" value="${stock}"></td>
+      <td><input type="number" name="variaciones[${indice}][precio_compra]" class="form-control" min="0" step="0.01" value="${compra.toFixed(2)}"></td>
+      <td><input type="number" name="variaciones[${indice}][precio_venta]" class="form-control" min="0.01" step="0.01" value="${venta.toFixed(2)}" required></td>
+      <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm tp-remove-variant" title="Quitar variante"><i class="fas fa-times"></i></button></td>
+    </tr>`;
+}
+
+function prepararVariacionesParaEdicion(variaciones) {
+  const lista = Array.isArray(variaciones) ? variaciones : [];
+
+  if (!lista.length) {
+    $("#activar_atributos").prop("checked", false).prop("disabled", false);
+    $("#avisoEdicionVariantes").hide();
+    $("#generadorVariacionesProducto").show();
+    toggleAtributos();
+    return;
+  }
+
+  $("#activar_atributos").prop("checked", true).prop("disabled", true);
+  toggleAtributos();
+  $("#generadorVariacionesProducto").hide();
+  $("#avisoEdicionVariantes").show();
+
+  const html = lista.map(function (variacion, indice) {
+    return construirFilaVariacionEdicion(variacion, indice);
+  }).join("");
+
+  $("#variaciones-lista").html(html);
+  $("#variaciones-container").show();
+  $("#seccionVariacionesProducto").collapse("show");
+}
+
 function mostrar(idarticulo) {
-  $.ajax({
+  const id = Number.parseInt(idarticulo, 10) || 0;
+  if (id <= 0) return;
+  const solicitudActual = ++secuenciaEdicionProducto;
+
+  const solicitudProducto = $.ajax({
     url: "Controllers/Product.php?op=mostrar",
     type: "POST",
-    data: {
-      idarticulo: idarticulo
-    },
+    data: { idarticulo: id },
     dataType: "json",
+    cache: false
+  });
 
-    success: function (data) {
-      if (!data || !data.idarticulo) {
-        Swal.fire(
-          "Error",
-          "No se encontraron los datos del producto.",
-          "error"
-        );
-        return;
-      }
+  const solicitudVariaciones = $.ajax({
+    url: "Controllers/Product.php?op=variaciones_por_articulo",
+    type: "POST",
+    data: { idarticulo: id },
+    dataType: "json",
+    cache: false
+  });
 
-      mostrarform(true);
-      $("#tituloFormularioProducto").text("Editar producto");
-      $("#subtituloFormularioProducto").text("Actualiza la información comercial, el inventario o la configuración tributaria.");
+  $.when(solicitudProducto, solicitudVariaciones).done(function (respuestaProducto, respuestaVariaciones) {
+    if (solicitudActual !== secuenciaEdicionProducto) return;
+    const data = respuestaProducto[0] || {};
+    const variaciones = Array.isArray(respuestaVariaciones[0]) ? respuestaVariaciones[0] : [];
 
-      $("#idarticulo").val(data.idarticulo);
-      $("#codigo").val(data.codigo ?? "");
-      $("#nombre").val(data.nombre ?? "");
-      $("#stock").val(data.stock ?? 0);
-      $("#precio_compra").val(data.precio_compra ?? "");
-      $("#precio_venta").val(data.precio_venta ?? "");
-      $("#descripcion").val(data.descripcion ?? "");
-      $("#codigo_afectacion_igv").val(
-        String(data.codigo_afectacion_igv || configuracionTributariaProducto.afectacion)
-      );
-      $("#porcentaje_igv").val(
-        Number(data.porcentaje_igv ?? configuracionTributariaProducto.porcentaje).toFixed(2)
-      );
-      $("#unidad_medida_sunat").val(
-        String(data.unidad_medida_sunat || configuracionTributariaProducto.unidad)
-      );
-      $("#codigo_producto_sunat").val(data.codigo_producto_sunat || "");
-      sincronizarAfectacionTributariaProducto(false);
-
-      /*
-       * Categoría y subcategoría
-       */
-      $("#idcategoria")
-        .val(String(data.idcategoria ?? ""))
-        .trigger("change");
-
-      $.ajax({
-        url: "Controllers/Subcategoria.php?op=selectSubcategoria",
-        type: "POST",
-        data: {
-          categoria_id: data.idcategoria
-        },
-        dataType: "html",
-
-        success: function (respuesta) {
-          const $subcategoria = $("#idsubcategoria");
-
-          $subcategoria.html(respuesta);
-
-          const idsubcategoria =
-            String(data.idsubcategoria ?? "").trim();
-
-          const existeSubcategoria = $subcategoria
-            .find("option")
-            .filter(function () {
-              return String($(this).val()) === idsubcategoria;
-            })
-            .length > 0;
-
-          if (
-            idsubcategoria !== "" &&
-            idsubcategoria !== "0" &&
-            existeSubcategoria
-          ) {
-            $subcategoria
-              .prop("disabled", false)
-              .val(idsubcategoria);
-          } else {
-            $subcategoria
-              .prop("disabled", true)
-              .val("");
-          }
-        }
-      });
-
-      /*
-       * Medida
-       */
-      $("#idmedida")
-        .val(String(data.idmedida ?? ""))
-        .trigger("change");
-
-      /*
-       * Almacén:
-       * primero carga las opciones y después selecciona el valor.
-       */
-      cargarSelectAlmacen(
-        data.idalmacen,
-        data.almacen_nombre || data.almacen || ""
-      );
-
-      /*
-       * Imagen
-       */
-      const imagen = data.imagen || "default.png";
-
-      $("#imagenactual").val(imagen);
-
-      $("#imagenmuestra")
-        .attr(
-          "src",
-          "storage/images/products/" + imagen
-        )
-        .show();
-
-      if (data.codigo) {
-        generarbarcode();
-      }
-    },
-
-    error: function (xhr) {
-      console.error(
-        "Error al cargar producto:",
-        xhr.status,
-        xhr.responseText
-      );
-
-      Swal.fire(
-        "Error",
-        "No se pudo cargar la información del producto.",
-        "error"
-      );
+    if (!data || !data.idarticulo) {
+      Swal.fire("Error", "No se encontraron los datos del producto.", "error");
+      return;
     }
+
+    mostrarform(true);
+    productoEdicionActual = data;
+
+    $("#tituloFormularioProducto").text("Editar producto");
+    $("#subtituloFormularioProducto").text("Actualiza la información comercial, inventario, variantes y configuración tributaria.");
+
+    $("#idarticulo").val(data.idarticulo);
+    $("#codigo").val(data.codigo ?? "");
+    $("#nombre").val(data.nombre ?? "");
+    $("#stock").val(data.stock_total ?? data.stock ?? 0);
+    $("#precio_compra").val(data.precio_compra ?? "");
+    $("#precio_venta").val(data.precio_venta ?? "");
+    $("#descripcion").val(data.descripcion ?? "");
+    $("#codigo_afectacion_igv").val(String(data.codigo_afectacion_igv || configuracionTributariaProducto.afectacion));
+    $("#porcentaje_igv").val(Number(data.porcentaje_igv ?? configuracionTributariaProducto.porcentaje).toFixed(2));
+    seleccionarUnidadSunatProducto(data.unidad_medida_sunat || configuracionTributariaProducto.unidad);
+    $("#codigo_producto_sunat").val(data.codigo_producto_sunat || "");
+    sincronizarAfectacionTributariaProducto(false);
+
+    cargarSelectCategoria(data.idcategoria, data.categoria || "").done(function () {
+      if (solicitudActual !== secuenciaEdicionProducto) return;
+      cargarSubcategoriasProducto(data.idcategoria, data.idsubcategoria, data.subcategoria || "");
+    });
+    cargarSelectMedida(data.idmedida, data.medida || "");
+    cargarSelectAlmacen(data.idalmacen, data.almacen_nombre || data.almacen || "");
+
+    const imagen = data.imagen || "default.png";
+    $("#imagenactual").val(imagen);
+    $("#imagenmuestra").attr("src", obtenerRutaImagenProducto(imagen)).show();
+
+    prepararVariacionesParaEdicion(variaciones);
+
+    if (data.codigo && $("#barcode").length && typeof window.JsBarcode === "function") {
+      generarbarcode();
+    }
+  }).fail(function (xhr) {
+    if (solicitudActual !== secuenciaEdicionProducto) return;
+    console.error("Error al cargar producto:", xhr.status, xhr.responseText);
+    Swal.fire("Error", "No se pudo cargar la información completa del producto.", "error");
   });
 }
 
@@ -1177,9 +1337,10 @@ function activar(idarticulo) {
 }
 
 function generarbarcode() {
-  let codigo = $("#codigo").val();
+  const codigo = String($("#codigo").val() || "").trim();
+  if (!codigo || !$("#barcode").length || typeof window.JsBarcode !== "function") return;
   JsBarcode("#barcode", codigo);
-  $("#print").show();
+  if ($("#print").length) $("#print").show();
 }
 
 function imprimir() {
@@ -1266,11 +1427,12 @@ function generarVariaciones() {
     const combinacionTexto = combo.join(" - ");
     html += `
       <tr>
-        <td><input type="text" name="variaciones[${index}][combinacion]" class="form-control" value="${combinacionTexto}" readonly></td>
-        <td><input type="text" name="variaciones[${index}][sku]" class="form-control" placeholder="SKU"></td>
-        <td><input type="number" name="variaciones[${index}][stock]" class="form-control" placeholder="Stock"></td>
-        <td><input type="number" name="variaciones[${index}][precio_compra]" class="form-control" placeholder="Precio Compra" step="0.01"></td>
-        <td> <input type="number" name="variaciones[${index}][precio_venta]" class="form-control" placeholder="Precio Venta *" step="0.01" min="0.01" required > </td>
+        <td><input type="hidden" name="variaciones[${index}][idvariacion]" value="0"><input type="text" name="variaciones[${index}][combinacion]" class="form-control" value="${escaparHtmlProducto(combinacionTexto)}" readonly></td>
+        <td><input type="text" name="variaciones[${index}][sku]" class="form-control" maxlength="100" placeholder="SKU"></td>
+        <td><input type="number" name="variaciones[${index}][stock]" class="form-control" min="0" placeholder="Stock"></td>
+        <td><input type="number" name="variaciones[${index}][precio_compra]" class="form-control" min="0" placeholder="Precio Compra" step="0.01"></td>
+        <td><input type="number" name="variaciones[${index}][precio_venta]" class="form-control" placeholder="Precio Venta *" step="0.01" min="0.01" required></td>
+        <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm tp-remove-variant" title="Quitar variante"><i class="fas fa-times"></i></button></td>
       </tr>
     `;
   });
@@ -1281,36 +1443,8 @@ function generarVariaciones() {
 
 
 $("#idcategoria").on("change", function () {
-  const categoriaId = $(this).val();
-
-  // Reset inicial
-  $("#idsubcategoria")
-    .prop("disabled", true)
-    .html('<option value="">Seleccione subcategoría</option>');
-
-  if (!categoriaId) return;
-
-  $.post(
-    "Controllers/Subcategoria.php?op=selectSubcategoria",
-    { categoria_id: categoriaId },
-    function (data) {
-
-      // Insertamos el HTML
-      $("#idsubcategoria").html(data);
-
-      // 🔍 CONTAMOS OPCIONES REALES
-      const totalOpciones = $("#idsubcategoria option").length;
-
-      // 👉 SOLO habilitar si hay MÁS DE 1 opción
-      if (totalOpciones > 1) {
-        $("#idsubcategoria").prop("disabled", false);
-      } else {
-        $("#idsubcategoria")
-          .prop("disabled", true)
-          .html('<option value="">Esta categoría no tiene subcategorías</option>');
-      }
-    }
-  );
+  const categoriaId = String($(this).val() || "");
+  cargarSubcategoriasProducto(categoriaId);
 });
 
 function resetSubcategoriaUI(msg = "Seleccione subcategoría") {
@@ -1992,33 +2126,33 @@ function cargarAtributosDinamicos() {
 
 function toggleAtributos() {
   const activo = document.getElementById("activar_atributos").checked;
+  const editandoVariable = Boolean(productoEdicionActual && Number(productoEdicionActual.tiene_variaciones) === 1);
 
   $("#atributos_section").toggle(activo);
-
   $("#grupo_sku_principal").toggle(!activo);
   $("#grupo_stock_principal").toggle(!activo);
   $("#grupo_precio_compra_principal").toggle(!activo);
   $("#grupo_precio_venta_principal").toggle(!activo);
 
-  /*
-   * Producto normal:
-   * el precio de venta principal es obligatorio.
-   *
-   * Producto con atributos:
-   * el precio principal se oculta y son obligatorios
-   * los precios de venta de cada variación.
-   */
   $("#precio_venta")
     .prop("required", !activo)
     .prop("disabled", activo);
 
   if (activo) {
-    const seleccionados = $("#atributos_seleccionados").val() || [];
-    cargarAtributosDinamicosSeleccionados(seleccionados);
+    if (editandoVariable) {
+      $("#generadorVariacionesProducto").hide();
+      $("#avisoEdicionVariantes").show();
+    } else {
+      $("#generadorVariacionesProducto").show();
+      $("#avisoEdicionVariantes").hide();
+      const seleccionados = $("#atributos_seleccionados").val() || [];
+      cargarAtributosDinamicosSeleccionados(seleccionados);
+    }
   } else {
     $("#contenedor_atributos").empty();
     $("#variaciones-lista").empty();
-    $("#variaciones-container").hide();
+    $("#variaciones-container, #avisoEdicionVariantes").hide();
+    $("#generadorVariacionesProducto").show();
   }
 }
 

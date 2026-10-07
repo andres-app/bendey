@@ -133,6 +133,172 @@ class Product
 
 
 
+
+	/**
+	 * Edita un producto variable y sus variantes activas en una sola transacción.
+	 * Las variantes eliminadas desde la interfaz se desactivan para conservar
+	 * la trazabilidad histórica de ventas.
+	 */
+	public function editarConVariaciones(array $producto, array $variaciones)
+	{
+		$transaccionIniciada = false;
+
+		try {
+			$idarticulo = (int)($producto['idarticulo'] ?? 0);
+			if ($idarticulo <= 0) {
+				throw new InvalidArgumentException('Producto no válido para edición.');
+			}
+			if (!$variaciones) {
+				throw new InvalidArgumentException('El producto variable debe conservar al menos una variante.');
+			}
+
+			$this->conexion->beginTransaction();
+			$transaccionIniciada = true;
+
+			$actuales = $this->conexion->getDataAll(
+				"SELECT idvariacion
+				 FROM articulo_variacion
+				 WHERE idarticulo = ? AND estado = 1",
+				[$idarticulo]
+			);
+			$idsActuales = [];
+			foreach (is_array($actuales) ? $actuales : [] as $actual) {
+				$idActual = (int)($actual['idvariacion'] ?? 0);
+				if ($idActual > 0) {
+					$idsActuales[$idActual] = true;
+				}
+			}
+
+			$idsRecibidos = [];
+			$sqlActualizarVariacion = "UPDATE articulo_variacion
+				SET combinacion = ?, sku = ?, stock = ?, precio_compra = ?, precio_venta = ?, estado = 1
+				WHERE idvariacion = ? AND idarticulo = ?";
+			$sqlInsertarVariacion = "INSERT INTO articulo_variacion
+				(idarticulo, combinacion, sku, stock, precio_compra, precio_venta, estado)
+				VALUES (?, ?, ?, ?, ?, ?, 1)";
+
+			foreach ($variaciones as $variacion) {
+				$idvariacion = (int)($variacion['idvariacion'] ?? 0);
+				$combinacion = trim((string)($variacion['combinacion'] ?? ''));
+				$sku = trim((string)($variacion['sku'] ?? ''));
+				$stock = max(0, (int)($variacion['stock'] ?? 0));
+				$precioCompra = max(0, (float)($variacion['precio_compra'] ?? 0));
+				$precioVenta = max(0, (float)($variacion['precio_venta'] ?? 0));
+
+				if ($idvariacion > 0) {
+					$propietario = $this->conexion->getData(
+						"SELECT idvariacion FROM articulo_variacion WHERE idvariacion = ? AND idarticulo = ? LIMIT 1",
+						[$idvariacion, $idarticulo]
+					);
+					if (empty($propietario)) {
+						throw new RuntimeException('Una variante no pertenece al producto que se está editando.');
+					}
+
+					$this->conexion->setData($sqlActualizarVariacion, [
+						$combinacion,
+						$sku,
+						$stock,
+						$precioCompra,
+						$precioVenta,
+						$idvariacion,
+						$idarticulo
+					]);
+					$idsRecibidos[$idvariacion] = true;
+				} else {
+					$idNuevo = (int)$this->conexion->setDataReturnId($sqlInsertarVariacion, [
+						$idarticulo,
+						$combinacion,
+						$sku,
+						$stock,
+						$precioCompra,
+						$precioVenta
+					]);
+					if ($idNuevo <= 0) {
+						throw new RuntimeException('No se pudo registrar una nueva variante.');
+					}
+					$idsRecibidos[$idNuevo] = true;
+				}
+			}
+
+			$idsDesactivar = array_values(array_diff(array_keys($idsActuales), array_keys($idsRecibidos)));
+			foreach ($idsDesactivar as $idDesactivar) {
+				$this->conexion->setData(
+					"UPDATE articulo_variacion SET estado = 0 WHERE idvariacion = ? AND idarticulo = ?",
+					[(int)$idDesactivar, $idarticulo]
+				);
+			}
+
+			$resumen = $this->conexion->getData(
+				"SELECT
+					COALESCE(SUM(stock), 0) AS stock_total,
+					COALESCE(MIN(NULLIF(precio_compra, 0)), 0) AS precio_compra_min,
+					COALESCE(MIN(NULLIF(precio_venta, 0)), 0) AS precio_venta_min,
+					COUNT(*) AS cantidad_variaciones
+				 FROM articulo_variacion
+				 WHERE idarticulo = ? AND estado = 1",
+				[$idarticulo]
+			);
+
+			if ((int)($resumen['cantidad_variaciones'] ?? 0) <= 0) {
+				throw new RuntimeException('El producto variable debe conservar al menos una variante activa.');
+			}
+
+			$sqlProducto = "UPDATE {$this->tableName}
+				SET idcategoria = ?,
+					idsubcategoria = ?,
+					idmedida = ?,
+					idalmacen = ?,
+					codigo = ?,
+					nombre = ?,
+					stock = ?,
+					precio_compra = ?,
+					precio_venta = ?,
+					descripcion = ?,
+					imagen = ?,
+					codigo_afectacion_igv = ?,
+					porcentaje_igv = ?,
+					unidad_medida_sunat = ?,
+					codigo_producto_sunat = ?
+				WHERE idarticulo = ?";
+
+			$this->conexion->setData($sqlProducto, [
+				(int)($producto['idcategoria'] ?? 0),
+				!empty($producto['idsubcategoria']) ? (int)$producto['idsubcategoria'] : null,
+				(int)($producto['idmedida'] ?? 0),
+				(int)($producto['idalmacen'] ?? 0),
+				(isset($producto['codigo']) && trim((string)$producto['codigo']) !== '') ? trim((string)$producto['codigo']) : null,
+				trim((string)($producto['nombre'] ?? '')),
+				(int)($resumen['stock_total'] ?? 0),
+				(float)($resumen['precio_compra_min'] ?? 0),
+				(float)($resumen['precio_venta_min'] ?? 0),
+				trim((string)($producto['descripcion'] ?? '')),
+				trim((string)($producto['imagen'] ?? 'default.png')) ?: 'default.png',
+				trim((string)($producto['codigo_afectacion_igv'] ?? '10')),
+				max(0, (float)($producto['porcentaje_igv'] ?? 0)),
+				strtoupper(trim((string)($producto['unidad_medida_sunat'] ?? 'NIU'))),
+				isset($producto['codigo_producto_sunat']) && trim((string)$producto['codigo_producto_sunat']) !== ''
+					? trim((string)$producto['codigo_producto_sunat'])
+					: null,
+				$idarticulo
+			]);
+
+			$this->conexion->commit();
+			$transaccionIniciada = false;
+			return true;
+		} catch (Throwable $error) {
+			if ($transaccionIniciada) {
+				try {
+					$this->conexion->rollBack();
+				} catch (Throwable $rollbackError) {
+					error_log('[ROLLBACK EDICION PRODUCTO VARIABLE] ' . $rollbackError->getMessage());
+				}
+			}
+
+			error_log('[EDICION PRODUCTO VARIABLE] ' . $error->getMessage());
+			throw $error;
+		}
+	}
+
 	public function desactivar($idarticulo)
 	{
 		$sql = "UPDATE $this->tableName SET condicion='0' WHERE idarticulo=?";
@@ -690,7 +856,7 @@ class Product
 				!empty($producto['idsubcategoria']) ? (int)$producto['idsubcategoria'] : null,
 				(int)($producto['idmedida'] ?? 0),
 				(int)($producto['idalmacen'] ?? 0),
-				trim((string)($producto['codigo'] ?? '')),
+				(isset($producto['codigo']) && trim((string)$producto['codigo']) !== '') ? trim((string)$producto['codigo']) : null,
 				trim((string)($producto['nombre'] ?? '')),
 				max(0, (float)($producto['precio_compra'] ?? 0)),
 				max(0, (float)($producto['precio_venta'] ?? 0)),
