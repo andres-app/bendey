@@ -486,7 +486,7 @@
 
                         <?php if (!empty($_SESSION['almacen']) && $_SESSION['almacen'] == 1) { ?>
                             <li class="<?= $url == 'kardex' ? 'active' : '' ?>">
-                                <a class="nav-link" href="kardex">Kardex</a>
+                                <a class="nav-link" href="kardex">Inventario valorizado</a>
                             </li>
                         <?php } ?>
                     </ul>

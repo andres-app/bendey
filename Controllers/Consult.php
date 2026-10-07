@@ -279,6 +279,144 @@ switch ($_GET["op"]) {
     echo json_encode($results);
     break;
 
+  case 'inventariofiltros':
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+      'success' => true,
+      'data' => $consult->filtrosInventarioValorizado()
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    break;
+
+  case 'inventariovalorizado':
+    header('Content-Type: application/json; charset=utf-8');
+
+    $fecha_inicio = trim((string)($_REQUEST['fecha_inicio'] ?? ''));
+    $fecha_fin = trim((string)($_REQUEST['fecha_fin'] ?? ''));
+
+    if (
+      !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)
+      || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)
+      || $fecha_fin < $fecha_inicio
+    ) {
+      http_response_code(422);
+      echo json_encode([
+        'success' => false,
+        'mensaje' => 'El rango de fechas no es válido.'
+      ], JSON_UNESCAPED_UNICODE);
+      break;
+    }
+
+    $rows = $consult->inventarioValorizado(
+      $fecha_inicio,
+      $fecha_fin,
+      (int)($_REQUEST['idcategoria'] ?? 0),
+      (int)($_REQUEST['idsubcategoria'] ?? 0),
+      (int)($_REQUEST['idalmacen'] ?? 0),
+      (string)($_REQUEST['buscar'] ?? '')
+    );
+
+    $totales = [
+      'productos' => count($rows),
+      'saldo_actual' => 0,
+      'stock_fifo' => 0,
+      'saldo_valorizado' => 0,
+      'entradas' => 0,
+      'salidas' => 0,
+      'valor_entradas' => 0,
+      'valor_salidas' => 0,
+      'diferencias' => 0
+    ];
+
+    foreach ($rows as &$row) {
+      foreach ([
+        'saldo_inicial', 'entradas', 'salidas', 'saldo_actual',
+        'stock_fifo', 'costo_promedio_actual', 'saldo_valorizado',
+        'valor_entradas', 'valor_salidas', 'diferencia_stock'
+      ] as $campoNumerico) {
+        $row[$campoNumerico] = (float)($row[$campoNumerico] ?? 0);
+      }
+      $row['cantidad_variantes'] = (int)($row['cantidad_variantes'] ?? 0);
+
+      $totales['saldo_actual'] += $row['saldo_actual'];
+      $totales['stock_fifo'] += $row['stock_fifo'];
+      $totales['saldo_valorizado'] += $row['saldo_valorizado'];
+      $totales['entradas'] += $row['entradas'];
+      $totales['salidas'] += $row['salidas'];
+      $totales['valor_entradas'] += $row['valor_entradas'];
+      $totales['valor_salidas'] += $row['valor_salidas'];
+
+      if (abs($row['diferencia_stock']) > 0.0001) {
+        $totales['diferencias']++;
+      }
+    }
+    unset($row);
+
+    $movimientosDiarios = $consult->movimientosInventarioDiarios(
+      $fecha_inicio,
+      $fecha_fin,
+      (int)($_REQUEST['idcategoria'] ?? 0),
+      (int)($_REQUEST['idsubcategoria'] ?? 0),
+      (int)($_REQUEST['idalmacen'] ?? 0),
+      (string)($_REQUEST['buscar'] ?? '')
+    );
+
+    foreach ($movimientosDiarios as &$movimiento) {
+      foreach (['entradas', 'salidas', 'valor_entradas', 'valor_salidas'] as $campo) {
+        $movimiento[$campo] = (float)($movimiento[$campo] ?? 0);
+      }
+    }
+    unset($movimiento);
+
+    echo json_encode([
+      'success' => true,
+      'data' => $rows,
+      'totales' => $totales,
+      'movimientos_diarios' => $movimientosDiarios
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    break;
+
+  case 'kardexvalorizado':
+    header('Content-Type: application/json; charset=utf-8');
+
+    $idarticulo = (int)($_REQUEST['idarticulo'] ?? 0);
+    $fecha_inicio = trim((string)($_REQUEST['fecha_inicio'] ?? ''));
+    $fecha_fin = trim((string)($_REQUEST['fecha_fin'] ?? ''));
+
+    if (
+      $idarticulo <= 0
+      || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)
+      || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)
+      || $fecha_fin < $fecha_inicio
+    ) {
+      http_response_code(422);
+      echo json_encode([
+        'success' => false,
+        'mensaje' => 'Seleccione un producto y un rango de fechas válido.'
+      ], JSON_UNESCAPED_UNICODE);
+      break;
+    }
+
+    $kardex = $consult->kardexValorizado(
+      $idarticulo,
+      $fecha_inicio,
+      $fecha_fin
+    );
+
+    if ($kardex === false) {
+      http_response_code(404);
+      echo json_encode([
+        'success' => false,
+        'mensaje' => 'El producto seleccionado no existe.'
+      ], JSON_UNESCAPED_UNICODE);
+      break;
+    }
+
+    echo json_encode([
+      'success' => true,
+      'data' => $kardex
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    break;
+
   case 'kardex':
     $idarticulo = $_REQUEST["idarticulo"];
 
