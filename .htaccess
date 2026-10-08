@@ -2,10 +2,14 @@ Options All -Indexes
 
 RewriteEngine On
 
-# No reescribir archivos o carpetas físicas existentes.
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME} !-f
-
+# ------------------------------------------------------------
+# TiquePOS standalone: instalador y control remoto deshabilitados.
+# Estas reglas también protegen instalaciones donde hayan quedado
+# carpetas antiguas al copiar una actualización encima.
+# ------------------------------------------------------------
+RewriteRule ^install(?:/.*)?$ index.php [QSA,L,NC]
+RewriteRule ^Control(?:/.*)?$ - [F,L,NC]
+RewriteRule ^dev_verify\.php$ - [F,L,NC]
 
 # Catálogo público por negocio.
 # Ejemplo: /tienda/mi-negocio
@@ -14,9 +18,11 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^tienda/([A-Za-z0-9-]+)/?$ index.php?url=tienda&slug=$1 [QSA,L]
 
 # Rutas limpias de TiquePOS.
-# Acepta letras, números, guiones y guiones bajos.
+# No reescribir archivos o carpetas físicas existentes.
 # Ejemplos:
 #   /listsales
 #   /contabilidad_libro_ventas
 #   /contabilidad_reporte_compras
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^([A-Za-z0-9_-]+)/?$ index.php?url=$1 [QSA,L]

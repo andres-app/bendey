@@ -179,13 +179,15 @@ class Sell
             $idforma_pago
         ];
 
+        $this->conexion->beginTransaction();
+        try {
         $idventanew = $this->conexion->setDataReturnId(
             $sql,
             $arrData
         );
 
         if (!$idventanew) {
-            return false;
+            throw new RuntimeException("No se pudo registrar la cabecera de venta.");
         }
 
         $detalleComprobante = $tipo_comprobante
@@ -277,14 +279,42 @@ class Sell
              * variables se descuenta la variante exacta y luego se sincroniza
              * articulo.stock con la suma de sus variantes activas.
              */
-            $sqlStock = "SELECT idarticulo, idvariacion, cantidad
+            $sqlStock = "SELECT iddetalle_venta, idarticulo, idvariacion, cantidad
                          FROM {$this->tableNameDetalle}
-                         WHERE idventa = ?";
+                         WHERE idventa = ? ORDER BY iddetalle_venta ASC";
             $res = $this->conexion->getDataAll(
                 $sqlStock,
                 [$idventanew]
             );
 
+            $acumulados = [];
+            foreach ($res as $filaAcum) {
+                $clave = (int)$filaAcum['idarticulo'] . ':' . (int)($filaAcum['idvariacion'] ?? 0);
+                $acumulados[$clave] = ($acumulados[$clave] ?? 0) + (int)$filaAcum['cantidad'];
+            }
+            // Validación de stock bajo bloqueo por producto, antes de modificar el inventario.
+            foreach (is_array($res) ? $res : [] as $regCheck) {
+                $idA = (int)$regCheck['idarticulo'];
+                $idV = (int)($regCheck['idvariacion'] ?? 0);
+                $claveCheck = $idA . ':' . $idV;
+                $cant = $acumulados[$claveCheck];
+                $artLock = $this->conexion->getData(
+                    'SELECT stock, controla_lotes, controla_vencimiento FROM articulo WHERE idarticulo=? FOR UPDATE',
+                    [$idA]
+                );
+                if (!$artLock) { throw new RuntimeException('Producto de venta no encontrado.'); }
+                if ($idV > 0) {
+                    $varLock = $this->conexion->getData(
+                        'SELECT stock FROM articulo_variacion WHERE idarticulo=? AND idvariacion=? AND estado=1 FOR UPDATE',
+                        [$idA, $idV]
+                    );
+                    if (!$varLock || (int)$varLock['stock'] < $cant) {
+                        throw new RuntimeException('Stock insuficiente en la presentación seleccionada.');
+                    }
+                } elseif ((int)$artLock['stock'] < $cant) {
+                    throw new RuntimeException('Stock insuficiente para registrar la venta.');
+                }
+            }
             $articulosVariablesAfectados = [];
 
             foreach (is_array($res) ? $res : [] as $reg) {
@@ -297,11 +327,12 @@ class Sell
                         "UPDATE articulo_variacion
                          SET stock = stock - ?
                          WHERE idvariacion = ?
-                           AND idarticulo = ?",
+                           AND idarticulo = ? AND stock >= ?",
                         [
                             $cantidadStock,
                             $idVariacionStock,
-                            $idArticuloStock
+                            $idArticuloStock,
+                            $cantidadStock
                         ]
                     )) {
                         $sw = false;
@@ -311,10 +342,11 @@ class Sell
                     if (!$this->conexion->setData(
                         "UPDATE articulo
                          SET stock = stock - ?
-                         WHERE idarticulo = ?",
+                         WHERE idarticulo = ? AND stock >= ?",
                         [
                             $cantidadStock,
-                            $idArticuloStock
+                            $idArticuloStock,
+                            $cantidadStock
                         ]
                     )) {
                         $sw = false;
@@ -340,6 +372,62 @@ class Sell
 
             // Kardex: conserva la lógica FIFO por producto padre.
             foreach ($idarticulo as $indice => $idArticuloActual) {
+                $idArticuloActual = (int)$idArticuloActual;
+                $idVarActual = (int)($idvariacion[$indice] ?? 0);
+                $configLote = $this->conexion->getData(
+                    "SELECT controla_lotes, controla_vencimiento FROM articulo WHERE idarticulo=? FOR UPDATE",
+                    [$idArticuloActual]
+                );
+                $controlado = (int)($configLote['controla_lotes'] ?? 0) === 1
+                    || (int)($configLote['controla_vencimiento'] ?? 0) === 1;
+                if ($controlado) {
+                    $lineaVenta = $res[$indice] ?? null;
+                    if (!$lineaVenta) {
+                        throw new RuntimeException('No se encontró la línea de venta para registrar sus lotes.');
+                    }
+                    $pendiente = (int)($cantidad[$indice] ?? 0);
+                    if ($pendiente <= 0) { throw new RuntimeException('Cantidad de venta inválida.'); }
+                    // Bloqueos sobre filas en orden FEFO. No se permiten lotes sin identificar.
+                    $lotes = $this->conexion->getDataAll(
+                        "SELECT iddetalle_ingreso, stock_venta, precio_compra, numero_lote, fecha_vencimiento
+                         FROM detalle_ingreso
+                         WHERE idarticulo=? AND (idvariacion <=> ?) AND afecta_stock=1
+                           AND tipo_detalle='INVENTARIO' AND estado=1 AND stock_venta>0
+                           AND numero_lote IS NOT NULL AND numero_lote<>''
+                           AND (fecha_vencimiento IS NULL OR fecha_vencimiento>=CURDATE())
+                         ORDER BY CASE WHEN fecha_vencimiento IS NULL THEN 1 ELSE 0 END,
+                                  fecha_vencimiento ASC, iddetalle_ingreso ASC FOR UPDATE",
+                        [$idArticuloActual, $idVarActual > 0 ? $idVarActual : null]
+                    );
+                    foreach ($lotes as $loteFEFO) {
+                        if ($pendiente <= 0) { break; }
+                        if ((int)($configLote['controla_vencimiento'] ?? 0) === 1 && empty($loteFEFO['fecha_vencimiento'])) {
+                            continue;
+                        }
+                        $tomar = min($pendiente, (int)$loteFEFO['stock_venta']);
+                        if ($tomar <= 0) { continue; }
+                        $idIngresoLote = (int)$loteFEFO['iddetalle_ingreso'];
+                        $this->conexion->setData(
+                            "UPDATE detalle_ingreso SET stock_venta=stock_venta-?, stock_estado=CASE WHEN stock_venta-?<=0 THEN 0 ELSE 1 END WHERE iddetalle_ingreso=? AND stock_venta>=?",
+                            [$tomar, $tomar, $idIngresoLote, $tomar]
+                        );
+                        $this->conexion->setData(
+                            "INSERT INTO venta_detalle_lote (iddetalle_venta, iddetalle_ingreso, cantidad, costo_unitario) VALUES (?,?,?,?)",
+                            [(int)$lineaVenta['iddetalle_venta'], $idIngresoLote, $tomar, (float)$loteFEFO['precio_compra']]
+                        );
+                        $saldo = (int)$loteFEFO['stock_venta'] - $tomar;
+                        $costo = (float)$loteFEFO['precio_compra'];
+                        $this->conexion->setData(
+                            "INSERT INTO kardex (iddetalle,idarticulo,fecha,detalle,cantidads,costous,totals,cantidadex,costouex,totalex,tipo,estado) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                            [$idventanew,$idArticuloActual,$fecha_hora,$detalleComprobante,$tomar,$costo,$tomar*$costo,$saldo,$costo,$saldo*$costo,'Salida','Activo']
+                        );
+                        $pendiente -= $tomar;
+                    }
+                    if ($pendiente > 0) {
+                        throw new RuntimeException('Stock insuficiente en lotes vigentes e identificados para el producto #' . $idArticuloActual . '.');
+                    }
+                    continue;
+                }
                 $cantidadPendiente = (int)($cantidad[$indice] ?? 0);
                 $costoFallback = max(0, (float)($precio_compra[$indice] ?? 0));
 
@@ -481,15 +569,27 @@ class Sell
 
         }
 
-        return ($sw && $idventanew)
-            ? $idventanew
-            : false;
+        if (!$sw) { throw new RuntimeException('La venta no pudo completar sus movimientos de stock.'); }
+        $this->conexion->commit();
+        return $idventanew;
+        } catch (Throwable $error) {
+            $this->conexion->rollBack();
+            throw $error;
+        }
     }
 
 
     //FUNCION PARA EDITAR
     public function editar($idventa, $idcliente, $tipo_comprobante, $serie_comprobante, $num_comprobante, $impuesto, $total_venta, $tipo_pago, $num_transac, $idarticulo, $nuevostock, $cantidad, $precio_compra, $precio_venta, $descuento)
     {
+        $controlados = $this->conexion->getData(
+            "SELECT COUNT(*) AS total FROM detalle_venta dv JOIN articulo a ON a.idarticulo=dv.idarticulo WHERE dv.idventa=? AND (a.controla_lotes=1 OR a.controla_vencimiento=1)",
+            [(int)$idventa]
+        );
+        if ((int)($controlados['total'] ?? 0) > 0) {
+            throw new RuntimeException('La modificación o anulación de una venta con lotes requiere el proceso de devolución trazable.');
+        }
+
         $sw = true;
         $sql = "UPDATE $this->tableName SET idcliente=?, tipo_comprobante=?, serie_comprobante=?, num_comprobante=?, impuesto=?, total_venta=?, tipo_pago=?, num_transac=? WHERE idventa=?";
 
@@ -657,6 +757,14 @@ class Sell
 
     public function anular($idventa)
     {
+        $controlados = $this->conexion->getData(
+            "SELECT COUNT(*) AS total FROM detalle_venta dv JOIN articulo a ON a.idarticulo=dv.idarticulo WHERE dv.idventa=? AND (a.controla_lotes=1 OR a.controla_vencimiento=1)",
+            [(int)$idventa]
+        );
+        if ((int)($controlados['total'] ?? 0) > 0) {
+            throw new RuntimeException('La modificación o anulación de una venta con lotes requiere el proceso de devolución trazable.');
+        }
+
         $sw = true;
         $sql = "UPDATE $this->tableName SET estado='Anulado' WHERE idventa=?";
         $arrData = array($idventa);

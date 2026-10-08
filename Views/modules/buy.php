@@ -2032,6 +2032,22 @@ if ((int)($_SESSION['compras'] ?? 0) === 1) {
                         </div>
                     </div>
 
+                    <div class="px-3 pb-3" id="nuevoControlLotesContainer">
+                      <div class="p-3" style="border:1px solid #dbe5ee;border-radius:12px;background:#f8fafc">
+                        <strong>Control de lotes y vencimiento (opcional)</strong>
+                        <div class="d-flex flex-wrap mt-2" style="gap:16px">
+                          <label><input type="checkbox" id="nuevo_controla_lotes"> Control por lote</label>
+                          <label><input type="checkbox" id="nuevo_controla_vencimiento"> Controlar vencimiento</label>
+                        </div>
+                        <label class="mt-2" for="nuevo_dias_alerta_vencimiento">Avisar antes de vencer (días)</label>
+                        <input class="form-control" style="max-width:120px" type="number" min="1" max="3650" value="30" id="nuevo_dias_alerta_vencimiento">
+                        <div class="row mt-2">
+                          <div class="col-sm-6"><label>Lote de esta compra</label><input class="form-control" id="nuevo_numero_lote" maxlength="80" placeholder="Ej.: LT-2026-01"></div>
+                          <div class="col-sm-6"><label>Fecha de vencimiento</label><input class="form-control" type="date" id="nuevo_fecha_vencimiento"></div>
+                        </div>
+                        <small class="text-muted">Al guardar la compra se creará el producto con stock cero y su primer ingreso por lote.</small>
+                      </div>
+                    </div>
                     <div id="productoModoMasivo" class="tw-hidden">
                         <div id="compraPlantillaSection" class="tp-import-panel is-open tw-border tw-border-slate-200 tw-bg-white tw-shadow-xl" aria-hidden="false">
                             <div class="tp-import-head tw-bg-gradient-to-r tw-from-white tw-to-tique-50">

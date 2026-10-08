@@ -1827,6 +1827,17 @@ switch ($_GET['op'] ?? '') {
         $precio_compra = max(0, (float)($_POST['precio_compra'] ?? 0));
         $precio_venta = max(0, (float)($_POST['precio_venta'] ?? 0));
         $descripcion = trim((string)($_POST['descripcion'] ?? ''));
+        $controlLotesNuevo = (int)($_POST['controla_lotes'] ?? 0) === 1;
+        $controlVenceNuevo = (int)($_POST['controla_vencimiento'] ?? 0) === 1;
+        $diasAlertaNuevo = (int)($_POST['dias_alerta_vencimiento'] ?? 30);
+        if ($controlVenceNuevo) $controlLotesNuevo = true;
+        if ($diasAlertaNuevo < 1 || $diasAlertaNuevo > 3650) {
+            echo 'Los días de alerta deben estar entre 1 y 3650'; break;
+        }
+        if ($idarticulo <= 0 && ($controlLotesNuevo || $controlVenceNuevo) && $stock > 0) {
+            echo 'Crea el producto con stock inicial cero; ingresa sus lotes mediante Compras'; break;
+        }
+
 
         $longitudTexto = static function ($valor): int {
             $texto = (string)$valor;
@@ -1918,6 +1929,11 @@ switch ($_GET['op'] ?? '') {
             ? $product->listarVariacionesPorArticulo($idarticulo)
             : [];
         $esVariableExistente = is_array($variacionesExistentes) && count($variacionesExistentes) > 0;
+        if (($controlLotesNuevo || $controlVenceNuevo) && ($esVariableExistente || count($variacionesFormulario) > 0)) {
+            echo 'No se puede activar control de lotes para productos con variantes hasta completar su conciliación.';
+            break;
+        }
+
         $variacionesNormalizadas = [];
         $skusVariaciones = [];
 
@@ -2101,7 +2117,8 @@ switch ($_GET['op'] ?? '') {
                     $tributosProducto['codigo_afectacion_igv'],
                     $tributosProducto['porcentaje_igv'],
                     $tributosProducto['unidad_medida_sunat'],
-                    $tributosProducto['codigo_producto_sunat']
+                    $tributosProducto['codigo_producto_sunat'],
+                    $controlLotesNuevo, $controlVenceNuevo, $diasAlertaNuevo
                 );
                 $mensajeExito = 'Producto registrado correctamente';
             } elseif ($esVariableExistente || $variacionesNormalizadas) {
@@ -2146,6 +2163,14 @@ switch ($_GET['op'] ?? '') {
                 $mensajeExito = 'Producto actualizado correctamente';
             }
 
+            if ($resultado && $idarticulo > 0) {
+                try {
+                    $product->guardarConfiguracionLotes($idarticulo, $controlLotesNuevo, $controlVenceNuevo, $diasAlertaNuevo);
+                } catch (RuntimeException $errorLotes) {
+                    echo 'El producto fue actualizado, pero no su configuración de lotes: ' . $errorLotes->getMessage();
+                    break;
+                }
+            }
             if (!$resultado) {
                 $limpiarImagenNueva();
                 echo $idarticulo > 0

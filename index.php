@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-if (!is_file(__DIR__ . '/Config/local.php') || !is_file(__DIR__ . '/storage/installed.lock')) {
-    header('Location: /install/', true, 302);
-    exit;
-}
-
+/*
+ * TiquePOS inicia directamente en la aplicación.
+ * La instalación web y el control remoto fueron retirados.
+ * Cuando no se especifica una ruta, Views/Plantilla.php muestra el login.
+ */
 require_once __DIR__ . '/Libraries/MediaStorage.php';
 
 tiquepos_media_migrate_legacy();
 
-require_once 'Controllers/Plantilla.php';
+require_once __DIR__ . '/Controllers/Plantilla.php';
 
 $plantilla = new Plantilla();
 $plantilla->mostrarPlantilla();

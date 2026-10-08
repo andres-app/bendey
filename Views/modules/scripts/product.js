@@ -504,6 +504,8 @@ function limpiar() {
   $("#imagenactual").val("default.png");
   $("#idarticulo").val("");
   productoEdicionActual = null;
+  $("#controla_lotes, #controla_vencimiento").prop("checked", false);
+  $("#dias_alerta_vencimiento").val(30);
   $("#variaciones-lista").empty();
   $("#variaciones-container, #atributos_section, #avisoEdicionVariantes").hide();
   $("#generadorVariacionesProducto").show();
@@ -1065,6 +1067,9 @@ function guardaryeditar(e) {
     }
   }
 
+  if (($('#controla_lotes').is(':checked') || $('#controla_vencimiento').is(':checked')) && Number($('#stock').val() || 0) > 0 && !$('#idarticulo').val()) {
+    Swal.fire('Stock inicial', 'Crea el producto controlado con stock cero. Registra su primer lote desde Compras.', 'warning'); return;
+  }
   // 🚨 Validación obligatoria si está activado el modo atributos
   if ($("#activar_atributos").is(":checked")) {
     if ($("#variaciones-lista tr").length === 0) {
@@ -1271,6 +1276,9 @@ function mostrar(idarticulo) {
     $("#codigo").val(data.codigo ?? "");
     $("#nombre").val(data.nombre ?? "");
     $("#stock").val(data.stock_total ?? data.stock ?? 0);
+    $('#controla_lotes').prop('checked', Number(data.controla_lotes || 0) === 1);
+    $('#controla_vencimiento').prop('checked', Number(data.controla_vencimiento || 0) === 1);
+    $('#dias_alerta_vencimiento').val(data.dias_alerta_vencimiento || 30);
     $("#precio_compra").val(data.precio_compra ?? "");
     $("#precio_venta").val(data.precio_venta ?? "");
     $("#descripcion").val(data.descripcion ?? "");

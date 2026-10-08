@@ -1311,6 +1311,16 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                         <select class="form-control" name="idmedida" id="idmedida" required></select>
                                     </div>
                                 </div>
+                                <div class="p-3 mb-3" style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:12px">
+                                  <strong>Control de trazabilidad (opcional)</strong>
+                                  <div class="mt-2 d-flex flex-wrap" style="gap:18px">
+                                    <label><input type="checkbox" name="controla_lotes" id="controla_lotes" value="1"> Control por número de lote</label>
+                                    <label><input type="checkbox" name="controla_vencimiento" id="controla_vencimiento" value="1"> Fecha de vencimiento</label>
+                                  </div>
+                                  <label for="dias_alerta_vencimiento">Alertar antes de vencer (días)</label>
+                                  <input class="form-control" style="max-width:130px" type="number" min="1" max="3650" name="dias_alerta_vencimiento" id="dias_alerta_vencimiento" value="30">
+                                  <small class="text-muted d-block mt-2">Para productos con trazabilidad, crea el producto sin stock inicial y registra sus existencias desde Compras, indicando lote y vencimiento. No disponible aún para variantes.</small>
+                                </div>
                             </div>
                         </div>
                     </div>

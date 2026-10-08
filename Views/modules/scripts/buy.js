@@ -852,9 +852,22 @@ function agregarProductoNuevoDesdeFormulario(evento) {
         }
     }
 
+    const controlaLotes = $('#nuevo_controla_lotes').is(':checked') || $('#nuevo_controla_vencimiento').is(':checked');
+    const controlaVence = $('#nuevo_controla_vencimiento').is(':checked');
+    const numeroLote = String($('#nuevo_numero_lote').val() || '').trim();
+    const fechaVencimiento = String($('#nuevo_fecha_vencimiento').val() || '').trim();
+    const diasAlerta = Number.parseInt($('#nuevo_dias_alerta_vencimiento').val(), 10);
+    if ((controlaLotes && !numeroLote) || (controlaVence && !fechaVencimiento) || !Number.isInteger(diasAlerta) || diasAlerta < 1 || diasAlerta > 3650) {
+      alertaCompra('warning', 'Control de lotes', 'Completa el lote, el vencimiento requerido y los días de alerta.'); return;
+    }
     detallesCompra.push({
         tipo_detalle: 'INVENTARIO',
         origen: 'NUEVO',
+        controla_lotes: controlaLotes ? 1 : 0,
+        controla_vencimiento: controlaVence ? 1 : 0,
+        dias_alerta_vencimiento: diasAlerta,
+        numero_lote: numeroLote,
+        fecha_vencimiento: fechaVencimiento,
         producto_tipo: 'simple',
         grupo: '',
         variante: '',
@@ -1625,6 +1638,11 @@ function renderizarDetallesCompra() {
                 <td>
                     <div class="font-weight-bold text-dark">${escaparHtmlCompra(detalle.descripcion || detalle.nombre)}</div>
                     <small class="text-muted">${escaparHtmlCompra(descripcionSecundaria)}</small>
+                    ${esInventario ? `<div class="d-flex flex-wrap align-items-center mt-2" style="gap:6px">
+                      <input class="form-control form-control-sm detalle-compra-input" style="max-width:145px" data-indice="${indice}" data-campo="numero_lote" placeholder="N.º lote" maxlength="80" value="${escaparHtmlCompra(detalle.numero_lote || '')}">
+                      <input type="date" class="form-control form-control-sm detalle-compra-input" style="max-width:155px" data-indice="${indice}" data-campo="fecha_vencimiento" title="Fecha de vencimiento" value="${escaparHtmlCompra(detalle.fecha_vencimiento || '')}">
+                      <small class="text-muted">Lote / Vence</small>
+                    </div>` : ''}
                 </td>
                 <td>
                     <input
@@ -1697,7 +1715,9 @@ function actualizarDetalleCompraDesdeInput(elemento) {
     const detalle = detallesCompra[indice];
     const texto = String($(elemento).val() || '').trim();
 
-    if (campo === 'precio_venta') {
+    if (campo === 'numero_lote' || campo === 'fecha_vencimiento') {
+        detalle[campo] = texto;
+    } else if (campo === 'precio_venta') {
         detalle.precio_venta = texto === '' ? null : numeroCompra(texto);
     } else if (campo === 'cantidad') {
         detalle.cantidad = numeroCompra(texto, 3);

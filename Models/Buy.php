@@ -448,6 +448,15 @@ class Buy
                 [$idingreso]
             );
 
+            foreach ($detalles as $filaCancelacion) {
+                $control = $this->conexion->getData(
+                    "SELECT controla_lotes, controla_vencimiento FROM articulo WHERE idarticulo=?",
+                    [(int)($filaCancelacion['idarticulo'] ?? 0)]
+                );
+                if ((int)($control['controla_lotes'] ?? 0) === 1 || (int)($control['controla_vencimiento'] ?? 0) === 1) {
+                    throw new RuntimeException('No se permite anular directamente una compra con lotes hasta comprobar todas sus salidas y devoluciones.');
+                }
+            }
             $cantidadesPorArticulo = [];
             $cantidadesPorVariacion = [];
 
@@ -461,7 +470,7 @@ class Buy
                     continue;
                 }
 
-                $cantidad = (int)round((float)$detalle['cantidad']);
+        $cantidad = (int)round((float)$detalle['cantidad']);
                 $stockVenta = (int)$detalle['stock_venta'];
                 $idarticulo = (int)$detalle['idarticulo'];
 
@@ -969,6 +978,11 @@ class Buy
             'codigo_afectacion_igv' => $codigoAfectacionIgv,
             'idarticulo' => (int)($detalle['idarticulo'] ?? 0),
             'idvariacion' => (int)($detalle['idvariacion'] ?? 0),
+            'controla_lotes' => !empty($detalle['controla_lotes']) ? 1 : 0,
+            'controla_vencimiento' => !empty($detalle['controla_vencimiento']) ? 1 : 0,
+            'dias_alerta_vencimiento' => (int)($detalle['dias_alerta_vencimiento'] ?? 30),
+            'numero_lote' => $this->limpiarTexto($detalle['numero_lote'] ?? '', 80),
+            'fecha_vencimiento' => trim((string)($detalle['fecha_vencimiento'] ?? '')),
             'descripcion' => $this->limpiarTexto($detalle['descripcion'] ?? '', 250),
             'idcategoria_compra' => (int)($detalle['idcategoria_compra'] ?? 0),
             'idcategoria' => (int)($detalle['idcategoria'] ?? 0),
@@ -1060,7 +1074,38 @@ class Buy
         if (!$articulo) {
             throw new RuntimeException('No se pudo recuperar el producto de la compra.');
         }
+        if (!$esVarianteNueva && (int)($detalle['idvariacion'] ?? 0) > 0) {
+            $idvariacion = (int)$detalle['idvariacion'];
+            $existeVariante = $this->conexion->getData(
+                'SELECT idvariacion FROM articulo_variacion WHERE idvariacion=? AND idarticulo=? AND estado=1 LIMIT 1 FOR UPDATE',
+                [$idvariacion, $idarticulo]
+            );
+            if (!$existeVariante) {
+                throw new RuntimeException('La variante no corresponde al producto seleccionado.');
+            }
+        }
 
+                $configLotes = $this->conexion->getData(
+            "SELECT controla_lotes, controla_vencimiento FROM articulo WHERE idarticulo=?",
+            [$idarticulo]
+        );
+        $controlLotes = (int)($configLotes['controla_lotes'] ?? 0) === 1;
+        $controlVence = (int)($configLotes['controla_vencimiento'] ?? 0) === 1;
+        $numeroLote = trim((string)($detalle['numero_lote'] ?? ''));
+        $fechaVence = trim((string)($detalle['fecha_vencimiento'] ?? ''));
+        if (($controlLotes || $controlVence) && $numeroLote === '') {
+            throw new RuntimeException('Este producto requiere un número de lote para la compra.');
+        }
+        if ($controlVence && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaVence)) {
+            throw new RuntimeException('Este producto requiere fecha de vencimiento válida (AAAA-MM-DD).');
+        }
+        if ($fechaVence !== '' && (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaVence)
+            || date('Y-m-d', strtotime($fechaVence)) !== $fechaVence)) {
+            throw new RuntimeException('La fecha de vencimiento del lote no es válida.');
+        }
+        if ($controlVence && $fechaVence < date('Y-m-d')) {
+            throw new RuntimeException('No puede ingresar productos ya vencidos como stock disponible.');
+        }
         $cantidad = (int)round((float)$detalle['cantidad']);
         $precioCompra = (float)$detalle['precio_compra'];
         $precioVenta = $detalle['precio_venta'];
@@ -1083,9 +1128,9 @@ class Buy
             (idingreso, tipo_detalle, idarticulo, descripcion,
              idcategoria_compra, idalmacen, idmedida, afecta_stock,
              cantidad, stock_venta, precio_compra, precio_venta,
-             importe, estado, stock_estado)
+             importe, estado, stock_estado, idvariacion, numero_lote, fecha_vencimiento)
             VALUES (?, 'INVENTARIO', ?, ?, NULL, ?, ?, 1,
-                    ?, ?, ?, ?, ?, 1, 1)";
+                    ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)";
 
         $this->conexion->setData(
             $sqlDetalle,
@@ -1099,11 +1144,14 @@ class Buy
                 $cantidad,
                 $precioCompra,
                 $precioVenta,
-                (float)$detalle['importe']
+                (float)$detalle['importe'],
+                $idvariacion > 0 ? $idvariacion : null,
+                $numeroLote !== '' ? $numeroLote : null,
+                $fechaVence !== '' ? $fechaVence : null
             ]
         );
 
-        if ($esVarianteNueva) {
+        if ($idvariacion > 0) {
             if ($precioVenta !== null && $precioVenta > 0) {
                 $this->conexion->setData(
                     "UPDATE articulo_variacion
@@ -1648,6 +1696,21 @@ class Buy
             );
         }
 
+        $controlVence = (int)($detalle['controla_vencimiento'] ?? 0) === 1;
+        $controlLotes = $controlVence || (int)($detalle['controla_lotes'] ?? 0) === 1;
+        $diasAlerta = (int)($detalle['dias_alerta_vencimiento'] ?? 30);
+        if ($diasAlerta < 1 || $diasAlerta > 3650) throw new RuntimeException('Días de alerta inválidos.');
+        if ($controlLotes && trim((string)($detalle['numero_lote'] ?? '')) === '') throw new RuntimeException('Debes identificar el lote del producto nuevo.');
+        if ($controlVence && trim((string)($detalle['fecha_vencimiento'] ?? '')) === '') throw new RuntimeException('Debes ingresar vencimiento para el producto nuevo.');
+        if ($controlVence) {
+            $fecha = (string)($detalle['fecha_vencimiento'] ?? '');
+            $fechaValida = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+            if (!$fechaValida || $fechaValida->format('Y-m-d') !== $fecha || $fecha < date('Y-m-d')) {
+                throw new RuntimeException('La fecha de vencimiento no es válida o el lote ya venció.');
+            }
+        }
+
+
         $tributacion = $this->obtenerTributacionProductoCompra(
             (string)($detalle['codigo_afectacion_igv'] ?? '10')
         );
@@ -1656,8 +1719,8 @@ class Buy
             (idcategoria, idsubcategoria, idmedida, codigo, nombre,
              stock, precio_compra, precio_venta, descripcion, imagen,
              codigo_afectacion_igv, porcentaje_igv, unidad_medida_sunat,
-             codigo_producto_sunat, condicion, idalmacen)
-            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'default.png', ?, ?, ?, NULL, 1, ?)";
+             codigo_producto_sunat, condicion, idalmacen, controla_lotes, controla_vencimiento, dias_alerta_vencimiento)
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'default.png', ?, ?, ?, NULL, 1, ?, ?, ?, ?)";
 
         $idarticulo = (int)$this->conexion->setDataReturnId(
             $sql,
@@ -1673,7 +1736,7 @@ class Buy
                 $tributacion['codigo_afectacion_igv'],
                 $tributacion['porcentaje_igv'],
                 $tributacion['unidad_medida_sunat'],
-                $idalmacen
+                $idalmacen, (int)$controlLotes, (int)$controlVence, $diasAlerta
             ]
         );
 

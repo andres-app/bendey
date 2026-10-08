@@ -30,19 +30,20 @@ class Product
 		$codigo_afectacion_igv = '10',
 		$porcentaje_igv = 18.00,
 		$unidad_medida_sunat = 'NIU',
-		$codigo_producto_sunat = null
+		$codigo_producto_sunat = null,
+        $controla_lotes = false, $controla_vencimiento = false, $dias_alerta_vencimiento = 30
 	)
 	{
 		try {
 			// Insertar el producto y obtener su ID
 			$sql = "INSERT INTO $this->tableName 
-			(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, codigo_afectacion_igv, porcentaje_igv, unidad_medida_sunat, codigo_producto_sunat, condicion)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+			(idcategoria, idsubcategoria, idmedida, idalmacen, codigo, nombre, stock, precio_compra, precio_venta, descripcion, imagen, codigo_afectacion_igv, porcentaje_igv, unidad_medida_sunat, codigo_producto_sunat, condicion, controla_lotes, controla_vencimiento, dias_alerta_vencimiento)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)";
 			$arrData = array(
 				$idcategoria, $idsubcategoria, $idmedida, $idalmacen, $codigo,
 				$nombre, $stock, $precio_compra, $precio_venta, $descripcion, $imagen,
 				$codigo_afectacion_igv, $porcentaje_igv, $unidad_medida_sunat,
-				$codigo_producto_sunat
+                $codigo_producto_sunat, (int)$controla_lotes, (int)$controla_vencimiento, (int)$dias_alerta_vencimiento
 			);
 			$idarticulo = $this->conexion->setDataReturnId($sql, $arrData);
 			// Si hay stock inicial, registrar en ingreso, detalle_ingreso y kardex.
@@ -312,6 +313,23 @@ class Product
 		$arrData = array($idarticulo);
 		return $this->conexion->setData($sql, $arrData);
 	}
+
+    public function guardarConfiguracionLotes(int $idarticulo, bool $lotes, bool $vence, int $dias): void
+    {
+        if ($vence) $lotes = true;
+        if ($dias < 1 || $dias > 3650) throw new RuntimeException('Días de alerta inválidos.');
+        $producto = $this->conexion->getData('SELECT stock, controla_lotes, controla_vencimiento FROM articulo WHERE idarticulo=?', [$idarticulo]);
+        if (!$producto) throw new RuntimeException('Producto inexistente.');
+        $variantes = (int)$this->conexion->getValue('SELECT COUNT(*) FROM articulo_variacion WHERE idarticulo=? AND estado=1', [$idarticulo]);
+        if (($lotes || $vence) && $variantes > 0) throw new RuntimeException('Las variantes todavía requieren conciliación por lote.');
+        if (($lotes || $vence) && !(int)$producto['controla_lotes'] && (int)$producto['stock'] > 0)
+            throw new RuntimeException('No se puede activar sobre stock histórico sin lotes.');
+        if (!$lotes && ((int)$producto['controla_lotes'] || (int)$producto['controla_vencimiento'])) {
+            $saldo = (int)$this->conexion->getValue("SELECT COALESCE(SUM(stock_venta),0) FROM detalle_ingreso WHERE idarticulo=? AND numero_lote IS NOT NULL AND numero_lote<>'' AND estado=1", [$idarticulo]);
+            if ($saldo > 0) throw new RuntimeException('No desactives lotes con existencias identificadas.');
+        }
+        $this->conexion->setData('UPDATE articulo SET controla_lotes=?, controla_vencimiento=?, dias_alerta_vencimiento=? WHERE idarticulo=?', [(int)$lotes,(int)$vence,$dias,$idarticulo]);
+    }
 
 	//metodo para mostrar registros
 	public function mostrar(string $idarticulo)
