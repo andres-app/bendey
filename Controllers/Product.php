@@ -1826,6 +1826,16 @@ switch ($_GET['op'] ?? '') {
         $stock = max(0, (int)($_POST['stock'] ?? 0));
         $precio_compra = max(0, (float)($_POST['precio_compra'] ?? 0));
         $precio_venta = max(0, (float)($_POST['precio_venta'] ?? 0));
+        $preferencialRaw = trim((string)($_POST['precio_preferencial'] ?? ''));
+        $precioPreferencial = $preferencialRaw === '' ? null : (float)$preferencialRaw;
+        $variacionesSolicitadasPrecio = json_decode((string)($_POST['variaciones_json'] ?? ''), true);
+        if (is_array($variacionesSolicitadasPrecio) && count($variacionesSolicitadasPrecio) > 0) {
+            $precioPreferencial = null;
+        }
+        if ($precioPreferencial !== null && (!is_finite($precioPreferencial) || $precioPreferencial <= 0 || $precioPreferencial > $precio_venta)) {
+            echo 'El precio preferencial debe ser positivo y no superar el precio normal.';
+            break;
+        }
         $descripcion = trim((string)($_POST['descripcion'] ?? ''));
         $controlLotesNuevo = (int)($_POST['controla_lotes'] ?? 0) === 1;
         $controlVenceNuevo = (int)($_POST['controla_vencimiento'] ?? 0) === 1;
@@ -1834,8 +1844,14 @@ switch ($_GET['op'] ?? '') {
         if ($diasAlertaNuevo < 1 || $diasAlertaNuevo > 3650) {
             echo 'Los días de alerta deben estar entre 1 y 3650'; break;
         }
+        // Productos configura el control, pero nunca asigna o modifica fechas.
+        if (isset($_POST['fecha_vencimiento_inicial']) || isset($_POST['numero_lote_inicial'])) {
+            echo 'Registra o corrige los lotes y sus vencimientos desde Inventario > Lotes y vencimientos.';
+            break;
+        }
         if ($idarticulo <= 0 && ($controlLotesNuevo || $controlVenceNuevo) && $stock > 0) {
-            echo 'Crea el producto con stock inicial cero; ingresa sus lotes mediante Compras'; break;
+            echo 'Para usar lotes crea el producto con stock inicial cero y registra la recepción en Compras.';
+            break;
         }
 
 
@@ -1929,11 +1945,43 @@ switch ($_GET['op'] ?? '') {
             ? $product->listarVariacionesPorArticulo($idarticulo)
             : [];
         $esVariableExistente = is_array($variacionesExistentes) && count($variacionesExistentes) > 0;
-        if (($controlLotesNuevo || $controlVenceNuevo) && ($esVariableExistente || count($variacionesFormulario) > 0)) {
-            echo 'No se puede activar control de lotes para productos con variantes hasta completar su conciliación.';
+        // Un artículo con variantes tiene precios independientes por SKU; jamás
+        // se guarda como tarifa preferencial del artículo padre un campo oculto.
+        if ($esVariableExistente || $variacionesFormulario) {
+            $precioPreferencial = null;
+        }
+        $productoConfigActual = $idarticulo > 0
+            ? (new Conexion())->getData(
+                'SELECT stock, controla_lotes, controla_vencimiento FROM articulo WHERE idarticulo=?',
+                [$idarticulo]
+            ) : false;
+        $estabaControlado = $productoConfigActual && (
+            (int)$productoConfigActual['controla_lotes'] === 1 || (int)$productoConfigActual['controla_vencimiento'] === 1
+        );
+        if (($controlLotesNuevo || $controlVenceNuevo) && !$estabaControlado && $idarticulo > 0
+            && $stock !== (int)($productoConfigActual['stock'] ?? 0) && !$esVariableExistente) {
+            echo 'No cambies el stock al activar lotes: primero identifica las existencias antiguas en Inventario.';
             break;
         }
+        // FEFO también admite variantes, identificadas por su idvariacion.
+        // Se rechaza todo stock previo al activar la opción, incluso el de variantes.
+        if ($idarticulo > 0) {
+            try {
+                $product->validarConfiguracionLotes($idarticulo, $controlLotesNuevo, $controlVenceNuevo, $diasAlertaNuevo);
+            } catch (RuntimeException $errorLotes) {
+                echo $errorLotes->getMessage();
+                break;
+            }
+        }
 
+        if (($controlLotesNuevo || $controlVenceNuevo) && !$estabaControlado && $variacionesFormulario) {
+            foreach ($variacionesFormulario as $fila) {
+                if ((int)($fila['stock'] ?? 0) > 0) {
+                    echo 'Crea las variantes controladas con stock cero y recibe cada lote desde Compras.';
+                    break 2;
+                }
+            }
+        }
         $variacionesNormalizadas = [];
         $skusVariaciones = [];
 
@@ -1950,6 +1998,12 @@ switch ($_GET['op'] ?? '') {
                 $stockVariacion = max(0, (int)($variacion['stock'] ?? 0));
                 $compraVariacion = max(0, (float)($variacion['precio_compra'] ?? 0));
                 $ventaVariacion = (float)($variacion['precio_venta'] ?? 0);
+                $prefVarRaw = trim((string)($variacion['precio_preferencial'] ?? ''));
+                $prefVar = $prefVarRaw === '' ? null : (float)$prefVarRaw;
+                if ($prefVar !== null && (!is_finite($prefVar) || $prefVar <= 0 || $prefVar > $ventaVariacion)) {
+                    echo 'La tarifa preferencial de cada variante debe ser positiva y no exceder el precio normal.';
+                    break 2;
+                }
 
                 if ($combinacionVariacion === '') {
                     echo 'Todas las variantes deben tener una combinación';
@@ -2000,7 +2054,8 @@ switch ($_GET['op'] ?? '') {
                     'sku' => $skuVariacion,
                     'stock' => $stockVariacion,
                     'precio_compra' => $compraVariacion,
-                    'precio_venta' => $ventaVariacion
+                    'precio_venta' => $ventaVariacion,
+                    'precio_preferencial' => $prefVar
                 ];
             }
         }
@@ -2096,13 +2151,19 @@ switch ($_GET['op'] ?? '') {
                 );
 
                 $resultado = (bool)($resultadoVariable['success'] ?? false);
+                $idNuevoVariable = (int)($resultadoVariable['idarticulo'] ?? 0);
+                if ($resultado && ($controlLotesNuevo || $controlVenceNuevo)) {
+                    $idNuevoVariable = (int)($resultadoVariable['idarticulo'] ?? 0);
+                    if ($idNuevoVariable <= 0) throw new RuntimeException('No se pudo activar el control de lotes del producto variable.');
+                    $product->guardarConfiguracionLotes($idNuevoVariable, $controlLotesNuevo, $controlVenceNuevo, $diasAlertaNuevo);
+                }
                 $mensajeExito = 'Producto variable registrado correctamente';
 
                 if (!$resultado && !empty($resultadoVariable['error'])) {
                     throw new RuntimeException((string)$resultadoVariable['error']);
                 }
             } elseif ($idarticulo <= 0) {
-                $resultado = (bool)$product->insertar(
+                $resultado = $product->insertar(
                     $idcategoria,
                     $idsubcategoriaFinal,
                     $idmedida,
@@ -2171,6 +2232,12 @@ switch ($_GET['op'] ?? '') {
                     break;
                 }
             }
+            if ($resultado) {
+                $articuloPreferencialId = $idarticulo > 0 ? $idarticulo : ($variacionesNormalizadas ? ($idNuevoVariable ?? 0) : (int)$resultado);
+                if ($articuloPreferencialId > 0) {
+                    $product->guardarPrecioPreferencial($articuloPreferencialId, $precioPreferencial);
+                }
+            }
             if (!$resultado) {
                 $limpiarImagenNueva();
                 echo $idarticulo > 0
@@ -2212,6 +2279,28 @@ switch ($_GET['op'] ?? '') {
         echo $rspta
             ? 'Datos activados correctamente'
             : 'No se pudo activar los datos';
+        break;
+
+    case 'detalle_lotes':
+        header('Content-Type: application/json; charset=utf-8');
+        if (!productoPuedeImportarMasivo() || ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            http_response_code(403);
+            echo json_encode(['success'=>false,'message'=>'Sin permiso para consultar el inventario por lotes.']);
+            break;
+        }
+        $idLotes = filter_var($_POST['idarticulo'] ?? null, FILTER_VALIDATE_INT);
+        if (!$idLotes || $idLotes <= 0) {
+            http_response_code(400);
+            echo json_encode(['success'=>false,'message'=>'Producto inválido.']);
+            break;
+        }
+        try {
+            echo json_encode(['success'=>true,'data'=>$product->detalleLotesProducto((int)$idLotes)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } catch (Throwable $e) {
+            error_log('[DETALLE LOTES PRODUCTO] ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success'=>false,'message'=>'No fue posible consultar los lotes.']);
+        }
         break;
 
     case 'mostrar':

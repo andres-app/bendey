@@ -744,6 +744,9 @@ class Buy
                     a.idsubcategoria,
                     a.idmedida,
                     a.idalmacen,
+                    a.controla_lotes,
+                    a.controla_vencimiento,
+                    a.dias_alerta_vencimiento,
                     c.nombre AS categoria,
                     sc.nombre AS subcategoria,
                     m.nombre AS medida,
@@ -761,7 +764,25 @@ class Buy
                 WHERE a.condicion = 1
                 ORDER BY a.nombre ASC";
 
-        return $this->conexion->getDataAll($sql);
+        $productos = $this->conexion->getDataAll($sql);
+        // Una compra puede contener varios lotes de una misma variante. La
+        // presentación se identifica por idvariacion y no por el SKU padre.
+        $variantes = $this->conexion->getDataAll(
+            "SELECT av.idvariacion,av.idarticulo,av.sku,av.combinacion,av.stock,
+                    av.precio_compra,av.precio_venta
+             FROM articulo_variacion av JOIN articulo a ON a.idarticulo=av.idarticulo
+             WHERE av.estado=1 AND a.condicion=1
+             ORDER BY av.idarticulo,av.combinacion,av.idvariacion"
+        );
+        $porArticulo = [];
+        foreach ($variantes as $variante) {
+            $porArticulo[(int)$variante['idarticulo']][] = $variante;
+        }
+        foreach ($productos as &$producto) {
+            $producto['variaciones'] = $porArticulo[(int)$producto['idarticulo']] ?? [];
+        }
+        unset($producto);
+        return $productos;
     }
 
     public function datosFormulario(): array
@@ -1085,7 +1106,7 @@ class Buy
             }
         }
 
-                $configLotes = $this->conexion->getData(
+        $configLotes = $this->conexion->getData(
             "SELECT controla_lotes, controla_vencimiento FROM articulo WHERE idarticulo=?",
             [$idarticulo]
         );
@@ -1103,8 +1124,31 @@ class Buy
             || date('Y-m-d', strtotime($fechaVence)) !== $fechaVence)) {
             throw new RuntimeException('La fecha de vencimiento del lote no es válida.');
         }
+        // Un producto sin vencimiento habilitado no debe recibir una fecha oculta
+        // enviada desde el cliente. La fecha siempre pertenece a cada lote.
+        if (!$controlVence && $fechaVence !== '') {
+            throw new RuntimeException('El producto no controla vencimientos. Activa «Lotes y fecha de vencimiento» antes de indicar una fecha.');
+        }
+        if (!$controlLotes && !$controlVence && $numeroLote !== '') {
+            throw new RuntimeException('El producto no controla lotes. Activa el control antes de registrar un número de lote.');
+        }
         if ($controlVence && $fechaVence < date('Y-m-d')) {
-            throw new RuntimeException('No puede ingresar productos ya vencidos como stock disponible.');
+            throw new RuntimeException('La fecha indicada ya venció. Revisa el lote antes de ingresar esta mercadería.');
+        }
+        if ($numeroLote !== '') {
+            // La fila de artículo se encuentra bloqueada FOR UPDATE en esta
+            // transacción: se serializan recepciones simultáneas del mismo producto.
+            $fechaLote = $fechaVence !== '' ? $fechaVence : null;
+            $lotesIncompatibles = (int)$this->conexion->getValue(
+                "SELECT COUNT(*) FROM detalle_ingreso
+                 WHERE idarticulo=? AND idvariacion <=> ? AND numero_lote=?
+                   AND tipo_detalle='INVENTARIO' AND afecta_stock=1 AND estado=1
+                   AND NOT (fecha_vencimiento <=> ?)",
+                [$idarticulo, $idvariacion > 0 ? $idvariacion : null, $numeroLote, $fechaLote]
+            );
+            if ($lotesIncompatibles > 0) {
+                throw new RuntimeException('El lote «' . $numeroLote . '» ya tiene otra fecha de vencimiento para esta presentación. Verifica la etiqueta o utiliza otro número de lote.');
+            }
         }
         $cantidad = (int)round((float)$detalle['cantidad']);
         $precioCompra = (float)$detalle['precio_compra'];

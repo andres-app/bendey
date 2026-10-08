@@ -13,6 +13,7 @@ var limiteGridProductos = 24;
 var filtroDataTableRegistrado = false;
 var filtroRapidoProducto = "todos";
 var productoDetalleActual = null;
+var solicitudDetalleProductoActual = 0;
 var catalogosMasivosProducto = {
   categorias: [],
   subcategorias: [],
@@ -36,6 +37,14 @@ $(document).ready(function () {
   cargarConfiguracionTributariaProducto();
   registrarEventosTributariosProducto();
   registrarEventosInterfazProductos();
+  $('#modo_control_inventario').on('change', function () {
+    const modo = String($(this).val() || 'ninguno');
+    $('#controla_lotes').prop('checked', modo === 'lotes' || modo === 'vencimiento');
+    $('#controla_vencimiento').prop('checked', modo === 'vencimiento');
+    actualizarCamposLoteProducto();
+  });
+  $('#stock, #activar_atributos').on('change input', actualizarCamposLoteProducto);
+  actualizarCamposLoteProducto();
 });
 
 function registrarEventosInterfazProductos() {
@@ -469,9 +478,25 @@ function validarDatosTributariosProducto() {
   return true;
 }
 
+function actualizarCamposLoteProducto() {
+  const nuevo = !$('#idarticulo').val();
+  const control = $('#controla_lotes').is(':checked') || $('#controla_vencimiento').is(':checked');
+  const controlaVence = $('#controla_vencimiento').is(':checked');
+  const modo = controlaVence ? 'vencimiento' : (control ? 'lotes' : 'ninguno');
+  $('#modo_control_inventario').val(modo);
+  $('#configuracionAlertaLotes').toggle(controlaVence);
+  $('#avisoStockInicialLotes').toggle(nuevo && control);
+  $('#gestionLotesProducto').toggle(!nuevo && control);
+  if (!nuevo) {
+    const sku = $('#codigo').val() || $('#nombre').val() || '';
+    $('#enlaceGestionLotesProducto').attr('href', 'lotes?tab=lotes&q=' + encodeURIComponent(sku));
+  }
+}
+
 function nuevoProducto() {
   secuenciaEdicionProducto++;
   mostrarform(true);
+  actualizarCamposLoteProducto();
 }
 
 function mostrarform(flag) {
@@ -506,6 +531,8 @@ function limpiar() {
   productoEdicionActual = null;
   $("#controla_lotes, #controla_vencimiento").prop("checked", false);
   $("#dias_alerta_vencimiento").val(30);
+  $("#precio_preferencial").val("");
+  actualizarCamposLoteProducto();
   $("#variaciones-lista").empty();
   $("#variaciones-container, #atributos_section, #avisoEdicionVariantes").hide();
   $("#generadorVariacionesProducto").show();
@@ -932,19 +959,35 @@ function abrirDetalleProducto(idarticulo) {
     dataType: "json",
     data: { idarticulo: id }
   });
-
+  const solicitudLotes = $.ajax({
+    url: "Controllers/Product.php?op=detalle_lotes",
+    type: "POST",
+    dataType: "json",
+    data: { idarticulo: id }
+  });
+  const secuencia = ++solicitudDetalleProductoActual;
+  // Los datos del producto siguen mostrándose incluso si falla el servicio de lotes.
   $.when(solicitudProducto, solicitudVariaciones).done(function (respuestaProducto, respuestaVariaciones) {
+    if (secuencia !== solicitudDetalleProductoActual) return;
     const producto = respuestaProducto[0] || {};
     const variaciones = Array.isArray(respuestaVariaciones[0]) ? respuestaVariaciones[0] : [];
     productoDetalleActual = producto;
-    renderizarDetalleProducto(producto, variaciones);
+    renderizarDetalleProducto(producto, variaciones, null, true);
+    solicitudLotes.done(function (res) {
+      if (secuencia !== solicitudDetalleProductoActual) return;
+      renderizarDetalleProducto(producto, variaciones, res && res.success ? res.data : null, false);
+    }).fail(function () {
+      if (secuencia !== solicitudDetalleProductoActual) return;
+      renderizarDetalleProducto(producto, variaciones, null, false);
+    });
   }).fail(function (xhr) {
+    if (secuencia !== solicitudDetalleProductoActual) return;
     $("#detalleProductoContenido").html('<div class="alert alert-danger">No se pudo cargar el detalle del producto.</div>');
     console.error("Detalle producto:", xhr.responseText);
   });
 }
 
-function renderizarDetalleProducto(producto, variaciones) {
+function renderizarDetalleProducto(producto, variaciones, datosLotes, cargandoLotes) {
   const costo = Number(producto.precio_compra || 0);
   const venta = Number(producto.precio_venta || 0);
   const margen = venta > 0 ? venta - costo : 0;
@@ -957,7 +1000,7 @@ function renderizarDetalleProducto(producto, variaciones) {
 
   html += '<div class="tp-detail-grid">' +
     detalleCajaProducto("Precio de venta", construirPrecioProductoTexto(producto)) +
-    detalleCajaProducto("Stock disponible", formatearCantidadProducto(stock) + " unidades") +
+    detalleCajaProducto("Stock físico", formatearCantidadProducto(stock) + " unidades") +
     detalleCajaProducto("Categoría", producto.categoria || "Sin categoría") +
     detalleCajaProducto("Subcategoría", producto.subcategoria || "Sin subcategoría") +
     detalleCajaProducto("Almacén", producto.almacen_nombre || producto.almacen || "Sin almacén") +
@@ -972,6 +1015,8 @@ function renderizarDetalleProducto(producto, variaciones) {
     detalleCajaProducto("Código SUNAT", producto.codigo_producto_sunat || "No registrado") +
     detalleCajaProducto("Variaciones", variaciones.length ? variaciones.length + " registradas" : "Sin variaciones") +
     '</div></div>';
+
+  html += construirSeccionLotesProducto(producto, datosLotes, cargandoLotes);
 
   if (descripcion) {
     html += '<div class="tp-detail-section"><h5>Descripción</h5><div class="tp-detail-box"><strong>' + escaparHtmlProducto(descripcion) + '</strong></div></div>';
@@ -997,11 +1042,62 @@ function renderizarDetalleProducto(producto, variaciones) {
   });
 }
 
+
+function fechaLoteProducto(fecha) {
+  const texto = String(fecha || '');
+  return /^\d{4}-\d{2}-\d{2}$/.test(texto) ? texto.slice(8, 10) + '/' + texto.slice(5, 7) + '/' + texto.slice(0, 4) : 'Sin fecha';
+}
+
+/** Bloque exclusivo de lectura; cualquier corrección se realiza en Inventario > Lotes. */
+function construirSeccionLotesProducto(producto, datos, cargando) {
+  const control = Number(producto.controla_lotes || 0) === 1 || Number(producto.controla_vencimiento || 0) === 1;
+  const modo = Number(producto.controla_vencimiento || 0) === 1 ? 'Lotes y vencimiento (FEFO)' : (control ? 'Control por lotes' : 'Sin control de lotes');
+  let html = '<div class="tp-detail-section"><h5>Lotes y vencimientos</h5>';
+  html += '<div class="tp-lotes-note">Modalidad: <strong>' + escaparHtmlProducto(modo) + '</strong>. Las fechas son por lote, no por producto.</div>';
+  if (!control) return html + '<div class="tp-lote-card">Este producto utiliza inventario normal y no tiene lotes asignados.</div></div>';
+  const enlace = 'lotes?tab=lotes&q=' + encodeURIComponent(producto.codigo || producto.nombre || '');
+  if (cargando) return html + '<div class="tp-lotes-note"><i class="fas fa-circle-notch fa-spin"></i> Consultando existencias por lote...</div></div>';
+  if (!datos) return html + '<div class="tp-lote-card">No fue posible consultar los lotes en este momento.</div><a class="tp-lotes-link" href="' + escaparHtmlProducto(enlace) + '">Consultar en Inventario <i class="fas fa-arrow-right"></i></a></div>';
+
+  if (Number(producto.controla_vencimiento || 0) === 1) {
+    html += '<div class="tp-lotes-note">Próximo vencimiento vigente: <strong>' + escaparHtmlProducto(fechaLoteProducto(datos.proximo_vencimiento)) + '</strong></div>';
+  }
+  html += '<div class="tp-lotes-resumen">' +
+    '<div class="tp-lotes-kpi"><span>Vendible</span><strong>' + formatearCantidadProducto(datos.stock_vendible) + '</strong></div>' +
+    '<div class="tp-lotes-kpi"><span>Vencido</span><strong>' + formatearCantidadProducto(datos.stock_vencido) + '</strong></div>' +
+    '<div class="tp-lotes-kpi"><span>Por identificar</span><strong>' + formatearCantidadProducto(datos.stock_sin_identificar) + '</strong></div></div>';
+  const diferencia = Number(datos.stock_fisico || 0) - Number(datos.stock_registrado_lotes || 0);
+  if (diferencia !== 0) html += '<div class="tp-lotes-note" style="color:#ab562c">Atención: el stock físico (' + formatearCantidadProducto(datos.stock_fisico) + ') no coincide con las existencias por ingreso (' + formatearCantidadProducto(datos.stock_registrado_lotes) + '). Revisa la conciliación de inventario.</div>';
+  if (Number(datos.stock_sin_identificar || 0) > 0) html += '<div class="tp-lotes-note" style="color:#a26820">Hay unidades sin lote identificable; no deben venderse como lotes hasta conciliarlas.</div>';
+  if (Number(datos.stock_sin_fecha || 0) > 0 && Number(producto.controla_vencimiento || 0) === 1) html += '<div class="tp-lotes-note" style="color:#a26820">Hay lotes sin vencimiento registrado; esas unidades no están disponibles para venta FEFO.</div>';
+  const grupos = Array.isArray(datos.lotes) ? datos.lotes : [];
+  if (!grupos.length) html += '<div class="tp-lote-card">No hay lotes con existencias en este momento. Revisa «Por identificar» o registra una compra.</div>';
+  grupos.forEach(function (lote) {
+    const numero = String(lote.numero_lote || 'Sin identificar');
+    const dias = lote.dias_restantes === null || lote.dias_restantes === '' ? null : Number(lote.dias_restantes);
+    const controlaFecha = Number(producto.controla_vencimiento || 0) === 1;
+    const sinNumero = !String(lote.numero_lote || '').trim();
+    const vencido = dias !== null && dias < 0;
+    const sinFecha = !lote.fecha_vencimiento;
+    const alerta = Number(producto.dias_alerta_vencimiento || 30);
+    const etiqueta = sinNumero ? 'Por identificar' : (vencido ? 'Vencido' : (controlaFecha && sinFecha ? 'Sin fecha' : (dias !== null && dias <= alerta ? 'Próximo' : 'Vigente')));
+    const clase = sinNumero || (controlaFecha && sinFecha) ? 'muted' : (vencido ? 'bad' : (dias !== null && dias <= alerta ? 'warn' : 'ok'));
+    const variante = lote.idvariacion ? (lote.presentacion || 'Variante') + (lote.sku_variacion ? ' · SKU ' + lote.sku_variacion : '') : 'Producto simple';
+    html += '<div class="tp-lote-card"><div class="tp-lote-top"><strong>' + escaparHtmlProducto(numero) + '</strong><span class="tp-lote-estado ' + clase + '">' + escaparHtmlProducto(etiqueta) + '</span></div>' +
+      '<div class="tp-lote-meta">' + escaparHtmlProducto(variante) + ' · ' + escaparHtmlProducto(lote.almacen || 'Sin almacén') + '</div>' +
+      '<div class="tp-lote-bottom"><span class="tp-lote-meta">Vence: <strong>' + escaparHtmlProducto(fechaLoteProducto(lote.fecha_vencimiento)) + '</strong></span><strong>' + formatearCantidadProducto(lote.cantidad) + ' und.</strong></div></div>';
+  });
+  if (datos.hay_mas) html += '<div class="tp-lotes-note">Se muestran los primeros 60 grupos; consulta todos los lotes en Inventario.</div>';
+  html += '<a class="tp-lotes-link" href="' + escaparHtmlProducto(enlace) + '"><i class="fas fa-boxes"></i> Administrar lotes y corregir vencimientos <i class="fas fa-arrow-right"></i></a>';
+  return html + '</div>';
+}
+
 function detalleCajaProducto(etiqueta, valor) {
   return '<div class="tp-detail-box"><span>' + escaparHtmlProducto(etiqueta) + '</span><strong>' + escaparHtmlProducto(valor) + '</strong></div>';
 }
 
 function cerrarDetalleProducto() {
+  solicitudDetalleProductoActual++;
   $("#detalleProductoOverlay, #detalleProductoDrawer").removeClass("is-open");
   $("#detalleProductoDrawer").attr("aria-hidden", "true");
   $("body").css("overflow", "");
@@ -1067,8 +1163,10 @@ function guardaryeditar(e) {
     }
   }
 
-  if (($('#controla_lotes').is(':checked') || $('#controla_vencimiento').is(':checked')) && Number($('#stock').val() || 0) > 0 && !$('#idarticulo').val()) {
-    Swal.fire('Stock inicial', 'Crea el producto controlado con stock cero. Registra su primer lote desde Compras.', 'warning'); return;
+  if (!$('#idarticulo').val() && ($('#controla_lotes').is(':checked') || $('#controla_vencimiento').is(':checked')) && Number($('#stock').val() || 0) > 0) {
+    Swal.fire('Stock inicial con lotes', 'Crea el producto con stock inicial cero y registra cada lote al recibir mercadería en Compras. El vencimiento se corrige solo en Lotes y vencimientos.', 'warning');
+    $('#stock').focus();
+    return;
   }
   // 🚨 Validación obligatoria si está activado el modo atributos
   if ($("#activar_atributos").is(":checked")) {
@@ -1129,6 +1227,7 @@ function guardaryeditar(e) {
     const stock = $(this).find("input[name*='stock']").val();
     const precio_compra = $(this).find("input[name*='precio_compra']").val();
     const precio_venta = $(this).find("input[name*='precio_venta']").val();
+    const precio_preferencial = $(this).find("input[name*='precio_preferencial']").val();
 
     variaciones.push({
       idvariacion,
@@ -1136,7 +1235,8 @@ function guardaryeditar(e) {
       sku,
       stock,
       precio_compra,
-      precio_venta
+      precio_venta,
+      precio_preferencial
     });
   });
 
@@ -1195,6 +1295,7 @@ function construirFilaVariacionEdicion(variacion, indice) {
   const stock = Number(variacion.stock || 0);
   const compra = Number(variacion.precio_compra || 0);
   const venta = Number(variacion.precio_venta || 0);
+  const preferencial = variacion.precio_preferencial == null ? "" : String(variacion.precio_preferencial);
 
   return `
     <tr>
@@ -1206,6 +1307,7 @@ function construirFilaVariacionEdicion(variacion, indice) {
       <td><input type="number" name="variaciones[${indice}][stock]" class="form-control" min="0" value="${stock}"></td>
       <td><input type="number" name="variaciones[${indice}][precio_compra]" class="form-control" min="0" step="0.01" value="${compra.toFixed(2)}"></td>
       <td><input type="number" name="variaciones[${indice}][precio_venta]" class="form-control" min="0.01" step="0.01" value="${venta.toFixed(2)}" required></td>
+      <td><input type="number" name="variaciones[${indice}][precio_preferencial]" class="form-control" min="0.01" step="0.01" value="${escaparHtmlProducto(preferencial)}" placeholder="Opcional"></td>
       <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm tp-remove-variant" title="Quitar variante"><i class="fas fa-times"></i></button></td>
     </tr>`;
 }
@@ -1279,8 +1381,10 @@ function mostrar(idarticulo) {
     $('#controla_lotes').prop('checked', Number(data.controla_lotes || 0) === 1);
     $('#controla_vencimiento').prop('checked', Number(data.controla_vencimiento || 0) === 1);
     $('#dias_alerta_vencimiento').val(data.dias_alerta_vencimiento || 30);
+    actualizarCamposLoteProducto();
     $("#precio_compra").val(data.precio_compra ?? "");
     $("#precio_venta").val(data.precio_venta ?? "");
+    $("#precio_preferencial").val(data.precio_preferencial ?? "");
     $("#descripcion").val(data.descripcion ?? "");
     $("#codigo_afectacion_igv").val(String(data.codigo_afectacion_igv || configuracionTributariaProducto.afectacion));
     $("#porcentaje_igv").val(Number(data.porcentaje_igv ?? configuracionTributariaProducto.porcentaje).toFixed(2));
@@ -1440,6 +1544,7 @@ function generarVariaciones() {
         <td><input type="number" name="variaciones[${index}][stock]" class="form-control" min="0" placeholder="Stock"></td>
         <td><input type="number" name="variaciones[${index}][precio_compra]" class="form-control" min="0" placeholder="Precio Compra" step="0.01"></td>
         <td><input type="number" name="variaciones[${index}][precio_venta]" class="form-control" placeholder="Precio Venta *" step="0.01" min="0.01" required></td>
+        <td><input type="number" name="variaciones[${index}][precio_preferencial]" class="form-control" placeholder="Opcional" step="0.01" min="0.01"></td>
         <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm tp-remove-variant" title="Quitar variante"><i class="fas fa-times"></i></button></td>
       </tr>
     `;
@@ -2141,6 +2246,7 @@ function toggleAtributos() {
   $("#grupo_stock_principal").toggle(!activo);
   $("#grupo_precio_compra_principal").toggle(!activo);
   $("#grupo_precio_venta_principal").toggle(!activo);
+  $("#grupo_precio_preferencial").toggle(!activo);
 
   $("#precio_venta")
     .prop("required", !activo)

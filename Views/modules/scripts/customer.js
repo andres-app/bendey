@@ -18,6 +18,7 @@ function limpiar() {
   $("#telefono").val("");
   $("#email").val("");
   $("#idpersona").val("");
+  $("#es_preferencial").val("0");
 }
 
 //funcion mostrar formulario
@@ -56,7 +57,7 @@ function listar() {
           title: "Reporte de Clientes",
           sheetName: "Clientes",
           exportOptions: {
-            columns: [1, 2, 3, 4, 5],
+            columns: [1, 2, 3, 4, 5, 6],
           },
         },
         {
@@ -68,7 +69,7 @@ function listar() {
           pageSize: "A4",
           //orientation: 'landscape',
           exportOptions: {
-            columns: [1, 2, 3, 4, 5],
+            columns: [1, 2, 3, 4, 5, 6],
           },
         },
       ],
@@ -132,6 +133,7 @@ function mostrar(idpersona) {
       $("#direccion").val(data.direccion);
       $("#telefono").val(data.telefono);
       $("#email").val(data.email);
+      $("#es_preferencial").val(String(Number(data.es_preferencial) === 1 ? 1 : 0));
       $("#idpersona").val(data.idpersona);
     }
   );

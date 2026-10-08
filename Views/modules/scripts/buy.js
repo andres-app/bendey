@@ -664,9 +664,24 @@ function cargarProductosCompra(forzar = false) {
                 );
             }
 
-            productosCompra = Array.isArray(respuesta.productos)
-                ? respuesta.productos
-                : [];
+            // El selector muestra variantes como productos vendibles separados.
+            // Conservan el idarticulo padre y el idvariacion exacto.
+            const catalogo = Array.isArray(respuesta.productos) ? respuesta.productos : [];
+            productosCompra = catalogo.flatMap(function (producto) {
+                const variantes = Array.isArray(producto.variaciones) ? producto.variaciones : [];
+                if (!variantes.length) return [{ ...producto, idvariacion: 0 }];
+                return variantes.map(function (variante) {
+                    return {
+                        ...producto,
+                        idvariacion: Number.parseInt(variante.idvariacion, 10) || 0,
+                        nombre: String(producto.nombre || '') + ' - ' + String(variante.combinacion || ''),
+                        codigo: String(variante.sku || ''),
+                        stock: variante.stock,
+                        precio_compra: variante.precio_compra,
+                        precio_venta: variante.precio_venta
+                    };
+                });
+            });
 
             renderizarProductosCompra(productosCompra);
         })
@@ -718,6 +733,7 @@ function renderizarProductosCompra(productos) {
                         SKU: ${escaparHtmlCompra(codigo || 'Sin código')} ·
                         Stock: ${stock} ·
                         ${escaparHtmlCompra(almacen)}
+                        ${(Number(producto.controla_lotes || 0) === 1 || Number(producto.controla_vencimiento || 0) === 1) ? ' · <strong style="color:#008f64">Control por lote</strong>' : ''}
                     </div>
                     <div class="producto-compra-sub">
                         Último costo: ${formatearMonedaCompra(precioCompra)} ·
@@ -728,7 +744,8 @@ function renderizarProductosCompra(productos) {
                 <button
                     type="button"
                     class="btn btn-success btn-sm btnSeleccionarProductoCompra"
-                    data-idarticulo="${idarticulo}">
+                    data-idarticulo="${idarticulo}"
+                    data-idvariacion="${Number.parseInt(producto.idvariacion, 10) || 0}">
                     <i class="fas fa-plus mr-1"></i>
                     Agregar
                 </button>
@@ -738,9 +755,10 @@ function renderizarProductosCompra(productos) {
     $('#listaProductosCompra').html(html);
 }
 
-function agregarProductoExistente(idarticulo) {
+function agregarProductoExistente(idarticulo, idvariacion = 0) {
     const producto = productosCompra.find(function (item) {
-        return Number.parseInt(item.idarticulo, 10) === idarticulo;
+        return Number.parseInt(item.idarticulo, 10) === idarticulo
+            && (Number.parseInt(item.idvariacion, 10) || 0) === idvariacion;
     });
 
     if (!producto) {
@@ -748,10 +766,14 @@ function agregarProductoExistente(idarticulo) {
         return;
     }
 
-    const indiceExistente = detallesCompra.findIndex(function (detalle) {
+    const controlado = Number(producto.controla_lotes || 0) === 1 || Number(producto.controla_vencimiento || 0) === 1;
+    // Un artículo controlado puede repetirse en la MISMA compra, pero cada
+    // fila representa una recepción/lote independiente: jamás fusionarlos.
+    const indiceExistente = controlado ? -1 : detallesCompra.findIndex(function (detalle) {
         return detalle.tipo_detalle === 'INVENTARIO'
             && detalle.origen === 'EXISTENTE'
-            && Number.parseInt(detalle.idarticulo, 10) === idarticulo;
+            && Number.parseInt(detalle.idarticulo, 10) === idarticulo
+            && (Number.parseInt(detalle.idvariacion, 10) || 0) === idvariacion;
     });
 
     if (indiceExistente >= 0) {
@@ -764,6 +786,12 @@ function agregarProductoExistente(idarticulo) {
             tipo_detalle: 'INVENTARIO',
             origen: 'EXISTENTE',
             idarticulo: idarticulo,
+            idvariacion: idvariacion,
+            controla_lotes: controlado ? 1 : 0,
+            controla_vencimiento: Number(producto.controla_vencimiento || 0),
+            dias_alerta_vencimiento: Number(producto.dias_alerta_vencimiento || 30),
+            numero_lote: '',
+            fecha_vencimiento: '',
             descripcion: String(producto.nombre || ''),
             nombre: String(producto.nombre || ''),
             codigo: String(producto.codigo || ''),
@@ -1638,10 +1666,10 @@ function renderizarDetallesCompra() {
                 <td>
                     <div class="font-weight-bold text-dark">${escaparHtmlCompra(detalle.descripcion || detalle.nombre)}</div>
                     <small class="text-muted">${escaparHtmlCompra(descripcionSecundaria)}</small>
-                    ${esInventario ? `<div class="d-flex flex-wrap align-items-center mt-2" style="gap:6px">
+                    ${esInventario && (detalle.controla_lotes || detalle.controla_vencimiento) ? `<div class="d-flex flex-wrap align-items-center mt-2" style="gap:6px">
                       <input class="form-control form-control-sm detalle-compra-input" style="max-width:145px" data-indice="${indice}" data-campo="numero_lote" placeholder="N.º lote" maxlength="80" value="${escaparHtmlCompra(detalle.numero_lote || '')}">
-                      <input type="date" class="form-control form-control-sm detalle-compra-input" style="max-width:155px" data-indice="${indice}" data-campo="fecha_vencimiento" title="Fecha de vencimiento" value="${escaparHtmlCompra(detalle.fecha_vencimiento || '')}">
-                      <small class="text-muted">Lote / Vence</small>
+                      ${detalle.controla_vencimiento ? `<input type="date" class="form-control form-control-sm detalle-compra-input" style="max-width:155px" data-indice="${indice}" data-campo="fecha_vencimiento" title="Fecha de vencimiento del lote" aria-label="Fecha de vencimiento del lote" value="${escaparHtmlCompra(detalle.fecha_vencimiento || '')}">` : ''}
+                      <small class="text-muted">N.º de lote requerido${detalle.controla_vencimiento ? ' · Fecha del lote obligatoria (FEFO)' : ' · Sin vencimiento'}</small>
                     </div>` : ''}
                 </td>
                 <td>
@@ -1954,6 +1982,14 @@ function validarCompraAntesDeGuardar() {
             return false;
         }
 
+        if (detalle.tipo_detalle === 'INVENTARIO' &&
+            (detalle.controla_lotes || detalle.controla_vencimiento) &&
+            (!String(detalle.numero_lote || '').trim() ||
+             (detalle.controla_vencimiento && !/^\d{4}-\d{2}-\d{2}$/.test(String(detalle.fecha_vencimiento || ''))))) {
+            alertaCompra('warning', 'Faltan datos del lote',
+                `Completa el número de lote y la fecha requerida en el detalle ${indice + 1}.`);
+            return false;
+        }
         if (
             detalle.tipo_detalle === 'INVENTARIO'
             && Math.abs(cantidad - Math.round(cantidad)) > 0.0001
@@ -3621,7 +3657,8 @@ function init() {
 
     $(document).on('click', '.btnSeleccionarProductoCompra', function () {
         agregarProductoExistente(
-            Number.parseInt($(this).attr('data-idarticulo'), 10) || 0
+            Number.parseInt($(this).attr('data-idarticulo'), 10) || 0,
+            Number.parseInt($(this).attr('data-idvariacion'), 10) || 0
         );
     });
 

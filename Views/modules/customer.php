@@ -34,6 +34,7 @@ if (!isset($_SESSION['nombre'])) {
                                                 <th>Numero</th>
                                                 <th>Telefono</th>
                                                 <th>Email</th>
+                                                <th>Tipo</th>
                                             </thead>
                                             <tbody>
                                             </tbody>
@@ -44,6 +45,7 @@ if (!isset($_SESSION['nombre'])) {
                                                 <th>Numero</th>
                                                 <th>Telefono</th>
                                                 <th>Email</th>
+                                                <th>Tipo</th>
                                             </tfoot>
                                         </table>
                                     </div>
@@ -93,6 +95,14 @@ if (!isset($_SESSION['nombre'])) {
                                                     <input class="form-control" type="email" name="email" id="email"
                                                         maxlength="50" placeholder="Email">
                                                 </div>
+                                                <div class="form-group col-lg-12 col-md-12 col-xs-12">
+                                                    <label for="es_preferencial">Tipo de cliente</label>
+                                                    <select class="form-control" id="es_preferencial" name="es_preferencial">
+                                                      <option value="0">Normal (precio de venta habitual)</option>
+                                                      <option value="1">Frecuente / preferencial (precio especial cuando esté configurado)</option>
+                                                    </select>
+                                                    <small class="text-muted">El descuento preferencial se aplicará automáticamente al seleccionar este cliente en el POS.</small>
+                                                </div>
                                                 <div class="form-group col-lg-12 col-md-12 col-sm-12 col-xs-12">
                                                     <button class="btn btn-primary" type="submit" id="btnGuardar"><i
                                                             class="fa fa-save"></i> Guardar</button>
@@ -118,7 +128,7 @@ if (!isset($_SESSION['nombre'])) {
     }
     require "footer.php";
     ?>
-    <script src="Views/modules/scripts/customer.js"></script>
+    <script src="Views/modules/scripts/customer.js?v=<?= (int)@filemtime(__DIR__ . '/scripts/customer.js') ?>"></script>
     <?php
 }
 ob_end_flush();

@@ -12,6 +12,7 @@ if (isset($_GET["url"])) {
         "atributos",
         "almacenes",
         "product",
+        "lotes",
         "labels",
         "supplier",
         "customer",

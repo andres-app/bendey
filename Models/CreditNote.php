@@ -1900,7 +1900,7 @@ class CreditNote
             }
 
             $articulo = $this->conexion->getData(
-                "SELECT idarticulo, stock
+                "SELECT idarticulo, stock, controla_lotes, controla_vencimiento
                  FROM articulo
                  WHERE idarticulo = ?
                  LIMIT 1
@@ -1914,6 +1914,54 @@ class CreditNote
                 );
             }
 
+            // Devolución trazable: se repone ÚNICAMENTE al lote del que salió
+            // la unidad. Ni el costo parecido ni el número de SKU sirven para
+            // determinar el lote físico correcto.
+            $rastreado = (int)($articulo['controla_lotes'] ?? 0) === 1
+                || (int)($articulo['controla_vencimiento'] ?? 0) === 1;
+            if ($rastreado) {
+                $origenes = $this->conexion->getDataAll(
+                    "SELECT vdl.idventa_detalle_lote, vdl.iddetalle_ingreso, vdl.cantidad,
+                            di.stock_venta, di.cantidad AS cantidad_ingresada
+                     FROM venta_detalle_lote vdl
+                     INNER JOIN detalle_ingreso di ON di.iddetalle_ingreso=vdl.iddetalle_ingreso
+                     WHERE vdl.iddetalle_venta=? AND di.idarticulo=?
+                       AND (di.idvariacion <=> ?)
+                     ORDER BY vdl.idventa_detalle_lote ASC FOR UPDATE",
+                    [(int)$detalle['iddetalle_venta'], $idarticulo, $idvariacion > 0 ? $idvariacion : null]
+                );
+                if (!$origenes) {
+                    throw new RuntimeException('Esta venta controlada no tiene trazabilidad de lotes. Requiere revisión antes de reponer stock.');
+                }
+                $restante = $cantidad;
+                foreach ($origenes as $origen) {
+                    if ($restante <= 0.0001) break;
+                    $reintegroPrevio = (float)$this->conexion->getValue(
+                        "SELECT COALESCE(SUM(ndl.cantidad),0)
+                         FROM nota_credito_detalle_lote ndl
+                         JOIN nota_credito_detalle nd ON nd.iddetalle_nota_credito=ndl.iddetalle_nota_credito
+                         JOIN nota_credito nc ON nc.idnota_credito=nd.idnota_credito
+                         WHERE ndl.idventa_detalle_lote=? AND nc.stock_aplicado=1 AND nc.estado='REGISTRADA'",
+                        [(int)$origen['idventa_detalle_lote']]
+                    );
+                    $restaurable = max(0, round((float)$origen['cantidad'] - $reintegroPrevio, 3));
+                    $capacidad = max(0, round((float)$origen['cantidad_ingresada'] - (float)$origen['stock_venta'], 3));
+                    $reponer = min($restante, $restaurable, $capacidad);
+                    if ($reponer <= 0) continue;
+                    $this->conexion->setData(
+                        'UPDATE detalle_ingreso SET stock_venta=stock_venta+?, stock_estado=1 WHERE iddetalle_ingreso=?',
+                        [$reponer, (int)$origen['iddetalle_ingreso']]
+                    );
+                    $this->conexion->setData(
+                        'INSERT INTO nota_credito_detalle_lote (iddetalle_nota_credito,idventa_detalle_lote,cantidad) VALUES (?,?,?)',
+                        [(int)$detalle['iddetalle_nota_credito'], (int)$origen['idventa_detalle_lote'], $reponer]
+                    );
+                    $restante = round($restante - $reponer, 3);
+                }
+                if ($restante > 0.0001) {
+                    throw new RuntimeException('No se puede devolver más unidades que las despachadas del lote original.');
+                }
+            } else {
             $lotes = $this->conexion->getDataAll(
                 "SELECT
                     iddetalle_ingreso,
@@ -1922,6 +1970,7 @@ class CreditNote
                     stock_venta
                  FROM detalle_ingreso
                  WHERE idarticulo = ?
+                   AND (idvariacion <=> ?)
                    AND afecta_stock = 1
                  ORDER BY
                     CASE
@@ -1930,7 +1979,7 @@ class CreditNote
                     END,
                     iddetalle_ingreso ASC
                  FOR UPDATE",
-                [$idarticulo, $costo]
+                [$idarticulo, $idvariacion > 0 ? $idvariacion : null, $costo]
             );
 
             if (!is_array($lotes)) {
@@ -1987,6 +2036,8 @@ class CreditNote
                     'No existe capacidad suficiente en los lotes de ingreso para devolver '
                     . $detalle['descripcion_articulo'] . '.'
                 );
+            }
+
             }
 
             if ($idvariacion > 0) {

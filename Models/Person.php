@@ -38,11 +38,11 @@ class Person
     }
 
     // Método para insertar registros
-    public function insertar($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email)
+    public function insertar($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email, $es_preferencial = 0)
     {
         $sql = "INSERT INTO $this->tableName 
-            (tipo_persona, nombre, tipo_documento, num_documento, direccion, telefono, email) 
-            VALUES (?,?,?,?,?,?,?)";
+            (tipo_persona, nombre, tipo_documento, num_documento, direccion, telefono, email, es_preferencial) 
+            VALUES (?,?,?,?,?,?,?,?)";
 
         $arrData = array(
             $tipo_persona,
@@ -51,7 +51,8 @@ class Person
             $num_documento,
             $direccion,
             $telefono,
-            $email
+            $email,
+            $tipo_persona === "Cliente" ? (int)(bool)$es_preferencial : 0
         );
 
         // Ejecuta el INSERT
@@ -68,10 +69,10 @@ class Person
 
 
     // Método para editar registros
-    public function editar($idpersona, $tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email)
+    public function editar($idpersona, $tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email, $es_preferencial = 0)
     {
-        $sql = "UPDATE $this->tableName SET tipo_persona=?, nombre=?, tipo_documento=?, num_documento=?, direccion=?, telefono=?, email=? WHERE idpersona=?";
-        $arrData = array($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email, $idpersona);
+        $sql = "UPDATE $this->tableName SET tipo_persona=?, nombre=?, tipo_documento=?, num_documento=?, direccion=?, telefono=?, email=?, es_preferencial=? WHERE idpersona=?";
+        $arrData = array($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email, $tipo_persona === "Cliente" ? (int)(bool)$es_preferencial : 0, $idpersona);
         return $this->conexion->setData($sql, $arrData);
     }
 

@@ -64,6 +64,7 @@
     const state = {
         bootstrap: null,
         products: [],
+        lotes: [],
         categories: [],
         vouchers: [],
         payments: [],
@@ -343,6 +344,7 @@
             const quotedPaymentType = normalize(data.venta?.tipo_pago || 'Contado');
             sale.tipoPago = quotedPaymentType.includes('credito') ? 'Crédito' : 'Contado';
             sale.cart = cartCandidate;
+            applyCustomerPrices(sale);
 
             state.activeSaleId = sale.id;
             persistSales();
@@ -639,6 +641,7 @@
             return;
         }
         state.sales = saved.sales.slice(0, 8).map((sale, index) => normalizeSavedSale(sale, index));
+        state.sales.forEach(applyCustomerPrices);
         state.activeSaleId = state.sales.some(s => s.id === saved.activeSaleId)
             ? saved.activeSaleId
             : state.sales[0].id;
@@ -659,6 +662,7 @@
             telefono: String(customer.telefono || '').trim(),
             email: String(customer.email || '').trim(),
             generic: false,
+            es_preferencial: Number(customer.es_preferencial || 0) === 1 ? 1 : 0,
             registeredAddress: String(customer.registeredAddress ?? (customer.source === 'local' ? address : '')).trim(),
             addressSource: String(customer.addressSource || (customer.source === 'api' ? 'api' : 'registered')),
             addressVerification: customer.addressVerification && typeof customer.addressVerification === 'object'
@@ -675,6 +679,56 @@
         const id = Number(variantId || 0);
         if (id <= 0) return null;
         return productVariants(product).find(variant => Number(variant.idvariacion) === id) || null;
+    }
+
+    function priceForCustomer(product, variant, customer) {
+        const item = variant || product;
+        const normal = Number(item?.precio_venta ?? product?.precio_venta ?? 0);
+        const special = item?.precio_preferencial;
+        const preferred = Number(customer?.es_preferencial || 0) === 1 && special !== null
+            && special !== undefined && String(special) !== '' && Number(special) > 0;
+        return { price: preferred ? Number(special) : normal, normal, preferred };
+    }
+
+    function applyCustomerPrices(sale) {
+        const byProduct = new Map(state.products.map(p => [Number(p.idarticulo), p]));
+        (sale?.cart || []).forEach(item => {
+            const product = byProduct.get(Number(item.idarticulo));
+            if (!product) return;
+            const variant = Number(item.idvariacion || 0) > 0 ? findVariant(product, item.idvariacion) : null;
+            const price = priceForCustomer(product, variant, sale.customer);
+            if (!(price.normal > 0)) return;
+            item.originalPrice = price.normal;
+            item.unitPrice = price.price;
+            item.hasPreferredPrice = price.preferred;
+        });
+    }
+
+    function lotesPrevistos(item) {
+        const product = state.products.find(p => Number(p.idarticulo) === Number(item.idarticulo));
+        if (!product || !(Number(product.controla_lotes) || Number(product.controla_vencimiento))) return '';
+        let pendientes = Math.max(0, Number(item.qty || 0));
+        const usados = [];
+        for (const lote of state.lotes) {
+            if (Number(lote.idarticulo) !== Number(item.idarticulo)
+                || Number(lote.idvariacion || 0) !== Number(item.idvariacion || 0)) continue;
+            const disponible = Math.max(0, Number(lote.stock_venta || 0));
+            const cantidad = Math.min(pendientes, disponible);
+            if (cantidad <= 0) continue;
+            const iso = String(lote.fecha_vencimiento || '');
+            const fecha = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+                ? `${iso.slice(8,10)}/${iso.slice(5,7)}/${iso.slice(0,4)}` : 'Sin fecha';
+            const dias = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+                ? Math.round((Date.UTC(+iso.slice(0,4), +iso.slice(5,7)-1, +iso.slice(8,10))
+                   - Date.UTC(+String(boot.today || iso).slice(0,4),+String(boot.today || iso).slice(5,7)-1,+String(boot.today || iso).slice(8,10))) / 86400000)
+                : null;
+            const aviso = dias !== null && dias >= 0 && dias <= Number(lote.dias_alerta_vencimiento || 30) ? ' · Próximo a vencer' : '';
+            usados.push(`<span class="pos-cart-lote"><b>Lote ${escapeHtml(lote.numero_lote)}</b><span>Vence: ${escapeHtml(fecha)} · ${cantidad} und.${aviso}</span></span>`);
+            pendientes -= cantidad;
+            if (pendientes <= .00001) break;
+        }
+        if (pendientes > .001) usados.push('<span class="pos-cart-lote pos-lote-warning">Stock por lote insuficiente. Actualiza catálogo.</span>');
+        return `<div class="pos-cart-lotes"><div class="pos-cart-lotes-title">${ICONS.box} Lotes previstos (FEFO)</div>${usados.join('')}<small>Se confirman al cobrar. No se editan en el POS.</small></div>`;
     }
 
     function cartKeyFor(idarticulo, idvariacion = 0) {
@@ -956,8 +1010,14 @@
         const subcategory = String(product.subcategoria || '').trim();
         const hasVariants = Number(product.tiene_variaciones || 0) === 1;
         const variantCount = Math.max(0, Number(product.cantidad_variaciones || productVariants(product).length || 0));
-        const minPrice = Number(product.precio_venta) || 0;
-        const maxPrice = Number(product.precio_venta_max ?? product.precio_venta) || minPrice;
+        const customer = activeSale()?.customer;
+        const priceOptions = hasVariants
+            ? productVariants(product).filter(v => Number(v.stock || 0) > 0).map(v => priceForCustomer(product, v, customer))
+            : [priceForCustomer(product, null, customer)];
+        const prices = priceOptions.map(x => x.price);
+        const minPrice = prices.length ? Math.min(...prices) : Number(product.precio_venta) || 0;
+        const maxPrice = prices.length ? Math.max(...prices) : minPrice;
+        const isPreferred = priceOptions.some(x => x.preferred);
         const priceLabel = hasVariants && Math.abs(maxPrice - minPrice) > 0.009
             ? `Desde ${fmt(minPrice)}`
             : fmt(minPrice);
@@ -980,6 +1040,7 @@
                     <div class="pos-product-flags">
                         <span class="pos-product-tax-pill ${exempt ? 'exempt' : 'affected'}">${escapeHtml(tax)}</span>
                         ${hasVariants ? `<span class="pos-product-variant-pill">${variantCount} variante${variantCount === 1 ? '' : 's'}</span>` : ''}
+                        ${isPreferred ? '<span class="pos-product-pref-pill">Precio preferencial</span>' : ''}
                     </div>
                     <div class="pos-product-meta">
                         <span class="pos-product-sku">${escapeHtml(code || 'Sin SKU')}</span>
@@ -1333,10 +1394,11 @@
                     <div class="pos-cart-item-main">
                         <div class="pos-cart-item-name">
                             <strong title="${escapeHtml(item.displayName || item.name)}">${escapeHtml(item.displayName || item.name)}</strong>
-                            ${offer ? '<span class="pos-offer-badge">Oferta</span>' : ''}
+                            ${item.hasPreferredPrice ? '<span class="pos-offer-badge">Preferencial</span>' : (offer ? '<span class="pos-offer-badge">Oferta</span>' : '')}
                         </div>
                         <div class="pos-cart-item-meta"><span>${escapeHtml(item.code || 'Sin SKU')}</span><span>·</span><span>Stock ${Number(item.stock)}</span></div>
                         <div class="pos-cart-item-price">${offer ? `<span class="old">${fmt(item.originalPrice)}</span>` : ''}${fmt(item.unitPrice)} c/u</div>
+                        ${lotesPrevistos(item)}
                         <div class="pos-cart-item-controls">
                             <div class="pos-qty-control">
                                 <button type="button" data-cart-action="minus" data-key="${escapeHtml(key)}" ${Number(item.qty) <= 1 ? 'disabled' : ''}>${ICONS.minus}</button>
@@ -1378,6 +1440,7 @@
     function renderActiveSale() {
         renderDocumentButton();
         renderCustomer();
+        renderProducts();
         renderCart();
         renderSaleFieldConfig();
         persistSales();
@@ -1397,7 +1460,8 @@
             const stock = Math.max(0, Number(variant.stock) || 0);
             const sku = String(variant.sku || '').trim();
             const combination = String(variant.combinacion || 'Variante').trim();
-            const price = Number(variant.precio_venta) || 0;
+            const priceInfo = priceForCustomer(product, variant, activeSale()?.customer);
+            const price = priceInfo.price;
             return `
                 <button type="button" class="pos-variant-option ${stock <= 0 ? 'is-empty' : ''}"
                     data-select-variant="${Number(variant.idvariacion)}" ${stock <= 0 ? 'disabled' : ''}>
@@ -1407,7 +1471,7 @@
                     </span>
                     <span class="pos-variant-side">
                         <strong>${fmt(price)}</strong>
-                        <small class="${stock <= 0 ? 'zero' : stock <= 5 ? 'low' : ''}">${stock <= 0 ? 'Sin stock' : `Stock ${stock}`}</small>
+                        <small class="${stock <= 0 ? 'zero' : stock <= 5 ? 'low' : ''}">${stock <= 0 ? 'Sin stock' : `Stock ${stock}`}${priceInfo.preferred ? ' · Preferencial' : ''}</small>
                     </span>
                 </button>`;
         }).join('');
@@ -1450,8 +1514,9 @@
                 qty: 1,
                 stock,
                 buyPrice: Number(variant.precio_compra) || 0,
-                unitPrice: Number(variant.precio_venta) || 0,
+                unitPrice: priceForCustomer(product, variant, sale.customer).price,
                 originalPrice: Number(variant.precio_venta) || 0,
+                hasPreferredPrice: priceForCustomer(product, variant, sale.customer).preferred,
                 taxCode: String(product.codigo_afectacion_igv || '10'),
                 taxPercent: Number(product.porcentaje_igv ?? 18),
                 unitSunat: String(product.unidad_medida_sunat || 'NIU'),
@@ -1510,8 +1575,9 @@
                 qty: 1,
                 stock,
                 buyPrice: Number(product.precio_compra) || 0,
-                unitPrice: Number(product.precio_venta) || 0,
+                unitPrice: priceForCustomer(product, null, sale.customer).price,
                 originalPrice: Number(product.precio_venta) || 0,
+                hasPreferredPrice: priceForCustomer(product, null, sale.customer).preferred,
                 taxCode: String(product.codigo_afectacion_igv || '10'),
                 taxPercent: Number(product.porcentaje_igv ?? 18),
                 unitSunat: String(product.unidad_medida_sunat || 'NIU'),
@@ -1554,6 +1620,10 @@
         const key = String(cartKey || '');
         const item = activeSale().cart.find(i => itemCartKey(i) === key);
         if (!item) return;
+        if (Number(activeSale().customer?.es_preferencial || 0) === 1) {
+            toast('La tarifa preferencial se define en Productos; para este cliente el precio no se modifica desde el POS.', 'warning');
+            return;
+        }
         state.editItemId = key;
         qs('#editItemName').value = item.displayName || item.name;
         qs('#editItemPrice').value = money2(item.unitPrice).toFixed(2);
@@ -1571,6 +1641,11 @@
             toast('El precio debe ser mayor que cero.', 'error');
             return;
         }
+        if (Number(activeSale().customer?.es_preferencial || 0) === 1) {
+            toast('La tarifa preferencial se administra desde Productos.', 'warning');
+            closeModal('modalEditarItem');
+            return;
+        }
         item.unitPrice = price;
         item.displayName = name || item.name;
         persistSales();
@@ -1582,10 +1657,12 @@
     function setGenericCustomer() {
         const sale = activeSale();
         sale.customer = genericCustomer();
+        applyCustomerPrices(sale);
         if (normalize(sale.name).startsWith('venta')) sale.name = `Venta ${state.sales.indexOf(sale) + 1}`;
         persistSales();
         setCustomerExtraOpen(false);
         renderCustomer();
+        renderProducts();
         renderSalesTabs();
         hideCustomerResults();
     }
@@ -1613,6 +1690,7 @@
             telefono: String(customer.telefono || customer.celular || '').trim(),
             email: String(customer.email || '').trim(),
             generic: false,
+            es_preferencial: source === 'local' && Number(customer.es_preferencial || 0) === 1 ? 1 : 0,
             source,
             registeredAddress: source === 'local' ? address : '',
             addressSource: source === 'api' ? 'api' : 'registered',
@@ -1623,8 +1701,11 @@
         }
         const first = sale.customer.nombre.split(/\s+/).filter(Boolean).slice(0, 2).join(' ');
         if (first) sale.name = first.length > 18 ? `${first.slice(0, 18)}…` : first;
+        applyCustomerPrices(sale);
         persistSales();
         renderCustomer();
+        renderProducts();
+        renderCart();
         renderSalesTabs();
         hideCustomerResults();
     }
@@ -1651,7 +1732,7 @@
             results.innerHTML = clients.length ? clients.map((c, index) => `
                 <button type="button" class="pos-customer-result" data-customer-index="${index}">
                     <span class="avatar">${escapeHtml(String(c.nombre || 'C').charAt(0).toUpperCase())}</span>
-                    <span class="copy"><strong>${escapeHtml(c.nombre || 'Cliente')}</strong><small>${escapeHtml((c.tipo_documento || '') + ' ' + (c.num_documento || ''))}</small></span>
+                    <span class="copy"><strong>${escapeHtml(c.nombre || 'Cliente')}${Number(c.es_preferencial) === 1 ? ' · Preferencial' : ''}</strong><small>${escapeHtml((c.tipo_documento || '') + ' ' + (c.num_documento || ''))}</small></span>
                 </button>`).join('') : '<div class="pos-customer-result empty">No hay clientes guardados con esa búsqueda.</div>';
             results._clients = clients;
         } catch (error) {
@@ -2591,6 +2672,7 @@
             state.company = data.empresa || {};
             state.tax = data.tributaria || {};
             state.products = Array.isArray(data.productos) ? data.productos : [];
+            state.lotes = Array.isArray(data.lotes) ? data.lotes : [];
             state.categories = Array.isArray(data.categorias) ? data.categorias : [];
             state.vouchers = Array.isArray(data.comprobantes) ? data.comprobantes : [];
             state.payments = Array.isArray(data.formas_pago) ? data.formas_pago : [];

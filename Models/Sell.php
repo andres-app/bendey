@@ -439,12 +439,13 @@ class Sell
                             precio_compra
                          FROM detalle_ingreso
                          WHERE idarticulo = ?
+                           AND (idvariacion <=> ?)
                            AND COALESCE(stock_venta, 0) > 0
                          ORDER BY
                             CASE WHEN stock_estado = '1' THEN 0 ELSE 1 END,
                             iddetalle_ingreso ASC
                          LIMIT 1",
-                        [(int)$idArticuloActual]
+                        [(int)$idArticuloActual, $idVarActual > 0 ? $idVarActual : null]
                     );
 
                     if (!is_array($lote)) {
@@ -1398,9 +1399,16 @@ class Sell
                     ELSE a.nombre
                 END AS articulo,
                 CASE
-                    WHEN av.idvariacion IS NOT NULL
-                    THEN COALESCE(av.stock, 0)
-                    ELSE COALESCE(a.stock, 0)
+                    WHEN a.controla_lotes=1 OR a.controla_vencimiento=1 THEN
+                      (SELECT COALESCE(SUM(di.stock_venta),0) FROM detalle_ingreso di
+                       WHERE di.idarticulo=dv.idarticulo AND (di.idvariacion <=> dv.idvariacion)
+                         AND di.tipo_detalle='INVENTARIO' AND di.afecta_stock=1
+                         AND di.estado=1 AND di.stock_venta>0
+                         AND di.numero_lote IS NOT NULL AND di.numero_lote<>''
+                         AND (di.fecha_vencimiento IS NULL OR di.fecha_vencimiento>=CURDATE())
+                         AND (a.controla_vencimiento=0 OR di.fecha_vencimiento IS NOT NULL))
+                    WHEN av.idvariacion IS NOT NULL THEN COALESCE(av.stock,0)
+                    ELSE COALESCE(a.stock,0)
                 END AS stock_disponible,
                 CASE
                     WHEN a.condicion = 1
@@ -1565,13 +1573,25 @@ class Sell
                     a.porcentaje_igv,
                     a.unidad_medida_sunat,
                     a.codigo_producto_sunat,
-                    di.stock_venta AS stock
+                    CASE WHEN a.controla_lotes=1 OR a.controla_vencimiento=1 THEN
+                      (SELECT COALESCE(SUM(dl.stock_venta),0) FROM detalle_ingreso dl
+                       WHERE dl.idarticulo=a.idarticulo AND (dl.idvariacion <=> di.idvariacion)
+                         AND dl.tipo_detalle='INVENTARIO' AND dl.afecta_stock=1
+                         AND dl.estado=1 AND dl.stock_venta>0
+                         AND dl.numero_lote IS NOT NULL AND dl.numero_lote<>''
+                         AND (dl.fecha_vencimiento IS NULL OR dl.fecha_vencimiento>=CURDATE())
+                         AND (a.controla_vencimiento=0 OR dl.fecha_vencimiento IS NOT NULL))
+                    ELSE di.stock_venta END AS stock
                 FROM articulo a
                 INNER JOIN detalle_ingreso di
                     ON di.idarticulo = a.idarticulo
                 WHERE a.condicion = 1
                   AND UPPER(TRIM(CAST(a.codigo AS CHAR))) = UPPER(TRIM(?))
                   AND COALESCE(di.stock_venta, 0) > 0
+                  AND ((a.controla_lotes=0 AND a.controla_vencimiento=0)
+                    OR (di.numero_lote IS NOT NULL AND di.numero_lote<>''
+                        AND (di.fecha_vencimiento IS NULL OR di.fecha_vencimiento>=CURDATE())
+                        AND (a.controla_vencimiento=0 OR di.fecha_vencimiento IS NOT NULL)))
                 ORDER BY
                     CASE
                         WHEN di.stock_estado = '1' THEN 0

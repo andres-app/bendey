@@ -11,14 +11,15 @@ $num_documento = isset($_POST["num_documento"]) ? $_POST["num_documento"] : "";
 $direccion = isset($_POST["direccion"]) ? $_POST["direccion"] : "";
 $telefono = isset($_POST["telefono"]) ? $_POST["telefono"] : "";
 $email = isset($_POST["email"]) ? $_POST["email"] : "";
+$es_preferencial = ($tipo_persona === "Cliente" && (int)($_POST["es_preferencial"] ?? 0) === 1) ? 1 : 0;
 
 switch ($_GET["op"]) {
 	case 'guardaryeditar':
 		if (empty($idpersona)) {
-			$rspta = $person->insertar($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email);
+			$rspta = $person->insertar($tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email, $es_preferencial);
 			echo $rspta ? "Datos registrados correctamente" : "No se pudo registrar los datos";
 		} else {
-			$rspta = $person->editar($idpersona, $tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email);
+			$rspta = $person->editar($idpersona, $tipo_persona, $nombre, $tipo_documento, $num_documento, $direccion, $telefono, $email, $es_preferencial);
 			echo $rspta ? "Datos actualizados correctamente" : "No se pudo actualizar los datos";
 		}
 		break;
@@ -114,7 +115,8 @@ switch ($_GET["op"]) {
 				"2" => $reg['tipo_documento'],
 				"3" => $reg['num_documento'],
 				"4" => $reg['telefono'],
-				"5" => $reg['email']
+				"5" => $reg['email'],
+                "6" => (int)($reg['es_preferencial'] ?? 0) === 1 ? '<span class="badge badge-success">Preferencial</span>' : 'Normal'
 			);
 		}
 		$results = array(

@@ -611,6 +611,22 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
     .tp-detail-box strong { display: block; margin-top: 4px; color: #35404b; font-size: .78rem; line-height: 1.35; }
     .tp-detail-section { margin-top: 17px; }
     .tp-detail-section h5 { margin: 0 0 9px; color: #4b5661; font-size: .72rem; font-weight: 760; text-transform: uppercase; }
+    .tp-lotes-resumen { display:grid; grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px; }
+    .tp-lotes-kpi {padding:11px;border:1px solid #e0eae6;border-radius:11px;background:#f8fcfa;}
+    .tp-lotes-kpi span{display:block;font-size:10px;color:#698073;line-height:1.3;}
+    .tp-lotes-kpi strong{display:block;font-size:16px;color:#174a38;margin-top:3px;}
+    .tp-lote-card{border:1px solid #e0e9e5;border-radius:11px;padding:11px 12px;margin-bottom:8px;background:#fff;}
+    .tp-lote-top,.tp-lote-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+    .tp-lote-top strong{font-size:13px;color:#243c31;overflow-wrap:anywhere;}
+    .tp-lote-meta{font-size:11px;color:#73827e;line-height:1.5;margin:5px 0;overflow-wrap:anywhere;}
+    .tp-lote-bottom strong{font-size:12px;color:#354b42;}
+    .tp-lote-estado{display:inline-block;padding:4px 7px;border-radius:7px;font-size:10px;font-weight:700;white-space:nowrap;}
+    .tp-lote-estado.ok{background:#e5f7ee;color:#16774d;}
+    .tp-lote-estado.warn{background:#fff5dd;color:#92631b;}
+    .tp-lote-estado.bad{background:#fff0ef;color:#b63f42;}
+    .tp-lote-estado.muted{background:#edf1f5;color:#596b7a;}
+    .tp-lotes-note{font-size:12px;color:#6a7a75;line-height:1.6;margin:8px 0 13px;}
+    .tp-lotes-link{display:inline-flex;gap:7px;align-items:center;color:#087453;font-weight:750;font-size:12px;}
     .tp-detail-variants { overflow: hidden; border: 1px solid #e4e8eb; border-radius: 11px; }
     .tp-detail-variant { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 10px 11px; border-bottom: 1px solid #edf0f2; }
     .tp-detail-variant:last-child { border-bottom: 0; }
@@ -1257,8 +1273,13 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                             <input type="text" name="codigo" id="codigo" class="form-control" maxlength="50" placeholder="Opcional">
                                         </div>
                                         <div id="grupo_precio_venta_principal" class="form-group col-lg-4">
-                                            <label for="precio_venta">Precio de venta <span class="text-danger">*</span></label>
+                                            <label for="precio_venta">Precio normal de venta <span class="text-danger">*</span></label>
                                             <input type="number" step="0.01" class="form-control" name="precio_venta" id="precio_venta" min="0.01" placeholder="0.00" required>
+                                        </div>
+                                        <div id="grupo_precio_preferencial" class="form-group col-lg-4">
+                                            <label for="precio_preferencial">Precio preferencial</label>
+                                            <input type="number" step="0.01" class="form-control" name="precio_preferencial" id="precio_preferencial" min="0.01" placeholder="Opcional">
+                                            <small class="text-muted">Solo para clientes preferenciales. Vacío = precio normal.</small>
                                         </div>
                                         <div class="form-group col-lg-4">
                                             <label for="idcategoria">Categoría <span class="text-danger">*</span></label>
@@ -1312,14 +1333,28 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                     </div>
                                 </div>
                                 <div class="p-3 mb-3" style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:12px">
-                                  <strong>Control de trazabilidad (opcional)</strong>
-                                  <div class="mt-2 d-flex flex-wrap" style="gap:18px">
-                                    <label><input type="checkbox" name="controla_lotes" id="controla_lotes" value="1"> Control por número de lote</label>
-                                    <label><input type="checkbox" name="controla_vencimiento" id="controla_vencimiento" value="1"> Fecha de vencimiento</label>
+                                  <strong>Gestión del inventario (opcional)</strong>
+                                  <p class="text-muted mb-2" style="font-size:12px">El producto define la modalidad; los números de lote y las fechas se registran al ingresar cada existencia.</p>
+                                  <label for="modo_control_inventario">Modalidad de control</label>
+                                  <select class="form-control" id="modo_control_inventario" style="max-width:440px">
+                                    <option value="ninguno">Sin control (stock habitual)</option>
+                                    <option value="lotes">Control por lotes (sin fecha obligatoria)</option>
+                                    <option value="vencimiento">Lotes y fecha de vencimiento (FEFO)</option>
+                                  </select>
+                                  <input type="checkbox" name="controla_lotes" id="controla_lotes" value="1" hidden aria-hidden="true" tabindex="-1">
+                                  <input type="checkbox" name="controla_vencimiento" id="controla_vencimiento" value="1" hidden aria-hidden="true" tabindex="-1">
+                                  <div id="configuracionAlertaLotes" class="mt-2" style="display:none">
+                                    <label for="dias_alerta_vencimiento">Anticipación de alerta (días)</label>
+                                    <input class="form-control" style="max-width:130px" type="number" min="1" max="3650" name="dias_alerta_vencimiento" id="dias_alerta_vencimiento" value="30">
                                   </div>
-                                  <label for="dias_alerta_vencimiento">Alertar antes de vencer (días)</label>
-                                  <input class="form-control" style="max-width:130px" type="number" min="1" max="3650" name="dias_alerta_vencimiento" id="dias_alerta_vencimiento" value="30">
-                                  <small class="text-muted d-block mt-2">Para productos con trazabilidad, crea el producto sin stock inicial y registra sus existencias desde Compras, indicando lote y vencimiento. No disponible aún para variantes.</small>
+                                  <div id="avisoStockInicialLotes" class="mt-3" style="display:none;padding:11px 13px;border:1px solid #d7e7df;border-radius:10px;background:#f2faf6;color:#256247;font-size:12px">
+                                    Para productos con control de lotes, crea el producto con <strong>stock inicial 0</strong>. Registra las unidades y su lote desde Compras. Los vencimientos existentes solo se corrigen desde Inventario → Lotes y vencimientos.
+                                  </div>
+                                  <div id="gestionLotesProducto" class="mt-3" style="display:none;border-top:1px solid #dee7e8;padding-top:12px">
+                                    <a id="enlaceGestionLotesProducto" href="lotes?tab=lotes" class="btn btn-outline-success btn-sm"><i class="fas fa-calendar-alt mr-1"></i> Ver lotes y corregir vencimientos de este producto</a>
+                                    <small class="text-muted d-block mt-2">Las fechas corresponden a cada lote, no a todo el producto. Puedes identificar existencias anteriores en la pestaña «Por identificar».</small>
+                                  </div>
+                                  <small class="text-muted d-block mt-2">Los lotes adicionales (y cada variante/SKU) se ingresan desde Compras, indicando sus cantidades y fechas propias. No existe una fecha global del producto.</small>
                                 </div>
                             </div>
                         </div>
@@ -1425,6 +1460,7 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                                         <th>Stock</th>
                                                         <th>Costo</th>
                                                         <th>Precio de venta</th>
+                                                        <th>Precio preferencial</th>
                                                         <th style="width:52px;">Acción</th>
                                                     </tr>
                                                 </thead>

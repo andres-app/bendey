@@ -263,3 +263,15 @@ svg{display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:
 }
 /* Corrección de especificidad para mantener las acciones de cabecera en línea. */
 .pos-cart-desktop-head>.pos-cart-head-actions{display:flex;align-items:center;gap:6px;min-width:auto}
+
+/* Lotes informativos en el carrito: preview de la asignación FEFO del servidor. */
+.pos-cart-lotes{margin-top:8px;padding:8px 10px;border-radius:9px;background:#f3faf7;border:1px solid #dcefe6;font-size:11px;color:#305a4f;max-width:100%;}
+.pos-cart-lotes-title{display:flex;align-items:center;gap:6px;font-weight:750;margin-bottom:5px;color:#08775c;}
+.pos-cart-lotes-title svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;}
+.pos-cart-lote{display:flex;gap:7px;flex-wrap:wrap;justify-content:space-between;padding:3px 0;}
+.pos-cart-lote>span{color:#506a63;}
+.pos-cart-lotes small{display:block;margin-top:5px;color:#6a8178;font-size:10px;}
+.pos-lote-warning{color:#b44535;font-weight:700;}
+
+/* Tarifa especial claramente identificada en el catálogo del POS. */
+.pos-product-pref-pill{display:inline-flex;align-items:center;background:#e3f7ed;color:#086a47;border-radius:6px;font-size:10px;font-weight:700;padding:4px 6px}

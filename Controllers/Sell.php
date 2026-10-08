@@ -1038,6 +1038,45 @@ switch ($op) {
                 )
             );
 
+            // Precio preferencial: la categoría del cliente y las tarifas se
+            // consultan desde BD, nunca de banderas o precios enviados por JavaScript.
+            $clienteTarifa = $conexionVenta->getData(
+                "SELECT es_preferencial FROM persona WHERE idpersona=? AND tipo_persona='Cliente' LIMIT 1",
+                [(int)$idcliente]
+            );
+            if ((int)($clienteTarifa['es_preferencial'] ?? 0) === 1) {
+                $datosPrecios = [];
+                foreach ($idarticulos as $indiceTarifa => $idArticuloTarifa) {
+                    $idVariacionTarifa = (int)($idvariaciones[$indiceTarifa] ?? 0);
+                    $claveTarifa = (int)$idArticuloTarifa . ':' . $idVariacionTarifa;
+                    if (!isset($datosPrecios[$claveTarifa])) {
+                        if ($idVariacionTarifa > 0) {
+                            $pre = $conexionVenta->getData(
+                                'SELECT a.precio_venta AS precio_padre, a.precio_preferencial AS preferencial_padre, '
+                              . 'v.precio_venta AS normal, v.precio_preferencial AS preferencial '
+                              . 'FROM articulo_variacion v INNER JOIN articulo a ON a.idarticulo=v.idarticulo '
+                              . 'WHERE a.idarticulo=? AND v.idvariacion=? AND v.estado=1 AND a.condicion=1',
+                                [(int)$idArticuloTarifa, $idVariacionTarifa]
+                            );
+                        } else {
+                            $pre = $conexionVenta->getData(
+                                'SELECT precio_venta AS normal, precio_preferencial AS preferencial '
+                              . 'FROM articulo WHERE idarticulo=? AND condicion=1',
+                                [(int)$idArticuloTarifa]
+                            );
+                        }
+                        if (!$pre) throw new RuntimeException('Uno de los productos ya no está disponible para la tarifa preferencial.');
+                        $normal = (float)($pre['normal'] ?? $pre['precio_padre'] ?? 0);
+                        $especial = $pre['preferencial'] ?? null;
+                        $datosPrecios[$claveTarifa] = ($especial !== null && (float)$especial > 0) ? (float)$especial : $normal;
+                    }
+                    // Evita que un cliente cambie el precio en el navegador.
+                    if (abs((float)$preciosVenta[$indiceTarifa] - $datosPrecios[$claveTarifa]) > 0.011) {
+                        throw new RuntimeException('Los precios preferenciales del pedido han cambiado. Actualiza el POS y vuelve a procesar.');
+                    }
+                }
+            }
+
             $tributacionPrevia = $sell->calcularTributacionVenta(
                 $idarticulos,
                 $cantidades,
@@ -4314,6 +4353,21 @@ switch ($op) {
                 ],
                 'categorias' => $product->listarCategoriasActivas(),
                 'productos' => $product->listarCatalogoPos(),
+                'lotes' => $sell->getConexion()->getDataAll(
+                    "SELECT di.idarticulo,COALESCE(di.idvariacion,0) AS idvariacion,
+                            di.iddetalle_ingreso,di.numero_lote,di.fecha_vencimiento,
+                            di.stock_venta,COALESCE(di.idalmacen,a.idalmacen) AS idalmacen,
+                            a.dias_alerta_vencimiento
+                       FROM detalle_ingreso di
+                       INNER JOIN articulo a ON a.idarticulo=di.idarticulo
+                      WHERE a.condicion=1 AND (a.controla_lotes=1 OR a.controla_vencimiento=1)
+                        AND di.tipo_detalle='INVENTARIO' AND di.afecta_stock=1
+                        AND di.estado=1 AND di.stock_venta>0
+                        AND di.numero_lote IS NOT NULL AND di.numero_lote<>''
+                        AND (a.controla_vencimiento=0 OR (di.fecha_vencimiento IS NOT NULL AND di.fecha_vencimiento>=CURDATE()))
+                      ORDER BY (di.fecha_vencimiento IS NULL), di.fecha_vencimiento,
+                               di.iddetalle_ingreso"
+                ),
                 'comprobantes' => $comprobantes,
                 'formas_pago' => is_array($formasPago) ? $formasPago : [],
                 'tributaria' => $tributaria,
@@ -4361,7 +4415,7 @@ switch ($op) {
                 num_documento,
                 direccion,
                 telefono,
-                email
+                email, es_preferencial
              FROM persona
              WHERE tipo_persona = 'Cliente'
                AND (
