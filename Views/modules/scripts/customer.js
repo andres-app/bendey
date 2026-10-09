@@ -50,7 +50,7 @@ function listar() {
     .dataTable({
       aProcessing: true, //activamos el procedimiento del datatable
       aServerSide: true, //paginacion y filrado realizados por el server
-      dom: "frtip", //definimos los elementos del control de la tabla
+      dom: "rtip", //búsqueda en la barra personalizada; conserva tabla, información y paginación
       ajax: {
         url: "Controllers/Person.php?op=listarc",
         type: "get",
@@ -71,6 +71,12 @@ function listar() {
           ]});
           $(api.buttons().container()).appendTo(toolbar);
         }
+        // Un solo buscador sobre la tabla, al lado de Excel/PDF.
+        // Se evita la fila adicional que DataTables generaba con "f" en el DOM.
+        $('#tiq-clientes-buscar').off('input.tiqClientes search.tiqClientes')
+          .on('input.tiqClientes search.tiqClientes', function () {
+            api.search(this.value).draw();
+          });
         var rs = (json && json.aaData) || [];
         $("#tiq-clientes-total").text(rs.length);
         $("#tiq-clientes-preferenciales").text(rs.filter(function(r){ return String(r[6] || "").indexOf("Preferencial") >= 0; }).length);
