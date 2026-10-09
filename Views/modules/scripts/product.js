@@ -486,6 +486,12 @@ function actualizarCamposLoteProducto() {
   $('#modo_control_inventario').val(modo);
   $('#configuracionAlertaLotes').toggle(controlaVence);
   $('#avisoStockInicialLotes').toggle(nuevo && control);
+  $('#primerLoteProducto').toggle(nuevo && control);
+  const conStock = nuevo && control && Number($('#stock').val() || 0) > 0;
+  $('#numero_lote_inicial').prop('disabled', !conStock).prop('required', conStock);
+  $('#fecha_vencimiento_inicial').prop('disabled', !(conStock && controlaVence)).prop('required', conStock && controlaVence);
+  $('#grupoVenceInicial').toggle(controlaVence);
+  if (!conStock) { $('#numero_lote_inicial, #fecha_vencimiento_inicial').val(''); }
   $('#gestionLotesProducto').toggle(!nuevo && control);
   if (!nuevo) {
     const sku = $('#codigo').val() || $('#nombre').val() || '';
@@ -1164,9 +1170,14 @@ function guardaryeditar(e) {
   }
 
   if (!$('#idarticulo').val() && ($('#controla_lotes').is(':checked') || $('#controla_vencimiento').is(':checked')) && Number($('#stock').val() || 0) > 0) {
-    Swal.fire('Stock inicial con lotes', 'Crea el producto con stock inicial cero y registra cada lote al recibir mercadería en Compras. El vencimiento se corrige solo en Lotes y vencimientos.', 'warning');
-    $('#stock').focus();
-    return;
+    if (!String($('#numero_lote_inicial').val() || '').trim()) {
+      Swal.fire('Primer lote obligatorio', 'Indica el número de lote del stock inicial.', 'warning');
+      $('#numero_lote_inicial').focus(); return;
+    }
+    if ($('#controla_vencimiento').is(':checked') && !$('#fecha_vencimiento_inicial').val()) {
+      Swal.fire('Vencimiento obligatorio', 'Indica la fecha de vencimiento del primer lote.', 'warning');
+      $('#fecha_vencimiento_inicial').focus(); return;
+    }
   }
   // 🚨 Validación obligatoria si está activado el modo atributos
   if ($("#activar_atributos").is(":checked")) {

@@ -38,14 +38,24 @@ class Product
         $pdo = Conexion::conectar();
         $transaccionPropia = !$pdo->inTransaction();
 		try {
-            // Las fechas se modifican exclusivamente en Inventario > Lotes.
-            // Para impedir cambios encubiertos desde Productos, un producto nuevo
-            // con control de lotes se crea sin stock y se recibe desde Compras.
-            if ($stock > 0 && ($controla_lotes || $controla_vencimiento)) {
-                throw new RuntimeException('Crea el producto con stock inicial cero. Registra sus lotes al recibir mercadería en Compras. Las correcciones de vencimiento se realizan solo en Lotes y vencimientos.');
-            }
-            if ($numero_lote_inicial !== null || $fecha_vencimiento_inicial !== null) {
-                throw new RuntimeException('Los números de lote y vencimientos no se editan desde Productos.');
+            // Primer lote del stock inicial: solo al crear el producto, de forma atómica.
+            $tieneControl = (bool)$controla_lotes || (bool)$controla_vencimiento;
+            $numero_lote_inicial = trim((string)($numero_lote_inicial ?? ''));
+            $fecha_vencimiento_inicial = trim((string)($fecha_vencimiento_inicial ?? ''));
+            if ($stock > 0 && $tieneControl) {
+                if ($numero_lote_inicial === '' || strlen($numero_lote_inicial) > 80) {
+                    throw new RuntimeException('El stock inicial controlado necesita un número de lote válido.');
+                }
+                if ($controla_vencimiento) {
+                    $fecha = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha_vencimiento_inicial);
+                    if (!$fecha || $fecha->format('Y-m-d') !== $fecha_vencimiento_inicial) {
+                        throw new RuntimeException('Fecha de vencimiento inicial inválida.');
+                    }
+                } elseif ($fecha_vencimiento_inicial !== '') {
+                    throw new RuntimeException('Activa el control de vencimientos para registrar una fecha.');
+                }
+            } elseif ($numero_lote_inicial !== '' || $fecha_vencimiento_inicial !== '') {
+                throw new RuntimeException('Solo registra lotes al ingresar stock inicial controlado.');
             }
             if ($transaccionPropia) $pdo->beginTransaction();
 			// Insertar el producto y obtener su ID
@@ -78,7 +88,8 @@ class Product
                     (idarticulo, idingreso, idalmacen, idmedida, cantidad, stock_venta, precio_compra, precio_venta, estado, stock_estado, numero_lote, fecha_vencimiento)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)";
                 $arrDetalle = [$idarticulo, $idIngreso, $idalmacen, $idmedida, $stock, $stock, $precio_compra, $precio_venta,
-                    null, null];
+                    $numero_lote_inicial !== '' ? $numero_lote_inicial : null,
+                    $fecha_vencimiento_inicial !== '' ? $fecha_vencimiento_inicial : null];
 				$this->conexion->setData($sqlDetalle, $arrDetalle);
 
 				// ✅ Insertar en kardex

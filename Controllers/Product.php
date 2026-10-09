@@ -1844,14 +1844,32 @@ switch ($_GET['op'] ?? '') {
         if ($diasAlertaNuevo < 1 || $diasAlertaNuevo > 3650) {
             echo 'Los días de alerta deben estar entre 1 y 3650'; break;
         }
-        // Productos configura el control, pero nunca asigna o modifica fechas.
-        if (isset($_POST['fecha_vencimiento_inicial']) || isset($_POST['numero_lote_inicial'])) {
-            echo 'Registra o corrige los lotes y sus vencimientos desde Inventario > Lotes y vencimientos.';
+        // El primer lote solo se acepta al crear un producto simple con stock inicial.
+        $loteInicial = trim((string)($_POST['numero_lote_inicial'] ?? ''));
+        $venceInicial = trim((string)($_POST['fecha_vencimiento_inicial'] ?? ''));
+        if ($idarticulo > 0 && ($loteInicial !== '' || $venceInicial !== '')) {
+            echo 'Los lotes existentes deben corregirse desde Inventario > Lotes y vencimientos.';
             break;
         }
         if ($idarticulo <= 0 && ($controlLotesNuevo || $controlVenceNuevo) && $stock > 0) {
-            echo 'Para usar lotes crea el producto con stock inicial cero y registra la recepción en Compras.';
-            break;
+            if ($loteInicial === '' || strlen($loteInicial) > 80) {
+                echo 'Ingresa un número de lote válido (máximo 80 caracteres) para el stock inicial.';
+                break;
+            }
+            if ($controlVenceNuevo && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $venceInicial)) {
+                echo 'Ingresa la fecha de vencimiento del primer lote.';
+                break;
+            }
+            if ($venceInicial !== '') {
+                $fechaInicial = DateTimeImmutable::createFromFormat('!Y-m-d', $venceInicial);
+                if (!$controlVenceNuevo || !$fechaInicial || $fechaInicial->format('Y-m-d') !== $venceInicial) {
+                    echo 'Fecha de vencimiento inicial inválida.';
+                    break;
+                }
+            }
+        } else {
+            $loteInicial = '';
+            $venceInicial = '';
         }
 
 
@@ -2179,7 +2197,8 @@ switch ($_GET['op'] ?? '') {
                     $tributosProducto['porcentaje_igv'],
                     $tributosProducto['unidad_medida_sunat'],
                     $tributosProducto['codigo_producto_sunat'],
-                    $controlLotesNuevo, $controlVenceNuevo, $diasAlertaNuevo
+                    $controlLotesNuevo, $controlVenceNuevo, $diasAlertaNuevo,
+                    $loteInicial !== '' ? $loteInicial : null, $venceInicial !== '' ? $venceInicial : null
                 );
                 $mensajeExito = 'Producto registrado correctamente';
             } elseif ($esVariableExistente || $variacionesNormalizadas) {

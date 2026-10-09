@@ -1347,8 +1347,17 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                                     <label for="dias_alerta_vencimiento">Anticipación de alerta (días)</label>
                                     <input class="form-control" style="max-width:130px" type="number" min="1" max="3650" name="dias_alerta_vencimiento" id="dias_alerta_vencimiento" value="30">
                                   </div>
+                                  <div id="primerLoteProducto" class="mt-3" style="display:none;padding:14px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px">
+                                    <strong>Primer lote (solo al crear producto con stock inicial)</strong>
+                                    <p class="text-muted mb-2" style="font-size:12px">La fecha corresponde al primer lote, no al producto entero. Si todavía no tienes mercadería, deja el stock inicial en 0 y registra después los lotes desde Compras.</p>
+                                    <div class="row">
+                                      <div class="col-md-6 form-group mb-2"><label for="numero_lote_inicial">Número de lote <span id="marcaLoteInicial" class="text-danger">*</span></label><input type="text" class="form-control" name="numero_lote_inicial" id="numero_lote_inicial" maxlength="80" placeholder="Ej.: NAT-2026-01" disabled></div>
+                                      <div class="col-md-6 form-group mb-2" id="grupoVenceInicial"><label for="fecha_vencimiento_inicial">Fecha de vencimiento <span class="text-danger">*</span></label><input type="date" class="form-control" name="fecha_vencimiento_inicial" id="fecha_vencimiento_inicial" disabled></div>
+                                    </div>
+                                    <small class="text-muted">En nuevas compras podrás registrar otros lotes y fechas diferentes. Al editar un producto existente, los lotes se administran desde Inventario.</small>
+                                  </div>
                                   <div id="avisoStockInicialLotes" class="mt-3" style="display:none;padding:11px 13px;border:1px solid #d7e7df;border-radius:10px;background:#f2faf6;color:#256247;font-size:12px">
-                                    Para productos con control de lotes, crea el producto con <strong>stock inicial 0</strong>. Registra las unidades y su lote desde Compras. Los vencimientos existentes solo se corrigen desde Inventario → Lotes y vencimientos.
+                                    Si ingresas stock inicial, identifica el primer lote aquí. Para más lotes utiliza Compras. Los vencimientos de lotes ya registrados se corrigen desde Inventario → Lotes y vencimientos.
                                   </div>
                                   <div id="gestionLotesProducto" class="mt-3" style="display:none;border-top:1px solid #dee7e8;padding-top:12px">
                                     <a id="enlaceGestionLotesProducto" href="lotes?tab=lotes" class="btn btn-outline-success btn-sm"><i class="fas fa-calendar-alt mr-1"></i> Ver lotes y corregir vencimientos de este producto</a>
