@@ -105,28 +105,25 @@ switch ($_GET["op"]) {
 		break;
 
 	case 'listarc':
-		$rspta = $person->listarc();
-		$data = array();
-
-		foreach ($rspta as $reg) {
-			$data[] = array(
-				"0" => '<button class="btn btn-warning btn-sm" onclick="mostrar(' . $reg['idpersona'] . ')"><i class="fas fa-pencil-alt"></i></button>' . ' ' . '<button class="btn btn-danger btn-sm" onclick="eliminar(' . $reg['idpersona'] . ')"><i class="fas fa-trash-alt"></i></button>',
-				"1" => $reg['nombre'],
-				"2" => $reg['tipo_documento'],
-				"3" => $reg['num_documento'],
-				"4" => $reg['telefono'],
-				"5" => $reg['email'],
-                "6" => (int)($reg['es_preferencial'] ?? 0) === 1 ? '<span class="badge badge-success">Preferencial</span>' : 'Normal'
-			);
-		}
-		$results = array(
-			"sEcho" => 1,//info para datatables
-			"iTotalRecords" => count($data),//enviamos el total de registros al datatable
-			"iTotalDisplayRecords" => count($data),//enviamos el total de registros a visualizar
-			"aaData" => $data
-		);
-		echo json_encode($results);
-		break;
+        $rspta = $person->listarc();
+        $data = [];
+        $esc = static function ($v) { return htmlspecialchars((string)($v ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
+        foreach ($rspta as $reg) {
+            $id = (int)$reg['idpersona'];
+            $nombre = $esc($reg['nombre']);
+            $data[] = [
+                '0' => '<div class="tiq-action-group"><button type="button" class="tiq-action" aria-label="Editar cliente" title="Editar cliente" onclick="tiqEditarCliente('.$id.')"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="tiq-action tiq-action-price" aria-label="Precios del cliente" title="Precios del cliente" onclick="tiqAbrirPreciosCliente('.$id.')"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 12.4 21.6a2 2 0 0 1-2.8 0l-7.2-7.2a2 2 0 0 1-.6-1.4V4a2 2 0 0 1 2-2h9a2 2 0 0 1 1.4.6l6.4 6.4a3 3 0 0 1 0 4.4Z"/><circle cx="7.5" cy="7.5" r="1"/></svg></button></div>',
+                '1' => $nombre,
+                '2' => $esc($reg['tipo_documento']),
+                '3' => $esc($reg['num_documento']),
+                '4' => $esc($reg['telefono']),
+                '5' => $esc($reg['email']),
+                '6' => (int)($reg['es_preferencial'] ?? 0) === 1 ? '<span class="badge badge-success">Preferencial</span>' : 'Regular'
+            ];
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['sEcho'=>1,'iTotalRecords'=>count($data),'iTotalDisplayRecords'=>count($data),'aaData'=>$data], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        break;
 
 	case 'selectProveedor':
 		$rspta = $person->selectp();

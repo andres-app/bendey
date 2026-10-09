@@ -1,0 +1,7 @@
+[2026-08-19 23:32:03] #1 SUCCESS Release 1.8.1 aplicado.
+[2026-08-20 10:00:05] #2 SUCCESS Release 1.8.2 aplicado.
+[2026-08-20 14:58:03] #3 FAILED SQLSTATE[HY000]: General error: 2014 Cannot execute queries while other unbuffered queries are active.  Consider using PDOStatement::fetchAll().  Alternatively, if your code is only ever going to run against mysql, you may enable query buffering by setting the PDO::MYSQL_ATTR_USE_BUFFERED_QUERY attribute.
+[2026-08-20 15:06:03] #4 SUCCESS Release 1.8.4 aplicado.
+[2026-08-20 15:22:03] #5 SUCCESS Release 1.8.5 aplicado.
+[2026-08-20 15:24:03] #6 SUCCESS Release 1.8.6 aplicado.
+[2026-08-20 15:30:05] #7 ROLLBACK_SUCCESS 1.8.6 → 1.8.5

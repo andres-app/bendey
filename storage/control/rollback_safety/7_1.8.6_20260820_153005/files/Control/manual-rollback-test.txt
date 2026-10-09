@@ -1,0 +1,3 @@
+TiquePOS manual rollback test
+Si ves este archivo, la versión 1.8.6 fue instalada.
+Al ejecutar Rollback desde admin.tiquepos.com debe desaparecer y VERSION debe volver a 1.8.5.

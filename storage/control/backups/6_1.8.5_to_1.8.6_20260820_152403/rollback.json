@@ -1,0 +1,17 @@
+{
+    "schema": 1,
+    "deployment_id": 6,
+    "from_version": "1.8.5",
+    "to_version": "1.8.6",
+    "created_at": "2026-08-20T15:24:03-05:00",
+    "status": "ROLLED_BACK",
+    "changes": {
+        "Control/manual-rollback-test.txt": "NEW",
+        "VERSION": "EXISTED"
+    },
+    "migration_state_before": [],
+    "applied_migrations": [],
+    "rollback_sql": [],
+    "rolled_back_at": "2026-08-20T15:30:05-05:00",
+    "rollback_deployment_id": 7
+}

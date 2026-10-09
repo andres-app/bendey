@@ -684,6 +684,15 @@
     function priceForCustomer(product, variant, customer) {
         const item = variant || product;
         const normal = Number(item?.precio_venta ?? product?.precio_venta ?? 0);
+        const idcliente = Number(customer?.idpersona || 0);
+        const idarticulo = Number(product?.idarticulo || 0);
+        const idvariacion = Number(variant?.idvariacion || 0);
+        const reglas = Array.isArray(state.bootstrap?.precios_clientes) ? state.bootstrap.precios_clientes : [];
+        const acuerdo = reglas.find(r => Number(r.idcliente) === idcliente
+            && Number(r.idarticulo) === idarticulo && Number(r.idvariacion || 0) === idvariacion);
+        if (acuerdo && Number(acuerdo.precio) > 0) {
+            return { price: Number(acuerdo.precio), normal, preferred: true };
+        }
         const special = item?.precio_preferencial;
         const preferred = Number(customer?.es_preferencial || 0) === 1 && special !== null
             && special !== undefined && String(special) !== '' && Number(special) > 0;
@@ -1641,6 +1650,15 @@
             toast('El precio debe ser mayor que cero.', 'error');
             return;
         }
+        const clientId = Number(activeSale().customer?.idpersona || 0);
+        const acordado = (state.bootstrap?.precios_clientes || []).some(r =>
+            Number(r.idcliente) === clientId && Number(r.idarticulo) === Number(item.idarticulo)
+            && Number(r.idvariacion || 0) === Number(item.idvariacion || 0));
+        if (acordado) {
+            toast('El precio acordado se administra desde Clientes → Precios por cliente.', 'warning');
+            closeModal('modalEditarItem');
+            return;
+        }
         if (Number(activeSale().customer?.es_preferencial || 0) === 1) {
             toast('La tarifa preferencial se administra desde Productos.', 'warning');
             closeModal('modalEditarItem');
@@ -2404,6 +2422,8 @@
             const data = await api('Controllers/Sell.php?op=bootstrapPos');
             if (data?.success !== true) return;
             state.products = Array.isArray(data.productos) ? data.productos : state.products;
+            state.bootstrap = { ...(state.bootstrap || {}), precios_clientes: data.precios_clientes || [] };
+            state.sales.forEach(applyCustomerPrices);
             state.categories = Array.isArray(data.categorias) ? data.categorias : state.categories;
             renderCategories();
             renderProducts();
@@ -3045,6 +3065,8 @@
                 const data = await api('Controllers/Sell.php?op=bootstrapPos');
                 if (data?.success !== true) throw new Error(data?.mensaje || 'No se pudo actualizar.');
                 state.products = data.productos || [];
+            state.bootstrap = { ...(state.bootstrap || {}), precios_clientes: data.precios_clientes || [] };
+            state.sales.forEach(applyCustomerPrices);
                 state.categories = data.categorias || [];
                 state.vouchers = data.comprobantes || [];
                 state.payments = data.formas_pago || [];

@@ -19,6 +19,8 @@ function limpiar() {
   $("#email").val("");
   $("#idpersona").val("");
   $("#es_preferencial").val("0");
+  $("#tipo_documento").val("DNI");
+  $("#tiq-form-title").text("Nuevo cliente");
 }
 
 //funcion mostrar formulario
@@ -48,31 +50,7 @@ function listar() {
     .dataTable({
       aProcessing: true, //activamos el procedimiento del datatable
       aServerSide: true, //paginacion y filrado realizados por el server
-      dom: "Bfrtip", //definimos los elementos del control de la tabla
-      buttons: [
-        {
-          extend: "excelHtml5",
-          text: '<i class="fa fa-file-excel-o bg-green"></i> Excel',
-          titleAttr: "Exportar a Excel",
-          title: "Reporte de Clientes",
-          sheetName: "Clientes",
-          exportOptions: {
-            columns: [1, 2, 3, 4, 5, 6],
-          },
-        },
-        {
-          extend: "pdfHtml5",
-          text: '<i class="fa fa-file-pdf-o bg-red"></i> PDF',
-          titleAttr: "Exportar a PDF",
-          title: "Reporte de Clientes",
-          //messageTop: "Reporte de usuarios",
-          pageSize: "A4",
-          //orientation: 'landscape',
-          exportOptions: {
-            columns: [1, 2, 3, 4, 5, 6],
-          },
-        },
-      ],
+      dom: "frtip", //definimos los elementos del control de la tabla
       ajax: {
         url: "Controllers/Person.php?op=listarc",
         type: "get",
@@ -82,14 +60,33 @@ function listar() {
         },
       },
       bDestroy: true,
+      initComplete: function(settings, json) {
+        if ($.fn.dataTable.Buttons) {
+          var api = this.api();
+          var toolbar = $('#tiq-export-toolbar');
+          toolbar.empty();
+          new $.fn.dataTable.Buttons(api, {buttons: [
+            {extend:'excelHtml5', text:'Excel', className:'tiq-export-btn tiq-export-excel', titleAttr:'Exportar clientes a Excel', title:'Clientes', exportOptions:{columns:[1,2,3,4,5,6]}},
+            {extend:'pdfHtml5', text:'PDF', className:'tiq-export-btn tiq-export-pdf', titleAttr:'Exportar clientes a PDF', title:'Clientes', pageSize:'A4', orientation:'landscape', exportOptions:{columns:[1,2,3,4,5,6]}}
+          ]});
+          $(api.buttons().container()).appendTo(toolbar);
+        }
+        var rs = (json && json.aaData) || [];
+        $("#tiq-clientes-total").text(rs.length);
+        $("#tiq-clientes-preferenciales").text(rs.filter(function(r){ return String(r[6] || "").indexOf("Preferencial") >= 0; }).length);
+      },
       iDisplayLength: 10, //paginacion
-      order: [[0, "desc"]], //ordenar (columna, orden)
+      order: [[1, "asc"]], //ordenar (columna, orden)
     })
     .DataTable();
 }
 //funcion para guardaryeditar
 function guardaryeditar(e) {
   e.preventDefault(); //no se activara la accion predeterminada
+  var tipo = $("#tipo_documento").val(), numero = $("#num_documento").val().trim();
+  if (numero && ((tipo === "DNI" && !/^\d{8}$/.test(numero)) || (tipo === "RUC" && !/^\d{11}$/.test(numero)))) {
+    swal("Documento inválido", tipo === "DNI" ? "El DNI requiere 8 dígitos." : "El RUC requiere 11 dígitos.", "warning");return;
+  }
   $("#btnGuardar").prop("disabled", true);
   var formData = new FormData($("#formulario")[0]);
 
@@ -102,6 +99,7 @@ function guardaryeditar(e) {
 
     success: function (datos) {
       var tabla = $("#tbllistado").DataTable();
+      if (!/^Datos (registrados|actualizados) correctamente/.test(String(datos).trim())) { $("#btnGuardar").prop("disabled",false); swal("No se pudo guardar", String(datos), "error"); return; }
       swal({
         title: "Registro",
         text: datos,
@@ -112,18 +110,22 @@ function guardaryeditar(e) {
       }),
         mostrarform(false);
       tabla.ajax.reload();
+      $("#btnGuardar").prop("disabled", false);
     },
+    error: function () { $("#btnGuardar").prop("disabled", false); swal("Error", "No se pudieron guardar los datos del cliente.", "error"); },
   });
 
-  limpiar();
+  // Devolver los controles a su estado normal tras responder el servidor.
 }
 
-function mostrar(idpersona) {
+function tiqEditarCliente(idpersona) {
+  if (!Number.isInteger(Number(idpersona)) || Number(idpersona)<=0) return;
   $.post(
     "Controllers/Person.php?op=mostrar",
     { idpersona: idpersona },
     function (data, status) {
-      data = JSON.parse(data);
+      try { data = typeof data === "string" ? JSON.parse(data) : data; } catch (_) { swal("Error", "Respuesta inválida del servidor.", "error"); return; }
+      if (!data || !data.idpersona) { swal("Error", "No se encontró el cliente.", "error"); return; }
       mostrarform(true);
 
       $("#nombre").val(data.nombre);
@@ -135,8 +137,9 @@ function mostrar(idpersona) {
       $("#email").val(data.email);
       $("#es_preferencial").val(String(Number(data.es_preferencial) === 1 ? 1 : 0));
       $("#idpersona").val(data.idpersona);
-    }
-  );
+      $("#tiq-form-title").text("Editar cliente");
+    }, "json"
+  ).fail(function(){ swal("Error", "No se pudo obtener los datos del cliente.", "error"); });
 }
 
 //funcion para desactivar
@@ -215,3 +218,7 @@ function consultarCliente() {
 
 
 init();
+
+// Acciones con nombres exclusivos para evitar conflictos con otros módulos.
+window.tiqEditarCliente = tiqEditarCliente;
+

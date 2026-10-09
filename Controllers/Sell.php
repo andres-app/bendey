@@ -1044,6 +1044,32 @@ switch ($op) {
                 "SELECT es_preferencial FROM persona WHERE idpersona=? AND tipo_persona='Cliente' LIMIT 1",
                 [(int)$idcliente]
             );
+            // Acuerdos individuales: prioridad sobre la tarifa preferencial general.
+            // Nunca se confía en los importes recibidos del navegador.
+            $acuerdosCliente = $conexionVenta->getDataAll(
+                "SELECT idarticulo, COALESCE(idvariacion,0) AS idvariacion, precio
+                   FROM cliente_precio_especial
+                  WHERE idcliente=? AND activo=1 AND precio>0
+                    AND (fecha_inicio IS NULL OR fecha_inicio<=CURDATE())
+                    AND (fecha_fin IS NULL OR fecha_fin>=CURDATE())
+                  ORDER BY actualizado_en DESC, idprecio DESC",
+                [(int)$idcliente]
+            );
+            $preciosIndividuales = [];
+            foreach ($acuerdosCliente as $acuerdo) {
+                $clave = (int)$acuerdo['idarticulo'] . ':' . (int)$acuerdo['idvariacion'];
+                if (!array_key_exists($clave, $preciosIndividuales)) {
+                    $preciosIndividuales[$clave] = (float)$acuerdo['precio'];
+                }
+            }
+            foreach ($idarticulos as $indiceTarifa => $idArticuloTarifa) {
+                $clave = (int)$idArticuloTarifa . ':' . (int)($idvariaciones[$indiceTarifa] ?? 0);
+                if (isset($preciosIndividuales[$clave])) {
+                    if (abs((float)$preciosVenta[$indiceTarifa] - $preciosIndividuales[$clave]) > 0.011) {
+                        throw new RuntimeException('El precio pactado con el cliente ha cambiado. Actualiza el POS antes de cobrar.');
+                    }
+                }
+            }
             if ((int)($clienteTarifa['es_preferencial'] ?? 0) === 1) {
                 $datosPrecios = [];
                 foreach ($idarticulos as $indiceTarifa => $idArticuloTarifa) {
@@ -1071,7 +1097,7 @@ switch ($op) {
                         $datosPrecios[$claveTarifa] = ($especial !== null && (float)$especial > 0) ? (float)$especial : $normal;
                     }
                     // Evita que un cliente cambie el precio en el navegador.
-                    if (abs((float)$preciosVenta[$indiceTarifa] - $datosPrecios[$claveTarifa]) > 0.011) {
+                    if (!isset($preciosIndividuales[$claveTarifa]) && abs((float)$preciosVenta[$indiceTarifa] - $datosPrecios[$claveTarifa]) > 0.011) {
                         throw new RuntimeException('Los precios preferenciales del pedido han cambiado. Actualiza el POS y vuelve a procesar.');
                     }
                 }
@@ -4353,6 +4379,14 @@ switch ($op) {
                 ],
                 'categorias' => $product->listarCategoriasActivas(),
                 'productos' => $product->listarCatalogoPos(),
+                'precios_clientes' => $sell->getConexion()->getDataAll(
+                    "SELECT idcliente,idarticulo,COALESCE(idvariacion,0) AS idvariacion,precio
+                       FROM cliente_precio_especial
+                      WHERE activo=1 AND precio>0
+                        AND (fecha_inicio IS NULL OR fecha_inicio<=CURDATE())
+                        AND (fecha_fin IS NULL OR fecha_fin>=CURDATE())
+                      ORDER BY actualizado_en DESC,idprecio DESC"
+                ),
                 'lotes' => $sell->getConexion()->getDataAll(
                     "SELECT di.idarticulo,COALESCE(di.idvariacion,0) AS idvariacion,
                             di.iddetalle_ingreso,di.numero_lote,di.fecha_vencimiento,
