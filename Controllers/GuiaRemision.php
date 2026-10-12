@@ -36,6 +36,7 @@ try {
         case 'listar': $data=$model->listar($u,$_GET); break;
         case 'venta': $data=$model->venta((int)($_GET['idventa']??0),$u); break;
         case 'ver': $data=$model->ver((int)($_GET['idguia']??0),$u); break;
+        case 'prevalidar': $data=$model->prevalidar((int)($_GET['idguia']??0),$u); break;
         case 'lotes': $data=$model->lotes((int)($_GET['idarticulo']??0),(int)($_GET['idvariacion']??0),(int)($_GET['idalmacen']??0),$u); break;
         case 'guardar':
             $body=json_decode((string)file_get_contents('php://input'),true);

@@ -86,6 +86,13 @@
       field('greDocNumero',c.num_documento);field('greDestinoNombre',c.nombre);
       field('greDestinoDireccion',c.direccion||'');field('greLlegada',c.direccion||'');field('greEmail',c.email||'');}
   }
+  function onMotivo() {
+    if(val('greMotivo')!=='04' || state.idventa || !state.cat?.negocio) return;
+    const n=state.cat.negocio;
+    field('greCliente','');field('greDocTipo','RUC');field('greDocNumero',n.ruc||'');
+    field('greDestinoNombre',n.nombre||'');field('greDestinoDireccion','');field('greLlegada','');
+    toast('Traslado entre establecimientos: el destinatario será el propio negocio. Complete la dirección del establecimiento de llegada.','info');
+  }
   function modo() {const pub=val('greModalidad')==='01';$id('greTransportePrivado').hidden=pub;$id('greTransportePublico').hidden=!pub;}
   function addLine(p) {
     const product=buscarProducto(p.idarticulo);
@@ -219,9 +226,13 @@
   }
   async function detalle(id){
     const x=await request('ver',{idguia:id});const g=x.guia;
+    const validacion=await request('prevalidar',{idguia:id});
     $id('greDetalleTitulo').textContent=(g.serie?g.serie+'-'+String(g.correlativo).padStart(8,'0'):'Borrador #'+g.idguia);
     const tiles=[['Estado',g.estado],['Sucursal',g.sucursal],['Fecha de inicio',fmtDate(g.fecha_inicio_traslado)],['Motivo',g.motivo_descripcion],['Destinatario',g.destinatario_nombre+' · '+g.destinatario_num_documento],['Traslado',g.modalidad_transporte==='01'?'Transporte público':'Transporte privado'],['Origen',g.partida_ubigeo+' · '+g.partida_direccion],['Destino',g.llegada_ubigeo+' · '+g.llegada_direccion],['Peso bruto',g.peso_bruto+' kg'],['Transporte',g.modalidad_transporte==='01'?(g.transportista_nombre||''):(g.vehiculo_placa+' · '+g.conductor_nombre)]];
-    $id('greDetalleCuerpo').innerHTML=`<div class="gre-warning"><i class="fas fa-info-circle mr-2"></i>Este documento no sustenta un traslado mientras no haya recibido CDR aceptada de SUNAT.</div><div class="gre-detail-cols">${tiles.map(t=>`<div class="gre-detail-tile"><span>${esc(t[0])}</span><strong>${esc(t[1]||'—')}</strong></div>`).join('')}</div>
+    const errores=validacion.errores||[], advertencias=validacion.advertencias||[];
+    const resumen=errores.length?`<div class="gre-warning"><strong>Debe corregir:</strong><ul>${errores.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`:'';
+    const avisos=advertencias.length?`<div class="gre-preflight-hint"><strong>Revisiones pendientes:</strong><ul>${advertencias.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>`:'';
+    $id('greDetalleCuerpo').innerHTML=`${resumen}${avisos}<div class="gre-warning"><i class="fas fa-info-circle mr-2"></i>Este documento no sustenta un traslado mientras no haya recibido CDR aceptada de SUNAT.</div><div class="gre-detail-cols">${tiles.map(t=>`<div class="gre-detail-tile"><span>${esc(t[0])}</span><strong>${esc(t[1]||'—')}</strong></div>`).join('')}</div>
       <div class="gre-detail-label">Detalle de mercadería</div><div class="table-responsive"><table class="table gre-detail-table"><thead><tr><th>Producto</th><th>Cantidad</th><th>Lotes</th></tr></thead><tbody>${x.items.map(i=>`<tr><td>${esc(i.descripcion)}<div class="gre-muted">${esc(i.codigo)}</div></td><td>${esc(i.cantidad)} ${esc(i.unidad_sunat)}</td><td>${i.lotes.map(l=>`${esc(l.numero_lote||'Lote sin código')} (${esc(l.cantidad)})`).join('<br>')||'—'}</td></tr>`).join('')}</tbody></table></div>
       ${x.documentos.length?`<p class="gre-muted">Referencia: ${x.documentos.map(d=>esc(d.serie+'-'+d.numero)).join(', ')}</p>`:''}
       <p class="gre-muted">Estado de integración SUNAT: ${esc(g.estado_sunat||'NO_ENVIADO')}.</p>`;
@@ -246,6 +257,7 @@
     let timer;$id('greBuscar').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(listar,300);});
     $id('greCliente').addEventListener('change',onchangeCliente);$id('greSerie').addEventListener('change',()=>{if(state.idventa)return;updateSucursal();});
     $id('greModalidad').addEventListener('change',modo);
+    $id('greMotivo').addEventListener('change',onMotivo);
     $id('greAlmacen').addEventListener('change',filtrarProductos);
     ['greDocNumero','greDocTipo'].forEach(id=>$id(id).addEventListener('input',()=>{
       if(!state.idventa){

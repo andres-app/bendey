@@ -92,7 +92,7 @@ final class GuiaRemision
     public function catalogos(int $usuario): array
     {
         return [
-            'negocio' => $this->one('SELECT id_negocio,nombre,ndocumento,documento,direccion FROM datos_negocio WHERE condicion=1 ORDER BY id_negocio LIMIT 1'),
+            'negocio' => $this->one('SELECT id_negocio,nombre,ndocumento,documento AS ruc,direccion FROM datos_negocio WHERE condicion=1 ORDER BY id_negocio LIMIT 1'),
             'sucursales' => $this->all('SELECT s.idsucursal,s.nombre,s.direccion,s.codigo_establecimiento_sunat FROM sucursal s INNER JOIN usuario_sucursal us ON us.idsucursal=s.idsucursal AND us.idusuario=? AND us.activo=1 WHERE s.activo=1 ORDER BY s.nombre', [$usuario]),
             'almacenes' => $this->all('SELECT a.idalmacen,a.idsucursal,a.nombre,a.ubicacion FROM almacen a INNER JOIN usuario_almacen ua ON ua.idalmacen=a.idalmacen AND ua.idusuario=? AND ua.activo=1 WHERE a.estado=1 ORDER BY a.nombre', [$usuario]),
             'series' => $this->all('SELECT gs.idserie,gs.idsucursal,gs.serie FROM guia_remision_serie gs INNER JOIN usuario_sucursal us ON us.idsucursal=gs.idsucursal AND us.idusuario=? AND us.activo=1 WHERE gs.activo=1 ORDER BY gs.serie', [$usuario]),
@@ -179,11 +179,15 @@ final class GuiaRemision
 
     public function ver(int $id, int $usuario): array
     {
-        $cab = $this->one('SELECT g.*,gs.serie AS serie_configurada,s.nombre AS sucursal,n.nombre AS emisor_nombre,n.ndocumento AS emisor_ruc,
+        $cab = $this->one('SELECT g.*,
+            CASE WHEN p_dest.idpersona IS NOT NULL AND p_dest.num_documento=g.destinatario_num_documento
+                 THEN p_dest.nombre ELSE g.destinatario_nombre END AS destinatario_nombre,
+            gs.serie AS serie_configurada,s.nombre AS sucursal,n.nombre AS emisor_nombre,n.documento AS emisor_ruc,n.ndocumento AS emisor_tipo_documento,
             sn.estado_sunat,sn.mensaje AS mensaje_sunat,sn.document_id,sn.xml_url,sn.cdr_url,sn.pdf_url
             FROM guia_remision g INNER JOIN guia_remision_serie gs ON gs.idserie=g.idserie
             INNER JOIN sucursal s ON s.idsucursal=g.idsucursal
             INNER JOIN datos_negocio n ON n.id_negocio=g.id_negocio
+            LEFT JOIN persona p_dest ON p_dest.idpersona=g.destinatario_idpersona
             INNER JOIN usuario_sucursal us ON us.idsucursal=g.idsucursal AND us.idusuario=? AND us.activo=1
             LEFT JOIN guia_remision_sunat sn ON sn.idguia=g.idguia WHERE g.idguia=? LIMIT 1', [$usuario, $id]);
         if (!$cab) throw new InvalidArgumentException('La guía no existe o no tienes acceso a su sucursal.');
@@ -224,8 +228,8 @@ final class GuiaRemision
         if ($nombre === '' || $numDoc === '' || $direccion === '' || $direccionPartida === '' || $direccionLlegada === '') {
             throw new InvalidArgumentException('Complete la identificación y direcciones de remitente/destinatario.');
         }
-        if (!preg_match('/^\d{6}$/', $ubigeoPartida) || !preg_match('/^\d{6}$/', $ubigeoLlegada)) {
-            throw new InvalidArgumentException('El ubigeo de partida y llegada debe tener seis dígitos.');
+        if (!self::ubigeoPlausible($ubigeoPartida) || !self::ubigeoPlausible($ubigeoLlegada)) {
+            throw new InvalidArgumentException('Ubigeo de partida o llegada inválido. Revise el código oficial del distrito (6 dígitos).');
         }
         if (($tipoDoc === 'RUC' || $tipoDoc === '6') && !preg_match('/^\d{11}$/', $numDoc)) throw new InvalidArgumentException('El RUC del destinatario debe tener 11 dígitos.');
         if (($tipoDoc === 'DNI' || $tipoDoc === '1') && !preg_match('/^\d{8}$/', $numDoc)) throw new InvalidArgumentException('El DNI del destinatario debe tener 8 dígitos.');
@@ -279,9 +283,29 @@ final class GuiaRemision
             }
             $clienteId = (int)($data['destinatario_idpersona'] ?? 0);
             if ($clienteId > 0) {
-                $persona=$this->one('SELECT idpersona,num_documento FROM persona WHERE idpersona=? AND tipo_persona=\'Cliente\'', [$clienteId]);
-                if (!$persona || $persona['num_documento']!==$numDoc) {
+                $persona=$this->one('SELECT idpersona,nombre,tipo_documento,num_documento,direccion,email FROM persona WHERE idpersona=? AND tipo_persona=\'Cliente\'', [$clienteId]);
+                if (!$persona || (string)$persona['num_documento']!==$numDoc) {
                     throw new InvalidArgumentException('Documento del destinatario no coincide con el cliente seleccionado.');
+                }
+                // El nombre proviene del maestro, no del texto libre del navegador.
+                $nombre = (string)$persona['nombre'];
+                $tipoDb = strtoupper(trim((string)$persona['tipo_documento']));
+                if (in_array($tipoDb, ['RUC','6','DNI','1','CE','4','PASAPORTE','7'], true)) {
+                    $normalizar = static function (string $tipo): string {
+                        return ['6'=>'RUC','1'=>'DNI','4'=>'CE','7'=>'PASAPORTE'][$tipo] ?? $tipo;
+                    };
+                    if ($normalizar($tipoDoc) !== $normalizar($tipoDb)) {
+                        throw new InvalidArgumentException('Tipo de documento no coincide con el cliente seleccionado.');
+                    }
+                }
+            }
+            if ($motivo === '04') {
+                $emisor = $this->one('SELECT documento,nombre FROM datos_negocio WHERE id_negocio=?', [(int)$negocio['id_negocio']]);
+                if (!$emisor || $numDoc !== trim((string)$emisor['documento']) || !in_array($tipoDoc, ['RUC','6'], true)) {
+                    throw new InvalidArgumentException('Traslado entre establecimientos: el destinatario debe ser el mismo RUC del emisor. Para otro cliente use motivo Venta u otro que corresponda.');
+                }
+                if ($ubigeoPartida === $ubigeoLlegada && strcasecmp($direccionPartida, $direccionLlegada) === 0) {
+                    throw new InvalidArgumentException('En traslado entre establecimientos, el lugar de partida y llegada no deben ser iguales.');
                 }
             }
             $campos = [
@@ -392,13 +416,88 @@ final class GuiaRemision
         }
     }
 
+
+    /** Control estructural de ubigeos del Perú. No sustituye el Catálogo SUNAT 13 completo. */
+    private static function ubigeoPlausible(string $ubigeo): bool
+    {
+        if (!preg_match('/^\d{6}$/D', $ubigeo)) return false;
+        // Provincias reconocidas por departamento (INEI). El distrito debe ser positivo.
+        $maxProvincia = [1=>7,2=>20,3=>7,4=>8,5=>11,6=>13,7=>1,8=>13,9=>7,10=>11,
+            11=>5,12=>9,13=>12,14=>3,15=>10,16=>8,17=>3,18=>3,19=>3,20=>8,
+            21=>13,22=>10,23=>4,24=>3,25=>4];
+        $dep = (int)substr($ubigeo,0,2);
+        $prov = (int)substr($ubigeo,2,2);
+        $dist = (int)substr($ubigeo,4,2);
+        return isset($maxProvincia[$dep]) && $prov >= 1 && $prov <= $maxProvincia[$dep]
+            && $dist >= 1;
+    }
+
+    /** Reglas previas a preparar una guía. No equivalen a la validación UBL de SUNAT. */
+    public function prevalidar(int $id, int $usuario): array
+    {
+        $data = $this->ver($id,$usuario);
+        $g = $data['guia'];
+        $errores = [];
+        $advertencias = [];
+        if (!preg_match('/^\d{11}$/D', (string)$g['emisor_ruc'])) {
+            $errores[] = 'Configure el RUC correcto en Datos del negocio.';
+        }
+        if (!self::ubigeoPlausible((string)$g['partida_ubigeo'])) {
+            $errores[] = 'El ubigeo de partida no es válido: '.$g['partida_ubigeo'];
+        }
+        if (!self::ubigeoPlausible((string)$g['llegada_ubigeo'])) {
+            $errores[] = 'El ubigeo de llegada no es válido: '.$g['llegada_ubigeo'];
+        }
+        if ($g['fecha_inicio_traslado'] < date('Y-m-d')) {
+            $errores[] = 'La fecha de inicio del traslado es anterior a hoy.';
+        }
+        if (!in_array((string)$g['motivo_traslado'], ['01','02','03','04','05','06'], true)) {
+            $errores[] = 'Este motivo requiere campos y validaciones adicionales GRE 2.0 que aún no están implementados.';
+        }
+        if ($g['motivo_traslado'] === '04') {
+            if (!in_array(strtoupper((string)$g['destinatario_tipo_documento']), ['RUC','6'], true)
+                || (string)$g['destinatario_num_documento'] !== (string)$g['emisor_ruc']) {
+                $errores[] = 'Para traslado entre establecimientos, el RUC del destinatario debe coincidir con el del emisor.';
+            }
+            if ($g['partida_ubigeo'] === $g['llegada_ubigeo']
+                && strcasecmp((string)$g['partida_direccion'], (string)$g['llegada_direccion']) === 0) {
+                $errores[] = 'El punto de partida coincide exactamente con el de llegada.';
+            }
+        }
+        if ($g['modalidad_transporte'] === '02') {
+            if (!preg_match('/^[A-Z0-9-]{6,10}$/D', strtoupper((string)$g['vehiculo_placa']))) {
+                $errores[] = 'Verifique la placa del vehículo (6 a 8 caracteres alfanuméricos).';
+            }
+            if (!$g['conductor_num_documento'] || !$g['conductor_licencia'] || !$g['conductor_nombre']) {
+                $errores[] = 'Complete los datos del conductor y licencia.';
+            }
+        }
+        if ($g['modalidad_transporte'] === '01' && (!preg_match('/^\d{11}$/D',(string)$g['transportista_ruc']) || !$g['transportista_nombre'])) {
+            $errores[] = 'Complete correctamente el RUC y razón social del transportista.';
+        }
+        if (!$data['items']) $errores[] = 'Agregue al menos un producto.';
+        $cantUnidades = 0.0;
+        foreach ($data['items'] as $item) {
+            if (in_array($item['unidad_sunat'], ['NIU','EA'], true)) $cantUnidades += (float)$item['cantidad'];
+        }
+        if ($cantUnidades > 0 && (float)$g['peso_bruto']/$cantUnidades > 1000) {
+            $advertencias[] = 'Peso bruto inusualmente alto: '.number_format((float)$g['peso_bruto'],3,'.','').' kg para '.number_format($cantUnidades,3,'.','').' unidades. Verifíquelo.';
+        }
+        $advertencias[] = 'Antes de emisión electrónica, los ubigeos deben cotejarse con el Catálogo 13 vigente de SUNAT.';
+        $advertencias[] = 'La guía aún no dispone de envío certificado GRE 2.0; PREPARADA no autoriza el traslado.';
+        return ['valida'=>count($errores)===0, 'errores'=>$errores, 'advertencias'=>$advertencias];
+    }
+
     public function preparar(int $id, int $usuario): void
     {
         $this->db->beginTransaction();
         try {
             $g=$this->one('SELECT g.* FROM guia_remision g JOIN usuario_sucursal us ON us.idsucursal=g.idsucursal AND us.idusuario=? AND us.activo=1 WHERE g.idguia=? FOR UPDATE',[$usuario,$id]);
             if (!$g || $g['estado']!=='BORRADOR') throw new InvalidArgumentException('Solo un borrador puede marcarse preparado.');
-            if ($g['fecha_inicio_traslado'] < date('Y-m-d')) throw new InvalidArgumentException('Actualice la fecha de traslado antes de preparar la guía.');
+            $validacion = $this->prevalidar($id, $usuario);
+            if (!$validacion['valida']) {
+                throw new InvalidArgumentException('Corrija la guía: '.implode(' | ', $validacion['errores']));
+            }
             $items=$this->one('SELECT COUNT(*) AS n FROM guia_remision_detalle WHERE idguia=?',[$id]);
             if ((int)$items['n']===0) throw new InvalidArgumentException('La guía no tiene productos.');
             $this->run("UPDATE guia_remision SET estado='PREPARADA' WHERE idguia=?",[$id]);

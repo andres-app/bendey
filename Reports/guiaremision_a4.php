@@ -40,10 +40,18 @@ try {
     grePdfCelda($pdf,'MOTIVO Y TRANSPORTE',$g['motivo_descripcion'].' | '.($g['modalidad_transporte']==='01'?'Público':'Privado'));
     grePdfCelda($pdf,'PARTIDA','Ubigeo '.$g['partida_ubigeo'].' - '.$g['partida_direccion']);
     grePdfCelda($pdf,'LLEGADA','Ubigeo '.$g['llegada_ubigeo'].' - '.$g['llegada_direccion']);
-    grePdfCelda($pdf,'FECHA DE TRASLADO Y PESO',$g['fecha_inicio_traslado'].' | Peso bruto '.$g['peso_bruto'].' kg');
+    grePdfCelda($pdf,'FECHA DE TRASLADO Y PESO',$g['fecha_inicio_traslado'].' | Peso bruto '.number_format((float)$g['peso_bruto'],3,'.',',').' kg');
     $transp=$g['modalidad_transporte']==='01' ? $g['transportista_ruc'].' - '.$g['transportista_nombre'] :
         'Placa: '.$g['vehiculo_placa'].' | Conductor: '.$g['conductor_nombre'].' | Licencia: '.$g['conductor_licencia'];
-    grePdfCelda($pdf,'TRANSPORTISTA',$transp);
+    grePdfCelda($pdf,'TRANSPORTE',$transp);
+    $check = $model->prevalidar($id, (int)$_SESSION['idusuario']);
+    if (!$check['valida']) {
+        $pdf->SetTextColor(155,45,45);
+        $pdf->SetFont('Arial','B',8);
+        $pdf->MultiCell(190,5,grePdfTexto('INCONSISTENCIAS: '.implode(' | ', $check['errores'])),1,'L');
+        $pdf->SetTextColor(35,55,44);
+        $pdf->Ln(2);
+    }
     $pdf->Ln(2);$pdf->SetFont('Arial','B',10);$pdf->Cell(190,8,grePdfTexto('DETALLE DE MERCADERIA'),0,1);
     $pdf->SetFillColor(235,246,239);$pdf->SetFont('Arial','B',9);
     $pdf->Cell(24,8,'Codigo',1,0,'L',true);
