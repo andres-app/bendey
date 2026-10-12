@@ -3529,6 +3529,9 @@ switch ($op) {
                                 <span>Duplicar venta</span>
                             </button>
 
+                            ' . (!empty($_SESSION['guias_remision']) && $estadoVenta === 'Aceptado' && in_array($tipoComprobanteVenta, ['Factura Electrónica','Boleta Electrónica','Nota de venta'], true)
+                                ? '<a class="dropdown-item" href="guiasremision?idventa=' . $id . '"><i class="fas fa-truck"></i><span>Generar guía de remisión</span></a>'
+                                : '') . '
                             ' . $accionNotaCredito . '
 
                             <div class="dropdown-divider"></div>

@@ -18,6 +18,7 @@ if (isset($_GET["url"])) {
         "customer",
         "sunat",
         "resumenboletas",
+        "guiasremision",
         "cotizacion",
         "newsale",
         "newsale2",

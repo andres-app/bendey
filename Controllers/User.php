@@ -1161,6 +1161,7 @@ switch ($op) {
         $_SESSION['almacen'] = in_array(2, $valores, true) ? 1 : 0;
         $_SESSION['compras'] = in_array(3, $valores, true) ? 1 : 0;
         $_SESSION['ventas'] = in_array(4, $valores, true) ? 1 : 0;
+        $_SESSION['guias_remision'] = in_array(9, $valores, true) ? 1 : 0;
         $_SESSION['users'] = in_array(5, $valores, true) ? 1 : 0;
         $_SESSION['datebuy'] = in_array(6, $valores, true) ? 1 : 0;
         $_SESSION['clientdatesales'] = in_array(7, $valores, true) ? 1 : 0;

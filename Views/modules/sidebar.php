@@ -256,8 +256,8 @@
                 <?php } ?>
 
                 <!-- VENTAS -->
-                <?php if (!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) {
-                    $ventasActive = !$esPOS && in_array($url, ['listsales', 'cobranzas', 'customer', 'sunat', 'resumenboletas', 'cotizacion'], true);
+                <?php if ((!empty($_SESSION['ventas']) && $_SESSION['ventas'] == 1) || !empty($_SESSION['guias_remision'])) {
+                    $ventasActive = !$esPOS && in_array($url, ['listsales', 'cobranzas', 'customer', 'sunat', 'resumenboletas', 'cotizacion', 'guiasremision'], true);
                 ?>
                     <li class="dropdown <?= $ventasActive ? 'active' : '' ?>">
                         <a href="#" class="nav-link has-dropdown">
@@ -280,6 +280,11 @@
                             <li class="<?= $url == 'cotizacion' ? 'active' : '' ?>">
                                 <a class="nav-link" href="cotizacion">Cotización</a>
                             </li>
+                            <?php if (!empty($_SESSION['guias_remision'])) { ?>
+                            <li class="<?= $url == 'guiasremision' ? 'active' : '' ?>">
+                                <a class="nav-link" href="guiasremision">Guías de remisión</a>
+                            </li>
+                            <?php } ?>
                             <li class="<?= $url == 'customer' ? 'active' : '' ?>">
                                 <a class="nav-link" href="customer">Clientes</a>
                             </li>
