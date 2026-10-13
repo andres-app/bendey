@@ -22,7 +22,7 @@ if (empty($_SESSION['nombre']) || (int)($_SESSION['guias_remision']??0)!==1) {
 }
 
 $op=(string)($_GET['op']??$_POST['op']??'');
-$esPost=in_array($op,['guardar','preparar','volverBorrador','descartar','emitir','consultar','diagnosticoProduccion'],true);
+$esPost=in_array($op,['guardar','preparar','volverBorrador','descartar','emitir','consultar','diagnosticoAmbiente'],true);
 if ($esPost) {
     if (($_SERVER['REQUEST_METHOD']??'')!=='POST') greRespuesta(['success'=>false,'message'=>'Método no permitido.'],405);
     $token=(string)($_SERVER['HTTP_X_CSRF_TOKEN']??$_POST['csrf_token']??'');
@@ -40,7 +40,7 @@ try {
         case 'prevalidar': $data=$model->prevalidar((int)($_GET['idguia']??0),$u); break;
         case 'previsualizar': $data=(new GreEmission())->previsualizar((int)($_GET['idguia']??0),$u); break;
         case 'consultar': $data=(new GreEmission())->consultar((int)($_POST['idguia']??0),$u); break;
-        case 'diagnosticoProduccion': $data=(new GreEmission())->diagnosticarProduccion((int)($_POST['idguia']??0),$u); break;
+        case 'diagnosticoAmbiente': $data=(new GreEmission())->diagnosticarAmbiente((int)($_POST['idguia']??0),$u); break;
         case 'lotes': $data=$model->lotes((int)($_GET['idarticulo']??0),(int)($_GET['idvariacion']??0),(int)($_GET['idalmacen']??0),$u); break;
         case 'guardar':
             $body=json_decode((string)file_get_contents('php://input'),true);

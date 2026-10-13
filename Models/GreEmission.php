@@ -56,67 +56,89 @@ final class GreEmission
     }
 
     /**
-     * Diagnóstico de sólo lectura para la empresa en producción.
-     * No genera GRE, no modifica la BD y no toca venta/stock/Kardex.
+     * Diagnóstico de GRE sin emisión ni escrituras. Puede usarse sin credenciales.
      */
-    public function diagnosticarProduccion(int $id, int $usuario): array
+    public function diagnosticarAmbiente(int $id, int $usuario): array
     {
-        $val = ['valida' => true, 'errores' => [], 'advertencias' => []];
+        $errores = [];
+        $advertencias = [];
         $filtro = '';
         $params = [$usuario];
         if ($id > 0) {
-            $datos = $this->gre->ver($id, $usuario);
-            $g = $datos['guia'];
-            if (!in_array((string)$g['estado'], ['BORRADOR','PREPARADA'], true)) {
-                throw new InvalidArgumentException('Solo es posible verificar una guía todavía no enviada.');
+            $detalle = $this->gre->ver($id, $usuario);
+            $guia = $detalle['guia'];
+            if (!in_array((string)$guia['estado'], ['BORRADOR', 'PREPARADA'], true)) {
+                throw new InvalidArgumentException('Solo se permite el diagnóstico de guías sin emisión previa.');
             }
-            $val = $this->gre->prevalidar($id, $usuario);
+            $pre = $this->gre->prevalidar($id, $usuario);
+            $errores = $pre['errores'] ?? [];
+            $advertencias = $pre['advertencias'] ?? [];
             $filtro = ' AND gs.idserie=?';
-            $params[] = (int)$g['idserie'];
+            $params[] = (int)$guia['idserie'];
         }
         $serie = $this->consultarUno('SELECT gs.idserie,gs.idsucursal,gs.serie,gs.siguiente_correlativo
             FROM guia_remision_serie gs
             INNER JOIN usuario_sucursal us ON us.idsucursal=gs.idsucursal AND us.idusuario=? AND us.activo=1
             WHERE gs.activo=1' . $filtro . ' ORDER BY gs.idserie ASC LIMIT 1', $params);
         if (!$serie) {
-            throw new InvalidArgumentException('No hay una serie GRE activa en una sucursal a la que tenga acceso.');
+            throw new InvalidArgumentException('No existe una serie GRE activa accesible para este usuario.');
         }
-        $api = new ApiSunat();
-        if (!$api->esProduccion()) {
-            throw new InvalidArgumentException('El ambiente de APISUNAT configurado para esta empresa no es producción. No cambie las credenciales de facturación activa.');
+        $empresa = $this->consultarUno("SELECT documento AS ruc, apisunat_production,
+            (CHAR_LENGTH(TRIM(COALESCE(apisunat_persona_id,''))) > 0 AND
+             CHAR_LENGTH(TRIM(COALESCE(apisunat_persona_token,''))) > 0) AS credenciales_presentes
+            FROM datos_negocio WHERE condicion=1 ORDER BY id_negocio LIMIT 1", []);
+        if (!$empresa) {
+            throw new InvalidArgumentException('No se encontró una empresa activa configurada.');
         }
-        $negocio = $this->consultarUno('SELECT documento AS ruc FROM datos_negocio WHERE condicion=1 ORDER BY id_negocio LIMIT 1', []);
-        $ruc = trim((string)($negocio['ruc'] ?? ''));
-        if ($ruc === '' || $ruc !== $api->obtenerRucEmpresa()) {
-            throw new InvalidArgumentException('El RUC de la empresa no coincide con la configuración de APISUNAT.');
+        $prod = (int)$empresa['apisunat_production'] === 1;
+        $ambiente = $prod ? 'PRODUCCION' : 'DESARROLLO';
+        $ruc = trim((string)($empresa['ruc'] ?? ''));
+        $configurada = (int)$empresa['credenciales_presentes'] === 1;
+        $respuesta = [
+            'success' => false,
+            'last_number' => null,
+            'suggested_number' => null,
+            'http_code' => 0,
+            'message' => 'Sin credenciales APISUNAT en este ambiente. Solo se verificó la configuración local.'
+        ];
+        if (!preg_match('/^[0-9]{11}$/D', $ruc)) {
+            $errores[] = 'El RUC del negocio no tiene 11 dígitos.';
+        } elseif ($configurada) {
+            // Instanciar solo si hay credenciales. Su contenido nunca se devuelve al navegador.
+            $api = new ApiSunat();
+            if ($api->esProduccion() !== $prod || $api->obtenerRucEmpresa() !== $ruc) {
+                throw new InvalidArgumentException('El ambiente o RUC de APISUNAT no coincide con los datos del negocio.');
+            }
+            $respuesta = $api->verificarSerieGreAmbiente((string)$serie['serie']);
         }
-        $respuesta = $api->verificarSerieGre((string)$serie['serie']);
-        $avisos = (array)($val['errores'] ?? []);
+        $avisos = $errores;
         if (($respuesta['success'] ?? false) === true) {
             $local = (int)$serie['siguiente_correlativo'];
             $remoto = (int)$respuesta['suggested_number'];
             if ($remoto > $local) {
-                $avisos[] = 'Numeración desfasada: TiquePOS sugiere ' . $local .
-                    ' y APISUNAT ' . $remoto . '. No se modificó ningún correlativo.';
+                $avisos[] = 'El siguiente correlativo remoto es superior al local. No se modificó la numeración.';
             } elseif ($local > $remoto) {
-                $avisos[] = 'La numeración local es superior a la sugerida por APISUNAT. Revise documentos externos y numeraciones reservadas.';
+                $avisos[] = 'El siguiente correlativo local es superior al remoto. Revise los documentos registrados.';
             }
+        } elseif (!$configurada) {
+            $avisos[] = 'Configure las credenciales de DESARROLLO únicamente si desea probar la consulta con APISUNAT.';
         }
         return [
-            'ambiente' => 'PRODUCCION',
+            'ambiente' => $ambiente,
             'operacion' => 'CONSULTA_NO_EMISORA',
+            'credenciales_configuradas' => $configurada,
             'conexion_confirmada' => ($respuesta['success'] ?? false) === true,
             'serie' => (string)$serie['serie'],
             'correlativo_local' => (int)$serie['siguiente_correlativo'],
             'ultimo_correlativo_proveedor' => $respuesta['last_number'] ?? null,
             'siguiente_correlativo_proveedor' => $respuesta['suggested_number'] ?? null,
             'http_code' => $respuesta['http_code'] ?? 0,
-            'mensaje' => $respuesta['message'] ?? 'El proveedor no confirmó la serie.',
-            'errores_guia' => $val['errores'] ?? [],
-            'advertencias' => $val['advertencias'] ?? [],
+            'mensaje' => $respuesta['message'],
+            'errores_guia' => $errores,
+            'advertencias' => $advertencias,
             'bloqueos_para_emision' => $avisos,
             'emision_habilitada' => false,
-            'nota' => 'Comprobación no emisora. El envío GRE real queda bloqueado hasta verificar el contrato documentBody del proveedor.'
+            'nota' => 'Diagnóstico de solo lectura. No emite GRE y no cambia la numeración.'
         ];
     }
 

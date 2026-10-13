@@ -690,13 +690,14 @@ class ApiSunat
     }
 
     /**
-     * Consulta de solo lectura a APISUNAT, tipo 09. No envía documento ni reserva correlativos.
+     * Consulta GRE 09 de solo lectura, restringida al ambiente que emplea esta empresa.
+     * No modifica numeración ni remite documentos electrónicos.
      */
-    public function verificarSerieGre(string $serie): array
+    public function verificarSerieGreAmbiente(string $serie): array
     {
         $serie = strtoupper(trim($serie));
         if (!preg_match('/^T[A-Z0-9]{3}$/D', $serie)) {
-            throw new InvalidArgumentException('La serie GRE Remitente debe comenzar con T y tener cuatro caracteres.');
+            throw new InvalidArgumentException('La serie GRE debe comenzar por T y tener cuatro caracteres.');
         }
         $resp = $this->request('POST', '/personas/lastDocument', [
             'personaId' => $this->personaId,
@@ -709,32 +710,34 @@ class ApiSunat
             return [
                 'success' => false,
                 'http_code' => (int)($resp['http_code'] ?? 0),
-                'message' => 'La consulta no fue confirmada por APISUNAT. Verifique la serie GRE y su habilitación en el portal.'
+                'message' => 'APISUNAT no confirmó la consulta de numeración GRE.'
             ];
         }
+        // Una respuesta exitosa HTTP no acredita por sí sola que sea la serie y el ambiente correctos.
         $prod = $dato['production'] ?? null;
         $tipo = trim((string)($dato['type'] ?? ''));
-        $serieDevuelta = strtoupper(trim((string)($dato['serie'] ?? '')));
+        $serieRemota = strtoupper(trim((string)($dato['serie'] ?? '')));
         $ultimo = trim((string)($dato['lastNumber'] ?? ''));
         $siguiente = trim((string)($dato['suggestedNumber'] ?? ''));
-        if ($prod !== true || $tipo !== '09' || $serieDevuelta !== $serie ||
+        if (!is_bool($prod) || $prod !== $this->production ||
+            $tipo !== '09' || $serieRemota !== $serie ||
             !preg_match('/^[0-9]{1,8}$/D', $siguiente) ||
             ($ultimo !== '' && !preg_match('/^[0-9]{1,8}$/D', $ultimo))) {
             return [
                 'success' => false,
                 'http_code' => (int)($resp['http_code'] ?? 0),
-                'message' => 'La respuesta de APISUNAT no confirmó producción, tipo 09, serie y correlativo. No emita.'
+                'message' => 'La respuesta no confirmó el ambiente, tipo 09, serie y correlativo esperados.'
             ];
         }
         return [
             'success' => true,
-            'production' => true,
-            'serie' => $serieDevuelta,
+            'production' => $this->production,
+            'serie' => $serieRemota,
             'type' => $tipo,
             'last_number' => $ultimo,
             'suggested_number' => $siguiente,
             'http_code' => (int)($resp['http_code'] ?? 0),
-            'message' => 'Conexión y numeración GRE consultadas sin emitir.'
+            'message' => 'Consulta GRE confirmada sin emitir ni modificar correlativos.'
         ];
     }
 
