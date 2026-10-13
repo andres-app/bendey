@@ -1,4 +1,0 @@
-TiquePOS actualización remota OK
-Versión: 1.8.1
-Canal: beta
-Prueba: despliegue remoto desde admin.tiquepos.com
