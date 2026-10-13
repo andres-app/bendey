@@ -8,6 +8,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
 require_once __DIR__ . '/../Models/GuiaRemision.php';
+require_once __DIR__ . '/../Models/GreEmission.php';
 
 function greRespuesta(array $dato, int $code=200): void
 {
@@ -21,7 +22,7 @@ if (empty($_SESSION['nombre']) || (int)($_SESSION['guias_remision']??0)!==1) {
 }
 
 $op=(string)($_GET['op']??$_POST['op']??'');
-$esPost=in_array($op,['guardar','preparar','volverBorrador','descartar','emitir'],true);
+$esPost=in_array($op,['guardar','preparar','volverBorrador','descartar','emitir','consultar','diagnosticoProduccion'],true);
 if ($esPost) {
     if (($_SERVER['REQUEST_METHOD']??'')!=='POST') greRespuesta(['success'=>false,'message'=>'Método no permitido.'],405);
     $token=(string)($_SERVER['HTTP_X_CSRF_TOKEN']??$_POST['csrf_token']??'');
@@ -37,6 +38,9 @@ try {
         case 'venta': $data=$model->venta((int)($_GET['idventa']??0),$u); break;
         case 'ver': $data=$model->ver((int)($_GET['idguia']??0),$u); break;
         case 'prevalidar': $data=$model->prevalidar((int)($_GET['idguia']??0),$u); break;
+        case 'previsualizar': $data=(new GreEmission())->previsualizar((int)($_GET['idguia']??0),$u); break;
+        case 'consultar': $data=(new GreEmission())->consultar((int)($_POST['idguia']??0),$u); break;
+        case 'diagnosticoProduccion': $data=(new GreEmission())->diagnosticarProduccion((int)($_POST['idguia']??0),$u); break;
         case 'lotes': $data=$model->lotes((int)($_GET['idarticulo']??0),(int)($_GET['idvariacion']??0),(int)($_GET['idalmacen']??0),$u); break;
         case 'guardar':
             $body=json_decode((string)file_get_contents('php://input'),true);
@@ -53,10 +57,8 @@ try {
             $model->anular((int)($_POST['idguia']??0),$u);
             $data=['estado'=>'ANULADA']; break;
         case 'emitir':
-            // No enviar payload UBL improvisado a SUNAT/APISUNAT.
-            // GRE 2.0 requiere integración certificada y prueba en DESARROLLO.
-            greRespuesta(['success'=>false,
-                'message'=>'Envío real aún no habilitado: falta validar el formato GRE 2.0 y credenciales APISUNAT. La guía permanece preparada, sin valor para el traslado.'],501);
+            $data=(new GreEmission())->emitirDesarrollo((int)($_POST['idguia']??0),$u);
+            break;
         default: greRespuesta(['success'=>false,'message'=>'Operación desconocida.'],404);
     }
     greRespuesta(['success'=>true,'data'=>$data]);

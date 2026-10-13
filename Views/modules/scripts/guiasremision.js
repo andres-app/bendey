@@ -1,10 +1,11 @@
-/* TiquePOS · GRE Remitente · vista MVC (borradores locales, sin emisión tributaria) */
+/* TiquePOS · GRE Remitente · previsualización UBL y desarrollo APISUNAT */
 (() => {
   'use strict';
   const C = window.GRE_CONFIG || {};
   const API = 'Controllers/GuiaRemision.php?op=';
   const $id = x => document.getElementById(x);
   const val = x => ($id(x)?.value || '').trim();
+  const safeProviderUrl = s => {try {const u=new URL(String(s||'')); return u.protocol==='https:' && (u.hostname==='apisunat.com'||u.hostname.endsWith('.apisunat.com'))?u.href:null;}catch(_){return null;}};
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const opt = (v, t, selected='') => `<option value="${esc(v)}" ${String(v)===String(selected)?'selected':''}>${esc(t)}</option>`;
   const modal = name => window.jQuery('#' + name).modal('show');
@@ -228,29 +229,95 @@
     const x=await request('ver',{idguia:id});const g=x.guia;
     const validacion=await request('prevalidar',{idguia:id});
     $id('greDetalleTitulo').textContent=(g.serie?g.serie+'-'+String(g.correlativo).padStart(8,'0'):'Borrador #'+g.idguia);
-    const tiles=[['Estado',g.estado],['Sucursal',g.sucursal],['Fecha de inicio',fmtDate(g.fecha_inicio_traslado)],['Motivo',g.motivo_descripcion],['Destinatario',g.destinatario_nombre+' · '+g.destinatario_num_documento],['Traslado',g.modalidad_transporte==='01'?'Transporte público':'Transporte privado'],['Origen',g.partida_ubigeo+' · '+g.partida_direccion],['Destino',g.llegada_ubigeo+' · '+g.llegada_direccion],['Peso bruto',g.peso_bruto+' kg'],['Transporte',g.modalidad_transporte==='01'?(g.transportista_nombre||''):(g.vehiculo_placa+' · '+g.conductor_nombre)]];
+    const tiles=[['Emisión GRE', 'Sin emisión tributaria; sólo registro interno'],['Estado',g.estado],['Sucursal',g.sucursal],['Fecha de inicio',fmtDate(g.fecha_inicio_traslado)],['Motivo',g.motivo_descripcion],['Destinatario',g.destinatario_nombre+' · '+g.destinatario_num_documento],['Traslado',g.modalidad_transporte==='01'?'Transporte público':'Transporte privado'],['Origen',g.partida_ubigeo+' · '+g.partida_direccion],['Destino',g.llegada_ubigeo+' · '+g.llegada_direccion],['Peso bruto',g.peso_bruto+' kg'],['Transporte',g.modalidad_transporte==='01'?(g.transportista_nombre||''):(g.vehiculo_placa+' · '+g.conductor_nombre)]];
     const errores=validacion.errores||[], advertencias=validacion.advertencias||[];
     const resumen=errores.length?`<div class="gre-warning"><strong>Debe corregir:</strong><ul>${errores.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`:'';
     const avisos=advertencias.length?`<div class="gre-preflight-hint"><strong>Revisiones pendientes:</strong><ul>${advertencias.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>`:'';
     $id('greDetalleCuerpo').innerHTML=`${resumen}${avisos}<div class="gre-warning"><i class="fas fa-info-circle mr-2"></i>Este documento no sustenta un traslado mientras no haya recibido CDR aceptada de SUNAT.</div><div class="gre-detail-cols">${tiles.map(t=>`<div class="gre-detail-tile"><span>${esc(t[0])}</span><strong>${esc(t[1]||'—')}</strong></div>`).join('')}</div>
       <div class="gre-detail-label">Detalle de mercadería</div><div class="table-responsive"><table class="table gre-detail-table"><thead><tr><th>Producto</th><th>Cantidad</th><th>Lotes</th></tr></thead><tbody>${x.items.map(i=>`<tr><td>${esc(i.descripcion)}<div class="gre-muted">${esc(i.codigo)}</div></td><td>${esc(i.cantidad)} ${esc(i.unidad_sunat)}</td><td>${i.lotes.map(l=>`${esc(l.numero_lote||'Lote sin código')} (${esc(l.cantidad)})`).join('<br>')||'—'}</td></tr>`).join('')}</tbody></table></div>
       ${x.documentos.length?`<p class="gre-muted">Referencia: ${x.documentos.map(d=>esc(d.serie+'-'+d.numero)).join(', ')}</p>`:''}
-      <p class="gre-muted">Estado de integración SUNAT: ${esc(g.estado_sunat||'NO_ENVIADO')}.</p>`;
+      <p class="gre-muted">Estado APISUNAT: ${esc(g.estado_sunat||'NO_ENVIADO')}. ${esc(g.document_id?'ID APISUNAT: '+g.document_id:'No existe recepción confirmada del proveedor.')}</p>`;
     const actions=[];
     if(g.estado==='BORRADOR') {actions.push(`<button class="btn btn-outline-secondary btn-sm" data-det-editar="${id}">Editar</button>`);actions.push(`<button class="btn gre-btn-primary btn-sm" data-det-action="preparar:${id}">Marcar preparada</button>`);actions.push(`<button class="btn btn-outline-danger btn-sm" data-det-action="descartar:${id}">Descartar</button>`);}
-    if(g.estado==='PREPARADA') {actions.push(`<button class="btn btn-outline-secondary btn-sm" data-det-action="volverBorrador:${id}">Volver a borrador</button>`);}
+    if(g.estado==='PREPARADA') {
+      actions.push(`<button class="btn btn-outline-secondary btn-sm" data-det-action="previsualizar:${id}">Vista previa JSON GRE</button>`);
+      // Producción: botón de envío deshabilitado hasta validar contrato GRE 2.0.
+      actions.push(`<button class="btn btn-outline-secondary btn-sm" data-det-action="volverBorrador:${id}">Volver a borrador</button>`);
+    }
+    if(g.document_id){actions.push(`<button class="btn btn-outline-primary btn-sm" data-det-action="consultar:${id}">Consultar APISUNAT (prueba)</button>`);}
+    for(const [campo,nombre] of [['xml_url','XML de prueba'],['cdr_url','CDR de prueba'],['pdf_url','PDF de prueba']]) {
+      const u=safeProviderUrl(g[campo]);
+      if(u)actions.push(`<a class="btn btn-outline-secondary btn-sm" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(nombre)}</a>`);
+    }
     actions.push(`<a href="Reports/guiaremision_a4.php?id=${id}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="far fa-file-pdf mr-1"></i> Vista PDF no válida</a>`);
     actions.push('<button class="btn btn-outline-secondary btn-sm" data-dismiss="modal">Cerrar</button>');
     $id('greDetalleAcciones').innerHTML=actions.join(' ');modal('greDetalleModal');
   }
   async function action(op,id) {
-    const msg=op==='descartar'?'¿Descartar esta guía? Se liberarán sus cantidades reservadas.':op==='preparar'?'¿Marcar la guía como preparada? Esto NO la envía a SUNAT.':'¿Volver a borrador para editar?';
+    if(op==='previsualizar'){
+      try{
+        const preview=await request('previsualizar',{idguia:id});
+        const payload={fileName:preview.fileName,documentBody:preview.documentBody};
+        const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
+        const link=document.createElement('a'); const u=URL.createObjectURL(blob);
+        link.href=u;link.download='gre-previsualizacion-'+id+'.json';
+        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
+        toast(preview.advertencia,'info');
+      }catch(e){showError(e);} return;
+    }
+    const msg=op==='emitir'
+      ? '¿Enviar esta GRE a APISUNAT en DESARROLLO? Requiere habilitación explícita en Config/Gre.php y credenciales de prueba. Se reservará la serie y correlativo y no podrá volver a borrador. NO es una guía válida para traslado.'
+      : op==='consultar' ? '¿Consultar el documento de prueba en APISUNAT?'
+      : op==='descartar'?'¿Descartar esta guía? Se liberarán sus cantidades reservadas.'
+      : op==='preparar'?'¿Marcar la guía como preparada? Esto NO la envía a SUNAT.'
+      : '¿Volver a borrador para editar?';
     const yes=window.Swal?(await Swal.fire({title:'Confirmar acción',text:msg,icon:'question',showCancelButton:true,confirmButtonColor:'#00a46a'})).isConfirmed:confirm(msg);
     if(!yes)return;
-    try{await postAction(op,id);close('greDetalleModal');await listar();await detalle(id);}
-    catch(e){showError(e);}
+    try{
+      const r=await postAction(op,id);
+      close('greDetalleModal');await listar();await detalle(id);
+      if(r?.message)toast(r.message,op==='emitir'&&r.estado_sunat==='PENDIENTE'?'success':'info');
+    }catch(e){showError(e);}
   }
+  /** Consulta de solo lectura: ningún documento, serie ni correlativo se modifica. */
+  async function diagnosticarProduccion() {
+    const el=$id('greVerificarProduccion');
+    if(el){el.disabled=true;el.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i>Verificando...';}
+    try {
+      const f=new FormData(); f.set('idguia','0');
+      const d=await request('diagnosticoProduccion',{},f);
+      const info=[
+        'Ambiente: '+(d.ambiente||'—'),
+        'Serie: '+(d.serie||'—'),
+        'Conexión: '+(d.conexion_confirmada?'CONFIRMADA':'NO CONFIRMADA'),
+        'Último número proveedor: '+(d.ultimo_correlativo_proveedor??'No informado'),
+        'Siguiente proveedor: '+(d.siguiente_correlativo_proveedor??'No informado'),
+        'Siguiente local: '+(d.correlativo_local??'No informado'),
+        d.mensaje||'',
+        ...((d.bloqueos_para_emision||[]).map(s=>'AVISO: '+s)),
+        'No se emitió ninguna guía ni se modificó la BD.'
+      ].join('\n');
+      if(window.Swal) {
+        await Swal.fire({title:'Diagnóstico APISUNAT / GRE',text:info,icon:d.conexion_confirmada?'success':'warning',width:660,confirmButtonText:'Cerrar'});
+      } else alert(info);
+    } catch(e) {showError(e);}
+    finally {if(el){el.disabled=false;el.innerHTML='<i class="fas fa-plug mr-1"></i>Verificar APISUNAT (sin emitir)';}}
+  }
+
   function bind() {
+    // Crear acceso a verificación sin sobreescribir la vista MVC de producción.
+    const btn=document.createElement('button');
+    btn.type='button';btn.className='btn btn-outline-primary mr-2';btn.id='greVerificarProduccion';
+    btn.innerHTML='<i class="fas fa-plug mr-1"></i>Verificar APISUNAT (sin emitir)';
+    const nuevo=$id('greNueva');
+    if(nuevo && nuevo.parentNode){
+      const grupo=document.createElement('div');
+      grupo.className='d-flex flex-wrap align-items-center justify-content-end';
+      grupo.style.gap='8px';
+      nuevo.parentNode.insertBefore(grupo,nuevo);
+      grupo.appendChild(btn);grupo.appendChild(nuevo);
+    }
+    btn.addEventListener('click',diagnosticarProduccion);
     $id('greNueva').addEventListener('click',crear);$id('greGuardar').addEventListener('click',guardar);
     $id('greActualizar').addEventListener('click',listar);
     $id('greEstadoFiltro').addEventListener('change',listar);

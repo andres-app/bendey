@@ -689,6 +689,55 @@ class ApiSunat
         return $this->production;
     }
 
+    /**
+     * Consulta de solo lectura a APISUNAT, tipo 09. No envía documento ni reserva correlativos.
+     */
+    public function verificarSerieGre(string $serie): array
+    {
+        $serie = strtoupper(trim($serie));
+        if (!preg_match('/^T[A-Z0-9]{3}$/D', $serie)) {
+            throw new InvalidArgumentException('La serie GRE Remitente debe comenzar con T y tener cuatro caracteres.');
+        }
+        $resp = $this->request('POST', '/personas/lastDocument', [
+            'personaId' => $this->personaId,
+            'personaToken' => $this->personaToken,
+            'type' => '09',
+            'serie' => $serie
+        ]);
+        $dato = is_array($resp['data'] ?? null) ? $resp['data'] : [];
+        if (($resp['success'] ?? false) !== true) {
+            return [
+                'success' => false,
+                'http_code' => (int)($resp['http_code'] ?? 0),
+                'message' => 'La consulta no fue confirmada por APISUNAT. Verifique la serie GRE y su habilitación en el portal.'
+            ];
+        }
+        $prod = $dato['production'] ?? null;
+        $tipo = trim((string)($dato['type'] ?? ''));
+        $serieDevuelta = strtoupper(trim((string)($dato['serie'] ?? '')));
+        $ultimo = trim((string)($dato['lastNumber'] ?? ''));
+        $siguiente = trim((string)($dato['suggestedNumber'] ?? ''));
+        if ($prod !== true || $tipo !== '09' || $serieDevuelta !== $serie ||
+            !preg_match('/^[0-9]{1,8}$/D', $siguiente) ||
+            ($ultimo !== '' && !preg_match('/^[0-9]{1,8}$/D', $ultimo))) {
+            return [
+                'success' => false,
+                'http_code' => (int)($resp['http_code'] ?? 0),
+                'message' => 'La respuesta de APISUNAT no confirmó producción, tipo 09, serie y correlativo. No emita.'
+            ];
+        }
+        return [
+            'success' => true,
+            'production' => true,
+            'serie' => $serieDevuelta,
+            'type' => $tipo,
+            'last_number' => $ultimo,
+            'suggested_number' => $siguiente,
+            'http_code' => (int)($resp['http_code'] ?? 0),
+            'message' => 'Conexión y numeración GRE consultadas sin emitir.'
+        ];
+    }
+
     public function obtenerIdNegocio(): int
     {
         return $this->idNegocio;
@@ -801,12 +850,13 @@ class ApiSunat
          * 01 = Factura
          * 03 = Boleta
          * 07 = Nota de crédito
+         * 09 = Guía de remisión remitente (serie T)
          *
          * Para notas de crédito se admiten series de factura
          * (por ejemplo FC01) y de boleta (por ejemplo BC01).
          */
         $patron =
-            '/^(\d{11})-(01|03|07)-([FB][A-Z0-9]{3})-(\d{8})$/';
+            '/^(\d{11})-(01|03|07|09)-([FBT][A-Z0-9]{3})-(\d{8})$/';
 
         $coincidencias = [];
 
@@ -823,7 +873,8 @@ class ApiSunat
                 . '. Debe tener un formato como '
                 . 'RUC-01-F001-00000001, '
                 . 'RUC-03-B001-00000001 o '
-                . 'RUC-07-FC01-00000001.'
+                . 'RUC-07-FC01-00000001 o '
+                . 'RUC-09-T001-00000001.'
             );
         }
 
@@ -848,6 +899,17 @@ class ApiSunat
             );
         }
 
+        if ($tipo === '09' && ($serie[0] ?? '') !== 'T') {
+            throw new InvalidArgumentException(
+                'Una GRE Remitente debe usar una serie que comience con T.'
+            );
+        }
+        if ($tipo === '07' && !in_array($serie[0] ?? '', ['F','B'], true)) {
+            throw new InvalidArgumentException('Las notas de crédito usan series F o B.');
+        }
+        if ($tipo !== '09' && ($serie[0] ?? '') === 'T') {
+            throw new InvalidArgumentException('Las series T son exclusivamente para GRE Remitente.');
+        }
         /*
          * El tipo 07 puede modificar tanto una factura como una boleta,
          * por eso admite series que comiencen con F o B.
