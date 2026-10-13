@@ -1,7 +1,12 @@
 <?php
-// Copiar a Config/Gre.php SOLO después de validar el esquema documentBody
-// GRE 2.0 con soporte APISUNAT. Nunca suba credenciales a este archivo.
-// El entorno DESARROLLO y las credenciales se gestionan desde datos_negocio.
+/**
+ * Opciones independientes por instalación.
+ * Mantener ambos envíos en false hasta obtener una prueba APISUNAT válida
+ * del documentBody GRE Remitente 2.0 y comprobar el flujo completo.
+ * NO colocar secretos en este archivo.
+ */
 return [
+    'documentbody_gre_20_validado' => false,
     'permitir_envio_desarrollo' => false,
+    'permitir_envio_produccion' => false,
 ];

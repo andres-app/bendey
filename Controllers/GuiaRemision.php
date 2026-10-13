@@ -22,7 +22,7 @@ if (empty($_SESSION['nombre']) || (int)($_SESSION['guias_remision']??0)!==1) {
 }
 
 $op=(string)($_GET['op']??$_POST['op']??'');
-$esPost=in_array($op,['guardar','preparar','volverBorrador','descartar','emitir','consultar','diagnosticoAmbiente'],true);
+$esPost=in_array($op,['guardar','preparar','volverBorrador','descartar','emitir','consultar','reconciliar','diagnosticoAmbiente'],true);
 if ($esPost) {
     if (($_SERVER['REQUEST_METHOD']??'')!=='POST') greRespuesta(['success'=>false,'message'=>'Método no permitido.'],405);
     $token=(string)($_SERVER['HTTP_X_CSRF_TOKEN']??$_POST['csrf_token']??'');
@@ -39,7 +39,9 @@ try {
         case 'ver': $data=$model->ver((int)($_GET['idguia']??0),$u); break;
         case 'prevalidar': $data=$model->prevalidar((int)($_GET['idguia']??0),$u); break;
         case 'previsualizar': $data=(new GreEmission())->previsualizar((int)($_GET['idguia']??0),$u); break;
+        case 'reconciliar': $data=(new GreEmission())->reconciliar((int)($_POST['idguia']??0),$u,(string)($_POST['documentId']??'')); break;
         case 'consultar': $data=(new GreEmission())->consultar((int)($_POST['idguia']??0),$u); break;
+        case 'estadoEmision': $data=(new GreEmission())->estadoEmision(); break;
         case 'diagnosticoAmbiente': $data=(new GreEmission())->diagnosticarAmbiente((int)($_POST['idguia']??0),$u); break;
         case 'lotes': $data=$model->lotes((int)($_GET['idarticulo']??0),(int)($_GET['idvariacion']??0),(int)($_GET['idalmacen']??0),$u); break;
         case 'guardar':
@@ -57,7 +59,7 @@ try {
             $model->anular((int)($_POST['idguia']??0),$u);
             $data=['estado'=>'ANULADA']; break;
         case 'emitir':
-            $data=(new GreEmission())->emitirDesarrollo((int)($_POST['idguia']??0),$u);
+            $data=(new GreEmission())->emitir((int)($_POST['idguia']??0),$u);
             break;
         default: greRespuesta(['success'=>false,'message'=>'Operación desconocida.'],404);
     }

@@ -10,7 +10,7 @@
   const opt = (v, t, selected='') => `<option value="${esc(v)}" ${String(v)===String(selected)?'selected':''}>${esc(t)}</option>`;
   const modal = name => window.jQuery('#' + name).modal('show');
   const close = name => window.jQuery('#' + name).modal('hide');
-  const state = {cat:null, rows:[], lineas:[], idguia:0, idventa:0, uid:0, bloqueado:false};
+  const state = {cat:null, rows:[], lineas:[], idguia:0, idventa:0, uid:0, bloqueado:false, grecfg:null};
   function toast(m,t='info') { if(window.Swal) return Swal.fire({icon:t,text:m,confirmButtonColor:'#00a46a'}); alert(m); }
   async function request(op, params={}, data=null) {
     const q = new URLSearchParams(params);
@@ -229,31 +229,46 @@
     const x=await request('ver',{idguia:id});const g=x.guia;
     const validacion=await request('prevalidar',{idguia:id});
     $id('greDetalleTitulo').textContent=(g.serie?g.serie+'-'+String(g.correlativo).padStart(8,'0'):'Borrador #'+g.idguia);
-    const tiles=[['Ambiente GRE', 'DESARROLLO / Solo pruebas'],['Estado',g.estado],['Sucursal',g.sucursal],['Fecha de inicio',fmtDate(g.fecha_inicio_traslado)],['Motivo',g.motivo_descripcion],['Destinatario',g.destinatario_nombre+' · '+g.destinatario_num_documento],['Traslado',g.modalidad_transporte==='01'?'Transporte público':'Transporte privado'],['Origen',g.partida_ubigeo+' · '+g.partida_direccion],['Destino',g.llegada_ubigeo+' · '+g.llegada_direccion],['Peso bruto',g.peso_bruto+' kg'],['Transporte',g.modalidad_transporte==='01'?(g.transportista_nombre||''):(g.vehiculo_placa+' · '+g.conductor_nombre)]];
+    const tiles=[['Ambiente GRE', state.grecfg?.ambiente || 'NO CONFIGURADO'],['Estado',g.estado],['Sucursal',g.sucursal],['Fecha de inicio',fmtDate(g.fecha_inicio_traslado)],['Motivo',g.motivo_descripcion],['Destinatario',g.destinatario_nombre+' · '+g.destinatario_num_documento],['Traslado',g.modalidad_transporte==='01'?'Transporte público':'Transporte privado'],['Origen',g.partida_ubigeo+' · '+g.partida_direccion],['Destino',g.llegada_ubigeo+' · '+g.llegada_direccion],['Peso bruto',g.peso_bruto+' kg'],['Transporte',g.modalidad_transporte==='01'?(g.transportista_nombre||''):(g.vehiculo_placa+' · '+g.conductor_nombre)]];
     const errores=validacion.errores||[], advertencias=validacion.advertencias||[];
     const resumen=errores.length?`<div class="gre-warning"><strong>Debe corregir:</strong><ul>${errores.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`:'';
     const avisos=advertencias.length?`<div class="gre-preflight-hint"><strong>Revisiones pendientes:</strong><ul>${advertencias.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>`:'';
     $id('greDetalleCuerpo').innerHTML=`${resumen}${avisos}<div class="gre-warning"><i class="fas fa-info-circle mr-2"></i>Este documento no sustenta un traslado mientras no haya recibido CDR aceptada de SUNAT.</div><div class="gre-detail-cols">${tiles.map(t=>`<div class="gre-detail-tile"><span>${esc(t[0])}</span><strong>${esc(t[1]||'—')}</strong></div>`).join('')}</div>
       <div class="gre-detail-label">Detalle de mercadería</div><div class="table-responsive"><table class="table gre-detail-table"><thead><tr><th>Producto</th><th>Cantidad</th><th>Lotes</th></tr></thead><tbody>${x.items.map(i=>`<tr><td>${esc(i.descripcion)}<div class="gre-muted">${esc(i.codigo)}</div></td><td>${esc(i.cantidad)} ${esc(i.unidad_sunat)}</td><td>${i.lotes.map(l=>`${esc(l.numero_lote||'Lote sin código')} (${esc(l.cantidad)})`).join('<br>')||'—'}</td></tr>`).join('')}</tbody></table></div>
       ${x.documentos.length?`<p class="gre-muted">Referencia: ${x.documentos.map(d=>esc(d.serie+'-'+d.numero)).join(', ')}</p>`:''}
-      <p class="gre-muted">Estado APISUNAT: ${esc(g.estado_sunat||'NO_ENVIADO')}. ${esc(g.document_id?'ID de prueba: '+g.document_id:'No existe recepción confirmada del proveedor.')}</p>`;
+      <p class="gre-muted">Estado APISUNAT: ${esc(g.estado_sunat||'NO_ENVIADO')}. ${esc(g.document_id?'ID APISUNAT: '+g.document_id:'No existe recepción confirmada del proveedor.')}</p>`;
     const actions=[];
     if(g.estado==='BORRADOR') {actions.push(`<button class="btn btn-outline-secondary btn-sm" data-det-editar="${id}">Editar</button>`);actions.push(`<button class="btn gre-btn-primary btn-sm" data-det-action="preparar:${id}">Marcar preparada</button>`);actions.push(`<button class="btn btn-outline-danger btn-sm" data-det-action="descartar:${id}">Descartar</button>`);}
     if(g.estado==='PREPARADA') {
       actions.push(`<button class="btn btn-outline-secondary btn-sm" data-det-action="previsualizar:${id}">Vista previa JSON GRE</button>`);
-      // En esta versión se conserva el bloqueo de emisión hasta certificar el JSON GRE con APISUNAT.
+      if(state.grecfg?.emision_habilitada) actions.push(`<button class="btn btn-success btn-sm" data-det-action="emitir:${id}"><i class="fas fa-paper-plane mr-1"></i>Enviar GRE a APISUNAT</button>`);
       actions.push(`<button class="btn btn-outline-secondary btn-sm" data-det-action="volverBorrador:${id}">Volver a borrador</button>`);
     }
     if(g.document_id){actions.push(`<button class="btn btn-outline-primary btn-sm" data-det-action="consultar:${id}">Consultar APISUNAT (prueba)</button>`);}
-    for(const [campo,nombre] of [['xml_url','XML de prueba'],['cdr_url','CDR de prueba'],['pdf_url','PDF de prueba']]) {
+    else if(g.estado==='PENDIENTE' && ['ERROR_ENVIO','ESTADO_INCIERTO','EN_COLA'].includes(g.estado_sunat)) {
+      actions.push(`<button class="btn btn-outline-warning btn-sm" data-det-action="reconciliar:${id}">Vincular documento APISUNAT (sin reenviar)</button>`);
+    }
+    for(const [campo,nombre] of [['xml_url','XML'],['cdr_url','CDR'],['pdf_url','PDF oficial']]) {
       const u=safeProviderUrl(g[campo]);
       if(u)actions.push(`<a class="btn btn-outline-secondary btn-sm" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(nombre)}</a>`);
     }
-    actions.push(`<a href="Reports/guiaremision_a4.php?id=${id}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="far fa-file-pdf mr-1"></i> Vista PDF no válida</a>`);
+    actions.push(`<a href="Reports/guiaremision_a4.php?id=${id}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="far fa-file-pdf mr-1"></i> PDF interno (no SUNAT)</a>`);
     actions.push('<button class="btn btn-outline-secondary btn-sm" data-dismiss="modal">Cerrar</button>');
     $id('greDetalleAcciones').innerHTML=actions.join(' ');modal('greDetalleModal');
   }
   async function action(op,id) {
+    if(op==='reconciliar'){
+      const msg='Ingrese el documentId obtenido del portal APISUNAT. Solo se vinculará si coincide con la guía; no se reenviará.';
+      const value=window.Swal?(await Swal.fire({title:'Recuperar envío incierto',text:msg,input:'text',showCancelButton:true,confirmButtonText:'Validar y vincular'})).value:prompt(msg);
+      if(!value)return;
+      try{
+        const f=new FormData();f.set('idguia',id);f.set('documentId',String(value));
+        const r=await request('reconciliar',{},f);
+        close('greDetalleModal');await listar();await detalle(id);
+        toast(r?.message||'Reconciliación completada.','info');
+      }catch(e){showError(e);}
+      return;
+    }
     if(op==='previsualizar'){
       try{
         const preview=await request('previsualizar',{idguia:id});
@@ -266,8 +281,8 @@
       }catch(e){showError(e);} return;
     }
     const msg=op==='emitir'
-      ? '¿Enviar esta GRE a APISUNAT en DESARROLLO? Requiere habilitación explícita en Config/Gre.php y credenciales de prueba. Se reservará la serie y correlativo y no podrá volver a borrador. NO es una guía válida para traslado.'
-      : op==='consultar' ? '¿Consultar el documento de prueba en APISUNAT?'
+      ? '¿Enviar esta GRE a APISUNAT en '+(state.grecfg?.ambiente||'este ambiente')+'? Se reservará la serie y correlativo. La recepción no garantiza aceptación. Confirme que corresponde a un traslado auténtico.'
+      : op==='consultar' ? '¿Consultar estado y documentos en APISUNAT?'
       : op==='descartar'?'¿Descartar esta guía? Se liberarán sus cantidades reservadas.'
       : op==='preparar'?'¿Marcar la guía como preparada? Esto NO la envía a SUNAT.'
       : '¿Volver a borrador para editar?';
@@ -362,7 +377,7 @@
     });
   }
   async function init(){
-    bind();try{state.cat=await request('catalogos');construirCatalogos();await listar();
+    bind();try{state.grecfg=await request('estadoEmision');state.cat=await request('catalogos');construirCatalogos();await listar();
       if(+C.ventaOrigen>0)await precargarVenta(+C.ventaOrigen);
     } catch(e){showError(e);}
   }
