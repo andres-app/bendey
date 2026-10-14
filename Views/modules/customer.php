@@ -49,7 +49,7 @@ else { ?>
 <div><label class="text-xs font-semibold text-slate-600 block mb-1">Correo electrónico</label><input class="tiq-field" type="email" name="email" id="email" maxlength="50" placeholder="correo@ejemplo.com"></div>
 <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600 block mb-1">Clasificación comercial</label><select class="tiq-field" name="es_preferencial" id="es_preferencial"><option value="0">Cliente regular</option><option value="1">Cliente frecuente / preferencial</option></select><p class="mt-1 text-xs text-slate-500">Los acuerdos individuales se administran en Precios por cliente.</p></div></div>
 <div class="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-100"><button type="button" onclick="cancelarform()" class="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button><button class="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700" type="submit" id="btnGuardar"><i class="fas fa-save mr-1"></i> Guardar cliente</button></div></form></div>
-</div><div id="tiq-precios-panel" hidden><iframe id="tiq-precios-frame" title="Precios especiales por cliente" loading="lazy" data-src="precios_clientes.php?integrado=1" scrolling="no" style="display:block;width:100%;height:600px;min-height:0;border:0;background:transparent;overflow:hidden"></iframe></div></div></section></div>
+</div><div id="tiq-precios-panel" hidden><iframe id="tiq-precios-frame" title="Precios especiales por cliente" loading="lazy" data-src="Views/modules/precios_clientes.php?integrado=1" scrolling="no" style="display:block;width:100%;height:600px;min-height:0;border:0;background:transparent;overflow:hidden"></iframe></div></div></section></div>
 <!-- Modal del cliente: evita navegar a acuerdos de otros clientes -->
 <div id="tiq-precio-modal" class="tiq-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="tiq-precio-modal-title" hidden>
   <div class="tiq-modal-window">
@@ -92,7 +92,7 @@ if(location.hash==='#precios')tiqClientesTab('precios');
     if(closeTimer){clearTimeout(closeTimer);closeTimer=null;}
     if(openFrame){cancelAnimationFrame(openFrame);openFrame=null;}
     lastFocus=document.activeElement;
-    f.src='precios_clientes.php?integrado=1&modal=1&cliente='+encodeURIComponent(id);
+    f.src='Views/modules/precios_clientes.php?integrado=1&modal=1&cliente='+encodeURIComponent(id);
     m.hidden=false; document.body.style.overflow='hidden';
     openFrame=requestAnimationFrame(function(){openFrame=requestAnimationFrame(function(){m.classList.add('tiq-is-open');closeButton.focus();openFrame=null;});});
   };

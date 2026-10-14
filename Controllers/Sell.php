@@ -1093,6 +1093,19 @@ switch ($op) {
                         }
                         if (!$pre) throw new RuntimeException('Uno de los productos ya no está disponible para la tarifa preferencial.');
                         $normal = (float)($pre['normal'] ?? $pre['precio_padre'] ?? 0);
+                        // Si la lista está activada, respetar la tarifa base de la lista
+                        // en la verificación servidor para clientes preferenciales.
+                        $modoLista = $conexionVenta->getData(
+                            'SELECT usa_lista FROM producto_precio_modo WHERE idarticulo=? AND idvariacion=?',
+                            [(int)$idArticuloTarifa, $idVariacionTarifa]
+                        );
+                        if ((int)($modoLista['usa_lista'] ?? 0) === 1) {
+                            $tarifaLista = $conexionVenta->getData(
+                                'SELECT precio FROM producto_lista_precio WHERE idarticulo=? AND idvariacion=? ORDER BY predeterminado DESC,idlista ASC LIMIT 1',
+                                [(int)$idArticuloTarifa, $idVariacionTarifa]
+                            );
+                            if ($tarifaLista && (float)$tarifaLista['precio'] > 0) $normal = (float)$tarifaLista['precio'];
+                        }
                         $especial = $pre['preferencial'] ?? null;
                         $datosPrecios[$claveTarifa] = ($especial !== null && (float)$especial > 0) ? (float)$especial : $normal;
                     }
@@ -4382,6 +4395,12 @@ switch ($op) {
                 ],
                 'categorias' => $product->listarCategoriasActivas(),
                 'productos' => $product->listarCatalogoPos(),
+                'listas_precios' => $sell->getConexion()->getDataAll(
+                    'SELECT idarticulo,idvariacion,idlista,nombre,precio,predeterminado FROM producto_lista_precio ORDER BY idarticulo,idvariacion,predeterminado DESC,idlista ASC'
+                ),
+                'modos_precios' => $sell->getConexion()->getDataAll(
+                    'SELECT idarticulo,idvariacion,usa_lista FROM producto_precio_modo'
+                ),
                 'precios_clientes' => $sell->getConexion()->getDataAll(
                     "SELECT idcliente,idarticulo,COALESCE(idvariacion,0) AS idvariacion,precio
                        FROM cliente_precio_especial

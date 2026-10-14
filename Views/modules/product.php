@@ -1489,6 +1489,15 @@ if ((int)($_SESSION['almacen'] ?? 0) === 1) {
                         </button>
                     </div>
                 </form>
+                <div id="tp-lista-precios" class="tp-form-card" style="display:none;margin:16px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#fff">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3" style="gap:12px"><div><h5 class="mb-1" style="font-weight:700">Lista de precios</h5><a href="Reports/lista_precios.php" target="_blank" rel="noopener" class="small text-success">Ver reporte y exportar</a><small class="text-muted">Precios adicionales por producto o variación. Los acuerdos con clientes conservan prioridad.</small></div><button type="button" class="btn btn-outline-success btn-sm" onclick="tpAbrirPrecio()"><i class="fas fa-plus mr-1"></i>Agregar precio</button></div>
+                    <div class="d-flex flex-wrap align-items-end mb-3" style="gap:12px"><div style="min-width:220px"><label for="tp-modo-variacion" class="small font-weight-bold">Aplicar a</label><select id="tp-modo-variacion" class="form-control form-control-sm" onchange="tpMostrarModo()"></select></div><label class="mb-1" style="display:flex;gap:9px;align-items:center"><input id="tp-modo-switch" type="checkbox" onchange="tpCambiarModo()" style="width:18px;height:18px"><span>Usar lista de precios en lugar del precio normal</span></label></div>
+                    <div class="table-responsive"><table class="table table-sm table-hover"><thead><tr><th>Variación</th><th>Nombre</th><th>Precio</th><th>Principal</th><th class="text-right">Acciones</th></tr></thead><tbody id="tp-lista-precios-body"><tr><td colspan="5" class="text-muted">Sin precios adicionales.</td></tr></tbody></table></div>
+                    <div id="tp-lista-precios-editor" class="p-3 mt-2" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
+                        <input type="hidden" id="tp-idlista"><div class="row"><div class="col-md-3 form-group"><label for="tp-idvariacion">Producto / variación</label><select id="tp-idvariacion" class="form-control"></select></div><div class="col-md-4 form-group"><label for="tp-nombrelista">Nombre del precio</label><input id="tp-nombrelista" class="form-control" maxlength="80" placeholder="Ej. Mayorista"></div><div class="col-md-3 form-group"><label for="tp-importelista">Precio (S/)</label><input type="number" id="tp-importelista" min="0.01" step="0.01" class="form-control"></div><div class="col-md-2 form-group d-flex align-items-center"><label class="mb-0"><input type="checkbox" id="tp-defaultlista"> Predeterminado</label></div></div>
+                        <div class="d-flex justify-content-end" style="gap:8px"><button type="button" class="btn btn-light btn-sm" onclick="$('#tp-lista-precios-editor').hide()">Cancelar</button><button type="button" class="btn btn-success btn-sm" onclick="tpGuardarPrecio()">Guardar precio</button></div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
