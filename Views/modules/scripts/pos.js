@@ -683,7 +683,12 @@
 
     function priceForCustomer(product, variant, customer) {
         const item = variant || product;
-        const normal = Number(item?.precio_venta ?? product?.precio_venta ?? 0);
+        const normalBase = Number(item?.precio_venta ?? product?.precio_venta ?? 0);
+        const productId = Number(product?.idarticulo || 0), variantId = Number(variant?.idvariacion || 0);
+        const modes = state.bootstrap?.modos_precios || [];
+        const useList = modes.some(m=>Number(m.idarticulo)===productId && Number(m.idvariacion)===variantId && Number(m.usa_lista)===1);
+        const listPrice = useList ? (state.bootstrap?.listas_precios || []).find(l=>Number(l.idarticulo)===productId && Number(l.idvariacion)===variantId && Number(l.predeterminado)===1) || (state.bootstrap?.listas_precios || []).find(l=>Number(l.idarticulo)===productId && Number(l.idvariacion)===variantId) : null;
+        const normal = listPrice && Number(listPrice.precio)>0 ? Number(listPrice.precio) : normalBase;
         const idcliente = Number(customer?.idpersona || 0);
         const idarticulo = Number(product?.idarticulo || 0);
         const idvariacion = Number(variant?.idvariacion || 0);

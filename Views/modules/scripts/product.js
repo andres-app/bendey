@@ -535,6 +535,10 @@ function limpiar() {
   $("#imagenactual").val("default.png");
   $("#idarticulo").val("");
   productoEdicionActual = null;
+  $("#tp-lista-precios").show();
+  $("#tp-lista-precios-body").html('<tr><td colspan="5" class="text-muted">Guarda primero el producto para añadir precios adicionales.</td></tr>');
+  $("#tp-modo-variacion").html('<option value="0">Producto base</option>');
+  $("#tp-lista-precios-editor").hide();
   $("#controla_lotes, #controla_vencimiento").prop("checked", false);
   $("#dias_alerta_vencimiento").val(30);
   $("#precio_preferencial").val("");
@@ -1381,6 +1385,7 @@ function mostrar(idarticulo) {
 
     mostrarform(true);
     productoEdicionActual = data;
+    tpCargarListaPrecios(data.idarticulo, variaciones);
 
     $("#tituloFormularioProducto").text("Editar producto");
     $("#subtituloFormularioProducto").text("Actualiza la información comercial, inventario, variantes y configuración tributaria.");
@@ -2379,3 +2384,67 @@ $("#atributos_seleccionados").on("change", function () {
 });
 
 
+
+// Tarifas adicionales vinculadas al artículo existente.
+var tpPreciosActuales = [];
+var tpModosActuales = [];
+var tpVariacionesLista = [];
+function tpEscapar(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function tpCargarListaPrecios(id, variaciones) {
+  tpVariacionesLista = Array.isArray(variaciones) ? variaciones : [];
+  $('#tp-lista-precios').show(); $('#tp-lista-precios-editor').hide();
+  const opciones = [{idvariacion:0,combinacion:'Producto base'},...tpVariacionesLista].map(v=>`<option value="${Number(v.idvariacion)||0}">${tpEscapar(v.combinacion || v.sku || 'Variación')}</option>`).join('');
+  $('#tp-modo-variacion').html(opciones);
+  tpConsultarPrecios(id);
+}
+function tpConsultarPrecios(id) {
+  $.getJSON('Controllers/ListaPrecios.php?op=listar', {idarticulo:id}).done(function(r) {
+    if (Number($('#idarticulo').val()) !== Number(id)) return;
+    if (!r.success) throw new Error(r.mensaje);
+    tpPreciosActuales = r.data || [];
+    tpModosActuales = r.modos || [];
+    tpMostrarModo();
+    const names = new Map(tpVariacionesLista.map(v => [Number(v.idvariacion), v.combinacion || v.sku || 'Variación']));
+    $('#tp-lista-precios-body').html(tpPreciosActuales.length ? tpPreciosActuales.map(v => `<tr><td>${tpEscapar(names.get(Number(v.idvariacion)) || 'Producto base')}</td><td>${tpEscapar(v.nombre)}</td><td>S/ ${Number(v.precio).toFixed(2)}</td><td>${Number(v.predeterminado) ? '<span class="badge badge-success">Sí</span>' : '—'}</td><td class="text-right"><button type="button" class="btn btn-outline-secondary btn-sm" onclick="tpAbrirPrecio(${Number(v.idlista)})" title="Editar"><i class="fas fa-pen"></i></button> <button type="button" class="btn btn-outline-danger btn-sm" onclick="tpEliminarPrecio(${Number(v.idlista)})" title="Eliminar"><i class="fas fa-trash"></i></button></td></tr>`).join('') : '<tr><td colspan="5" class="text-muted">Este producto todavía no tiene precios adicionales.</td></tr>');
+  }).fail(function(){ $('#tp-lista-precios-body').html('<tr><td colspan="5" class="text-danger">No se pudieron consultar los precios. Comprueba que se ejecutó la migración SQL.</td></tr>'); });
+}
+function tpAbrirPrecio(idlista=0) {
+  if (!Number($('#idarticulo').val())) { Swal.fire('Guarda primero el producto','Después podrás agregar sus precios adicionales.','info'); return; }
+  const v = tpPreciosActuales.find(x => Number(x.idlista) === Number(idlista));
+  const opts = [{idvariacion:0,combinacion:'Producto base'},...tpVariacionesLista].map(x => `<option value="${Number(x.idvariacion)||0}">${tpEscapar(x.combinacion || x.sku || 'Variación')}</option>`).join('');
+  $('#tp-idvariacion').html(opts).val(String(v ? v.idvariacion : 0)).prop('disabled',!!v);
+  $('#tp-idlista').val(v ? v.idlista : 0); $('#tp-nombrelista').val(v ? v.nombre : '');
+  $('#tp-importelista').val(v ? v.precio : ''); $('#tp-defaultlista').prop('checked',!!v && Number(v.predeterminado)===1);
+  $('#tp-lista-precios-editor').show(); $('#tp-nombrelista').trigger('focus');
+}
+function tpGuardarPrecio() {
+  const idarticulo = Number($('#idarticulo').val());
+  const nombre = $('#tp-nombrelista').val().trim(), precio = Number($('#tp-importelista').val());
+  if (!nombre || !Number.isFinite(precio) || precio<=0) { Swal.fire('Datos incompletos','Ingresa nombre y precio positivo.','warning');return; }
+  $.post('Controllers/ListaPrecios.php?op=guardar',{idarticulo,idlista:$('#tp-idlista').val(),idvariacion:$('#tp-idvariacion').val(),nombre,precio,predeterminado:$('#tp-defaultlista').is(':checked')?1:0},null,'json').done(r=>{
+    if(!r.success){Swal.fire('Error',r.mensaje,'error');return;}
+    $('#tp-lista-precios-editor').hide();tpConsultarPrecios(idarticulo);
+  }).fail(x=>Swal.fire('Error',x.responseJSON?.mensaje || 'No fue posible guardar el precio.','error'));
+}
+function tpEliminarPrecio(idlista) {
+  Swal.fire({title:'¿Eliminar este precio?',text:'No se modificarán ventas anteriores.',icon:'warning',showCancelButton:true,confirmButtonText:'Eliminar',cancelButtonText:'Cancelar'}).then(r=>{
+    if(!r.isConfirmed)return;
+    const idarticulo = Number($('#idarticulo').val());
+    $.post('Controllers/ListaPrecios.php?op=eliminar',{idarticulo,idlista},null,'json').done(r=>{if(r.success)tpConsultarPrecios(idarticulo);else Swal.fire('Error',r.mensaje,'error');}).fail(()=>Swal.fire('Error','No se pudo eliminar el precio.','error'));
+  });
+}
+
+function tpMostrarModo(){
+  const variant=Number($('#tp-modo-variacion').val()||0);
+  $('#tp-modo-switch').prop('checked',tpModosActuales.some(m=>Number(m.idvariacion)===variant && Number(m.usa_lista)===1));
+}
+function tpCambiarModo(){
+  const idarticulo=Number($('#idarticulo').val()),idvariacion=Number($('#tp-modo-variacion').val()||0);
+  const usa_lista=$('#tp-modo-switch').is(':checked')?1:0;
+  $('#tp-modo-switch').prop('disabled',true);
+  $.post('Controllers/ListaPrecios.php?op=modo',{idarticulo,idvariacion,usa_lista},null,'json').done(r=>{
+    if(!r.success){Swal.fire('Atención',r.mensaje,'warning');tpMostrarModo();return;}
+    const current=tpModosActuales.find(m=>Number(m.idvariacion)===idvariacion);
+    if(current)current.usa_lista=usa_lista;else tpModosActuales.push({idvariacion,usa_lista});
+  }).fail(x=>{Swal.fire('Error',x.responseJSON?.mensaje||'No se pudo modificar el modo.','error');tpMostrarModo();}).always(()=>$('#tp-modo-switch').prop('disabled',false));
+}
