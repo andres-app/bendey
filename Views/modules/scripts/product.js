@@ -535,14 +535,10 @@ function limpiar() {
   $("#imagenactual").val("default.png");
   $("#idarticulo").val("");
   productoEdicionActual = null;
-<<<<<<< HEAD
   $("#tp-lista-precios").show();
   $("#tp-lista-precios-body").html('<tr><td colspan="5" class="text-muted">Guarda primero el producto para añadir precios adicionales.</td></tr>');
   $("#tp-modo-variacion").html('<option value="0">Producto base</option>');
   $("#tp-lista-precios-editor").hide();
-=======
-  $("#tp-lista-precios").hide();
->>>>>>> 24730fe067074074adad54bd3bb0fc432d024acb
   $("#controla_lotes, #controla_vencimiento").prop("checked", false);
   $("#dias_alerta_vencimiento").val(30);
   $("#precio_preferencial").val("");
@@ -2413,10 +2409,7 @@ function tpConsultarPrecios(id) {
   }).fail(function(){ $('#tp-lista-precios-body').html('<tr><td colspan="5" class="text-danger">No se pudieron consultar los precios. Comprueba que se ejecutó la migración SQL.</td></tr>'); });
 }
 function tpAbrirPrecio(idlista=0) {
-<<<<<<< HEAD
   if (!Number($('#idarticulo').val())) { Swal.fire('Guarda primero el producto','Después podrás agregar sus precios adicionales.','info'); return; }
-=======
->>>>>>> 24730fe067074074adad54bd3bb0fc432d024acb
   const v = tpPreciosActuales.find(x => Number(x.idlista) === Number(idlista));
   const opts = [{idvariacion:0,combinacion:'Producto base'},...tpVariacionesLista].map(x => `<option value="${Number(x.idvariacion)||0}">${tpEscapar(x.combinacion || x.sku || 'Variación')}</option>`).join('');
   $('#tp-idvariacion').html(opts).val(String(v ? v.idvariacion : 0)).prop('disabled',!!v);

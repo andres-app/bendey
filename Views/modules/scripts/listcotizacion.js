@@ -453,6 +453,18 @@ function vincularPreview() {
     }
   });
 
+  document.getElementById("btnPreviewEmail")?.addEventListener("click", () => {
+    if (cotizacionPreviewId > 0 && typeof window.tiqueposEnviarDocumentoEmail === "function") {
+      window.tiqueposEnviarDocumentoEmail("venta", cotizacionPreviewId);
+    }
+  });
+
+  document.getElementById("btnPreviewWhatsApp")?.addEventListener("click", () => {
+    if (cotizacionPreviewId > 0 && typeof window.tiqueposCompartirDocumentoWhatsApp === "function") {
+      window.tiqueposCompartirDocumentoWhatsApp("venta", cotizacionPreviewId);
+    }
+  });
+
   document.getElementById("btnPreviewImprimir")?.addEventListener("click", () => {
     if (!cotizacionPreviewPrintUrl) return;
     window.open(cotizacionPreviewPrintUrl, "_blank", "noopener");

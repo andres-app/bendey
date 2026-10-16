@@ -1105,7 +1105,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                     <span class="config-accordion-subtitle">Credenciales de consulta y facturación electrónica.</span>
                                                 </span>
                                                 <span class="config-accordion-meta">
-                                                    <span class="config-accordion-state">2 servicios</span>
+                                                    <span class="config-accordion-state">3 servicios</span>
                                                     <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
                                                 </span>
                                             </button>
@@ -1281,6 +1281,93 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                             </div>
                                                         </div>
 
+
+                                                        <div
+                                                            class="config-accordion-item"
+                                                            data-accordion-group="apis"
+                                                            data-config-section="smtp">
+                                                            <button type="button" class="config-accordion-trigger" data-config-accordion-trigger aria-expanded="false">
+                                                                <span class="config-accordion-index">2.3</span>
+                                                                <span class="config-accordion-heading">
+                                                                    <span class="config-accordion-title">Correo SMTP y entrega digital</span>
+                                                                    <span class="config-accordion-subtitle">Remitente, servidor SMTP, envío automático y adjunto PDF.</span>
+                                                                </span>
+                                                                <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
+                                                            </button>
+                                                            <div class="config-accordion-content">
+                                                                <div class="config-accordion-body">
+                                                                    <div class="row">
+                                                                        <div class="form-group col-lg-12">
+                                                                            <div class="tributario-switch-row">
+                                                                                <div><strong>Habilitar envío por correo</strong><small>Activa SMTP para comprobantes, cotizaciones, guías y notas de crédito.</small></div>
+                                                                                <label class="custom-switch mt-2"><input type="checkbox" class="custom-switch-input" name="smtp_habilitado" id="smtp_habilitado" value="1"><span class="custom-switch-indicator"></span></label>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <label for="smtp_host">Servidor SMTP</label>
+                                                                            <input type="text" class="form-control" name="smtp_host" id="smtp_host" maxlength="190" placeholder="smtp.tudominio.com" autocomplete="off">
+                                                                        </div>
+                                                                        <div class="form-group col-lg-3 col-md-6">
+                                                                            <label for="smtp_puerto">Puerto</label>
+                                                                            <input type="number" class="form-control" name="smtp_puerto" id="smtp_puerto" min="1" max="65535" value="587">
+                                                                        </div>
+                                                                        <div class="form-group col-lg-3 col-md-6">
+                                                                            <label for="smtp_seguridad">Seguridad</label>
+                                                                            <select class="form-control" name="smtp_seguridad" id="smtp_seguridad">
+                                                                                <option value="tls">STARTTLS / TLS</option>
+                                                                                <option value="ssl">SSL / SMTPS</option>
+                                                                                <option value="none">Sin cifrado</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <label for="smtp_usuario">Usuario SMTP</label>
+                                                                            <input type="text" class="form-control" name="smtp_usuario" id="smtp_usuario" maxlength="190" autocomplete="off" placeholder="facturacion@tudominio.com">
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <label for="smtp_password">Contraseña SMTP</label>
+                                                                            <div class="input-group">
+                                                                                <input type="password" class="form-control" name="smtp_password" id="smtp_password" autocomplete="new-password" placeholder="Dejar vacío para conservar la actual">
+                                                                                <div class="input-group-append"><button type="button" class="btn btn-outline-secondary" id="toggleSmtpPassword" aria-label="Mostrar u ocultar contraseña SMTP"><i class="fa fa-eye" id="smtpPasswordEyeIcon"></i></button></div>
+                                                                            </div>
+                                                                            <small class="form-text text-muted" id="smtpPasswordEstado">La contraseña no se muestra por seguridad.</small>
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <label for="smtp_remitente_email">Correo que envía</label>
+                                                                            <input type="email" class="form-control" name="smtp_remitente_email" id="smtp_remitente_email" maxlength="190" placeholder="comprobantes@tudominio.com">
+                                                                            <small class="form-text text-muted">Este será el remitente visible de los comprobantes.</small>
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <label for="smtp_remitente_nombre">Nombre del remitente</label>
+                                                                            <input type="text" class="form-control" name="smtp_remitente_nombre" id="smtp_remitente_nombre" maxlength="190" placeholder="Mi Empresa">
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <label for="smtp_reply_to">Responder a (opcional)</label>
+                                                                            <input type="email" class="form-control" name="smtp_reply_to" id="smtp_reply_to" maxlength="190" placeholder="ventas@tudominio.com">
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <label for="smtp_prueba_email">Correo para prueba</label>
+                                                                            <div class="input-group">
+                                                                                <input type="email" class="form-control" id="smtp_prueba_email" maxlength="190" placeholder="destino@correo.com">
+                                                                                <div class="input-group-append"><button type="button" class="btn btn-outline-success" id="btnProbarSmtp"><i class="fas fa-paper-plane mr-1"></i> Probar SMTP</button></div>
+                                                                            </div>
+                                                                            <small class="form-text text-muted">Guarde la configuración antes de ejecutar la prueba.</small>
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <div class="tributario-switch-row">
+                                                                                <div><strong>Enviar automáticamente al registrar</strong><small>Si el cliente tiene email, se envía después de confirmar la operación. Un fallo de correo nunca anula la venta.</small></div>
+                                                                                <label class="custom-switch mt-2"><input type="checkbox" class="custom-switch-input" name="smtp_envio_automatico" id="smtp_envio_automatico" value="1" checked><span class="custom-switch-indicator"></span></label>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="form-group col-lg-6">
+                                                                            <div class="tributario-switch-row">
+                                                                                <div><strong>Adjuntar también el PDF</strong><small>Desactivado por defecto para reducir CPU, memoria y ancho de banda. El enlace PDF siempre se incluye.</small></div>
+                                                                                <label class="custom-switch mt-2"><input type="checkbox" class="custom-switch-input" name="smtp_adjuntar_pdf" id="smtp_adjuntar_pdf" value="1"><span class="custom-switch-indicator"></span></label>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>

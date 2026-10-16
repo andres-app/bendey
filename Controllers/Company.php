@@ -8,6 +8,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 require_once __DIR__ . '/../Models/Company.php';
 require_once __DIR__ . '/../Libraries/MediaStorage.php';
+require_once __DIR__ . '/../Libraries/SmtpMailer.php';
 
 $company = new Company();
 
@@ -556,6 +557,18 @@ try {
                 $_POST['precios_incluyen_impuesto']
             ) ? 1 : 0;
 
+            $smtp_habilitado = isset($_POST['smtp_habilitado']) ? 1 : 0;
+            $smtp_host = trim((string)($_POST['smtp_host'] ?? ''));
+            $smtp_puerto = (int)($_POST['smtp_puerto'] ?? 587);
+            $smtp_seguridad = strtolower(trim((string)($_POST['smtp_seguridad'] ?? 'tls')));
+            $smtp_usuario = trim((string)($_POST['smtp_usuario'] ?? ''));
+            $smtp_password = trim((string)($_POST['smtp_password'] ?? ''));
+            $smtp_remitente_email = trim((string)($_POST['smtp_remitente_email'] ?? ''));
+            $smtp_remitente_nombre = trim((string)($_POST['smtp_remitente_nombre'] ?? ''));
+            $smtp_reply_to = trim((string)($_POST['smtp_reply_to'] ?? ''));
+            $smtp_envio_automatico = isset($_POST['smtp_envio_automatico']) ? 1 : 0;
+            $smtp_adjuntar_pdf = isset($_POST['smtp_adjuntar_pdf']) ? 1 : 0;
+
             if ($nombre === '') {
                 throw new RuntimeException(
                     'Debe ingresar el nombre de la empresa.'
@@ -593,6 +606,38 @@ try {
                 throw new RuntimeException(
                     'El correo electrónico no es válido.'
                 );
+            }
+
+            if (!in_array($smtp_seguridad, ['tls', 'ssl', 'none'], true)) {
+                throw new RuntimeException('La seguridad SMTP seleccionada no es válida.');
+            }
+
+            if ($smtp_puerto < 1 || $smtp_puerto > 65535) {
+                throw new RuntimeException('El puerto SMTP debe estar entre 1 y 65535.');
+            }
+
+            foreach ([
+                'Correo remitente' => $smtp_remitente_email,
+                'Reply-To' => $smtp_reply_to,
+            ] as $etiqueta => $correoSmtp) {
+                if ($correoSmtp !== '' && !filter_var($correoSmtp, FILTER_VALIDATE_EMAIL)) {
+                    throw new RuntimeException($etiqueta . ' no es un correo válido.');
+                }
+            }
+
+            if ($smtp_habilitado === 1) {
+                if ($smtp_host === '') {
+                    throw new RuntimeException('Debe ingresar el servidor SMTP.');
+                }
+                if ($smtp_remitente_email === '' && $email === '') {
+                    throw new RuntimeException('Debe configurar el correo remitente SMTP o el correo de la empresa.');
+                }
+
+                $actualSmtp = $company->mostrarSeguro($id_negocio) ?: [];
+                $tienePassword = (int)($actualSmtp['smtp_password_configurado'] ?? 0) === 1;
+                if ($smtp_usuario !== '' && $smtp_password === '' && !$tienePassword) {
+                    throw new RuntimeException('Debe ingresar la contraseña SMTP.');
+                }
             }
 
             if (
@@ -815,7 +860,18 @@ try {
                 $porcentaje_igv_predeterminado,
                 $unidad_medida_sunat_predeterminada,
                 $permitir_cambio_afectacion_venta,
-                $precios_incluyen_impuesto
+                $precios_incluyen_impuesto,
+                $smtp_habilitado,
+                $smtp_host,
+                $smtp_puerto,
+                $smtp_seguridad,
+                $smtp_usuario,
+                $smtp_password,
+                $smtp_remitente_email,
+                $smtp_remitente_nombre,
+                $smtp_reply_to,
+                $smtp_envio_automatico,
+                $smtp_adjuntar_pdf
             );
 
             if (!$resultado) {
@@ -1109,6 +1165,46 @@ try {
                 'aaData' => $data
             ]);
 
+            break;
+
+        /*
+        |--------------------------------------------------------------------------
+        | PROBAR SMTP
+        |--------------------------------------------------------------------------
+        */
+        case 'probar_smtp':
+            if ((int)($_SESSION['settings'] ?? 0) !== 1) {
+                responderCompanyJson(['success' => false, 'mensaje' => 'No tiene permiso para probar el SMTP.'], 403);
+            }
+            if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+                responderCompanyJson(['success' => false, 'mensaje' => 'La operación requiere una petición POST.'], 405);
+            }
+
+            $destinatario = trim((string)($_POST['destinatario'] ?? ''));
+            $config = $company->obtenerConfiguracionSmtp();
+            if ((int)($config['enabled'] ?? 0) !== 1) {
+                responderCompanyJson(['success' => false, 'mensaje' => 'El SMTP está deshabilitado. Guarde primero la configuración.'], 422);
+            }
+            if ($destinatario === '') {
+                $destinatario = trim((string)($config['from_email'] ?? ''));
+            }
+            if (!filter_var($destinatario, FILTER_VALIDATE_EMAIL)) {
+                responderCompanyJson(['success' => false, 'mensaje' => 'Ingrese un correo válido para la prueba.'], 422);
+            }
+
+            try {
+                $mailer = new SmtpMailer($config);
+                $mailer->send(
+                    $destinatario,
+                    'Prueba SMTP - TiquePOS',
+                    '<p>La configuración SMTP de TiquePOS funciona correctamente.</p><p>Fecha: ' . htmlspecialchars(date('d/m/Y H:i:s'), ENT_QUOTES, 'UTF-8') . '</p>',
+                    [],
+                    "La configuración SMTP de TiquePOS funciona correctamente."
+                );
+                responderCompanyJson(['success' => true, 'mensaje' => 'Correo de prueba enviado correctamente a ' . $destinatario . '.']);
+            } catch (Throwable $smtpError) {
+                responderCompanyJson(['success' => false, 'mensaje' => 'No se pudo enviar el correo de prueba: ' . $smtpError->getMessage()], 422);
+            }
             break;
 
         /*

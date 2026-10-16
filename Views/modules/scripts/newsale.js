@@ -1,9 +1,30 @@
 var tabla;
 
 //funcion que se ejecuta al inicio
+function cargarVisibilidadContactosLegacy() {
+    fetch("Controllers/Company.php?op=venta_campos_visibles&v=" + Date.now(), {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+    })
+        .then((r) => r.json())
+        .then((data) => {
+            const cfg = data && data.success && data.configuracion ? data.configuracion : {};
+            ["direccion", "celular", "email"].forEach((campo) => {
+                document.querySelectorAll('[data-venta-campo="' + campo + '"]').forEach((el) => {
+                    const visible = Object.prototype.hasOwnProperty.call(cfg, campo) ? Number(cfg[campo]) === 1 : true;
+                    el.style.display = visible ? "" : "none";
+                });
+            });
+        })
+        .catch(() => {});
+}
+
 function init() {
 	//mostrar_impuesto();
 	listarArticulos();
+    cargarVisibilidadContactosLegacy();
 	$("#t_pago").hide();
 
 	$("#formulario").on("submit", function (e) {
@@ -58,7 +79,9 @@ function limpiar() {
 	$("#num_documento").val("");
 	$("#direccion").val("");
 	$("#telefono").val("");
+	$("#celular").val("");
 	$("#email").val("");
+	$("#email_venta").val("");
 	$("#idpersona").val("");
 	$("#Modalcliente").modal("hide");
 	// $("#detalles").append("");
@@ -267,14 +290,10 @@ function guardaryeditar(e) {
                     if (result.isConfirmed) {
                         window.open('Reports/80mm.php?id=' + data.idventa, '_blank');
                     } else if (result.isDenied) {
-                        // Validación simple: 9 dígitos numéricos
-                        if (!/^\d{9}$/.test(celularSinPrefijo)) {
-                            Swal.fire('Número inválido', 'Ingrese los 9 dígitos del celular', 'warning');
+                        if (typeof window.tiqueposCompartirDocumentoWhatsApp === 'function') {
+                            window.tiqueposCompartirDocumentoWhatsApp('venta', data.idventa, celularSinPrefijo);
                         } else {
-                            let celularCompleto = '51' + celularSinPrefijo;
-                            let urlPDF = location.origin + "/Reports/80mm.php?id=" + data.idventa;
-                            let whatsappLink = `https://wa.me/${celularCompleto}?text=${encodeURIComponent('Hola ' + (data.nombre || '') + ', aquí está tu comprobante de venta: ' + urlPDF)}`;
-                            window.open(whatsappLink, '_blank');
+                            Swal.fire('No disponible', 'No se pudo cargar el módulo de envío de documentos.', 'warning');
                         }
                     }
                 });
@@ -592,6 +611,8 @@ function consultarCliente() {
                 // Cliente encontrado en la BD, llena los campos
                 $("#nombre").val(data.resultado.nombre || '');
                 $("#direccion").val(data.resultado.direccion || '');
+                $("#celular").val(data.resultado.telefono || '');
+                $("#email_venta").val(data.resultado.email || '');
                 $("#idpersona").val(data.resultado.idpersona || '');
             } else {
                 // Cliente NO encontrado en la BD, preguntar con SweetAlert

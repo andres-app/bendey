@@ -49,7 +49,18 @@ class Company
         $porcentaje_igv_predeterminado = 18.00,
         $unidad_medida_sunat_predeterminada = 'NIU',
         $permitir_cambio_afectacion_venta = 0,
-        $precios_incluyen_impuesto = 1
+        $precios_incluyen_impuesto = 1,
+        $smtp_habilitado = 0,
+        $smtp_host = '',
+        $smtp_puerto = 587,
+        $smtp_seguridad = 'tls',
+        $smtp_usuario = '',
+        $smtp_password = '',
+        $smtp_remitente_email = '',
+        $smtp_remitente_nombre = '',
+        $smtp_reply_to = '',
+        $smtp_envio_automatico = 1,
+        $smtp_adjuntar_pdf = 0
     ): bool {
         $id_negocio = (int)$id_negocio;
 
@@ -65,7 +76,8 @@ class Company
 
         $registroActual = $this->conexion->getData(
             "SELECT
-                apisunat_persona_token
+                apisunat_persona_token,
+                smtp_password
              FROM {$this->tableName}
              WHERE id_negocio = ?
              LIMIT 1",
@@ -100,6 +112,17 @@ class Company
                 );
         }
 
+        $smtpPasswordGuardar = trim((string)($registroActual['smtp_password'] ?? ''));
+        $nuevoSmtpPassword = trim((string)$smtp_password);
+        if ($nuevoSmtpPassword !== '') {
+            $smtpPasswordGuardar = $this->cifrarToken($nuevoSmtpPassword);
+        }
+
+        $smtpSeguridad = strtolower(trim((string)$smtp_seguridad));
+        if (!in_array($smtpSeguridad, ['tls', 'ssl', 'none'], true)) {
+            $smtpSeguridad = 'tls';
+        }
+
         $apisunatProduction =
             (int)$apisunat_production === 1
                 ? 1
@@ -132,7 +155,18 @@ class Company
                     porcentaje_igv_predeterminado = ?,
                     unidad_medida_sunat_predeterminada = ?,
                     permitir_cambio_afectacion_venta = ?,
-                    precios_incluyen_impuesto = ?
+                    precios_incluyen_impuesto = ?,
+                    smtp_habilitado = ?,
+                    smtp_host = ?,
+                    smtp_puerto = ?,
+                    smtp_seguridad = ?,
+                    smtp_usuario = ?,
+                    smtp_password = ?,
+                    smtp_remitente_email = ?,
+                    smtp_remitente_nombre = ?,
+                    smtp_reply_to = ?,
+                    smtp_envio_automatico = ?,
+                    smtp_adjuntar_pdf = ?
                 WHERE id_negocio = ?";
 
         $arrData = [
@@ -174,6 +208,17 @@ class Company
             strtoupper(trim((string)$unidad_medida_sunat_predeterminada)),
             (int)$permitir_cambio_afectacion_venta === 1 ? 1 : 0,
             (int)$precios_incluyen_impuesto === 1 ? 1 : 0,
+            (int)$smtp_habilitado === 1 ? 1 : 0,
+            trim((string)$smtp_host),
+            max(1, min(65535, (int)$smtp_puerto)),
+            $smtpSeguridad,
+            trim((string)$smtp_usuario),
+            $smtpPasswordGuardar,
+            trim((string)$smtp_remitente_email),
+            trim((string)$smtp_remitente_nombre),
+            trim((string)$smtp_reply_to),
+            (int)$smtp_envio_automatico === 1 ? 1 : 0,
+            (int)$smtp_adjuntar_pdf === 1 ? 1 : 0,
             $id_negocio
         ];
 
@@ -304,9 +349,14 @@ class Company
             )
         ) !== '';
 
+        $smtpPasswordConfigurado = trim((string)($registro['smtp_password'] ?? '')) !== '';
+
         unset(
-            $registro['apisunat_persona_token']
+            $registro['apisunat_persona_token'],
+            $registro['smtp_password']
         );
+
+        $registro['smtp_password_configurado'] = $smtpPasswordConfigurado ? 1 : 0;
 
         $registro['apisunat_token_configurado'] =
             $tokenConfigurado
@@ -600,6 +650,62 @@ class Company
 
     /*
     |--------------------------------------------------------------------------
+    | CONFIGURACIÓN SMTP
+    |--------------------------------------------------------------------------
+    */
+    public function obtenerConfiguracionSmtp(?int $idNegocio = null): array
+    {
+        $idNegocio = $idNegocio && $idNegocio > 0
+            ? $idNegocio
+            : $this->obtenerIdNegocioActivo();
+
+        if ($idNegocio <= 0) {
+            throw new RuntimeException('No existe una empresa activa.');
+        }
+
+        $registro = $this->conexion->getData(
+            "SELECT nombre, email,
+                    smtp_habilitado, smtp_host, smtp_puerto, smtp_seguridad,
+                    smtp_usuario, smtp_password, smtp_remitente_email,
+                    smtp_remitente_nombre, smtp_reply_to,
+                    smtp_envio_automatico, smtp_adjuntar_pdf
+             FROM {$this->tableName}
+             WHERE id_negocio = ? LIMIT 1",
+            [$idNegocio]
+        );
+
+        if (!is_array($registro)) {
+            throw new RuntimeException('No se encontró la configuración SMTP de la empresa.');
+        }
+
+        $password = $this->descifrarToken((string)($registro['smtp_password'] ?? ''));
+        $fromEmail = trim((string)($registro['smtp_remitente_email'] ?? ''));
+        if ($fromEmail === '') {
+            $fromEmail = trim((string)($registro['email'] ?? ''));
+        }
+        $fromName = trim((string)($registro['smtp_remitente_nombre'] ?? ''));
+        if ($fromName === '') {
+            $fromName = trim((string)($registro['nombre'] ?? 'TiquePOS'));
+        }
+
+        return [
+            'enabled' => (int)($registro['smtp_habilitado'] ?? 0),
+            'host' => trim((string)($registro['smtp_host'] ?? '')),
+            'port' => (int)($registro['smtp_puerto'] ?? 587),
+            'encryption' => strtolower(trim((string)($registro['smtp_seguridad'] ?? 'tls'))),
+            'username' => trim((string)($registro['smtp_usuario'] ?? '')),
+            'password' => $password,
+            'from_email' => $fromEmail,
+            'from_name' => $fromName,
+            'reply_to' => trim((string)($registro['smtp_reply_to'] ?? '')),
+            'auto_send' => (int)($registro['smtp_envio_automatico'] ?? 1),
+            'attach_pdf' => (int)($registro['smtp_adjuntar_pdf'] ?? 0),
+            'timeout' => 20,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | CAMPOS VISIBLES EN NUEVA VENTA
     |--------------------------------------------------------------------------
     */
@@ -612,6 +718,7 @@ class Company
             'tipo_pago' => 1,
             'forma_pago' => 1,
             'celular' => 1,
+            'email' => 1,
             'fecha_emision' => 0,
             'tipo_operacion_sunat' => 1,
             'descuento' => 1,
@@ -835,7 +942,7 @@ class Company
 
         if ($contenidoCifrado === false) {
             throw new RuntimeException(
-                'No se pudo cifrar el personaToken.'
+                'No se pudo cifrar la credencial segura.'
             );
         }
 
@@ -849,7 +956,7 @@ class Company
 
     /*
     |--------------------------------------------------------------------------
-    | DESCIFRAR PERSONA TOKEN
+    | DESCIFRAR CREDENCIAL SEGURA
     |--------------------------------------------------------------------------
     */
     private function descifrarToken(
@@ -891,7 +998,7 @@ class Company
 
         if ($contenido === false) {
             throw new RuntimeException(
-                'El personaToken cifrado no es válido.'
+                'La credencial cifrada no es válida.'
             );
         }
 
@@ -906,7 +1013,7 @@ class Company
             <= ($longitudIv + $longitudTag)
         ) {
             throw new RuntimeException(
-                'El personaToken cifrado está incompleto.'
+                'La credencial cifrada está incompleta.'
             );
         }
 
@@ -938,7 +1045,7 @@ class Company
 
         if ($token === false) {
             throw new RuntimeException(
-                'No se pudo descifrar el personaToken.'
+                'No se pudo descifrar la credencial segura.'
             );
         }
 

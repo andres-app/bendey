@@ -9,6 +9,7 @@ header('Cache-Control: no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
 require_once __DIR__ . '/../Models/GuiaRemision.php';
 require_once __DIR__ . '/../Models/GreEmission.php';
+require_once __DIR__ . '/../Libraries/DocumentDeliveryService.php';
 
 function greRespuesta(array $dato, int $code=200): void
 {
@@ -40,7 +41,27 @@ try {
         case 'prevalidar': $data=$model->prevalidar((int)($_GET['idguia']??0),$u); break;
         case 'previsualizar': $data=(new GreEmission())->previsualizar((int)($_GET['idguia']??0),$u); break;
         case 'reconciliar': $data=(new GreEmission())->reconciliar((int)($_POST['idguia']??0),$u,(string)($_POST['documentId']??'')); break;
-        case 'consultar': $data=(new GreEmission())->consultar((int)($_POST['idguia']??0),$u); break;
+        case 'consultar':
+            $idGuiaConsulta=(int)($_POST['idguia']??0);
+            $data=(new GreEmission())->consultar($idGuiaConsulta,$u);
+            if (($data['estado'] ?? '') === 'ACEPTADA') {
+                try {
+                    $delivery=new DocumentDeliveryService();
+                    $doc=$delivery->obtenerDocumento('guia',$idGuiaConsulta);
+                    $data['entrega']=[
+                        'pdf_url'=>$delivery->pdfUrl('guia',$idGuiaConsulta),
+                        'email'=>(string)($doc['email']??''),
+                        'telefono'=>(string)($doc['telefono']??'')
+                    ];
+                    if (trim((string)($doc['email']??''))!=='') {
+                        try {$data['entrega']['correo']=$delivery->email('guia',$idGuiaConsulta,null,true);}
+                        catch(Throwable $e){$data['entrega']['correo']=['enviado'=>false,'error'=>$e->getMessage()];}
+                    }
+                } catch(Throwable $e) {
+                    error_log('[GRE ENTREGA DIGITAL] '.$e->getMessage());
+                }
+            }
+            break;
         case 'estadoEmision': $data=(new GreEmission())->estadoEmision(); break;
         case 'diagnosticoAmbiente': $data=(new GreEmission())->diagnosticarAmbiente((int)($_POST['idguia']??0),$u); break;
         case 'lotes': $data=$model->lotes((int)($_GET['idarticulo']??0),(int)($_GET['idvariacion']??0),(int)($_GET['idalmacen']??0),$u); break;

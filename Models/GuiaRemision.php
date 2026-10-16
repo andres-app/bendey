@@ -96,7 +96,7 @@ final class GuiaRemision
             'sucursales' => $this->all('SELECT s.idsucursal,s.nombre,s.direccion,s.codigo_establecimiento_sunat FROM sucursal s INNER JOIN usuario_sucursal us ON us.idsucursal=s.idsucursal AND us.idusuario=? AND us.activo=1 WHERE s.activo=1 ORDER BY s.nombre', [$usuario]),
             'almacenes' => $this->all('SELECT a.idalmacen,a.idsucursal,a.nombre,a.ubicacion FROM almacen a INNER JOIN usuario_almacen ua ON ua.idalmacen=a.idalmacen AND ua.idusuario=? AND ua.activo=1 WHERE a.estado=1 ORDER BY a.nombre', [$usuario]),
             'series' => $this->all('SELECT gs.idserie,gs.idsucursal,gs.serie FROM guia_remision_serie gs INNER JOIN usuario_sucursal us ON us.idsucursal=gs.idsucursal AND us.idusuario=? AND us.activo=1 WHERE gs.activo=1 ORDER BY gs.serie', [$usuario]),
-            'clientes' => $this->all("SELECT idpersona,nombre,tipo_documento,num_documento,direccion,email FROM persona WHERE tipo_persona='Cliente' AND idpersona<>1 ORDER BY nombre LIMIT 500"),
+            'clientes' => $this->all("SELECT idpersona,nombre,tipo_documento,num_documento,direccion,telefono,email FROM persona WHERE tipo_persona='Cliente' AND idpersona<>1 ORDER BY nombre LIMIT 500"),
             'productos' => $this->all('SELECT a.idarticulo,a.idalmacen,a.codigo,a.nombre,a.unidad_medida_sunat,a.controla_lotes,a.controla_vencimiento,a.stock FROM articulo a INNER JOIN usuario_almacen ua ON ua.idalmacen=a.idalmacen AND ua.idusuario=? AND ua.activo=1 WHERE a.condicion=1 ORDER BY a.nombre LIMIT 2000', [$usuario]),
             'variantes' => $this->all('SELECT v.idvariacion,v.idarticulo,v.sku,v.combinacion,v.stock FROM articulo_variacion v WHERE v.estado=1 ORDER BY v.idarticulo,v.idvariacion LIMIT 4000'),
             'transportistas' => $this->all('SELECT idtransportista,ruc,razon_social FROM transporte_transportista WHERE activo=1 ORDER BY razon_social'),
@@ -122,7 +122,8 @@ final class GuiaRemision
     {
         $v = $this->one('SELECT v.idventa,v.idsucursal,v.idcliente,v.tipo_comprobante,v.serie_comprobante,v.num_comprobante,v.estado,v.direccion_cliente,
               p.nombre AS destinatario_nombre,p.tipo_documento AS destinatario_tipo_documento,p.num_documento AS destinatario_num_documento,
-              p.email AS destinatario_email,p.direccion AS direccion_registrada
+              COALESCE(NULLIF(v.email_cliente,\'\'),p.email,\'\') AS destinatario_email,
+              COALESCE(NULLIF(v.celular_cliente,\'\'),p.telefono,\'\') AS destinatario_telefono,p.direccion AS direccion_registrada
               FROM venta v INNER JOIN persona p ON p.idpersona=v.idcliente
               INNER JOIN usuario_sucursal us ON us.idsucursal=v.idsucursal AND us.idusuario=? AND us.activo=1
               WHERE v.idventa=? LIMIT 1', [$usuario, $id]);
@@ -218,6 +219,7 @@ final class GuiaRemision
         $nombre = self::texto($data['destinatario_nombre'] ?? '', 180);
         $direccion = self::texto($data['destinatario_direccion'] ?? '', 255);
         $email = self::texto($data['destinatario_email'] ?? '', 150);
+        $telefono = self::texto($data['destinatario_telefono'] ?? '', 30);
         $ubigeoPartida = self::texto($data['partida_ubigeo'] ?? '', 6);
         $ubigeoLlegada = self::texto($data['llegada_ubigeo'] ?? '', 6);
         $direccionPartida = self::texto($data['partida_direccion'] ?? '', 255);
@@ -283,12 +285,18 @@ final class GuiaRemision
             }
             $clienteId = (int)($data['destinatario_idpersona'] ?? 0);
             if ($clienteId > 0) {
-                $persona=$this->one('SELECT idpersona,nombre,tipo_documento,num_documento,direccion,email FROM persona WHERE idpersona=? AND tipo_persona=\'Cliente\'', [$clienteId]);
+                $persona=$this->one('SELECT idpersona,nombre,tipo_documento,num_documento,direccion,telefono,email FROM persona WHERE idpersona=? AND tipo_persona=\'Cliente\'', [$clienteId]);
                 if (!$persona || (string)$persona['num_documento']!==$numDoc) {
                     throw new InvalidArgumentException('Documento del destinatario no coincide con el cliente seleccionado.');
                 }
                 // El nombre proviene del maestro, no del texto libre del navegador.
                 $nombre = (string)$persona['nombre'];
+                if ($email === '') {
+                    $email = trim((string)($persona['email'] ?? ''));
+                }
+                if ($telefono === '') {
+                    $telefono = trim((string)($persona['telefono'] ?? ''));
+                }
                 $tipoDb = strtoupper(trim((string)$persona['tipo_documento']));
                 if (in_array($tipoDb, ['RUC','6','DNI','1','CE','4','PASAPORTE','7'], true)) {
                     $normalizar = static function (string $tipo): string {
@@ -314,7 +322,7 @@ final class GuiaRemision
                 'fecha_inicio_traslado'=>$fecha,'motivo_traslado'=>$motivo,'motivo_descripcion'=>self::MOTIVOS[$motivo],
                 'modalidad_transporte'=>$modalidad,'destinatario_idpersona'=>$clienteId?:null,
                 'destinatario_tipo_documento'=>$tipoDoc,'destinatario_num_documento'=>$numDoc,
-                'destinatario_nombre'=>$nombre,'destinatario_direccion'=>$direccion,'destinatario_email'=>$email?:null,
+                'destinatario_nombre'=>$nombre,'destinatario_direccion'=>$direccion,'destinatario_email'=>$email?:null,'destinatario_telefono'=>$telefono?:null,
                 'partida_ubigeo'=>$ubigeoPartida,'partida_direccion'=>$direccionPartida,
                 'llegada_ubigeo'=>$ubigeoLlegada,'llegada_direccion'=>$direccionLlegada,
                 'transportista_ruc'=>$modalidad==='01'?$transportistaRuc:null,

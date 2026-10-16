@@ -79,7 +79,7 @@
         urlIntentApplied: false,
         fieldConfig: {
             tipo_comprobante: 1, cliente: 1, direccion: 0, tipo_pago: 1, forma_pago: 1,
-            celular: 1, fecha_emision: 0, tipo_operacion_sunat: 1, descuento: 1, envio_comprobante: 1
+            celular: 1, email: 1, fecha_emision: 0, tipo_operacion_sunat: 1, descuento: 1, envio_comprobante: 1
         },
         fieldConfigPersisted: null,
         fieldConfigSaveTimer: null,
@@ -406,6 +406,7 @@
         tipo_pago: 1,
         forma_pago: 1,
         celular: 1,
+        email: 1,
         fecha_emision: 0,
         tipo_operacion_sunat: 1,
         descuento: 1,
@@ -458,7 +459,7 @@
             el.hidden = !saleFieldVisible(key);
         });
 
-        const extraKeys = ['direccion', 'celular', 'fecha_emision', 'tipo_operacion_sunat', 'envio_comprobante'];
+        const extraKeys = ['direccion', 'celular', 'email', 'fecha_emision', 'tipo_operacion_sunat', 'envio_comprobante'];
         const hasExtraFields = extraKeys.some(key => saleFieldVisible(key));
         const extraToggle = qs('#btnCustomerExtra');
         const extraLabel = qs('#posCustomerExtraLabel');
@@ -1175,9 +1176,12 @@
         }
         const hasAddress = !customer?.generic && saleFieldVisible('direccion') && Boolean(String(customer.direccion || '').trim() && String(customer.direccion || '').trim() !== '-');
         const hasPhone = !customer?.generic && saleFieldVisible('celular') && Boolean(String(customer.telefono || '').trim());
-        if (hasAddress && hasPhone) summary.textContent = 'Datos completos';
+        const hasEmail = !customer?.generic && saleFieldVisible('email') && Boolean(String(customer.email || '').trim());
+        if (hasAddress && hasPhone && hasEmail) summary.textContent = 'Datos completos';
+        else if (hasEmail && (hasAddress || hasPhone)) summary.textContent = 'Contacto completo';
         else if (hasAddress) summary.textContent = 'Con dirección';
         else if (hasPhone) summary.textContent = 'Con teléfono';
+        else if (hasEmail) summary.textContent = 'Con email';
         else summary.textContent = 'Opcional';
     }
 
@@ -1349,6 +1353,7 @@
         qs('#posCustomerName').title = generic ? '' : (customer.nombre || '');
         qs('#posCustomerAddress').value = generic ? '' : (customer.direccion === '-' ? '' : (customer.direccion || ''));
         qs('#posCustomerPhone').value = generic ? '' : (customer.telefono || '');
+        qs('#posCustomerEmail').value = generic ? '' : (customer.email || '');
         qs('#posCustomerCheck').hidden = generic;
 
         const headerTitle = generic ? 'Pedido actual' : (String(customer.nombre || '').trim() || 'Cliente seleccionado');
@@ -1373,7 +1378,7 @@
 
         updateCustomerExtraSummary(customer);
         renderAddressVerification(customer);
-        const extraKeys = ['direccion', 'celular', 'fecha_emision', 'tipo_operacion_sunat', 'envio_comprobante'];
+        const extraKeys = ['direccion', 'celular', 'email', 'fecha_emision', 'tipo_operacion_sunat', 'envio_comprobante'];
         qs('#btnCustomerExtra').hidden = !extraKeys.some(key => saleFieldVisible(key));
         qsa('#posCustomerExtra [data-pos-sale-field]').forEach(el => {
             el.hidden = !saleFieldVisible(el.dataset.posSaleField);
@@ -2888,6 +2893,10 @@
             event.target.value = event.target.value.replace(/[^0-9+()\-\s]/g, '').slice(0, 15);
             updateActiveCustomerField('telefono', event.target.value);
         });
+        qs('#posCustomerEmail').addEventListener('input', event => {
+            event.target.value = String(event.target.value || '').slice(0, 190);
+            updateActiveCustomerField('email', event.target.value.trim());
+        });
         qs('#posCustomerDocument').addEventListener('input', event => {
             const type = qs('#posCustomerDocType').value;
             event.target.maxLength = type === 'RUC' ? 11 : 8;
@@ -3097,6 +3106,18 @@
         qs('#btnPrintA4').addEventListener('click', () => {
             const id = Number(state.lastSaleResult?.idventa || 0);
             if (id > 0) window.open(`Reports/a4.php?id=${id}`, '_blank', 'noopener');
+        });
+        qs('#btnSaleEmail').addEventListener('click', () => {
+            const id = Number(state.lastSaleResult?.idventa || 0);
+            if (id > 0 && typeof window.tiqueposEnviarDocumentoEmail === 'function') {
+                window.tiqueposEnviarDocumentoEmail('venta', id, String(state.lastSaleResult?.email || ''));
+            }
+        });
+        qs('#btnSaleWhatsapp').addEventListener('click', () => {
+            const id = Number(state.lastSaleResult?.idventa || 0);
+            if (id > 0 && typeof window.tiqueposCompartirDocumentoWhatsApp === 'function') {
+                window.tiqueposCompartirDocumentoWhatsApp('venta', id, String(state.lastSaleResult?.celular || ''));
+            }
         });
         qs('#btnNuevaVentaSuccess').addEventListener('click', () => {
             closeModal('modalSaleSuccess');

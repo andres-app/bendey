@@ -230,6 +230,7 @@ if ($_SESSION['ventas'] == 1) {
                                                 <label class="venta-ajuste-item"><span>Tipo de pago</span><input type="checkbox" autocomplete="off" data-campo-switch="tipo_pago"><span class="venta-ajuste-switch"></span></label>
                                                 <label class="venta-ajuste-item"><span>Forma de pago</span><input type="checkbox" autocomplete="off" data-campo-switch="forma_pago"><span class="venta-ajuste-switch"></span></label>
                                                 <label class="venta-ajuste-item"><span>Celular</span><input type="checkbox" autocomplete="off" data-campo-switch="celular"><span class="venta-ajuste-switch"></span></label>
+                                                <label class="venta-ajuste-item"><span>Email</span><input type="checkbox" autocomplete="off" data-campo-switch="email"><span class="venta-ajuste-switch"></span></label>
                                                 <label class="venta-ajuste-item"><span>Fecha de emisión</span><input type="checkbox" autocomplete="off" data-campo-switch="fecha_emision"><span class="venta-ajuste-switch"></span></label>
                                                 <label class="venta-ajuste-item"><span>Tipo de operación SUNAT</span><input type="checkbox" autocomplete="off" data-campo-switch="tipo_operacion_sunat"><span class="venta-ajuste-switch"></span></label>
                                                 <label class="venta-ajuste-item"><span>Descuentos</span><input type="checkbox" autocomplete="off" data-campo-switch="descuento"><span class="venta-ajuste-switch"></span></label>
@@ -278,7 +279,6 @@ if ($_SESSION['ventas'] == 1) {
                                                 <input type="hidden" id="num_doc_real" name="num_doc_real" value="">
                                                 <input type="hidden" id="nombre_cli" name="nombre_cli" value="">
                                                 <input type="hidden" id="direccion" name="direccion" value="">
-                                                <input type="hidden" id="email" name="email" value="">
                                             </div>
 
                                             <div class="venta-campo venta-campo--ancho" id="ventaCampoDireccion" data-venta-campo="direccion" hidden aria-hidden="true" style="display:none !important;">
@@ -301,6 +301,12 @@ if ($_SESSION['ventas'] == 1) {
                                             <div class="venta-campo venta-campo--compacto" id="ventaCampoCelular" data-venta-campo="celular" hidden aria-hidden="true" style="display:none !important;">
                                                 <label for="celular">Celular</label>
                                                 <input type="text" class="form-control" id="celular" name="celular" maxlength="9" inputmode="numeric" autocomplete="off" placeholder="Ej.: 986634352">
+                                            </div>
+
+                                            <div class="venta-campo venta-campo--medio" id="ventaCampoEmail" data-venta-campo="email" hidden aria-hidden="true" style="display:none !important;">
+                                                <label for="email">Email del cliente</label>
+                                                <input type="email" class="form-control" id="email" name="email" maxlength="190" autocomplete="email" placeholder="cliente@correo.com">
+                                                <small class="text-muted d-block mt-2">Se utilizará para enviar el comprobante y su enlace PDF.</small>
                                             </div>
 
                                             <div class="venta-campo venta-campo--compacto" id="ventaCampoFechaEmision" data-venta-campo="fecha_emision" hidden aria-hidden="true" style="display:none !important;">
@@ -5826,6 +5832,7 @@ window.__VENTA_CAMPOS_INLINE_V4__ = true;
         tipo_pago: 'ventaCampoTipoPago',
         forma_pago: 'ventaCampoFormaPago',
         celular: 'ventaCampoCelular',
+        email: 'ventaCampoEmail',
         fecha_emision: 'ventaCampoFechaEmision',
         tipo_operacion_sunat: 'ventaCampoTipoOperacionSunat',
         descuento: 'ventaCampoDescuentos',
@@ -5839,6 +5846,7 @@ window.__VENTA_CAMPOS_INLINE_V4__ = true;
         tipo_pago: 1,
         forma_pago: 1,
         celular: 1,
+        email: 1,
         fecha_emision: 0,
         tipo_operacion_sunat: 1,
         descuento: 1,

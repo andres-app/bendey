@@ -12,6 +12,7 @@ require_once __DIR__ . '/../Models/CreditNote.php';
 require_once __DIR__ . '/../Models/ApiSunatCreditNoteEmission.php';
 require_once __DIR__ . '/../Models/ApiSunatCreditNoteStatus.php';
 require_once __DIR__ . '/../Models/ApiSunatStorage.php';
+require_once __DIR__ . '/../Libraries/DocumentDeliveryService.php';
 
 if (
     !isset($_SESSION['nombre'])
@@ -127,11 +128,59 @@ try {
                 }
             }
 
+            $entregaDocumento = null;
+            try {
+                $servicioEntrega = new DocumentDeliveryService();
+                $docEntrega = $servicioEntrega->obtenerDocumento(
+                    'nota_credito',
+                    (int)$resultado['idnota_credito']
+                );
+                $entregaDocumento = [
+                    'pdf_url' => $servicioEntrega->pdfUrl(
+                        'nota_credito',
+                        (int)$resultado['idnota_credito']
+                    ),
+                    'email' => (string)($docEntrega['email'] ?? ''),
+                    'telefono' => (string)($docEntrega['telefono'] ?? '')
+                ];
+                if (trim((string)($docEntrega['telefono'] ?? '')) !== '') {
+                    try {
+                        $entregaDocumento += $servicioEntrega->whatsapp(
+                            'nota_credito',
+                            (int)$resultado['idnota_credito']
+                        );
+                    } catch (Throwable $errorWhatsApp) {
+                        $entregaDocumento['whatsapp_error'] = $errorWhatsApp->getMessage();
+                    }
+                }
+                if (trim((string)($docEntrega['email'] ?? '')) !== '') {
+                    try {
+                        $entregaDocumento['correo'] = $servicioEntrega->email(
+                            'nota_credito',
+                            (int)$resultado['idnota_credito'],
+                            null,
+                            true
+                        );
+                    } catch (Throwable $errorCorreo) {
+                        $entregaDocumento['correo'] = [
+                            'enviado' => false,
+                            'error' => $errorCorreo->getMessage()
+                        ];
+                    }
+                }
+            } catch (Throwable $errorEntrega) {
+                error_log('[NC ENTREGA DIGITAL] ' . $errorEntrega->getMessage());
+                $entregaDocumento = [
+                    'error' => 'La nota fue registrada, pero no se pudo preparar la entrega digital.'
+                ];
+            }
+
             responderNota([
                 'status' => true,
                 'message' => $resultado['mensaje'],
                 'resultado' => $resultado,
-                'sunat' => $resultadoSunat
+                'sunat' => $resultadoSunat,
+                'entrega' => $entregaDocumento
             ]);
             break;
 

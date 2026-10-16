@@ -933,8 +933,28 @@ function enviarRegistroNota(items, pagos) {
           '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
           '<a class="btn btn-outline-secondary btn-sm" target="_blank" href="Reports/notacredito_80mm.php?id=' + idnota + '">Imprimir 80 mm</a>' +
           '<a class="btn btn-outline-secondary btn-sm" target="_blank" href="Reports/notacredito_a4.php?id=' + idnota + '">Imprimir A4</a>' +
+          '<button type="button" class="btn btn-outline-primary btn-sm" id="ncEnviarEmail">Enviar por email</button>' +
+          '<button type="button" class="btn btn-outline-success btn-sm" id="ncEnviarWhatsApp">WhatsApp</button>' +
           '</div>' +
           '</div>',
+        didOpen: function () {
+          const btnEmail = document.getElementById("ncEnviarEmail");
+          const btnWhatsApp = document.getElementById("ncEnviarWhatsApp");
+          if (btnEmail) {
+            btnEmail.addEventListener("click", function () {
+              if (typeof window.tiqueposEnviarDocumentoEmail === "function") {
+                window.tiqueposEnviarDocumentoEmail("nota_credito", idnota, respuesta.entrega?.email || "");
+              }
+            });
+          }
+          if (btnWhatsApp) {
+            btnWhatsApp.addEventListener("click", function () {
+              if (typeof window.tiqueposCompartirDocumentoWhatsApp === "function") {
+                window.tiqueposCompartirDocumentoWhatsApp("nota_credito", idnota, respuesta.entrega?.telefono || "");
+              }
+            });
+          }
+        },
         showCancelButton: true,
         confirmButtonText: "Ir al módulo SUNAT",
         cancelButtonText: "Volver a ventas",

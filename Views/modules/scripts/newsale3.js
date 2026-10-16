@@ -684,6 +684,7 @@ const CAMPOS_VENTA_PREDETERMINADOS = Object.freeze({
     tipo_pago: 1,
     forma_pago: 1,
     celular: 1,
+    email: 1,
     fecha_emision: 0,
     tipo_operacion_sunat: 1,
     descuento: 1,
@@ -1898,7 +1899,8 @@ function inicializarEventos() {
             if (!data) return;
             try {
                 data = JSON.parse(data);
-                $('#celular').val(data.celular || '');
+                $('#celular').val(data.celular || data.telefono || '');
+                $('#email').val(data.email || '');
                 $('#direccion').val(data.direccion || '');
                 sincronizarDireccionVisible();
                 // ...otros campos si tienes
@@ -2136,6 +2138,13 @@ function guardarVenta() {
                 }
             }
 
+            const entregaEmail = data.entrega && data.entrega.email ? data.entrega.email : null;
+            if (entregaEmail && entregaEmail.enviado === true && entregaEmail.omitido !== true) {
+                mensaje += ' El comprobante también fue enviado por correo.';
+            } else if (entregaEmail && entregaEmail.omitido === false && entregaEmail.mensaje) {
+                mensaje += ' Correo pendiente: ' + String(entregaEmail.mensaje);
+            }
+
             const celularBase = String(
                 data.celular || $('#celular').val() || ''
             )
@@ -2200,22 +2209,14 @@ function guardarVenta() {
                         });
                     }
 
-                    const urlComprobante =
-                        location.origin +
-                        '/Reports/80mm.php?id=' +
-                        encodeURIComponent(idventa);
-
-                    const textoWhatsApp =
-                        'Aquí está tu comprobante de venta: ' +
-                        urlComprobante;
-
-                    window.open(
-                        'https://wa.me/51' +
-                        celular +
-                        '?text=' +
-                        encodeURIComponent(textoWhatsApp),
-                        '_blank'
-                    );
+                    const whatsappPreparado = String(data.entrega?.whatsapp_url || '');
+                    if (whatsappPreparado !== '' && celular === celularBase) {
+                        window.open(whatsappPreparado, '_blank', 'noopener');
+                    } else if (typeof window.tiqueposCompartirDocumentoWhatsApp === 'function') {
+                        window.tiqueposCompartirDocumentoWhatsApp('venta', idventa, celular);
+                    } else {
+                        Swal.fire({ icon: 'warning', title: 'No se pudo preparar WhatsApp', text: 'Abra la venta desde el listado e intente nuevamente.' });
+                    }
                 }
 
                 const colaGestionada =

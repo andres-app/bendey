@@ -89,6 +89,14 @@ function init() {
         "apiSunatEyeIcon"
     );
 
+    configurarVisibilidadToken(
+        "toggleSmtpPassword",
+        "smtp_password",
+        "smtpPasswordEyeIcon"
+    );
+
+    $(document).on("click", "#btnProbarSmtp", probarSmtp);
+
     $("#documento").on(
         "input",
         function () {
@@ -569,6 +577,24 @@ function cargarDatosEmpresa() {
                 String(
                     data.apisunat_production ?? 1
                 )
+            );
+
+            $("#smtp_habilitado").prop("checked", Number(data.smtp_habilitado || 0) === 1);
+            $("#smtp_host").val(data.smtp_host || "");
+            $("#smtp_puerto").val(Number(data.smtp_puerto || 587));
+            $("#smtp_seguridad").val(String(data.smtp_seguridad || "tls"));
+            $("#smtp_usuario").val(data.smtp_usuario || "");
+            $("#smtp_password").val("");
+            $("#smtp_remitente_email").val(data.smtp_remitente_email || data.email || "");
+            $("#smtp_remitente_nombre").val(data.smtp_remitente_nombre || data.nombre || "");
+            $("#smtp_reply_to").val(data.smtp_reply_to || "");
+            $("#smtp_envio_automatico").prop("checked", Number(data.smtp_envio_automatico ?? 1) === 1);
+            $("#smtp_adjuntar_pdf").prop("checked", Number(data.smtp_adjuntar_pdf || 0) === 1);
+            $("#smtp_prueba_email").val(data.smtp_remitente_email || data.email || "");
+            $("#smtpPasswordEstado").text(
+                Number(data.smtp_password_configurado || 0) === 1
+                    ? "Contraseña SMTP configurada. Déjela vacía para conservarla."
+                    : "Aún no hay contraseña SMTP configurada."
             );
 
             datosEmpresaConfiguracionCache = data;
@@ -2029,6 +2055,24 @@ function guardaryeditar(e) {
         return;
     }
 
+    if ($("#smtp_habilitado").is(":checked")) {
+        const smtpHost = String($("#smtp_host").val() || "").trim();
+        const smtpPort = Number($("#smtp_puerto").val() || 0);
+        const smtpFrom = String($("#smtp_remitente_email").val() || $("#email").val() || "").trim();
+        const smtpReply = String($("#smtp_reply_to").val() || "").trim();
+        const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!smtpHost || smtpPort < 1 || smtpPort > 65535 || !emailRx.test(smtpFrom) || (smtpReply && !emailRx.test(smtpReply))) {
+            mostrarSeccionConfiguracionPorSelector("#smtp_host");
+            mostrarAlertaConfiguracion(
+                "Configuración SMTP incompleta",
+                "Revise servidor, puerto, correo remitente y Reply-To antes de guardar.",
+                "warning"
+            );
+            return;
+        }
+    }
+
     const $boton = $("#btnGuardar");
     const contenidoOriginal = $boton.html();
 
@@ -2084,6 +2128,7 @@ function guardaryeditar(e) {
                  * para confirmar que quedó configurado.
                  */
                 $("#apisunat_persona_token").val("");
+                $("#smtp_password").val("");
 
                 cargarDatosEmpresa();
             }
@@ -2321,6 +2366,43 @@ function obtenerMensajeError(
     }
 
     return mensajePredeterminado;
+}
+
+
+function probarSmtp() {
+    const destino = String($("#smtp_prueba_email").val() || "").trim();
+    const $btn = $("#btnProbarSmtp");
+    const original = $btn.html();
+
+    if (destino && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destino)) {
+        mostrarAlertaConfiguracion("Correo inválido", "Ingrese un correo válido para la prueba SMTP.", "warning");
+        return;
+    }
+
+    $btn.prop("disabled", true).html('<span class="spinner-border spinner-border-sm mr-1"></span> Probando...');
+    $.ajax({
+        url: "Controllers/Company.php?op=probar_smtp",
+        type: "POST",
+        dataType: "json",
+        data: { destinatario: destino },
+        success: function (r) {
+            mostrarAlertaConfiguracion(
+                r && r.success ? "SMTP operativo" : "Prueba SMTP fallida",
+                (r && r.mensaje) || "No se recibió respuesta del servidor SMTP.",
+                r && r.success ? "success" : "warning"
+            );
+        },
+        error: function (xhr) {
+            mostrarAlertaConfiguracion(
+                "Prueba SMTP fallida",
+                obtenerMensajeError(xhr, "No se pudo completar la prueba SMTP."),
+                "error"
+            );
+        },
+        complete: function () {
+            $btn.prop("disabled", false).html(original);
+        }
+    });
 }
 
 $(document).ready(function () {

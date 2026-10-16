@@ -54,10 +54,22 @@ if (!isset($_SESSION['nombre'])) {
                                                 </div>
 
                                                 <!-- Dirección del cliente -->
-                                                <div class="form-group col-12">
+                                                <div class="form-group col-12" data-venta-campo="direccion">
                                                     <label for="">Dirección</label>
                                                     <input class="form-control" type="text" name="direccion" id="direccion"
                                                         maxlength="70" placeholder="Dirección">
+                                                </div>
+
+                                                <div class="form-group col-12 col-md-6" data-venta-campo="celular">
+                                                    <label for="celular">Celular / WhatsApp</label>
+                                                    <input class="form-control" type="tel" name="celular" id="celular"
+                                                        maxlength="30" placeholder="Ej. 987654321" autocomplete="tel">
+                                                </div>
+
+                                                <div class="form-group col-12 col-md-6" data-venta-campo="email">
+                                                    <label for="email_venta">Email del cliente</label>
+                                                    <input class="form-control" type="email" name="email" id="email_venta"
+                                                        maxlength="190" placeholder="cliente@correo.com" autocomplete="email">
                                                 </div>
 
                                                 <!-- Comprobante -->

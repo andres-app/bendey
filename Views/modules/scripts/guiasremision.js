@@ -85,7 +85,7 @@
     const c=state.cat.clientes.find(x=>+x.idpersona===+val('greCliente'));
     if(c){field('greDocTipo',c.tipo_documento==='6'?'RUC':c.tipo_documento==='1'?'DNI':c.tipo_documento);
       field('greDocNumero',c.num_documento);field('greDestinoNombre',c.nombre);
-      field('greDestinoDireccion',c.direccion||'');field('greLlegada',c.direccion||'');field('greEmail',c.email||'');}
+      field('greDestinoDireccion',c.direccion||'');field('greLlegada',c.direccion||'');field('greTelefono',c.telefono||'');field('greEmail',c.email||'');}
   }
   function onMotivo() {
     if(val('greMotivo')!=='04' || state.idventa || !state.cat?.negocio) return;
@@ -183,7 +183,7 @@
     field('greCliente',v.idcliente);
     field('greDocTipo',v.destinatario_tipo_documento||'RUC');field('greDocNumero',v.destinatario_num_documento);
     field('greDestinoNombre',v.destinatario_nombre);field('greDestinoDireccion',v.direccion_cliente||v.direccion_registrada);
-    field('greLlegada',v.direccion_cliente||v.direccion_registrada);field('greEmail',v.destinatario_email||'');
+    field('greLlegada',v.direccion_cliente||v.direccion_registrada);field('greTelefono',v.destinatario_telefono||'');field('greEmail',v.destinatario_email||'');
     field('greMotivo','01');
     $id('greOrigenVenta').hidden=false;
     $id('greOrigenVenta').textContent=`Venta vinculada: ${v.tipo_comprobante} ${v.serie_comprobante}-${v.num_comprobante} · Las cantidades corresponden al saldo aún no asignado a guías.`;
@@ -209,7 +209,7 @@
     resetForm();state.idguia=+g.idguia;state.idventa=+g.idventa||0;
     field('greId',g.idguia);field('greSerie',g.idserie);updateSucursal();field('greAlmacen',g.idalmacen);filtrarProductos();
     ['fecha_inicio_traslado','motivo_traslado','modalidad_transporte','destinatario_idpersona'].forEach((n,i)=>field(['greFecha','greMotivo','greModalidad','greCliente'][i],g[n]));
-    const names={greDocTipo:'destinatario_tipo_documento',greDocNumero:'destinatario_num_documento',greDestinoNombre:'destinatario_nombre',greDestinoDireccion:'destinatario_direccion',greEmail:'destinatario_email',grePartidaUbigeo:'partida_ubigeo',grePartida:'partida_direccion',greLlegadaUbigeo:'llegada_ubigeo',greLlegada:'llegada_direccion',greTranspRuc:'transportista_ruc',greTranspNombre:'transportista_nombre',grePlaca:'vehiculo_placa',greCondTipo:'conductor_tipo_documento',greCondNumero:'conductor_num_documento',greCondNombre:'conductor_nombre',greLicencia:'conductor_licencia',grePeso:'peso_bruto',greBultos:'numero_bultos',greObservacion:'observacion'};
+    const names={greDocTipo:'destinatario_tipo_documento',greDocNumero:'destinatario_num_documento',greDestinoNombre:'destinatario_nombre',greDestinoDireccion:'destinatario_direccion',greTelefono:'destinatario_telefono',greEmail:'destinatario_email',grePartidaUbigeo:'partida_ubigeo',grePartida:'partida_direccion',greLlegadaUbigeo:'llegada_ubigeo',greLlegada:'llegada_direccion',greTranspRuc:'transportista_ruc',greTranspNombre:'transportista_nombre',grePlaca:'vehiculo_placa',greCondTipo:'conductor_tipo_documento',greCondNumero:'conductor_num_documento',greCondNombre:'conductor_nombre',greLicencia:'conductor_licencia',grePeso:'peso_bruto',greBultos:'numero_bultos',greObservacion:'observacion'};
     Object.entries(names).forEach(([f,n])=>field(f,g[n]));modo();
     state.lineas=data.items.map(x=>({uid:++state.uid,idarticulo:+x.idarticulo,idvariacion:+x.idvariacion||0,iddetalle_venta:+x.iddetalle_venta||0,cantidad:x.cantidad,lotes:x.lotes||[],bloqueada:state.idventa>0}));
     if(state.idventa){$id('greProductoControls').hidden=true;$id('greOrigenVenta').hidden=false;$id('greOrigenVenta').textContent='Borrador vinculado a venta #'+state.idventa+' · No es posible desvincularlo.';}
@@ -217,7 +217,7 @@
   }
   function payload() {
     const map={idguia:state.idguia,idventa:state.idventa,idserie:val('greSerie'),idalmacen:val('greAlmacen'),fecha_inicio_traslado:val('greFecha'),motivo_traslado:val('greMotivo'),modalidad_transporte:val('greModalidad'),
-      destinatario_idpersona:val('greCliente'),destinatario_tipo_documento:val('greDocTipo'),destinatario_num_documento:val('greDocNumero'),destinatario_nombre:val('greDestinoNombre'),destinatario_direccion:val('greDestinoDireccion'),destinatario_email:val('greEmail'),partida_ubigeo:val('grePartidaUbigeo'),partida_direccion:val('grePartida'),llegada_ubigeo:val('greLlegadaUbigeo'),llegada_direccion:val('greLlegada'),transportista_ruc:val('greTranspRuc'),transportista_nombre:val('greTranspNombre'),vehiculo_placa:val('grePlaca'),conductor_tipo_documento:val('greCondTipo'),conductor_num_documento:val('greCondNumero'),conductor_nombre:val('greCondNombre'),conductor_licencia:val('greLicencia'),peso_bruto:val('grePeso'),numero_bultos:val('greBultos'),observacion:val('greObservacion'),
+      destinatario_idpersona:val('greCliente'),destinatario_tipo_documento:val('greDocTipo'),destinatario_num_documento:val('greDocNumero'),destinatario_nombre:val('greDestinoNombre'),destinatario_direccion:val('greDestinoDireccion'),destinatario_telefono:val('greTelefono'),destinatario_email:val('greEmail'),partida_ubigeo:val('grePartidaUbigeo'),partida_direccion:val('grePartida'),llegada_ubigeo:val('greLlegadaUbigeo'),llegada_direccion:val('greLlegada'),transportista_ruc:val('greTranspRuc'),transportista_nombre:val('greTranspNombre'),vehiculo_placa:val('grePlaca'),conductor_tipo_documento:val('greCondTipo'),conductor_num_documento:val('greCondNumero'),conductor_nombre:val('greCondNombre'),conductor_licencia:val('greLicencia'),peso_bruto:val('grePeso'),numero_bultos:val('greBultos'),observacion:val('greObservacion'),
       items:state.lineas.map(l=>({idarticulo:l.idarticulo,idvariacion:l.idvariacion,iddetalle_venta:l.iddetalle_venta,cantidad:l.cantidad,lotes:l.lotes.map(o=>({iddetalle_ingreso:o.iddetalle_ingreso,cantidad:o.cantidad}))}))};
     return map;
   }
@@ -229,7 +229,7 @@
     const x=await request('ver',{idguia:id});const g=x.guia;
     const validacion=await request('prevalidar',{idguia:id});
     $id('greDetalleTitulo').textContent=(g.serie?g.serie+'-'+String(g.correlativo).padStart(8,'0'):'Borrador #'+g.idguia);
-    const tiles=[['Ambiente GRE', state.grecfg?.ambiente || 'NO CONFIGURADO'],['Estado',g.estado],['Sucursal',g.sucursal],['Fecha de inicio',fmtDate(g.fecha_inicio_traslado)],['Motivo',g.motivo_descripcion],['Destinatario',g.destinatario_nombre+' · '+g.destinatario_num_documento],['Traslado',g.modalidad_transporte==='01'?'Transporte público':'Transporte privado'],['Origen',g.partida_ubigeo+' · '+g.partida_direccion],['Destino',g.llegada_ubigeo+' · '+g.llegada_direccion],['Peso bruto',g.peso_bruto+' kg'],['Transporte',g.modalidad_transporte==='01'?(g.transportista_nombre||''):(g.vehiculo_placa+' · '+g.conductor_nombre)]];
+    const tiles=[['Ambiente GRE', state.grecfg?.ambiente || 'NO CONFIGURADO'],['Estado',g.estado],['Sucursal',g.sucursal],['Fecha de inicio',fmtDate(g.fecha_inicio_traslado)],['Motivo',g.motivo_descripcion],['Destinatario',g.destinatario_nombre+' · '+g.destinatario_num_documento],['Email',g.destinatario_email||'—'],['Celular',g.destinatario_telefono||'—'],['Traslado',g.modalidad_transporte==='01'?'Transporte público':'Transporte privado'],['Origen',g.partida_ubigeo+' · '+g.partida_direccion],['Destino',g.llegada_ubigeo+' · '+g.llegada_direccion],['Peso bruto',g.peso_bruto+' kg'],['Transporte',g.modalidad_transporte==='01'?(g.transportista_nombre||''):(g.vehiculo_placa+' · '+g.conductor_nombre)]];
     const errores=validacion.errores||[], advertencias=validacion.advertencias||[];
     const resumen=errores.length?`<div class="gre-warning"><strong>Debe corregir:</strong><ul>${errores.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`:'';
     const avisos=advertencias.length?`<div class="gre-preflight-hint"><strong>Revisiones pendientes:</strong><ul>${advertencias.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>`:'';
@@ -252,6 +252,9 @@
       const u=safeProviderUrl(g[campo]);
       if(u)actions.push(`<a class="btn btn-outline-secondary btn-sm" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(nombre)}</a>`);
     }
+    actions.push(`<button type="button" class="btn btn-outline-primary btn-sm" onclick="window.tiqueposEnviarDocumentoEmail&&window.tiqueposEnviarDocumentoEmail('guia',${id})"><i class="far fa-envelope mr-1"></i>Email</button>`);
+    actions.push(`<button type="button" class="btn btn-outline-success btn-sm" onclick="window.tiqueposCompartirDocumentoWhatsApp&&window.tiqueposCompartirDocumentoWhatsApp('guia',${id})"><i class="fab fa-whatsapp mr-1"></i>WhatsApp</button>`);
+    actions.push(`<button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.tiqueposAbrirPdfDocumento&&window.tiqueposAbrirPdfDocumento('guia',${id})"><i class="far fa-file-pdf mr-1"></i>PDF compartible</button>`);
     actions.push(`<a href="Reports/guiaremision_a4.php?id=${id}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="far fa-file-pdf mr-1"></i> PDF interno (no SUNAT)</a>`);
     actions.push('<button class="btn btn-outline-secondary btn-sm" data-dismiss="modal">Cerrar</button>');
     $id('greDetalleAcciones').innerHTML=actions.join(' ');modal('greDetalleModal');

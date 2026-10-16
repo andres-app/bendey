@@ -38,6 +38,10 @@ if ((int)($_SESSION['ventas'] ?? 0) !== 1) {
     exit;
 }
 
+if (empty($_SESSION['document_delivery_csrf'])) {
+    $_SESSION['document_delivery_csrf'] = bin2hex(random_bytes(32));
+}
+
 $usuarioNombre = htmlspecialchars((string)($_SESSION['nombre'] ?? 'Usuario'), ENT_QUOTES, 'UTF-8');
 $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT_QUOTES, 'UTF-8');
 ?>
@@ -222,6 +226,7 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                     <label class="pos-sale-setting"><span>Tipo de pago</span><input type="checkbox" data-pos-field-switch="tipo_pago"><i></i></label>
                     <label class="pos-sale-setting"><span>Forma de pago</span><input type="checkbox" data-pos-field-switch="forma_pago"><i></i></label>
                     <label class="pos-sale-setting"><span>Celular</span><input type="checkbox" data-pos-field-switch="celular"><i></i></label>
+                    <label class="pos-sale-setting"><span>Email</span><input type="checkbox" data-pos-field-switch="email"><i></i></label>
                     <label class="pos-sale-setting"><span>Fecha de emisión</span><input type="checkbox" data-pos-field-switch="fecha_emision"><i></i></label>
                     <label class="pos-sale-setting"><span>Tipo de operación SUNAT</span><input type="checkbox" data-pos-field-switch="tipo_operacion_sunat"><i></i></label>
                     <label class="pos-sale-setting"><span>Descuentos</span><input type="checkbox" data-pos-field-switch="descuento"><i></i></label>
@@ -394,6 +399,10 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                         <div class="pos-customer-field" data-pos-sale-field="celular">
                             <label class="pos-customer-sub-label" for="posCustomerPhone">Teléfono</label>
                             <input class="pos-customer-extra-input" id="posCustomerPhone" inputmode="tel" autocomplete="tel" maxlength="15" placeholder="Teléfono del cliente">
+                        </div>
+                        <div class="pos-customer-field" data-pos-sale-field="email">
+                            <label class="pos-customer-sub-label" for="posCustomerEmail">Email</label>
+                            <input class="pos-customer-extra-input" id="posCustomerEmail" type="email" autocomplete="email" maxlength="190" placeholder="cliente@correo.com">
                         </div>
 
                         <label class="pos-sale-option-field" data-pos-sale-field="fecha_emision" hidden>
@@ -688,12 +697,15 @@ $usuarioCargo = htmlspecialchars((string)($_SESSION['cargo'] ?? 'Vendedor'), ENT
                 <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>
                 A4 / PDF
             </button>
+            <button type="button" class="pos-secondary-btn" id="btnSaleEmail"><i class="fas fa-envelope"></i> Email</button>
+            <button type="button" class="pos-secondary-btn" id="btnSaleWhatsapp"><i class="fab fa-whatsapp"></i> WhatsApp</button>
             <button type="button" class="pos-primary-btn" id="btnNuevaVentaSuccess">Nueva venta</button>
         </div>
     </div>
 </div>
 
 <script>
+window.TIQUEPOS_DOCUMENT_CSRF = <?= json_encode((string)$_SESSION['document_delivery_csrf'], JSON_UNESCAPED_SLASHES) ?>;
 window.TIQUEPOS_POS_BOOT = {
     userName: <?= json_encode((string)($_SESSION['nombre'] ?? 'Usuario'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
     userId: <?= (int)($_SESSION['idusuario'] ?? 0) ?>,
@@ -705,6 +717,7 @@ window.TIQUEPOS_POS_BOOT = {
     crossorigin="anonymous"
     referrerpolicy="no-referrer"></script>
 <script src="Assets/js/license-state.js?v=<?= (int)@filemtime('Assets/js/license-state.js') ?>"></script>
+<script src="Assets/js/document-delivery.js?v=<?= (int)@filemtime('Assets/js/document-delivery.js') ?>"></script>
 <script src="Views/modules/scripts/pos.js?v=<?= time() ?>"></script>
 </body>
 </html>

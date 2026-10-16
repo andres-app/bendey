@@ -2,6 +2,7 @@
 //Controllers/Sell.php
 require_once __DIR__ . '/../Models/Sell.php';
 require_once __DIR__ . '/../Models/ConfiguracionCaja.php';
+require_once __DIR__ . '/../Libraries/DocumentDeliveryService.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -744,6 +745,14 @@ switch ($op) {
                     $num_documento === '99999999';
             }
 
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw new Exception('El correo electrónico del cliente no es válido.');
+            }
+
+            if ($telefono !== '' && mb_strlen($telefono, 'UTF-8') > 30) {
+                throw new Exception('El celular del cliente es demasiado largo.');
+            }
+
             /*
              * Factura: siempre debe tener un RUC real.
              */
@@ -1484,6 +1493,7 @@ switch ($op) {
                 'tipo_cambio_sunat' => $tipoCambioSunat,
                 'direccion_cliente' => $direccion,
                 'celular_cliente' => $telefono,
+                'email_cliente' => $email,
                 'modo_envio_sunat' => $modoEnvio
             ];
 
@@ -2021,6 +2031,46 @@ switch ($op) {
                     'La venta fue registrada, pero no pudo enviarse a APISUNAT.';
             }
 
+            $entregaDocumento = [
+                'pdf_url' => '',
+                'whatsapp_url' => '',
+                'email' => [
+                    'enviado' => false,
+                    'omitido' => true,
+                    'mensaje' => $email === '' ? 'No se indicó correo del cliente.' : 'Envío automático no ejecutado.'
+                ]
+            ];
+
+            try {
+                $deliveryService = new DocumentDeliveryService();
+                $entregaDocumento['pdf_url'] = $deliveryService->pdfUrl('venta', (int)$idventa);
+
+                if ($telefono !== '') {
+                    try {
+                        $whatsapp = $deliveryService->whatsapp('venta', (int)$idventa, $telefono);
+                        $entregaDocumento['whatsapp_url'] = (string)($whatsapp['whatsapp_url'] ?? '');
+                    } catch (Throwable $whatsappError) {
+                        $entregaDocumento['whatsapp_error'] = $whatsappError->getMessage();
+                    }
+                }
+
+                if ($email !== '') {
+                    try {
+                        $entregaDocumento['email'] = $deliveryService->email('venta', (int)$idventa, $email, true);
+                    } catch (Throwable $emailError) {
+                        $entregaDocumento['email'] = [
+                            'enviado' => false,
+                            'omitido' => false,
+                            'mensaje' => $emailError->getMessage()
+                        ];
+                        error_log('[VENTA EMAIL] ' . $emailError->getMessage());
+                    }
+                }
+            } catch (Throwable $deliveryError) {
+                // La entrega digital nunca revierte una venta ya confirmada.
+                error_log('[VENTA ENTREGA] ' . $deliveryError->getMessage());
+            }
+
             responderJson([
                 'success' => true,
                 'idventa' => (int)$idventa,
@@ -2033,6 +2083,8 @@ switch ($op) {
                     . $num_comprobante,
                 'total_venta' => $total_venta,
                 'celular' => $telefono,
+                'email' => $email,
+                'entrega' => $entregaDocumento,
                 'moneda_codigo' => $monedaCodigo,
                 'tipo_cambio_sunat' => $tipoCambioSunat,
                 'modo_envio' => $modoEnvio,
@@ -2200,6 +2252,8 @@ switch ($op) {
                 . '\', \'_blank\')">'
                 . $iconoImprimir
                 . '</button>'
+                . '<button type="button" class="cq-action-btn" title="Enviar por email" aria-label="Enviar por email" onclick="tiqueposEnviarDocumentoEmail(\'venta\',' . $id . ')"><i class="far fa-envelope"></i></button>'
+                . '<button type="button" class="cq-action-btn" title="Compartir por WhatsApp" aria-label="Compartir por WhatsApp" onclick="tiqueposCompartirDocumentoWhatsApp(\'venta\',' . $id . ')"><i class="fab fa-whatsapp"></i></button>'
                 . '</div>';
 
             if ($esPendiente) {
@@ -3301,15 +3355,6 @@ switch ($op) {
         foreach ($rspta as $reg) {
             $id = (int)$reg['idventa'];
 
-            $whatsappTexto = urlencode(
-                'Detalle de la venta: '
-                    . $id
-                    . ' - Ver PDF: '
-                    . $baseUrl
-                    . 'Reports/a4.php?id='
-                    . $id
-            );
-
             $tipoComprobanteVenta = trim(
                 (string)($reg['tipo_comprobante'] ?? '')
             );
@@ -3568,14 +3613,29 @@ switch ($op) {
                                 <span>Imprimir A4</span>
                             </a>
 
-                            <a
+                            <button
+                                type="button"
                                 class="dropdown-item"
-                                href="https://wa.me/?text=' . $whatsappTexto . '"
-                                target="_blank"
-                                rel="noopener">
-                                <i class="far fa-comment-dots"></i>
+                                onclick="tiqueposEnviarDocumentoEmail(\'venta\',' . $id . ')">
+                                <i class="far fa-envelope"></i>
+                                <span>Enviar por email</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="tiqueposCompartirDocumentoWhatsApp(\'venta\',' . $id . ')">
+                                <i class="fab fa-whatsapp"></i>
                                 <span>Compartir por WhatsApp</span>
-                            </a>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="tiqueposAbrirPdfDocumento(\'venta\',' . $id . ')">
+                                <i class="fas fa-link"></i>
+                                <span>Abrir PDF compartible</span>
+                            </button>
                         </div>
                     </div>
                 '
@@ -3859,15 +3919,6 @@ switch ($op) {
 
             $motivoHtml .= '</div>';
 
-            $whatsappTexto = urlencode(
-                'Nota de crédito '
-                . $serieNumero
-                . ' - Ver PDF: '
-                . $baseUrl
-                . 'Reports/notacredito_a4.php?id='
-                . $idNota
-            );
-
             $accionDevolucionPendiente = '';
 
             if (
@@ -4031,16 +4082,29 @@ switch ($op) {
                                 <span>Imprimir ticket</span>
                             </a>
 
-                            <a
+                            <button
+                                type="button"
                                 class="dropdown-item"
-                                href="https://wa.me/?text='
-                                . $whatsappTexto
-                                . '"
-                                target="_blank"
-                                rel="noopener">
-                                <i class="far fa-comment-dots"></i>
+                                onclick="tiqueposEnviarDocumentoEmail(\'nota_credito\',' . $idNota . ')">
+                                <i class="far fa-envelope"></i>
+                                <span>Enviar por email</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="tiqueposCompartirDocumentoWhatsApp(\'nota_credito\',' . $idNota . ')">
+                                <i class="fab fa-whatsapp"></i>
                                 <span>Compartir por WhatsApp</span>
-                            </a>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="tiqueposAbrirPdfDocumento(\'nota_credito\',' . $idNota . ')">
+                                <i class="fas fa-link"></i>
+                                <span>Abrir PDF compartible</span>
+                            </button>
 
                             '
                             . $accionDevolucionPendiente

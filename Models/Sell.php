@@ -66,6 +66,7 @@ class Sell
         $guiaRemision = trim((string)($datosExtra['guia_remision'] ?? ''));
         $direccionCliente = trim((string)($datosExtra['direccion_cliente'] ?? ''));
         $celularCliente = trim((string)($datosExtra['celular_cliente'] ?? ''));
+        $emailCliente = trim((string)($datosExtra['email_cliente'] ?? ''));
         $modoEnvioSunat = strtolower(trim((string)($datosExtra['modo_envio_sunat'] ?? 'inmediato')));
 
         if (!in_array($modoEnvioSunat, ['inmediato', 'manual', 'resumen_diario'], true)) {
@@ -130,6 +131,7 @@ class Sell
             guia_remision,
             direccion_cliente,
             celular_cliente,
+            email_cliente,
             modo_envio_sunat,
             total_gravado,
             total_exonerado,
@@ -144,7 +146,7 @@ class Sell
             num_transac,
             estado,
             idforma_pago
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $arrData = [
             $idcliente,
@@ -163,6 +165,7 @@ class Sell
             $guiaRemision !== '' ? $guiaRemision : null,
             $direccionCliente !== '' ? $direccionCliente : null,
             $celularCliente !== '' ? $celularCliente : null,
+            $emailCliente !== '' ? $emailCliente : null,
             $modoEnvioSunat,
             round((float)($tributacion['total_gravado'] ?? 0), 2),
             round((float)($tributacion['total_exonerado'] ?? 0), 2),
@@ -857,7 +860,7 @@ class Sell
                     ''
                 ) AS celular_cliente,
 
-                COALESCE(p.email, '') AS email_cliente,
+                COALESCE(NULLIF(v.email_cliente, ''), p.email, '') AS email_cliente,
 
                 COALESCE(
                     fp.nombre,
@@ -1101,7 +1104,7 @@ class Sell
             COALESCE(NULLIF(v.direccion_cliente, ''), p.direccion) AS direccion,
             p.tipo_documento,
             p.num_documento,
-            p.email,
+            COALESCE(NULLIF(v.email_cliente, ''), p.email, '') AS email,
             COALESCE(NULLIF(v.celular_cliente, ''), p.telefono) AS telefono,
             v.idusuario,
             u.nombre AS usuario,
@@ -1355,7 +1358,7 @@ class Sell
                 p.nombre AS cliente,
                 COALESCE(NULLIF(v.direccion_cliente, ''), p.direccion, '') AS direccion,
                 COALESCE(NULLIF(v.celular_cliente, ''), p.telefono, '') AS telefono,
-                p.email,
+                COALESCE(NULLIF(v.email_cliente, ''), p.email, '') AS email,
 
                 (
                     SELECT COUNT(*)

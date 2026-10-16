@@ -579,6 +579,12 @@ if ((int)($_SESSION['ventas'] ?? 0) === 1) {
                             <svg class="tw-h-4 tw-w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 5v14l11-7z"></path></svg>
                             <span class="tw-hidden sm:tw-inline">Ejecutar en POS</span>
                         </button>
+                        <button type="button" id="btnPreviewEmail" class="tw-grid tw-h-9 tw-w-9 tw-place-items-center tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-text-slate-600 tw-transition hover:tw-border-slate-300 hover:tw-bg-slate-50" title="Enviar cotización por email" aria-label="Enviar por email">
+                            <i class="fas fa-envelope tw-text-xs"></i>
+                        </button>
+                        <button type="button" id="btnPreviewWhatsApp" class="tw-grid tw-h-9 tw-w-9 tw-place-items-center tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-text-slate-600 tw-transition hover:tw-border-slate-300 hover:tw-bg-slate-50" title="Compartir cotización por WhatsApp" aria-label="Compartir por WhatsApp">
+                            <i class="fab fa-whatsapp tw-text-sm"></i>
+                        </button>
                         <button type="button" id="btnPreviewImprimir" class="tw-grid tw-h-9 tw-w-9 tw-place-items-center tw-rounded-xl tw-border tw-border-slate-200 tw-bg-white tw-text-slate-600 tw-transition hover:tw-border-slate-300 hover:tw-bg-slate-50" title="Imprimir cotización">
                             <svg class="tw-h-4 tw-w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 9V3h12v6"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path></svg>
                         </button>

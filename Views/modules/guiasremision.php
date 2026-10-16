@@ -65,8 +65,9 @@ $idventaGre = max(0, (int)($_GET['idventa']??0));
        <div class="col-md-3 form-group"><label>Tipo documento *</label><select id="greDocTipo" class="form-control"><option value="RUC">RUC</option><option value="DNI">DNI</option><option value="CE">Carnet de extranjería</option><option value="PASAPORTE">Pasaporte</option></select></div>
        <div class="col-md-3 form-group"><label>Número *</label><input id="greDocNumero" class="form-control" maxlength="20"></div>
        <div class="col-md-6 form-group"><label>Nombre / razón social *</label><input id="greDestinoNombre" class="form-control" maxlength="180"></div>
-       <div class="col-md-8 form-group"><label>Dirección destinatario *</label><input id="greDestinoDireccion" class="form-control" maxlength="255"></div>
-       <div class="col-md-4 form-group"><label>Correo (opcional)</label><input id="greEmail" type="email" class="form-control" maxlength="150"></div>
+       <div class="col-md-6 form-group"><label>Dirección destinatario *</label><input id="greDestinoDireccion" class="form-control" maxlength="255"></div>
+       <div class="col-md-3 form-group"><label>Celular / WhatsApp</label><input id="greTelefono" type="tel" class="form-control" maxlength="30" autocomplete="tel"></div>
+       <div class="col-md-3 form-group"><label>Correo (opcional)</label><input id="greEmail" type="email" class="form-control" maxlength="150" autocomplete="email"></div>
        <div class="col-md-3 form-group"><label>Ubigeo partida *</label><input id="grePartidaUbigeo" class="form-control" inputmode="numeric" maxlength="6" placeholder="150101"></div>
        <div class="col-md-9 form-group"><label>Dirección partida *</label><input id="grePartida" class="form-control" maxlength="255"></div>
        <div class="col-md-3 form-group"><label>Ubigeo llegada *</label><input id="greLlegadaUbigeo" class="form-control" inputmode="numeric" maxlength="6" placeholder="150101"></div>

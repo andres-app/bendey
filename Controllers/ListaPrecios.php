@@ -16,17 +16,11 @@ try {
         salidaTarifa(['success'=>true,'data'=>$q->fetchAll(PDO::FETCH_ASSOC)]);
     }
     if ($op === 'catalogos') {
-<<<<<<< HEAD
         // Consultas separadas: evita errores de UNION/ORDER BY entre motores MariaDB y MySQL.
         $clientes = $db->query("SELECT idpersona, nombre, num_documento FROM persona WHERE TRIM(LOWER(tipo_persona))='cliente' ORDER BY nombre LIMIT 5000")->fetchAll(PDO::FETCH_ASSOC);
         $productos = $db->query("SELECT idarticulo, nombre, codigo, precio_venta, 0 AS idvariacion FROM articulo WHERE condicion=1 ORDER BY nombre LIMIT 5000")->fetchAll(PDO::FETCH_ASSOC);
         $variaciones = $db->query("SELECT a.idarticulo, CONCAT(a.nombre,' / ',COALESCE(NULLIF(v.combinacion,''),v.sku,'Variación')) AS nombre, v.sku AS codigo, v.precio_venta, v.idvariacion FROM articulo_variacion v INNER JOIN articulo a ON a.idarticulo=v.idarticulo WHERE a.condicion=1 AND v.estado=1 ORDER BY a.nombre, v.idvariacion LIMIT 5000")->fetchAll(PDO::FETCH_ASSOC);
         salidaTarifa(['success'=>true,'clientes'=>$clientes,'productos'=>array_merge($productos,$variaciones)]);
-=======
-        $clientes = $db->query("SELECT idpersona,nombre,num_documento FROM persona WHERE tipo_persona='Cliente' ORDER BY nombre LIMIT 5000")->fetchAll(PDO::FETCH_ASSOC);
-        $productos = $db->query("SELECT a.idarticulo,a.nombre,a.codigo,a.precio_venta,0 AS idvariacion FROM articulo a WHERE a.condicion=1 UNION ALL SELECT a.idarticulo,CONCAT(a.nombre,' / ',v.sku),v.sku,v.precio_venta,v.idvariacion FROM articulo_variacion v JOIN articulo a ON a.idarticulo=v.idarticulo WHERE a.condicion=1 AND v.estado=1 ORDER BY nombre LIMIT 10000")->fetchAll(PDO::FETCH_ASSOC);
-        salidaTarifa(['success'=>true,'clientes'=>$clientes,'productos'=>$productos]);
->>>>>>> 24730fe067074074adad54bd3bb0fc432d024acb
     }
     if ($op === 'reporte') {
         $rows = $db->query("SELECT a.codigo,a.nombre AS producto,a.precio_venta AS precio_base,l.nombre AS lista,l.precio,l.idvariacion, ROUND(l.precio-a.precio_compra,2) AS utilidad FROM producto_lista_precio l JOIN articulo a ON a.idarticulo=l.idarticulo ORDER BY a.nombre,l.nombre")->fetchAll(PDO::FETCH_ASSOC);
@@ -101,9 +95,5 @@ try {
 } catch (Throwable $e) {
     if (isset($db) && $db->inTransaction()) $db->rollBack();
     error_log('[LISTA PRECIOS] '.$e->getMessage());
-<<<<<<< HEAD
     salidaTarifa(['success'=>false,'mensaje'=>'Error de servidor al consultar listas de precios. Consulta el registro de errores PHP.','codigo'=>'PRECIOS_SERVIDOR'],500);
-=======
-    salidaTarifa(['success'=>false,'mensaje'=>'No se pudo completar la operación. Revisa la instalación de la tabla y los datos.'],500);
->>>>>>> 24730fe067074074adad54bd3bb0fc432d024acb
 }

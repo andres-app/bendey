@@ -644,6 +644,16 @@
 <!-- ================= JS BASE ================= -->
 
 <script src="Assets/js/app.min.js"></script>
+<?php
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+if (empty($_SESSION['document_delivery_csrf'])) {
+    $_SESSION['document_delivery_csrf'] = bin2hex(random_bytes(32));
+}
+?>
+<script>window.TIQUEPOS_DOCUMENT_CSRF = <?= json_encode((string)$_SESSION['document_delivery_csrf'], JSON_UNESCAPED_SLASHES) ?>;</script>
+<script src="Assets/js/document-delivery.js?v=<?= (int)@filemtime('Assets/js/document-delivery.js') ?>"></script>
 
 <!-- ================= DATATABLES ================= -->
 

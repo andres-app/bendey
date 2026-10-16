@@ -1100,8 +1100,8 @@ class CreditNote
                     p.tipo_documento,
                     p.num_documento,
                     p.nombre AS cliente,
-                    p.direccion,
-                    p.email,
+                    COALESCE(NULLIF(v.direccion_cliente,''), p.direccion, '') AS direccion,
+                    COALESCE(NULLIF(v.email_cliente,''), p.email, '') AS email,
 
                     vs.document_id,
                     UPPER(COALESCE(vs.estado_sunat, '')) AS estado_sunat,
