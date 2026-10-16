@@ -1289,8 +1289,8 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                             <button type="button" class="config-accordion-trigger" data-config-accordion-trigger aria-expanded="false">
                                                                 <span class="config-accordion-index">2.3</span>
                                                                 <span class="config-accordion-heading">
-                                                                    <span class="config-accordion-title">Correo SMTP y entrega digital</span>
-                                                                    <span class="config-accordion-subtitle">Remitente, servidor SMTP, envío automático y adjunto PDF.</span>
+                                                                    <span class="config-accordion-title">Envío de comprobantes por correo</span>
+                                                                    <span class="config-accordion-subtitle">Usa el correo TiquePOS o conecta el correo de tu empresa.</span>
                                                                 </span>
                                                                 <span class="config-accordion-chevron"><i class="fas fa-chevron-down"></i></span>
                                                             </button>
@@ -1303,15 +1303,31 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                                                 <label class="custom-switch mt-2"><input type="checkbox" class="custom-switch-input" name="smtp_habilitado" id="smtp_habilitado" value="1"><span class="custom-switch-indicator"></span></label>
                                                                             </div>
                                                                         </div>
-                                                                        <div class="form-group col-lg-6">
+                                                                        <div class="form-group col-lg-12">
+                                                                            <label for="smtp_modo">¿Cómo deseas enviar los comprobantes?</label>
+                                                                            <select class="form-control" name="smtp_modo" id="smtp_modo">
+                                                                                <option value="tiquepos">Correo gestionado por TiquePOS (sin configuración)</option>
+                                                                                <option value="propio">Correo de mi empresa</option>
+                                                                            </select>
+                                                                            <small class="text-muted" id="smtpModoMensaje">El administrador debe habilitar previamente el servidor central de envío.</small>
+                                                                        </div>
+                                                                        <div class="form-group col-lg-12 smtp-propio">
+                                                                            <label for="smtp_proveedor">Proveedor</label>
+                                                                            <select class="form-control" name="smtp_proveedor" id="smtp_proveedor">
+                                                                                <option value="gmail">Gmail</option>
+                                                                                <option value="hostinger">Hostinger Email</option>
+                                                                                <option value="manual">Otro proveedor (avanzado)</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="form-group smtp-avanzado col-lg-6">
                                                                             <label for="smtp_host">Servidor SMTP</label>
                                                                             <input type="text" class="form-control" name="smtp_host" id="smtp_host" maxlength="190" placeholder="smtp.tudominio.com" autocomplete="off">
                                                                         </div>
-                                                                        <div class="form-group col-lg-3 col-md-6">
+                                                                        <div class="form-group smtp-avanzado col-lg-3 col-md-6">
                                                                             <label for="smtp_puerto">Puerto</label>
                                                                             <input type="number" class="form-control" name="smtp_puerto" id="smtp_puerto" min="1" max="65535" value="587">
                                                                         </div>
-                                                                        <div class="form-group col-lg-3 col-md-6">
+                                                                        <div class="form-group smtp-avanzado col-lg-3 col-md-6">
                                                                             <label for="smtp_seguridad">Seguridad</label>
                                                                             <select class="form-control" name="smtp_seguridad" id="smtp_seguridad">
                                                                                 <option value="tls">STARTTLS / TLS</option>
@@ -1319,11 +1335,11 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                                                 <option value="none">Sin cifrado</option>
                                                                             </select>
                                                                         </div>
-                                                                        <div class="form-group col-lg-6">
+                                                                        <div class="form-group smtp-avanzado col-lg-6">
                                                                             <label for="smtp_usuario">Usuario SMTP</label>
                                                                             <input type="text" class="form-control" name="smtp_usuario" id="smtp_usuario" maxlength="190" autocomplete="off" placeholder="facturacion@tudominio.com">
                                                                         </div>
-                                                                        <div class="form-group col-lg-6">
+                                                                        <div class="form-group smtp-propio col-lg-6">
                                                                             <label for="smtp_password">Contraseña SMTP</label>
                                                                             <div class="input-group">
                                                                                 <input type="password" class="form-control" name="smtp_password" id="smtp_password" autocomplete="new-password" placeholder="Dejar vacío para conservar la actual">
@@ -1331,16 +1347,16 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                                             </div>
                                                                             <small class="form-text text-muted" id="smtpPasswordEstado">La contraseña no se muestra por seguridad.</small>
                                                                         </div>
-                                                                        <div class="form-group col-lg-6">
+                                                                        <div class="form-group smtp-propio col-lg-6">
                                                                             <label for="smtp_remitente_email">Correo que envía</label>
                                                                             <input type="email" class="form-control" name="smtp_remitente_email" id="smtp_remitente_email" maxlength="190" placeholder="comprobantes@tudominio.com">
                                                                             <small class="form-text text-muted">Este será el remitente visible de los comprobantes.</small>
                                                                         </div>
-                                                                        <div class="form-group col-lg-6">
+                                                                        <div class="form-group smtp-propio col-lg-6">
                                                                             <label for="smtp_remitente_nombre">Nombre del remitente</label>
                                                                             <input type="text" class="form-control" name="smtp_remitente_nombre" id="smtp_remitente_nombre" maxlength="190" placeholder="Mi Empresa">
                                                                         </div>
-                                                                        <div class="form-group col-lg-6">
+                                                                        <div class="form-group smtp-propio col-lg-6">
                                                                             <label for="smtp_reply_to">Responder a (opcional)</label>
                                                                             <input type="email" class="form-control" name="smtp_reply_to" id="smtp_reply_to" maxlength="190" placeholder="ventas@tudominio.com">
                                                                         </div>
@@ -1360,7 +1376,7 @@ if ((int)($_SESSION['settings'] ?? 0) !== 1) {
                                                                         </div>
                                                                         <div class="form-group col-lg-6">
                                                                             <div class="tributario-switch-row">
-                                                                                <div><strong>Adjuntar también el PDF</strong><small>Desactivado por defecto para reducir CPU, memoria y ancho de banda. El enlace PDF siempre se incluye.</small></div>
+                                                                                <div><strong>Adjuntar también el PDF</strong><small>Recomendado para PDFs pequeños. Se incluye también un enlace seguro. Límite de adjunto: 8 MB.</small></div>
                                                                                 <label class="custom-switch mt-2"><input type="checkbox" class="custom-switch-input" name="smtp_adjuntar_pdf" id="smtp_adjuntar_pdf" value="1"><span class="custom-switch-indicator"></span></label>
                                                                             </div>
                                                                         </div>

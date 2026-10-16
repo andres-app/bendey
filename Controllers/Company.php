@@ -568,6 +568,26 @@ try {
             $smtp_reply_to = trim((string)($_POST['smtp_reply_to'] ?? ''));
             $smtp_envio_automatico = isset($_POST['smtp_envio_automatico']) ? 1 : 0;
             $smtp_adjuntar_pdf = isset($_POST['smtp_adjuntar_pdf']) ? 1 : 0;
+            $smtp_modo = trim((string)($_POST['smtp_modo'] ?? 'propio'));
+            $smtp_proveedor = trim((string)($_POST['smtp_proveedor'] ?? 'manual'));
+            if (!in_array($smtp_modo, ['propio', 'tiquepos'], true)) {
+                throw new RuntimeException('Modalidad de correo inválida.');
+            }
+            if (!in_array($smtp_proveedor, ['gmail', 'hostinger', 'manual'], true)) {
+                throw new RuntimeException('Proveedor de correo inválido.');
+            }
+            if ($smtp_modo === 'propio' && $smtp_proveedor === 'gmail') {
+                $smtp_host = 'smtp.gmail.com';
+                $smtp_puerto = 587;
+                $smtp_seguridad = 'tls';
+                $smtp_usuario = $smtp_remitente_email;
+            } elseif ($smtp_modo === 'propio' && $smtp_proveedor === 'hostinger') {
+                $smtp_host = 'smtp.hostinger.com';
+                $smtp_puerto = 465;
+                $smtp_seguridad = 'ssl';
+                $smtp_usuario = $smtp_remitente_email;
+            }
+
 
             if ($nombre === '') {
                 throw new RuntimeException(
@@ -625,7 +645,7 @@ try {
                 }
             }
 
-            if ($smtp_habilitado === 1) {
+            if ($smtp_habilitado === 1 && $smtp_modo === 'propio') {
                 if ($smtp_host === '') {
                     throw new RuntimeException('Debe ingresar el servidor SMTP.');
                 }
@@ -871,7 +891,9 @@ try {
                 $smtp_remitente_nombre,
                 $smtp_reply_to,
                 $smtp_envio_automatico,
-                $smtp_adjuntar_pdf
+                $smtp_adjuntar_pdf,
+                $smtp_modo,
+                $smtp_proveedor
             );
 
             if (!$resultado) {

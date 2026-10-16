@@ -579,6 +579,9 @@ function cargarDatosEmpresa() {
                 )
             );
 
+            $("#smtp_modo").val(data.smtp_modo || "propio");
+            $("#smtp_proveedor").val(data.smtp_proveedor || "manual");
+            actualizarFormularioCorreo();
             $("#smtp_habilitado").prop("checked", Number(data.smtp_habilitado || 0) === 1);
             $("#smtp_host").val(data.smtp_host || "");
             $("#smtp_puerto").val(Number(data.smtp_puerto || 587));
@@ -2408,3 +2411,21 @@ function probarSmtp() {
 $(document).ready(function () {
     init();
 });
+// Los campos avanzados nunca se eliminan: se ocultan en los proveedores conocidos.
+function actualizarFormularioCorreo() {
+    const propio = $("#smtp_modo").val() !== "tiquepos";
+    const avanzado = propio && $("#smtp_proveedor").val() === "manual";
+    $(".smtp-propio").toggle(propio);
+    $(".smtp-avanzado").toggle(avanzado);
+    $("#smtpModoMensaje").text(propio
+        ? "Gmail requiere contraseña de aplicación; Hostinger requiere su contraseña de correo."
+        : "Sin datos SMTP por empresa. Requiere que el administrador habilite el correo central de TiquePOS.");
+    if (propio && $("#smtp_proveedor").val() === "gmail") {
+        $("#smtp_password").attr("placeholder", "Contraseña de aplicación de Google");
+    } else if (propio && $("#smtp_proveedor").val() === "hostinger") {
+        $("#smtp_password").attr("placeholder", "Contraseña de correo Hostinger");
+    } else {
+        $("#smtp_password").attr("placeholder", "Dejar vacío para conservar la actual");
+    }
+}
+$(document).on("change", "#smtp_modo, #smtp_proveedor", actualizarFormularioCorreo);

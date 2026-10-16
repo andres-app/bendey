@@ -402,6 +402,19 @@ final class DocumentDeliveryService
             throw new RuntimeException('El SMTP de la empresa está deshabilitado. Actívelo en Configuración de empresa.');
         }
 
+        // Protección básica contra abuso del SMTP compartido; cada instalación
+        // debe complementar este límite con cuotas del proveedor central.
+        if (!empty($smtp['managed'])) {
+            $quota = $this->one(
+                "SELECT COUNT(*) AS total FROM documento_envio_log
+                 WHERE canal='EMAIL' AND estado='ENVIADO'
+                   AND created_at >= CURRENT_DATE()"
+            );
+            if ((int)($quota['total'] ?? 0) >= 200) {
+                throw new RuntimeException('Se alcanzó el límite diario de 200 correos gestionados. Contacte a soporte TiquePOS.');
+            }
+        }
+
         if ($automatico && (int)($smtp['auto_send'] ?? 0) !== 1) {
             return [
                 'enviado' => false,

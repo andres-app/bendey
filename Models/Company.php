@@ -60,7 +60,9 @@ class Company
         $smtp_remitente_nombre = '',
         $smtp_reply_to = '',
         $smtp_envio_automatico = 1,
-        $smtp_adjuntar_pdf = 0
+        $smtp_adjuntar_pdf = 0,
+        $smtp_modo = 'propio',
+        $smtp_proveedor = 'manual'
     ): bool {
         $id_negocio = (int)$id_negocio;
 
@@ -166,7 +168,9 @@ class Company
                     smtp_remitente_nombre = ?,
                     smtp_reply_to = ?,
                     smtp_envio_automatico = ?,
-                    smtp_adjuntar_pdf = ?
+                    smtp_adjuntar_pdf = ?,
+                    smtp_modo = ?,
+                    smtp_proveedor = ?
                 WHERE id_negocio = ?";
 
         $arrData = [
@@ -219,6 +223,8 @@ class Company
             trim((string)$smtp_reply_to),
             (int)$smtp_envio_automatico === 1 ? 1 : 0,
             (int)$smtp_adjuntar_pdf === 1 ? 1 : 0,
+            in_array($smtp_modo, ['tiquepos', 'propio'], true) ? $smtp_modo : 'propio',
+            in_array($smtp_proveedor, ['gmail', 'hostinger', 'manual'], true) ? $smtp_proveedor : 'manual',
             $id_negocio
         ];
 
@@ -668,7 +674,7 @@ class Company
                     smtp_habilitado, smtp_host, smtp_puerto, smtp_seguridad,
                     smtp_usuario, smtp_password, smtp_remitente_email,
                     smtp_remitente_nombre, smtp_reply_to,
-                    smtp_envio_automatico, smtp_adjuntar_pdf
+                    smtp_envio_automatico, smtp_adjuntar_pdf, smtp_modo, smtp_proveedor
              FROM {$this->tableName}
              WHERE id_negocio = ? LIMIT 1",
             [$idNegocio]
@@ -688,6 +694,35 @@ class Company
             $fromName = trim((string)($registro['nombre'] ?? 'TiquePOS'));
         }
 
+        $modo = (string)($registro['smtp_modo'] ?? 'propio');
+        if ($modo === 'tiquepos') {
+            // Alojado fuera del directorio público. No hay secretos en la BD del cliente.
+            $centralFile = __DIR__ . '/../Config/central_mail.php';
+            $central = is_file($centralFile) ? require $centralFile : [];
+            if (!is_array($central) || empty($central['enabled'])) {
+                throw new RuntimeException('El envío gestionado TiquePOS todavía no está habilitado por el administrador.');
+            }
+            foreach (['host', 'username', 'password', 'from_email'] as $key) {
+                if (trim((string)($central[$key] ?? '')) === '') {
+                    throw new RuntimeException('Configuración central de correo incompleta: ' . $key);
+                }
+            }
+            return [
+                'enabled' => (int)($registro['smtp_habilitado'] ?? 0),
+                'host' => (string)$central['host'],
+                'port' => (int)($central['port'] ?? 587),
+                'encryption' => (string)($central['encryption'] ?? 'tls'),
+                'username' => (string)$central['username'],
+                'password' => (string)$central['password'],
+                'from_email' => (string)$central['from_email'],
+                'from_name' => $fromName,
+                'reply_to' => filter_var($fromEmail, FILTER_VALIDATE_EMAIL) ? $fromEmail : '',
+                'auto_send' => (int)($registro['smtp_envio_automatico'] ?? 1),
+                'attach_pdf' => (int)($registro['smtp_adjuntar_pdf'] ?? 1),
+                'timeout' => 20,
+                'managed' => true,
+            ];
+        }
         return [
             'enabled' => (int)($registro['smtp_habilitado'] ?? 0),
             'host' => trim((string)($registro['smtp_host'] ?? '')),
