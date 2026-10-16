@@ -2058,18 +2058,27 @@ function guardaryeditar(e) {
         return;
     }
 
-    if ($("#smtp_habilitado").is(":checked")) {
+    // El SMTP central de TiquePOS no necesita servidor ni credenciales por empresa.
+    // Gmail y Hostinger completan host/puerto en el servidor; se validan aquí
+    // únicamente los datos introducidos manualmente en la modalidad avanzada.
+    if ($("#smtp_habilitado").is(":checked") && $("#smtp_modo").val() !== "tiquepos") {
+        const proveedor = String($("#smtp_proveedor").val() || "manual");
+        const avanzado = proveedor === "manual";
         const smtpHost = String($("#smtp_host").val() || "").trim();
         const smtpPort = Number($("#smtp_puerto").val() || 0);
         const smtpFrom = String($("#smtp_remitente_email").val() || $("#email").val() || "").trim();
         const smtpReply = String($("#smtp_reply_to").val() || "").trim();
         const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-        if (!smtpHost || smtpPort < 1 || smtpPort > 65535 || !emailRx.test(smtpFrom) || (smtpReply && !emailRx.test(smtpReply))) {
-            mostrarSeccionConfiguracionPorSelector("#smtp_host");
+        if ((avanzado && (!smtpHost || smtpPort < 1 || smtpPort > 65535))
+            || !emailRx.test(smtpFrom)
+            || (smtpReply && !emailRx.test(smtpReply))) {
+            mostrarSeccionConfiguracionPorSelector(avanzado ? "#smtp_host" : "#smtp_remitente_email");
             mostrarAlertaConfiguracion(
-                "Configuración SMTP incompleta",
-                "Revise servidor, puerto, correo remitente y Reply-To antes de guardar.",
+                "Configuración de correo incompleta",
+                avanzado
+                    ? "Revise servidor, puerto, correo remitente y Reply-To antes de guardar."
+                    : "Revise el correo remitente y Reply-To antes de guardar.",
                 "warning"
             );
             return;
